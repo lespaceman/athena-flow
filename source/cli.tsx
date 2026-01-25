@@ -3,6 +3,10 @@ import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
 import App from './app.js';
+import {processRegistry} from './utils/processRegistry.js';
+
+// Register cleanup handlers early to catch all exit scenarios
+processRegistry.registerCleanupHandlers();
 
 const cli = meow(
 	`

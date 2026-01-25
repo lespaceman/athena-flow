@@ -1,4 +1,5 @@
 import {spawn, type ChildProcess} from 'node:child_process';
+import {processRegistry} from './processRegistry.js';
 
 export type SpawnClaudeOptions = {
 	/** The prompt to send to Claude */
@@ -29,6 +30,9 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		cwd: projectDir,
 		stdio: ['ignore', 'pipe', 'pipe'],
 	});
+
+	// Register for cleanup on app exit
+	processRegistry.register(child);
 
 	if (onStdout && child.stdout) {
 		child.stdout.on('data', (data: Buffer) => {
