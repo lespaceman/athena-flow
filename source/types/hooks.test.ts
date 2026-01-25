@@ -85,6 +85,11 @@ describe('hooks types', () => {
 			expect(isValidHookEventEnvelope(envelope)).toBe(false);
 		});
 
+		it('should return false for mismatched protocol version', () => {
+			const envelope = {...validEnvelope, v: 999};
+			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+		});
+
 		it('should return false for wrong kind', () => {
 			const envelope = {...validEnvelope, kind: 'hook_result'};
 			expect(isValidHookEventEnvelope(envelope)).toBe(false);

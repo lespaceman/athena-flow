@@ -35,6 +35,7 @@ export type UseHookServerResult = {
 export function useHookServer(projectDir: string): UseHookServerResult {
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
+	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
@@ -64,6 +65,12 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 				// Socket error, ignore
 			}
 
+			// Remove from pending first (always safe)
+			pendingRequestsRef.current.delete(requestId);
+
+			// Only update React state if component is still mounted
+			if (!isMountedRef.current) return;
+
 			// Update event status
 			const statusMap: Record<string, HookEventDisplay['status']> = {
 				passthrough: 'passthrough',
@@ -82,9 +89,6 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 						: e,
 				),
 			);
-
-			// Remove from pending
-			pendingRequestsRef.current.delete(requestId);
 		},
 		[],
 	);
@@ -93,6 +97,9 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 	const pendingEvents = events.filter(e => e.status === 'pending');
 
 	useEffect(() => {
+		// Mark as mounted
+		isMountedRef.current = true;
+
 		// Create socket directory
 		const socketDir = path.join(projectDir, '.claude', 'run');
 		const sockPath = path.join(socketDir, SOCKET_FILENAME);
@@ -199,7 +206,14 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 			setIsServerRunning(false);
 		});
 
-		server.listen(sockPath);
+		server.listen(sockPath, () => {
+			// Set socket file permissions to owner-only (0o600)
+			try {
+				fs.chmodSync(sockPath, 0o600);
+			} catch {
+				// Chmod might fail on some systems, continue anyway
+			}
+		});
 		serverRef.current = server;
 
 		// Capture ref for cleanup (avoids stale ref warning)
@@ -207,6 +221,9 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 
 		// Cleanup
 		return () => {
+			// Mark as unmounted to prevent state updates
+			isMountedRef.current = false;
+
 			// Clear all pending timeouts
 			for (const pending of pendingRequests.values()) {
 				clearTimeout(pending.timeoutId);

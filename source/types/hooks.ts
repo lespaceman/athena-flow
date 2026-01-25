@@ -136,6 +136,7 @@ export function isValidHookEventEnvelope(
 
 	return (
 		typeof envelope['v'] === 'number' &&
+		envelope['v'] === PROTOCOL_VERSION && // Validate version matches
 		envelope['kind'] === 'hook_event' &&
 		typeof envelope['request_id'] === 'string' &&
 		envelope['request_id'].length > 0 &&

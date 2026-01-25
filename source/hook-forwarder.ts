@@ -47,25 +47,30 @@ async function readStdin(): Promise<string> {
 	});
 }
 
+type ConnectResult = {
+	envelope: HookResultEnvelope | null;
+	error?: 'ENOENT' | 'ECONNREFUSED' | 'TIMEOUT' | 'UNKNOWN';
+};
+
 async function connectAndSend(
 	socketPath: string,
 	envelope: HookEventEnvelope,
-): Promise<HookResultEnvelope | null> {
+): Promise<ConnectResult> {
 	return new Promise(resolve => {
 		const socket = new net.Socket();
 		let responseData = '';
 		let resolved = false;
 
-		const cleanup = () => {
+		const cleanup = (error?: ConnectResult['error']) => {
 			if (!resolved) {
 				resolved = true;
 				socket.destroy();
-				resolve(null);
+				resolve({envelope: null, error});
 			}
 		};
 
 		// Set timeout for entire operation
-		const timeoutId = setTimeout(cleanup, SOCKET_TIMEOUT_MS);
+		const timeoutId = setTimeout(() => cleanup('TIMEOUT'), SOCKET_TIMEOUT_MS);
 
 		socket.on('connect', () => {
 			// Send the envelope as NDJSON (newline-delimited JSON)
@@ -82,23 +87,29 @@ async function connectAndSend(
 				socket.destroy();
 				try {
 					const result = JSON.parse(lines[0]) as HookResultEnvelope;
-					resolve(result);
+					resolve({envelope: result});
 				} catch {
-					resolve(null);
+					resolve({envelope: null, error: 'UNKNOWN'});
 				}
 			}
 		});
 
-		socket.on('error', () => {
+		socket.on('error', (err: NodeJS.ErrnoException) => {
 			clearTimeout(timeoutId);
-			cleanup();
+			if (err.code === 'ENOENT') {
+				cleanup('ENOENT');
+			} else if (err.code === 'ECONNREFUSED') {
+				cleanup('ECONNREFUSED');
+			} else {
+				cleanup('UNKNOWN');
+			}
 		});
 
 		socket.on('close', () => {
 			clearTimeout(timeoutId);
 			if (!resolved) {
 				resolved = true;
-				resolve(null);
+				resolve({envelope: null});
 			}
 		});
 
@@ -140,7 +151,27 @@ async function main(): Promise<void> {
 
 		// Connect to Ink CLI and send
 		const socketPath = getSocketPath();
-		const result = await connectAndSend(socketPath, envelope);
+		const {envelope: result, error} = await connectAndSend(
+			socketPath,
+			envelope,
+		);
+
+		// Handle connection errors with informative messages (to stderr, still passthrough)
+		if (error === 'ENOENT') {
+			// Socket doesn't exist - CLI not running
+			process.stderr.write(
+				`[hook-forwarder] Ink CLI not running (socket not found: ${socketPath})\n`,
+			);
+			process.exit(0); // Passthrough to avoid blocking Claude Code
+		}
+
+		if (error === 'ECONNREFUSED') {
+			// Socket exists but nothing listening - stale socket
+			process.stderr.write(
+				`[hook-forwarder] Ink CLI not responding (stale socket: ${socketPath})\n`,
+			);
+			process.exit(0); // Passthrough
+		}
 
 		// Handle result
 		if (!result || result.payload.action === 'passthrough') {
