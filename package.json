@@ -1,0 +1,47 @@
+{
+	"name": "athena-cli",
+	"version": "0.0.0",
+	"license": "MIT",
+	"bin": {
+		"athena-cli": "dist/cli.js",
+		"athena-hook-forwarder": "dist/hook-forwarder.js"
+	},
+	"type": "module",
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"build": "tsc",
+		"dev": "tsc --watch",
+		"start": "tsc && node dist/cli.js",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write ."
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@inkjs/ui": "^2.0.0",
+		"ink": "^6.0.0",
+		"meow": "^13.0.0",
+		"react": "^19.0.0"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.0.0",
+		"@types/node": "^25.0.10",
+		"@types/react": "^19.0.0",
+		"@vdemedes/prettier-config": "^2.0.1",
+		"chalk": "^5.3.0",
+		"eslint": "^9.0.0",
+		"eslint-plugin-react": "^7.37.0",
+		"eslint-plugin-react-hooks": "^5.0.0",
+		"ink-testing-library": "^4.0.0",
+		"prettier": "^3.0.0",
+		"typescript": "^5.7.0",
+		"typescript-eslint": "^8.0.0",
+		"vitest": "^3.0.0"
+	},
+	"prettier": "@vdemedes/prettier-config"
+}
