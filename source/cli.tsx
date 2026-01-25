@@ -10,19 +10,14 @@ const cli = meow(
 	  $ athena-cli
 
 	Options
-		--name         Your name
 		--project-dir  Project directory for hook socket (default: cwd)
 
 	Examples
-	  $ athena-cli --name=Jane
-	  Hello, Jane
+	  $ athena-cli --project-dir=/my/project
 `,
 	{
 		importMeta: import.meta,
 		flags: {
-			name: {
-				type: 'string',
-			},
 			projectDir: {
 				type: 'string',
 				default: process.cwd(),
@@ -31,4 +26,4 @@ const cli = meow(
 	},
 );
 
-render(<App name={cli.flags.name} projectDir={cli.flags.projectDir} />);
+render(<App projectDir={cli.flags.projectDir} />);

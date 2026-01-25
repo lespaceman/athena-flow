@@ -4,6 +4,7 @@ import Message from './components/Message.js';
 import InputBar from './components/InputBar.js';
 import HookEvent from './components/HookEvent.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
+import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {
 	type Message as MessageType,
 	type HookEventDisplay,
@@ -11,7 +12,6 @@ import {
 } from './types/index.js';
 
 type Props = {
-	name: string | undefined;
 	projectDir: string;
 };
 
@@ -19,10 +19,12 @@ type DisplayItem =
 	| {type: 'message'; data: MessageType}
 	| {type: 'hook'; data: HookEventDisplay};
 
-function AppContent({name = 'Stranger'}: {name: string | undefined}) {
+function AppContent({projectDir}: {projectDir: string}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const {events, isServerRunning, socketPath} = useHookContext();
+	const {spawn: spawnClaude, isRunning: isClaudeRunning} =
+		useClaudeProcess(projectDir);
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -44,10 +46,10 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 			addMessage('user', value);
 			setInputKey(k => k + 1); // Reset input by changing key
 
-			// Simulate assistant response (replace with actual API call later)
-			addMessage('assistant', `Hello ${name}! You said: "${value}"`);
+			// Spawn Claude headless process - hooks will receive events
+			spawnClaude(value);
 		},
-		[addMessage, name],
+		[addMessage, spawnClaude],
 	);
 
 	// Interleave messages and hook events by timestamp
@@ -79,6 +81,10 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 						({socketPath})
 					</Text>
 				)}
+				<Text> | </Text>
+				<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
+					Claude: {isClaudeRunning ? 'running' : 'idle'}
+				</Text>
 			</Box>
 
 			<Static items={displayItems}>
@@ -96,10 +102,10 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 	);
 }
 
-export default function App({name, projectDir}: Props) {
+export default function App({projectDir}: Props) {
 	return (
 		<HookProvider projectDir={projectDir}>
-			<AppContent name={name} />
+			<AppContent projectDir={projectDir} />
 		</HookProvider>
 	);
 }

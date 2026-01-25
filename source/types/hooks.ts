@@ -29,6 +29,7 @@ export type ClaudeHookInput = {
 	// Stop/SubagentStop only
 	stop_reason?: string;
 	stop_ts?: number;
+	stop_hook_active?: boolean;
 	// SessionStart/SessionEnd only
 	session_type?: string;
 };
