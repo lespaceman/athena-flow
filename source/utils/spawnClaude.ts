@@ -6,6 +6,8 @@ export type SpawnClaudeOptions = {
 	prompt: string;
 	/** Project directory used as cwd for the Claude process */
 	projectDir: string;
+	/** Instance ID of the athena-cli process (used for socket routing) */
+	instanceId: number;
 	/** Optional session ID to resume an existing conversation */
 	sessionId?: string;
 	/** Called when stdout data is received */
@@ -22,10 +24,19 @@ export type SpawnClaudeOptions = {
  * Spawns a Claude Code headless process with the given prompt.
  *
  * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
+ * Passes ATHENA_INSTANCE_ID env var so hook-forwarder can route to the correct socket.
  */
 export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
-	const {prompt, projectDir, sessionId, onStdout, onStderr, onExit, onError} =
-		options;
+	const {
+		prompt,
+		projectDir,
+		instanceId,
+		sessionId,
+		onStdout,
+		onStderr,
+		onExit,
+		onError,
+	} = options;
 
 	const args = ['-p', prompt, '--output-format', 'stream-json'];
 
@@ -37,6 +48,10 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	const child = spawn('claude', args, {
 		cwd: projectDir,
 		stdio: ['ignore', 'pipe', 'pipe'],
+		env: {
+			...process.env,
+			ATHENA_INSTANCE_ID: String(instanceId),
+		},
 	});
 
 	// Register for cleanup on app exit

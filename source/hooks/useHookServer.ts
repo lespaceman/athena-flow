@@ -14,7 +14,6 @@ import {
 } from '../types/hooks.js';
 import {parseTranscriptFile} from '../utils/transcriptParser.js';
 
-const SOCKET_FILENAME = 'ink.sock';
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
@@ -37,7 +36,10 @@ export type UseHookServerResult = {
 	resetSession: () => void;
 };
 
-export function useHookServer(projectDir: string): UseHookServerResult {
+export function useHookServer(
+	projectDir: string,
+	instanceId: number,
+): UseHookServerResult {
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const isMountedRef = useRef(true); // Track if component is mounted
@@ -111,9 +113,9 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 		// Mark as mounted
 		isMountedRef.current = true;
 
-		// Create socket directory
+		// Create socket directory with instance-specific socket name
 		const socketDir = path.join(projectDir, '.claude', 'run');
-		const sockPath = path.join(socketDir, SOCKET_FILENAME);
+		const sockPath = path.join(socketDir, `ink-${instanceId}.sock`);
 
 		try {
 			fs.mkdirSync(socketDir, {recursive: true});
@@ -301,7 +303,7 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 				// File might not exist
 			}
 		};
-	}, [projectDir, respond]);
+	}, [projectDir, instanceId, respond]);
 
 	return {
 		events,

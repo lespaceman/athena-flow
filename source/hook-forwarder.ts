@@ -26,11 +26,12 @@ import {
 } from './types/hooks.js';
 
 const SOCKET_TIMEOUT_MS = 300;
-const SOCKET_FILENAME = 'ink.sock';
 
 function getSocketPath(cwd: string): string {
+	const instanceId = process.env['ATHENA_INSTANCE_ID'];
+	const socketFilename = instanceId ? `ink-${instanceId}.sock` : 'ink.sock';
 	// Use cwd from hook payload - this is the project directory where athena-cli is running
-	return path.join(cwd, '.claude', 'run', SOCKET_FILENAME);
+	return path.join(cwd, '.claude', 'run', socketFilename);
 }
 
 async function readStdin(): Promise<string> {

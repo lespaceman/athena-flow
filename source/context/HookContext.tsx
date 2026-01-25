@@ -10,11 +10,16 @@ const HookContext = createContext<HookContextValue | null>(null);
 
 type HookProviderProps = {
 	projectDir: string;
+	instanceId: number;
 	children: ReactNode;
 };
 
-export function HookProvider({projectDir, children}: HookProviderProps) {
-	const hookServer = useHookServer(projectDir);
+export function HookProvider({
+	projectDir,
+	instanceId,
+	children,
+}: HookProviderProps) {
+	const hookServer = useHookServer(projectDir, instanceId);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>

@@ -4,12 +4,14 @@ import {spawnClaude} from '../utils/spawnClaude.js';
 
 // Maximum output lines to keep in memory to prevent unbounded growth
 const MAX_OUTPUT = 1000;
+// Timeout for waiting for process to exit during kill
+const KILL_TIMEOUT_MS = 3000;
 
 export type UseClaudeProcessResult = {
-	spawn: (prompt: string, sessionId?: string) => void;
+	spawn: (prompt: string, sessionId?: string) => Promise<void>;
 	isRunning: boolean;
 	output: string[];
-	kill: () => void;
+	kill: () => Promise<void>;
 };
 
 /**
@@ -18,28 +20,52 @@ export type UseClaudeProcessResult = {
  * Spawns Claude Code with `-p` flag and tracks its state.
  * Hook events are received via the separate hook server (useHookServer).
  */
-export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
+export function useClaudeProcess(
+	projectDir: string,
+	instanceId: number,
+): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
+	const exitResolverRef = useRef<(() => void) | null>(null);
 	const [isRunning, setIsRunning] = useState(false);
 	const [output, setOutput] = useState<string[]>([]);
 
-	const kill = useCallback(() => {
-		if (processRef.current) {
-			processRef.current.kill();
-			processRef.current = null;
-			if (isMountedRef.current) {
-				setIsRunning(false);
-			}
+	const kill = useCallback(async (): Promise<void> => {
+		if (!processRef.current) {
+			return;
+		}
+
+		// Create promise to wait for process exit
+		const exitPromise = new Promise<void>(resolve => {
+			exitResolverRef.current = resolve;
+		});
+
+		// Set a timeout fallback in case process doesn't exit cleanly
+		let timeoutId: ReturnType<typeof setTimeout>;
+		const timeoutPromise = new Promise<void>(resolve => {
+			timeoutId = setTimeout(resolve, KILL_TIMEOUT_MS);
+		});
+
+		processRef.current.kill();
+
+		// Wait for exit or timeout
+		await Promise.race([exitPromise, timeoutPromise]);
+
+		// Clean up timeout to prevent memory leak
+		clearTimeout(timeoutId!);
+
+		// Clean up
+		exitResolverRef.current = null;
+		processRef.current = null;
+		if (isMountedRef.current) {
+			setIsRunning(false);
 		}
 	}, []);
 
 	const spawn = useCallback(
-		(prompt: string, sessionId?: string) => {
-			// Kill existing process if running
-			if (processRef.current) {
-				processRef.current.kill();
-			}
+		async (prompt: string, sessionId?: string): Promise<void> => {
+			// Kill existing process if running and wait for it to exit
+			await kill();
 
 			setOutput([]);
 			setIsRunning(true);
@@ -47,6 +73,7 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 			const child = spawnClaude({
 				prompt,
 				projectDir,
+				instanceId,
 				sessionId,
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
@@ -70,6 +97,11 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 					});
 				},
 				onExit: (code: number | null) => {
+					// Resolve any pending kill promise
+					if (exitResolverRef.current) {
+						exitResolverRef.current();
+						exitResolverRef.current = null;
+					}
 					if (!isMountedRef.current) return;
 					processRef.current = null;
 					setIsRunning(false);
@@ -78,6 +110,11 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 					}
 				},
 				onError: (error: Error) => {
+					// Resolve any pending kill promise
+					if (exitResolverRef.current) {
+						exitResolverRef.current();
+						exitResolverRef.current = null;
+					}
 					if (!isMountedRef.current) return;
 					processRef.current = null;
 					setIsRunning(false);
@@ -87,7 +124,7 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 
 			processRef.current = child;
 		},
-		[projectDir],
+		[projectDir, instanceId, kill],
 	);
 
 	// Cleanup on unmount - kill any running process

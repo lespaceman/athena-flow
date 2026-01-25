@@ -13,19 +13,28 @@ import {
 
 type Props = {
 	projectDir: string;
+	instanceId: number;
 };
 
 type DisplayItem =
 	| {type: 'message'; data: MessageType}
 	| {type: 'hook'; data: HookEventDisplay};
 
-function AppContent({projectDir}: {projectDir: string}) {
+function AppContent({
+	projectDir,
+	instanceId,
+}: {
+	projectDir: string;
+	instanceId: number;
+}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const {events, isServerRunning, socketPath, currentSessionId} =
 		useHookContext();
-	const {spawn: spawnClaude, isRunning: isClaudeRunning} =
-		useClaudeProcess(projectDir);
+	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
+		projectDir,
+		instanceId,
+	);
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -127,10 +136,10 @@ function AppContent({projectDir}: {projectDir: string}) {
 	);
 }
 
-export default function App({projectDir}: Props) {
+export default function App({projectDir, instanceId}: Props) {
 	return (
-		<HookProvider projectDir={projectDir}>
-			<AppContent projectDir={projectDir} />
+		<HookProvider projectDir={projectDir} instanceId={instanceId}>
+			<AppContent projectDir={projectDir} instanceId={instanceId} />
 		</HookProvider>
 	);
 }

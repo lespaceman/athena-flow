@@ -30,4 +30,5 @@ const cli = meow(
 	},
 );
 
-render(<App projectDir={cli.flags.projectDir} />);
+const instanceId = process.pid;
+render(<App projectDir={cli.flags.projectDir} instanceId={instanceId} />);

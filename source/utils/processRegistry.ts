@@ -47,14 +47,16 @@ class ProcessRegistry {
 	 * Called during app shutdown.
 	 */
 	killAll(): void {
-		for (const [pid, process] of this.processes) {
+		// Collect entries first to avoid modifying Map during iteration
+		const entries = Array.from(this.processes.entries());
+		for (const [, process] of entries) {
 			try {
 				process.kill('SIGTERM');
 			} catch {
 				// Process may have already exited
 			}
-			this.processes.delete(pid);
 		}
+		this.processes.clear();
 	}
 
 	/**

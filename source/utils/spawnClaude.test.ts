@@ -34,10 +34,11 @@ describe('spawnClaude', () => {
 		vi.clearAllMocks();
 	});
 
-	it('should spawn claude with headless arguments', () => {
+	it('should spawn claude with headless arguments and instance ID env var', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Hello, Claude!',
 			projectDir: '/test/project',
+			instanceId: 12345,
 		};
 
 		spawnClaude(options);
@@ -48,6 +49,9 @@ describe('spawnClaude', () => {
 			expect.objectContaining({
 				cwd: '/test/project',
 				stdio: ['ignore', 'pipe', 'pipe'],
+				env: expect.objectContaining({
+					ATHENA_INSTANCE_ID: '12345',
+				}),
 			}),
 		);
 	});
@@ -56,6 +60,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test prompt',
 			projectDir: '/test/project',
+			instanceId: 12345,
 		};
 
 		const result = spawnClaude(options);
@@ -68,6 +73,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 			onStdout,
 		};
 
@@ -83,6 +89,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 			onStderr,
 		};
 
@@ -98,6 +105,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 			onExit,
 		};
 
@@ -111,6 +119,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 		};
 
 		// Should not throw
@@ -122,6 +131,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 			onError,
 		};
 
@@ -136,6 +146,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 		};
 
 		spawnClaude(options);
@@ -150,6 +161,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 		};
 
 		spawnClaude(options);
@@ -162,6 +174,7 @@ describe('spawnClaude', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Test',
 			projectDir: '/test',
+			instanceId: 12345,
 			sessionId: 'abc-123-session-id',
 		};
 
