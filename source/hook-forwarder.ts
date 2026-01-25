@@ -19,18 +19,19 @@ import * as path from 'node:path';
 
 import {
 	PROTOCOL_VERSION,
-	type ClaudeHookInput,
+	type ClaudeHookEvent,
 	type HookEventEnvelope,
 	type HookResultEnvelope,
 	generateId,
-} from './types/hooks.js';
+} from './types/hooks/index.js';
 
 const SOCKET_TIMEOUT_MS = 300;
-const SOCKET_FILENAME = 'ink.sock';
 
-function getSocketPath(): string {
-	const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-	return path.join(projectDir, '.claude', 'run', SOCKET_FILENAME);
+function getSocketPath(cwd: string): string {
+	const instanceId = process.env['ATHENA_INSTANCE_ID'];
+	const socketFilename = instanceId ? `ink-${instanceId}.sock` : 'ink.sock';
+	// Use cwd from hook payload - this is the project directory where athena-cli is running
+	return path.join(cwd, '.claude', 'run', socketFilename);
 }
 
 async function readStdin(): Promise<string> {
@@ -128,9 +129,9 @@ async function main(): Promise<void> {
 		}
 
 		// Parse hook input from Claude Code
-		let hookInput: ClaudeHookInput;
+		let hookInput: ClaudeHookEvent;
 		try {
-			hookInput = JSON.parse(stdinData) as ClaudeHookInput;
+			hookInput = JSON.parse(stdinData) as ClaudeHookEvent;
 		} catch {
 			// Invalid JSON, passthrough
 			process.exit(0);
@@ -150,7 +151,8 @@ async function main(): Promise<void> {
 		};
 
 		// Connect to Ink CLI and send
-		const socketPath = getSocketPath();
+		// Use cwd from hook input - this is set by Claude to the project directory
+		const socketPath = getSocketPath(hookInput.cwd);
 		const {envelope: result, error} = await connectAndSend(
 			socketPath,
 			envelope,

@@ -4,6 +4,7 @@ import Message from './components/Message.js';
 import InputBar from './components/InputBar.js';
 import HookEvent from './components/HookEvent.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
+import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {
 	type Message as MessageType,
 	type HookEventDisplay,
@@ -11,18 +12,29 @@ import {
 } from './types/index.js';
 
 type Props = {
-	name: string | undefined;
 	projectDir: string;
+	instanceId: number;
 };
 
 type DisplayItem =
 	| {type: 'message'; data: MessageType}
 	| {type: 'hook'; data: HookEventDisplay};
 
-function AppContent({name = 'Stranger'}: {name: string | undefined}) {
+function AppContent({
+	projectDir,
+	instanceId,
+}: {
+	projectDir: string;
+	instanceId: number;
+}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const {events, isServerRunning, socketPath} = useHookContext();
+	const {events, isServerRunning, socketPath, currentSessionId} =
+		useHookContext();
+	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
+		projectDir,
+		instanceId,
+	);
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -44,10 +56,10 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 			addMessage('user', value);
 			setInputKey(k => k + 1); // Reset input by changing key
 
-			// Simulate assistant response (replace with actual API call later)
-			addMessage('assistant', `Hello ${name}! You said: "${value}"`);
+			// Spawn Claude headless process - pass sessionId for resume on follow-ups
+			spawnClaude(value, currentSessionId ?? undefined);
 		},
-		[addMessage, name],
+		[addMessage, spawnClaude, currentSessionId],
 	);
 
 	// Interleave messages and hook events by timestamp
@@ -66,6 +78,20 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 		return timeA - timeB;
 	});
 
+	// Separate stable items (for Static) from items that may update (rendered dynamically)
+	// SessionEnd events need to update when transcript loads, so keep them dynamic
+	const isStableItem = (item: DisplayItem): boolean => {
+		if (item.type === 'message') return true;
+		// Hook events are stable if they're not SessionEnd or if transcript is loaded
+		if (item.data.hookName === 'SessionEnd') {
+			return item.data.transcriptSummary !== undefined;
+		}
+		return item.data.status !== 'pending';
+	};
+
+	const stableItems = displayItems.filter(isStableItem);
+	const dynamicItems = displayItems.filter(item => !isStableItem(item));
+
 	return (
 		<Box flexDirection="column">
 			{/* Server status */}
@@ -79,9 +105,14 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 						({socketPath})
 					</Text>
 				)}
+				<Text> | </Text>
+				<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
+					Claude: {isClaudeRunning ? 'running' : 'idle'}
+				</Text>
 			</Box>
 
-			<Static items={displayItems}>
+			{/* Stable items - rendered once, never update */}
+			<Static items={stableItems}>
 				{item =>
 					item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
@@ -91,15 +122,24 @@ function AppContent({name = 'Stranger'}: {name: string | undefined}) {
 				}
 			</Static>
 
+			{/* Dynamic items - can re-render when state changes */}
+			{dynamicItems.map(item =>
+				item.type === 'message' ? (
+					<Message key={item.data.id} message={item.data} />
+				) : (
+					<HookEvent key={item.data.id} event={item.data} />
+				),
+			)}
+
 			<InputBar inputKey={inputKey} onSubmit={handleSubmit} />
 		</Box>
 	);
 }
 
-export default function App({name, projectDir}: Props) {
+export default function App({projectDir, instanceId}: Props) {
 	return (
-		<HookProvider projectDir={projectDir}>
-			<AppContent name={name} />
+		<HookProvider projectDir={projectDir} instanceId={instanceId}>
+			<AppContent projectDir={projectDir} instanceId={instanceId} />
 		</HookProvider>
 	);
 }

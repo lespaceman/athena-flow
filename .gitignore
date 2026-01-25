@@ -1,3 +1,6 @@
 node_modules
 dist
-.claude
+
+# Claude Code local files (not shared)
+.claude/run/
+.claude/settings.local.json

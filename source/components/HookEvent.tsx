@@ -1,6 +1,11 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {type HookEventDisplay} from '../types/hooks.js';
+import {
+	type HookEventDisplay,
+	isToolEvent,
+	isNotificationEvent,
+} from '../types/hooks/index.js';
+import SessionEndEvent from './SessionEndEvent.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -21,6 +26,10 @@ const STATUS_SYMBOLS = {
 } as const;
 
 export default function HookEvent({event}: Props) {
+	// Route SessionEnd events to specialized component
+	if (event.hookName === 'SessionEnd') {
+		return <SessionEndEvent event={event} />;
+	}
 	const color = STATUS_COLORS[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 
@@ -39,14 +48,15 @@ export default function HookEvent({event}: Props) {
 
 	// Build payload preview (truncated)
 	let preview = '';
-	if (event.payload.tool_input) {
-		const inputStr = JSON.stringify(event.payload.tool_input);
+	const payload = event.payload;
+	if (isToolEvent(payload)) {
+		const inputStr = JSON.stringify(payload.tool_input);
 		preview = inputStr.length > 60 ? inputStr.slice(0, 57) + '...' : inputStr;
-	} else if (event.payload.message) {
+	} else if (isNotificationEvent(payload)) {
 		preview =
-			event.payload.message.length > 60
-				? event.payload.message.slice(0, 57) + '...'
-				: event.payload.message;
+			payload.message.length > 60
+				? payload.message.slice(0, 57) + '...'
+				: payload.message;
 	}
 
 	return (

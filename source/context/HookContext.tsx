@@ -1,20 +1,18 @@
-import React, {createContext, useContext, type ReactNode} from 'react';
+import React, {createContext, useContext} from 'react';
+import {useHookServer} from '../hooks/useHookServer.js';
 import {
-	useHookServer,
-	type UseHookServerResult,
-} from '../hooks/useHookServer.js';
-
-type HookContextValue = UseHookServerResult;
+	type HookContextValue,
+	type HookProviderProps,
+} from '../types/context.js';
 
 const HookContext = createContext<HookContextValue | null>(null);
 
-type HookProviderProps = {
-	projectDir: string;
-	children: ReactNode;
-};
-
-export function HookProvider({projectDir, children}: HookProviderProps) {
-	const hookServer = useHookServer(projectDir);
+export function HookProvider({
+	projectDir,
+	instanceId,
+	children,
+}: HookProviderProps) {
+	const hookServer = useHookServer(projectDir, instanceId);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>

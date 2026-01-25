@@ -1,0 +1,72 @@
+import {spawn, type ChildProcess} from 'node:child_process';
+import {processRegistry} from './processRegistry.js';
+import {type SpawnClaudeOptions} from '../types/process.js';
+
+// Re-export type for backwards compatibility
+export type {SpawnClaudeOptions};
+
+/**
+ * Spawns a Claude Code headless process with the given prompt.
+ *
+ * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
+ * Passes ATHENA_INSTANCE_ID env var so hook-forwarder can route to the correct socket.
+ */
+export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
+	const {
+		prompt,
+		projectDir,
+		instanceId,
+		sessionId,
+		onStdout,
+		onStderr,
+		onExit,
+		onError,
+	} = options;
+
+	const args = ['-p', prompt, '--output-format', 'stream-json'];
+
+	// Add --resume flag if continuing an existing session
+	if (sessionId) {
+		args.push('--resume', sessionId);
+	}
+
+	const child = spawn('claude', args, {
+		cwd: projectDir,
+		stdio: ['ignore', 'pipe', 'pipe'],
+		env: {
+			...process.env,
+			ATHENA_INSTANCE_ID: String(instanceId),
+		},
+	});
+
+	// Register for cleanup on app exit
+	processRegistry.register(child);
+
+	if (onStdout && child.stdout) {
+		child.stdout.on('data', (data: Buffer) => {
+			onStdout(data.toString());
+		});
+	}
+
+	if (onStderr && child.stderr) {
+		child.stderr.on('data', (data: Buffer) => {
+			onStderr(data.toString());
+		});
+	}
+
+	if (onExit) {
+		child.on('exit', onExit);
+	}
+
+	// Always attach error handler to prevent unhandled error events
+	// Node.js EventEmitter throws if 'error' event has no listener
+	child.on('error', (error: Error) => {
+		if (onError) {
+			onError(error);
+		}
+		// If no handler provided, error is silently ignored
+		// (process will exit via 'exit' event)
+	});
+
+	return child;
+}

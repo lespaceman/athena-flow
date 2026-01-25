@@ -42,11 +42,13 @@ npx vitest run source/types/hooks.test.ts
    - Returns results via stdout/exit code
 
 ### Hook Flow
+
 ```
 Claude Code → hook-forwarder (stdin JSON) → UDS → Ink CLI → UDS → hook-forwarder (stdout/exit code) → Claude Code
 ```
 
 ### Key Files
+
 - **source/hooks/useHookServer.ts**: React hook managing the UDS server; handles auto-passthrough timeout (250ms)
 - **source/context/HookContext.tsx**: React context providing hook server state to components
 - **source/types/hooks.ts**: Protocol types, validation, and helper functions for hook communication

@@ -11,34 +11,36 @@ import {
 	createPassthroughResult,
 	isValidHookEventEnvelope,
 	generateId,
-} from '../types/hooks.js';
+	isToolEvent,
+} from '../types/hooks/index.js';
+import {
+	type PendingRequest,
+	type UseHookServerResult,
+} from '../types/server.js';
+import {parseTranscriptFile} from '../utils/transcriptParser.js';
 
-const SOCKET_FILENAME = 'ink.sock';
+// Re-export type for backwards compatibility
+export type {UseHookServerResult};
+
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
-type PendingRequest = {
-	requestId: string;
-	socket: net.Socket;
-	timeoutId: ReturnType<typeof setTimeout>;
-	event: HookEventDisplay;
-};
-
-export type UseHookServerResult = {
-	events: HookEventDisplay[];
-	isServerRunning: boolean;
-	respond: (requestId: string, result: HookResultPayload) => void;
-	pendingEvents: HookEventDisplay[];
-	socketPath: string | null;
-};
-
-export function useHookServer(projectDir: string): UseHookServerResult {
+export function useHookServer(
+	projectDir: string,
+	instanceId: number,
+): UseHookServerResult {
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
+	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+	// Reset session to start fresh conversation
+	const resetSession = useCallback(() => {
+		setCurrentSessionId(null);
+	}, []);
 
 	// Respond to a hook event
 	const respond = useCallback(
@@ -100,9 +102,9 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 		// Mark as mounted
 		isMountedRef.current = true;
 
-		// Create socket directory
+		// Create socket directory with instance-specific socket name
 		const socketDir = path.join(projectDir, '.claude', 'run');
-		const sockPath = path.join(socketDir, SOCKET_FILENAME);
+		const sockPath = path.join(socketDir, `ink-${instanceId}.sock`);
 
 		try {
 			fs.mkdirSync(socketDir, {recursive: true});
@@ -135,13 +137,14 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 							const envelope = parsed;
 
 							// Create display event
+							const payload = envelope.payload;
 							const displayEvent: HookEventDisplay = {
 								id: generateId(),
 								requestId: envelope.request_id,
 								timestamp: new Date(envelope.ts),
 								hookName: envelope.hook_event_name,
-								toolName: envelope.payload.tool_name,
-								payload: envelope.payload,
+								toolName: isToolEvent(payload) ? payload.tool_name : undefined,
+								payload: payload,
 								status: 'pending',
 							};
 
@@ -167,6 +170,54 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 								}
 								return updated;
 							});
+
+							// Capture session ID from SessionStart events for resume support
+							if (envelope.hook_event_name === 'SessionStart') {
+								setCurrentSessionId(envelope.session_id);
+							}
+
+							// Asynchronously enrich SessionEnd events with transcript data
+							if (envelope.hook_event_name === 'SessionEnd') {
+								const transcriptPath = envelope.payload.transcript_path;
+								if (transcriptPath) {
+									parseTranscriptFile(transcriptPath)
+										.then(summary => {
+											if (!isMountedRef.current) return;
+											setEvents(prev =>
+												prev.map(e =>
+													e.id === displayEvent.id
+														? {...e, transcriptSummary: summary}
+														: e,
+												),
+											);
+										})
+										.catch(err => {
+											// Log error for debugging, but don't crash
+											console.error(
+												'[SessionEnd] Failed to parse transcript:',
+												err,
+											);
+										});
+								} else {
+									// No transcript path - set error state
+									setEvents(prev =>
+										prev.map(e =>
+											e.id === displayEvent.id
+												? {
+														...e,
+														transcriptSummary: {
+															lastAssistantText: null,
+															lastAssistantTimestamp: null,
+															messageCount: 0,
+															toolCallCount: 0,
+															error: 'No transcript path provided',
+														},
+													}
+												: e,
+										),
+									);
+								}
+							}
 						} else {
 							// Invalid envelope structure, close connection
 							socket.end();
@@ -242,7 +293,7 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 				// File might not exist
 			}
 		};
-	}, [projectDir, respond]);
+	}, [projectDir, instanceId, respond]);
 
 	return {
 		events,
@@ -250,5 +301,7 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 		respond,
 		pendingEvents,
 		socketPath,
+		currentSessionId,
+		resetSession,
 	};
 }

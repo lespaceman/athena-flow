@@ -3,6 +3,10 @@ import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
 import App from './app.js';
+import {processRegistry} from './utils/processRegistry.js';
+
+// Register cleanup handlers early to catch all exit scenarios
+processRegistry.registerCleanupHandlers();
 
 const cli = meow(
 	`
@@ -10,19 +14,14 @@ const cli = meow(
 	  $ athena-cli
 
 	Options
-		--name         Your name
 		--project-dir  Project directory for hook socket (default: cwd)
 
 	Examples
-	  $ athena-cli --name=Jane
-	  Hello, Jane
+	  $ athena-cli --project-dir=/my/project
 `,
 	{
 		importMeta: import.meta,
 		flags: {
-			name: {
-				type: 'string',
-			},
 			projectDir: {
 				type: 'string',
 				default: process.cwd(),
@@ -31,4 +30,5 @@ const cli = meow(
 	},
 );
 
-render(<App name={cli.flags.name} projectDir={cli.flags.projectDir} />);
+const instanceId = process.pid;
+render(<App projectDir={cli.flags.projectDir} instanceId={instanceId} />);

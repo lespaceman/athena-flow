@@ -2,23 +2,25 @@ import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import HookEvent from './HookEvent.js';
-import type {HookEventDisplay} from '../types/hooks.js';
+import type {HookEventDisplay, PreToolUseEvent} from '../types/hooks/index.js';
 
 describe('HookEvent', () => {
+	const basePayload: PreToolUseEvent = {
+		session_id: 'session-1',
+		transcript_path: '/tmp/transcript.jsonl',
+		cwd: '/project',
+		hook_event_name: 'PreToolUse',
+		tool_name: 'Bash',
+		tool_input: {command: 'ls -la'},
+	};
+
 	const baseEvent: HookEventDisplay = {
 		id: 'test-1',
 		requestId: 'req-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',
-		payload: {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PreToolUse',
-			tool_name: 'Bash',
-			tool_input: {command: 'ls -la'},
-		},
+		payload: basePayload,
 		status: 'pending',
 	};
 
@@ -80,6 +82,7 @@ describe('HookEvent', () => {
 				transcript_path: '/tmp/transcript.jsonl',
 				cwd: '/project',
 				hook_event_name: 'Notification',
+				title: 'Info',
 				message: 'Task completed',
 			},
 		};
@@ -91,15 +94,16 @@ describe('HookEvent', () => {
 	});
 
 	it('truncates long tool input preview', () => {
+		const longPayload: PreToolUseEvent = {
+			...basePayload,
+			tool_input: {
+				command:
+					'This is a very long command that should be truncated because it exceeds the maximum preview length',
+			},
+		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			payload: {
-				...baseEvent.payload,
-				tool_input: {
-					command:
-						'This is a very long command that should be truncated because it exceeds the maximum preview length',
-				},
-			},
+			payload: longPayload,
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
@@ -117,6 +121,7 @@ describe('HookEvent', () => {
 				transcript_path: '/tmp/transcript.jsonl',
 				cwd: '/project',
 				hook_event_name: 'Notification',
+				title: 'Build',
 				message: 'Build complete',
 			},
 		};
