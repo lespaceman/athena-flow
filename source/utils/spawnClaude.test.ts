@@ -34,7 +34,7 @@ describe('spawnClaude', () => {
 		vi.clearAllMocks();
 	});
 
-	it('should spawn claude with correct arguments', () => {
+	it('should spawn claude with headless arguments', () => {
 		const options: SpawnClaudeOptions = {
 			prompt: 'Hello, Claude!',
 			projectDir: '/test/project',
@@ -47,9 +47,6 @@ describe('spawnClaude', () => {
 			['-p', 'Hello, Claude!', '--output-format', 'stream-json'],
 			expect.objectContaining({
 				cwd: '/test/project',
-				env: expect.objectContaining({
-					CLAUDE_PROJECT_DIR: '/test/project',
-				}),
 				stdio: ['ignore', 'pipe', 'pipe'],
 			}),
 		);
@@ -118,23 +115,6 @@ describe('spawnClaude', () => {
 
 		// Should not throw
 		expect(() => spawnClaude(options)).not.toThrow();
-	});
-
-	it('should preserve existing environment variables', () => {
-		process.env['EXISTING_VAR'] = 'existing_value';
-
-		const options: SpawnClaudeOptions = {
-			prompt: 'Test',
-			projectDir: '/test',
-		};
-
-		spawnClaude(options);
-
-		const spawnCall = vi.mocked(childProcess.spawn).mock.calls[0];
-		const envArg = spawnCall?.[2]?.env;
-		expect(envArg?.['EXISTING_VAR']).toBe('existing_value');
-
-		delete process.env['EXISTING_VAR'];
 	});
 
 	it('should call onError when spawn fails', () => {

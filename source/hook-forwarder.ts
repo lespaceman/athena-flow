@@ -28,9 +28,9 @@ import {
 const SOCKET_TIMEOUT_MS = 300;
 const SOCKET_FILENAME = 'ink.sock';
 
-function getSocketPath(): string {
-	const projectDir = process.env['CLAUDE_PROJECT_DIR'] ?? process.cwd();
-	return path.join(projectDir, '.claude', 'run', SOCKET_FILENAME);
+function getSocketPath(cwd: string): string {
+	// Use cwd from hook payload - this is the project directory where athena-cli is running
+	return path.join(cwd, '.claude', 'run', SOCKET_FILENAME);
 }
 
 async function readStdin(): Promise<string> {
@@ -150,7 +150,8 @@ async function main(): Promise<void> {
 		};
 
 		// Connect to Ink CLI and send
-		const socketPath = getSocketPath();
+		// Use cwd from hook input - this is set by Claude to the project directory
+		const socketPath = getSocketPath(hookInput.cwd);
 		const {envelope: result, error} = await connectAndSend(
 			socketPath,
 			envelope,

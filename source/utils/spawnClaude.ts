@@ -3,7 +3,7 @@ import {spawn, type ChildProcess} from 'node:child_process';
 export type SpawnClaudeOptions = {
 	/** The prompt to send to Claude */
 	prompt: string;
-	/** Project directory for cwd and CLAUDE_PROJECT_DIR env var */
+	/** Project directory used as cwd for the Claude process */
 	projectDir: string;
 	/** Called when stdout data is received */
 	onStdout?: (data: string) => void;
@@ -18,8 +18,7 @@ export type SpawnClaudeOptions = {
 /**
  * Spawns a Claude Code headless process with the given prompt.
  *
- * The process will run with hooks configured to forward events to the Ink CLI
- * via the CLAUDE_PROJECT_DIR environment variable.
+ * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
  */
 export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	const {prompt, projectDir, onStdout, onStderr, onExit, onError} = options;
@@ -28,10 +27,6 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 
 	const child = spawn('claude', args, {
 		cwd: projectDir,
-		env: {
-			...process.env,
-			CLAUDE_PROJECT_DIR: projectDir, // Required for hook-forwarder to find socket
-		},
 		stdio: ['ignore', 'pipe', 'pipe'],
 	});
 
