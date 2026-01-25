@@ -64,6 +64,15 @@ export type HookResultEnvelope = {
 	payload: HookResultPayload;
 };
 
+// Parsed transcript summary for SessionEnd events
+export type ParsedTranscriptSummary = {
+	lastAssistantText: string | null;
+	lastAssistantTimestamp: Date | null;
+	messageCount: number;
+	toolCallCount: number;
+	error?: string;
+};
+
 // UI display state for hook events
 export type HookEventDisplay = {
 	id: string;
@@ -74,6 +83,7 @@ export type HookEventDisplay = {
 	payload: ClaudeHookInput;
 	status: 'pending' | 'passthrough' | 'blocked' | 'json_output';
 	result?: HookResultPayload;
+	transcriptSummary?: ParsedTranscriptSummary;
 };
 
 // Helper to create a passthrough result

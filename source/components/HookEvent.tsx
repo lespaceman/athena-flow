@@ -1,6 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {type HookEventDisplay} from '../types/hooks.js';
+import SessionEndEvent from './SessionEndEvent.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -21,6 +22,10 @@ const STATUS_SYMBOLS = {
 } as const;
 
 export default function HookEvent({event}: Props) {
+	// Route SessionEnd events to specialized component
+	if (event.hookName === 'SessionEnd') {
+		return <SessionEndEvent event={event} />;
+	}
 	const color = STATUS_COLORS[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 

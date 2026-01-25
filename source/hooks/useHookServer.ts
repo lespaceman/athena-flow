@@ -12,6 +12,7 @@ import {
 	isValidHookEventEnvelope,
 	generateId,
 } from '../types/hooks.js';
+import {parseTranscriptFile} from '../utils/transcriptParser.js';
 
 const SOCKET_FILENAME = 'ink.sock';
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
@@ -167,6 +168,49 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 								}
 								return updated;
 							});
+
+							// Asynchronously enrich SessionEnd events with transcript data
+							if (envelope.hook_event_name === 'SessionEnd') {
+								const transcriptPath = envelope.payload.transcript_path;
+								if (transcriptPath) {
+									parseTranscriptFile(transcriptPath)
+										.then(summary => {
+											if (!isMountedRef.current) return;
+											setEvents(prev =>
+												prev.map(e =>
+													e.id === displayEvent.id
+														? {...e, transcriptSummary: summary}
+														: e,
+												),
+											);
+										})
+										.catch(err => {
+											// Log error for debugging, but don't crash
+											console.error(
+												'[SessionEnd] Failed to parse transcript:',
+												err,
+											);
+										});
+								} else {
+									// No transcript path - set error state
+									setEvents(prev =>
+										prev.map(e =>
+											e.id === displayEvent.id
+												? {
+														...e,
+														transcriptSummary: {
+															lastAssistantText: null,
+															lastAssistantTimestamp: null,
+															messageCount: 0,
+															toolCallCount: 0,
+															error: 'No transcript path provided',
+														},
+													}
+												: e,
+										),
+									);
+								}
+							}
 						} else {
 							// Invalid envelope structure, close connection
 							socket.end();

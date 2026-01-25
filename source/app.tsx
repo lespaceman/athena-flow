@@ -68,6 +68,20 @@ function AppContent({projectDir}: {projectDir: string}) {
 		return timeA - timeB;
 	});
 
+	// Separate stable items (for Static) from items that may update (rendered dynamically)
+	// SessionEnd events need to update when transcript loads, so keep them dynamic
+	const isStableItem = (item: DisplayItem): boolean => {
+		if (item.type === 'message') return true;
+		// Hook events are stable if they're not SessionEnd or if transcript is loaded
+		if (item.data.hookName === 'SessionEnd') {
+			return item.data.transcriptSummary !== undefined;
+		}
+		return item.data.status !== 'pending';
+	};
+
+	const stableItems = displayItems.filter(isStableItem);
+	const dynamicItems = displayItems.filter(item => !isStableItem(item));
+
 	return (
 		<Box flexDirection="column">
 			{/* Server status */}
@@ -87,7 +101,8 @@ function AppContent({projectDir}: {projectDir: string}) {
 				</Text>
 			</Box>
 
-			<Static items={displayItems}>
+			{/* Stable items - rendered once, never update */}
+			<Static items={stableItems}>
 				{item =>
 					item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
@@ -96,6 +111,15 @@ function AppContent({projectDir}: {projectDir: string}) {
 					)
 				}
 			</Static>
+
+			{/* Dynamic items - can re-render when state changes */}
+			{dynamicItems.map(item =>
+				item.type === 'message' ? (
+					<Message key={item.data.id} message={item.data} />
+				) : (
+					<HookEvent key={item.data.id} event={item.data} />
+				),
+			)}
 
 			<InputBar inputKey={inputKey} onSubmit={handleSubmit} />
 		</Box>
