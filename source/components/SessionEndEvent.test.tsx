@@ -2,7 +2,18 @@ import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import SessionEndEvent from './SessionEndEvent.js';
-import {type HookEventDisplay} from '../types/hooks.js';
+import {
+	type HookEventDisplay,
+	type SessionEndEvent as SessionEndEventType,
+} from '../types/hooks/index.js';
+
+const defaultPayload: SessionEndEventType = {
+	session_id: 'session-123',
+	transcript_path: '/path/to/transcript.jsonl',
+	cwd: '/home/user/project',
+	hook_event_name: 'SessionEnd',
+	session_type: 'interactive',
+};
 
 const createSessionEndEvent = (
 	overrides: Partial<HookEventDisplay> = {},
@@ -11,13 +22,7 @@ const createSessionEndEvent = (
 	requestId: 'req-123',
 	timestamp: new Date('2025-01-25T10:30:00Z'),
 	hookName: 'SessionEnd',
-	payload: {
-		session_id: 'session-123',
-		transcript_path: '/path/to/transcript.jsonl',
-		cwd: '/home/user/project',
-		hook_event_name: 'SessionEnd',
-		session_type: 'interactive',
-	},
+	payload: defaultPayload,
 	status: 'passthrough',
 	...overrides,
 });
@@ -32,14 +37,15 @@ describe('SessionEndEvent', () => {
 	});
 
 	it('displays session type', () => {
+		const headlessPayload: SessionEndEventType = {
+			session_id: 'session-123',
+			transcript_path: '/path/to/transcript.jsonl',
+			cwd: '/home/user/project',
+			hook_event_name: 'SessionEnd',
+			session_type: 'headless',
+		};
 		const event = createSessionEndEvent({
-			payload: {
-				session_id: 'session-123',
-				transcript_path: '/path/to/transcript.jsonl',
-				cwd: '/home/user/project',
-				hook_event_name: 'SessionEnd',
-				session_type: 'headless',
-			},
+			payload: headlessPayload,
 		});
 		const {lastFrame} = render(<SessionEndEvent event={event} />);
 
@@ -128,15 +134,17 @@ describe('SessionEndEvent', () => {
 		expect(lastFrame()).not.toContain('(pending)');
 	});
 
-	it('displays unknown session type when not provided', () => {
+	it('displays unknown session type when not a SessionEndEvent', () => {
+		// Test the fallback behavior when the payload is not a proper SessionEndEvent
+		// This simulates runtime data that doesn't match the expected type
+		const malformedPayload = {
+			session_id: 'session-123',
+			transcript_path: '/path/to/transcript.jsonl',
+			cwd: '/home/user/project',
+			hook_event_name: 'UserPromptSubmit', // Different event type
+		};
 		const event = createSessionEndEvent({
-			payload: {
-				session_id: 'session-123',
-				transcript_path: '/path/to/transcript.jsonl',
-				cwd: '/home/user/project',
-				hook_event_name: 'SessionEnd',
-				// session_type omitted
-			},
+			payload: malformedPayload as unknown as SessionEndEventType,
 		});
 		const {lastFrame} = render(<SessionEndEvent event={event} />);
 

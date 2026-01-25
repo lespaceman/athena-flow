@@ -1,18 +1,15 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {type ChildProcess} from 'node:child_process';
 import {spawnClaude} from '../utils/spawnClaude.js';
+import {type UseClaudeProcessResult} from '../types/process.js';
+
+// Re-export type for backwards compatibility
+export type {UseClaudeProcessResult};
 
 // Maximum output lines to keep in memory to prevent unbounded growth
 const MAX_OUTPUT = 1000;
 // Timeout for waiting for process to exit during kill
 const KILL_TIMEOUT_MS = 3000;
-
-export type UseClaudeProcessResult = {
-	spawn: (prompt: string, sessionId?: string) => Promise<void>;
-	isRunning: boolean;
-	output: string[];
-	kill: () => Promise<void>;
-};
 
 /**
  * React hook to manage Claude headless process lifecycle.

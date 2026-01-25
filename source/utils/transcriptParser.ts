@@ -1,32 +1,12 @@
 import * as fs from 'node:fs/promises';
+import {
+	type TranscriptContent,
+	type TranscriptEntry,
+	type ParsedTranscriptSummary,
+} from '../types/transcript.js';
 
-// Types for transcript JSONL entries
-export type TranscriptContent =
-	| {type: 'text'; text: string}
-	| {type: 'thinking'; thinking: string}
-	| {
-			type: 'tool_use';
-			id: string;
-			name: string;
-			input: Record<string, unknown>;
-	  };
-
-export type TranscriptEntry = {
-	type: 'user' | 'assistant' | 'tool_result' | string;
-	message?: {
-		role: string;
-		content: string | TranscriptContent[];
-	};
-	timestamp?: string;
-};
-
-export type ParsedTranscriptSummary = {
-	lastAssistantText: string | null;
-	lastAssistantTimestamp: Date | null;
-	messageCount: number;
-	toolCallCount: number;
-	error?: string;
-};
+// Re-export types for backwards compatibility
+export type {TranscriptContent, TranscriptEntry, ParsedTranscriptSummary};
 
 /**
  * Extract text content from a message content array

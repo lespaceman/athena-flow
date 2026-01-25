@@ -1,6 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {type HookEventDisplay} from '../types/hooks.js';
+import {
+	type HookEventDisplay,
+	isSessionEndEvent,
+} from '../types/hooks/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -33,7 +36,10 @@ export default function SessionEndEvent({event}: Props) {
 	});
 
 	const summary = event.transcriptSummary;
-	const sessionType = event.payload.session_type ?? 'unknown';
+	const payload = event.payload;
+	const sessionType = isSessionEndEvent(payload)
+		? payload.session_type
+		: 'unknown';
 
 	return (
 		<Box

@@ -11,30 +11,19 @@ import {
 	createPassthroughResult,
 	isValidHookEventEnvelope,
 	generateId,
-} from '../types/hooks.js';
+	isToolEvent,
+} from '../types/hooks/index.js';
+import {
+	type PendingRequest,
+	type UseHookServerResult,
+} from '../types/server.js';
 import {parseTranscriptFile} from '../utils/transcriptParser.js';
+
+// Re-export type for backwards compatibility
+export type {UseHookServerResult};
 
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
-
-type PendingRequest = {
-	requestId: string;
-	socket: net.Socket;
-	timeoutId: ReturnType<typeof setTimeout>;
-	event: HookEventDisplay;
-};
-
-export type UseHookServerResult = {
-	events: HookEventDisplay[];
-	isServerRunning: boolean;
-	respond: (requestId: string, result: HookResultPayload) => void;
-	pendingEvents: HookEventDisplay[];
-	socketPath: string | null;
-	/** Current session ID captured from SessionStart events */
-	currentSessionId: string | null;
-	/** Reset the session ID (starts fresh conversation) */
-	resetSession: () => void;
-};
 
 export function useHookServer(
 	projectDir: string,
@@ -148,13 +137,14 @@ export function useHookServer(
 							const envelope = parsed;
 
 							// Create display event
+							const payload = envelope.payload;
 							const displayEvent: HookEventDisplay = {
 								id: generateId(),
 								requestId: envelope.request_id,
 								timestamp: new Date(envelope.ts),
 								hookName: envelope.hook_event_name,
-								toolName: envelope.payload.tool_name,
-								payload: envelope.payload,
+								toolName: isToolEvent(payload) ? payload.tool_name : undefined,
+								payload: payload,
 								status: 'pending',
 							};
 

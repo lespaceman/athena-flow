@@ -19,11 +19,11 @@ import * as path from 'node:path';
 
 import {
 	PROTOCOL_VERSION,
-	type ClaudeHookInput,
+	type ClaudeHookEvent,
 	type HookEventEnvelope,
 	type HookResultEnvelope,
 	generateId,
-} from './types/hooks.js';
+} from './types/hooks/index.js';
 
 const SOCKET_TIMEOUT_MS = 300;
 
@@ -129,9 +129,9 @@ async function main(): Promise<void> {
 		}
 
 		// Parse hook input from Claude Code
-		let hookInput: ClaudeHookInput;
+		let hookInput: ClaudeHookEvent;
 		try {
-			hookInput = JSON.parse(stdinData) as ClaudeHookInput;
+			hookInput = JSON.parse(stdinData) as ClaudeHookEvent;
 		} catch {
 			// Invalid JSON, passthrough
 			process.exit(0);
