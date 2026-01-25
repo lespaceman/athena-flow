@@ -31,6 +31,10 @@ export type UseHookServerResult = {
 	respond: (requestId: string, result: HookResultPayload) => void;
 	pendingEvents: HookEventDisplay[];
 	socketPath: string | null;
+	/** Current session ID captured from SessionStart events */
+	currentSessionId: string | null;
+	/** Reset the session ID (starts fresh conversation) */
+	resetSession: () => void;
 };
 
 export function useHookServer(projectDir: string): UseHookServerResult {
@@ -40,6 +44,12 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
+	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+	// Reset session to start fresh conversation
+	const resetSession = useCallback(() => {
+		setCurrentSessionId(null);
+	}, []);
 
 	// Respond to a hook event
 	const respond = useCallback(
@@ -169,6 +179,11 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 								return updated;
 							});
 
+							// Capture session ID from SessionStart events for resume support
+							if (envelope.hook_event_name === 'SessionStart') {
+								setCurrentSessionId(envelope.session_id);
+							}
+
 							// Asynchronously enrich SessionEnd events with transcript data
 							if (envelope.hook_event_name === 'SessionEnd') {
 								const transcriptPath = envelope.payload.transcript_path;
@@ -294,5 +309,7 @@ export function useHookServer(projectDir: string): UseHookServerResult {
 		respond,
 		pendingEvents,
 		socketPath,
+		currentSessionId,
+		resetSession,
 	};
 }

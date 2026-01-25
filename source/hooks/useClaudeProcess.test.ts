@@ -282,4 +282,36 @@ describe('useClaudeProcess', () => {
 		// Should keep the most recent lines
 		expect(result.current.output[999]).toBe('line 1099');
 	});
+
+	it('should not pass sessionId to spawnClaude when not provided', () => {
+		const {result} = renderHook(() => useClaudeProcess('/test'));
+
+		act(() => {
+			result.current.spawn('my prompt');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				prompt: 'my prompt',
+				projectDir: '/test',
+				sessionId: undefined,
+			}),
+		);
+	});
+
+	it('should pass sessionId to spawnClaude when provided', () => {
+		const {result} = renderHook(() => useClaudeProcess('/test'));
+
+		act(() => {
+			result.current.spawn('my prompt', 'abc-123-session');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				prompt: 'my prompt',
+				projectDir: '/test',
+				sessionId: 'abc-123-session',
+			}),
+		);
+	});
 });

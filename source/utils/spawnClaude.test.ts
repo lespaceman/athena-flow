@@ -145,4 +145,41 @@ describe('spawnClaude', () => {
 			mockChildProcess.emit('error', new Error('spawn claude ENOENT'));
 		}).not.toThrow();
 	});
+
+	it('should not include --resume flag when sessionId is not provided', () => {
+		const options: SpawnClaudeOptions = {
+			prompt: 'Test',
+			projectDir: '/test',
+		};
+
+		spawnClaude(options);
+
+		const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+		expect(args).not.toContain('--resume');
+	});
+
+	it('should include --resume flag with sessionId when provided', () => {
+		const options: SpawnClaudeOptions = {
+			prompt: 'Test',
+			projectDir: '/test',
+			sessionId: 'abc-123-session-id',
+		};
+
+		spawnClaude(options);
+
+		expect(childProcess.spawn).toHaveBeenCalledWith(
+			'claude',
+			[
+				'-p',
+				'Test',
+				'--output-format',
+				'stream-json',
+				'--resume',
+				'abc-123-session-id',
+			],
+			expect.objectContaining({
+				cwd: '/test',
+			}),
+		);
+	});
 });

@@ -6,6 +6,8 @@ export type SpawnClaudeOptions = {
 	prompt: string;
 	/** Project directory used as cwd for the Claude process */
 	projectDir: string;
+	/** Optional session ID to resume an existing conversation */
+	sessionId?: string;
 	/** Called when stdout data is received */
 	onStdout?: (data: string) => void;
 	/** Called when stderr data is received */
@@ -22,9 +24,15 @@ export type SpawnClaudeOptions = {
  * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
  */
 export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
-	const {prompt, projectDir, onStdout, onStderr, onExit, onError} = options;
+	const {prompt, projectDir, sessionId, onStdout, onStderr, onExit, onError} =
+		options;
 
 	const args = ['-p', prompt, '--output-format', 'stream-json'];
+
+	// Add --resume flag if continuing an existing session
+	if (sessionId) {
+		args.push('--resume', sessionId);
+	}
 
 	const child = spawn('claude', args, {
 		cwd: projectDir,

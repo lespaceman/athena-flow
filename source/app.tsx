@@ -22,7 +22,8 @@ type DisplayItem =
 function AppContent({projectDir}: {projectDir: string}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const {events, isServerRunning, socketPath} = useHookContext();
+	const {events, isServerRunning, socketPath, currentSessionId} =
+		useHookContext();
 	const {spawn: spawnClaude, isRunning: isClaudeRunning} =
 		useClaudeProcess(projectDir);
 
@@ -46,10 +47,10 @@ function AppContent({projectDir}: {projectDir: string}) {
 			addMessage('user', value);
 			setInputKey(k => k + 1); // Reset input by changing key
 
-			// Spawn Claude headless process - hooks will receive events
-			spawnClaude(value);
+			// Spawn Claude headless process - pass sessionId for resume on follow-ups
+			spawnClaude(value, currentSessionId ?? undefined);
 		},
-		[addMessage, spawnClaude],
+		[addMessage, spawnClaude, currentSessionId],
 	);
 
 	// Interleave messages and hook events by timestamp

@@ -6,7 +6,7 @@ import {spawnClaude} from '../utils/spawnClaude.js';
 const MAX_OUTPUT = 1000;
 
 export type UseClaudeProcessResult = {
-	spawn: (prompt: string) => void;
+	spawn: (prompt: string, sessionId?: string) => void;
 	isRunning: boolean;
 	output: string[];
 	kill: () => void;
@@ -35,7 +35,7 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 	}, []);
 
 	const spawn = useCallback(
-		(prompt: string) => {
+		(prompt: string, sessionId?: string) => {
 			// Kill existing process if running
 			if (processRef.current) {
 				processRef.current.kill();
@@ -47,6 +47,7 @@ export function useClaudeProcess(projectDir: string): UseClaudeProcessResult {
 			const child = spawnClaude({
 				prompt,
 				projectDir,
+				sessionId,
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
 					setOutput(prev => {
