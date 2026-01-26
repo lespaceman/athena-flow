@@ -37,9 +37,7 @@ export default function SessionEndEvent({event}: Props) {
 
 	const summary = event.transcriptSummary;
 	const payload = event.payload;
-	const sessionType = isSessionEndEvent(payload)
-		? payload.session_type
-		: 'unknown';
+	const reason = isSessionEndEvent(payload) ? payload.reason : 'unknown';
 
 	return (
 		<Box
@@ -59,10 +57,10 @@ export default function SessionEndEvent({event}: Props) {
 				)}
 			</Box>
 
-			{/* Session type */}
+			{/* Session end reason */}
 			<Box marginTop={0}>
-				<Text color="gray">Session type: </Text>
-				<Text>{sessionType}</Text>
+				<Text color="gray">Reason: </Text>
+				<Text>{reason}</Text>
 			</Box>
 
 			{/* Stats row */}

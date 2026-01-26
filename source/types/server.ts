@@ -16,6 +16,8 @@ export type PendingRequest = {
 	socket: net.Socket;
 	timeoutId: ReturnType<typeof setTimeout>;
 	event: HookEventDisplay;
+	/** Timestamp when the event was received, used for logging response time */
+	receiveTimestamp: number;
 };
 
 /**

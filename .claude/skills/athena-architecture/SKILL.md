@@ -55,9 +55,52 @@ interface HookEventEnvelope {
   request_id: string;     // Unique request ID
   ts: number;             // Timestamp
   session_id: string;     // Claude Code session ID
-  hook_event_name: string; // e.g., "PreToolUse", "SessionStart"
+  hook_event_name: HookEventName;
   payload: ClaudeHookEvent;
 }
+```
+
+### Hook Event Types (Complete List)
+
+| Hook                 | When it fires                   | Has tool_name |
+| :------------------- | :------------------------------ | :------------ |
+| `SessionStart`       | Session begins or resumes       | No |
+| `UserPromptSubmit`   | User submits a prompt           | No |
+| `PreToolUse`         | Before tool execution           | Yes |
+| `PermissionRequest`  | When permission dialog appears  | Yes |
+| `PostToolUse`        | After tool succeeds             | Yes |
+| `PostToolUseFailure` | After tool fails                | Yes |
+| `SubagentStart`      | When spawning a subagent        | No |
+| `SubagentStop`       | When subagent finishes          | No |
+| `Stop`               | Claude finishes responding      | No |
+| `PreCompact`         | Before context compaction       | No |
+| `SessionEnd`         | Session terminates              | No |
+| `Notification`       | Claude Code sends notifications | No |
+| `Setup`              | When invoked with --init, --init-only, or --maintenance | No |
+
+### Event Type Definitions
+
+```typescript
+// Tool-related events (have tool_name, tool_input)
+type PreToolUseEvent = { hook_event_name: 'PreToolUse'; tool_name: string; tool_input: Record<string, unknown>; ... }
+type PermissionRequestEvent = { hook_event_name: 'PermissionRequest'; tool_name: string; tool_input: Record<string, unknown>; ... }
+type PostToolUseEvent = { hook_event_name: 'PostToolUse'; tool_name: string; tool_input: Record<string, unknown>; tool_response: unknown; ... }
+type PostToolUseFailureEvent = { hook_event_name: 'PostToolUseFailure'; tool_name: string; tool_input: Record<string, unknown>; tool_response: unknown; ... }
+
+// Session events
+type SessionStartEvent = { hook_event_name: 'SessionStart'; source: 'startup' | 'resume' | 'clear' | 'compact'; model?: string; agent_type?: string; ... }
+type SessionEndEvent = { hook_event_name: 'SessionEnd'; reason: 'clear' | 'logout' | 'prompt_input_exit' | 'other'; ... }
+
+// Subagent events
+type SubagentStartEvent = { hook_event_name: 'SubagentStart'; agent_id: string; agent_type: string; ... }
+type SubagentStopEvent = { hook_event_name: 'SubagentStop'; stop_hook_active: boolean; agent_id: string; agent_transcript_path?: string; ... }
+
+// Other events
+type StopEvent = { hook_event_name: 'Stop'; stop_hook_active: boolean; ... }
+type UserPromptSubmitEvent = { hook_event_name: 'UserPromptSubmit'; prompt: string; ... }
+type NotificationEvent = { hook_event_name: 'Notification'; message: string; notification_type?: string; ... }
+type PreCompactEvent = { hook_event_name: 'PreCompact'; trigger: 'manual' | 'auto'; custom_instructions?: string; ... }
+type SetupEvent = { hook_event_name: 'Setup'; trigger: 'init' | 'maintenance'; ... }
 ```
 
 ### HookResultEnvelope

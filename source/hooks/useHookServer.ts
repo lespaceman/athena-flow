@@ -8,6 +8,7 @@ import {
 	type HookResultEnvelope,
 	type HookResultPayload,
 	type HookEventDisplay,
+	type HookEventEnvelope,
 	createPassthroughResult,
 	isValidHookEventEnvelope,
 	generateId,
@@ -18,6 +19,12 @@ import {
 	type UseHookServerResult,
 } from '../types/server.js';
 import {parseTranscriptFile} from '../utils/transcriptParser.js';
+import {
+	initHookLogger,
+	logHookReceived,
+	logHookResponded,
+	closeHookLogger,
+} from '../utils/hookLogger.js';
 
 // Re-export type for backwards compatibility
 export type {UseHookServerResult};
@@ -47,6 +54,10 @@ export function useHookServer(
 		(requestId: string, result: HookResultPayload) => {
 			const pending = pendingRequestsRef.current.get(requestId);
 			if (!pending) return;
+
+			// Log the response with response time
+			const responseTimeMs = Date.now() - pending.receiveTimestamp;
+			logHookResponded(requestId, result.action, responseTimeMs);
 
 			// Clear timeout
 			clearTimeout(pending.timeoutId);
@@ -119,6 +130,9 @@ export function useHookServer(
 			// File might not exist
 		}
 
+		// Initialize hook logger
+		initHookLogger(projectDir);
+
 		// Create server
 		const server = net.createServer((socket: net.Socket) => {
 			let data = '';
@@ -134,7 +148,11 @@ export function useHookServer(
 
 						// Validate envelope structure before processing
 						if (isValidHookEventEnvelope(parsed)) {
-							const envelope = parsed;
+							const envelope = parsed as HookEventEnvelope;
+							const receiveTimestamp = Date.now();
+
+							// Log received event
+							logHookReceived(envelope);
 
 							// Create display event
 							const payload = envelope.payload;
@@ -159,6 +177,7 @@ export function useHookServer(
 								socket,
 								timeoutId,
 								event: displayEvent,
+								receiveTimestamp,
 							});
 
 							// Add to events with pruning to prevent memory leak
@@ -292,6 +311,9 @@ export function useHookServer(
 			} catch {
 				// File might not exist
 			}
+
+			// Close hook logger
+			closeHookLogger();
 		};
 	}, [projectDir, instanceId, respond]);
 

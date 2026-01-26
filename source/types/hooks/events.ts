@@ -3,6 +3,21 @@
  *
  * These types provide proper type safety through discriminated unions,
  * allowing TypeScript to narrow types based on hook_event_name.
+ *
+ * Complete list of Claude Code hooks:
+ * - SessionStart: Session begins or resumes
+ * - UserPromptSubmit: User submits a prompt
+ * - PreToolUse: Before tool execution
+ * - PermissionRequest: When permission dialog appears
+ * - PostToolUse: After tool succeeds
+ * - PostToolUseFailure: After tool fails
+ * - SubagentStart: When spawning a subagent
+ * - SubagentStop: When subagent finishes
+ * - Stop: Claude finishes responding
+ * - PreCompact: Before context compaction
+ * - SessionEnd: Session terminates
+ * - Notification: Claude Code sends notifications
+ * - Setup: When Claude Code is invoked with --init, --init-only, or --maintenance flags
  */
 
 // Base fields present in all hook events
@@ -10,12 +25,14 @@ type BaseHookEvent = {
 	session_id: string;
 	transcript_path: string;
 	cwd: string;
+	permission_mode?: string; // "default", "plan", "acceptEdits", "dontAsk", or "bypassPermissions"
 };
 
-// Tool-related fields for PreToolUse and PostToolUse
+// Tool-related fields for PreToolUse, PermissionRequest, PostToolUse, and PostToolUseFailure
 type ToolEventBase = BaseHookEvent & {
 	tool_name: string;
 	tool_input: Record<string, unknown>;
+	tool_use_id?: string;
 };
 
 // PreToolUse: Before a tool is executed
@@ -23,50 +40,82 @@ export type PreToolUseEvent = ToolEventBase & {
 	hook_event_name: 'PreToolUse';
 };
 
-// PostToolUse: After a tool is executed
+// PermissionRequest: When a permission dialog is shown
+export type PermissionRequestEvent = ToolEventBase & {
+	hook_event_name: 'PermissionRequest';
+};
+
+// PostToolUse: After a tool completes successfully
 export type PostToolUseEvent = ToolEventBase & {
 	hook_event_name: 'PostToolUse';
+	tool_response: unknown;
+};
+
+// PostToolUseFailure: After a tool fails
+export type PostToolUseFailureEvent = ToolEventBase & {
+	hook_event_name: 'PostToolUseFailure';
 	tool_response: unknown;
 };
 
 // Notification: Claude sends a notification
 export type NotificationEvent = BaseHookEvent & {
 	hook_event_name: 'Notification';
-	title: string;
 	message: string;
+	notification_type?: string; // "permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"
 };
 
 // Stop: Session stop event
 export type StopEvent = BaseHookEvent & {
 	hook_event_name: 'Stop';
-	stop_reason: string;
-	stop_ts: number;
 	stop_hook_active: boolean;
+};
+
+// SubagentStart: Subagent spawn event
+export type SubagentStartEvent = BaseHookEvent & {
+	hook_event_name: 'SubagentStart';
+	agent_id: string;
+	agent_type: string;
 };
 
 // SubagentStop: Subagent stop event
 export type SubagentStopEvent = BaseHookEvent & {
 	hook_event_name: 'SubagentStop';
-	stop_reason: string;
-	stop_ts: number;
 	stop_hook_active: boolean;
+	agent_id: string;
+	agent_transcript_path?: string;
 };
 
 // UserPromptSubmit: User submits a prompt
 export type UserPromptSubmitEvent = BaseHookEvent & {
 	hook_event_name: 'UserPromptSubmit';
+	prompt: string;
+};
+
+// PreCompact: Before context compaction
+export type PreCompactEvent = BaseHookEvent & {
+	hook_event_name: 'PreCompact';
+	trigger: 'manual' | 'auto';
+	custom_instructions?: string;
+};
+
+// Setup: Repository initialization or maintenance
+export type SetupEvent = BaseHookEvent & {
+	hook_event_name: 'Setup';
+	trigger: 'init' | 'maintenance';
 };
 
 // SessionStart: Session begins
 export type SessionStartEvent = BaseHookEvent & {
 	hook_event_name: 'SessionStart';
-	session_type: string;
+	source: 'startup' | 'resume' | 'clear' | 'compact';
+	model?: string;
+	agent_type?: string;
 };
 
 // SessionEnd: Session ends
 export type SessionEndEvent = BaseHookEvent & {
 	hook_event_name: 'SessionEnd';
-	session_type: string;
+	reason: 'clear' | 'logout' | 'prompt_input_exit' | 'other';
 };
 
 /**
@@ -75,11 +124,16 @@ export type SessionEndEvent = BaseHookEvent & {
  */
 export type ClaudeHookEvent =
 	| PreToolUseEvent
+	| PermissionRequestEvent
 	| PostToolUseEvent
+	| PostToolUseFailureEvent
 	| NotificationEvent
 	| StopEvent
+	| SubagentStartEvent
 	| SubagentStopEvent
 	| UserPromptSubmitEvent
+	| PreCompactEvent
+	| SetupEvent
 	| SessionStartEvent
 	| SessionEndEvent;
 
@@ -97,10 +151,22 @@ export function isPreToolUseEvent(
 	return event.hook_event_name === 'PreToolUse';
 }
 
+export function isPermissionRequestEvent(
+	event: ClaudeHookEvent,
+): event is PermissionRequestEvent {
+	return event.hook_event_name === 'PermissionRequest';
+}
+
 export function isPostToolUseEvent(
 	event: ClaudeHookEvent,
 ): event is PostToolUseEvent {
 	return event.hook_event_name === 'PostToolUse';
+}
+
+export function isPostToolUseFailureEvent(
+	event: ClaudeHookEvent,
+): event is PostToolUseFailureEvent {
+	return event.hook_event_name === 'PostToolUseFailure';
 }
 
 export function isNotificationEvent(
@@ -113,6 +179,12 @@ export function isStopEvent(event: ClaudeHookEvent): event is StopEvent {
 	return event.hook_event_name === 'Stop';
 }
 
+export function isSubagentStartEvent(
+	event: ClaudeHookEvent,
+): event is SubagentStartEvent {
+	return event.hook_event_name === 'SubagentStart';
+}
+
 export function isSubagentStopEvent(
 	event: ClaudeHookEvent,
 ): event is SubagentStopEvent {
@@ -123,6 +195,16 @@ export function isUserPromptSubmitEvent(
 	event: ClaudeHookEvent,
 ): event is UserPromptSubmitEvent {
 	return event.hook_event_name === 'UserPromptSubmit';
+}
+
+export function isPreCompactEvent(
+	event: ClaudeHookEvent,
+): event is PreCompactEvent {
+	return event.hook_event_name === 'PreCompact';
+}
+
+export function isSetupEvent(event: ClaudeHookEvent): event is SetupEvent {
+	return event.hook_event_name === 'Setup';
 }
 
 export function isSessionStartEvent(
@@ -138,13 +220,20 @@ export function isSessionEndEvent(
 }
 
 /**
- * Check if an event is a tool-related event (PreToolUse or PostToolUse).
+ * Check if an event is a tool-related event.
+ * Tool events: PreToolUse, PermissionRequest, PostToolUse, PostToolUseFailure
  */
 export function isToolEvent(
 	event: ClaudeHookEvent,
-): event is PreToolUseEvent | PostToolUseEvent {
+): event is
+	| PreToolUseEvent
+	| PermissionRequestEvent
+	| PostToolUseEvent
+	| PostToolUseFailureEvent {
 	return (
 		event.hook_event_name === 'PreToolUse' ||
-		event.hook_event_name === 'PostToolUse'
+		event.hook_event_name === 'PermissionRequest' ||
+		event.hook_event_name === 'PostToolUse' ||
+		event.hook_event_name === 'PostToolUseFailure'
 	);
 }

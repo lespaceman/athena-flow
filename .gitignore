@@ -3,4 +3,5 @@ dist
 
 # Claude Code local files (not shared)
 .claude/run/
+.claude/logs/
 .claude/settings.local.json

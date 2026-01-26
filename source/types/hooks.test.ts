@@ -10,19 +10,29 @@ import {
 	type HookEventEnvelope,
 	type ClaudeHookEvent,
 	type PreToolUseEvent,
+	type PermissionRequestEvent,
 	type PostToolUseEvent,
+	type PostToolUseFailureEvent,
 	type NotificationEvent,
 	type StopEvent,
+	type SubagentStartEvent,
 	type SubagentStopEvent,
 	type UserPromptSubmitEvent,
+	type PreCompactEvent,
+	type SetupEvent,
 	type SessionStartEvent,
 	type SessionEndEvent,
 	isPreToolUseEvent,
+	isPermissionRequestEvent,
 	isPostToolUseEvent,
+	isPostToolUseFailureEvent,
 	isNotificationEvent,
 	isStopEvent,
+	isSubagentStartEvent,
 	isSubagentStopEvent,
 	isUserPromptSubmitEvent,
+	isPreCompactEvent,
+	isSetupEvent,
 	isSessionStartEvent,
 	isSessionEndEvent,
 	isToolEvent,
@@ -145,14 +155,19 @@ describe('hooks types', () => {
 
 		it('should accept all valid hook event names', () => {
 			const validNames = [
-				'PreToolUse',
-				'PostToolUse',
-				'Notification',
-				'Stop',
-				'SubagentStop',
-				'UserPromptSubmit',
 				'SessionStart',
+				'UserPromptSubmit',
+				'PreToolUse',
+				'PermissionRequest',
+				'PostToolUse',
+				'PostToolUseFailure',
+				'SubagentStart',
+				'SubagentStop',
+				'Stop',
+				'PreCompact',
 				'SessionEnd',
+				'Notification',
+				'Setup',
 			];
 
 			for (const name of validNames) {
@@ -214,6 +229,13 @@ describe('hooks types', () => {
 			tool_input: {command: 'ls'},
 		};
 
+		const permissionRequestEvent: PermissionRequestEvent = {
+			...createBaseEvent(),
+			hook_event_name: 'PermissionRequest',
+			tool_name: 'Bash',
+			tool_input: {command: 'rm -rf /'},
+		};
+
 		const postToolUseEvent: PostToolUseEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'PostToolUse',
@@ -222,44 +244,71 @@ describe('hooks types', () => {
 			tool_response: 'file1.txt\nfile2.txt',
 		};
 
+		const postToolUseFailureEvent: PostToolUseFailureEvent = {
+			...createBaseEvent(),
+			hook_event_name: 'PostToolUseFailure',
+			tool_name: 'Bash',
+			tool_input: {command: 'ls'},
+			tool_response: {error: 'command not found'},
+		};
+
 		const notificationEvent: NotificationEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'Notification',
-			title: 'Test',
 			message: 'Test notification',
+			notification_type: 'permission_prompt',
 		};
 
 		const stopEvent: StopEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'Stop',
-			stop_reason: 'complete',
-			stop_ts: Date.now(),
 			stop_hook_active: true,
+		};
+
+		const subagentStartEvent: SubagentStartEvent = {
+			...createBaseEvent(),
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-123',
+			agent_type: 'Explore',
 		};
 
 		const subagentStopEvent: SubagentStopEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'SubagentStop',
-			stop_reason: 'complete',
-			stop_ts: Date.now(),
-			stop_hook_active: true,
+			stop_hook_active: false,
+			agent_id: 'agent-123',
 		};
 
 		const userPromptSubmitEvent: UserPromptSubmitEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'UserPromptSubmit',
+			prompt: 'Hello, Claude!',
+		};
+
+		const preCompactEvent: PreCompactEvent = {
+			...createBaseEvent(),
+			hook_event_name: 'PreCompact',
+			trigger: 'manual',
+			custom_instructions: 'Keep important context',
+		};
+
+		const setupEvent: SetupEvent = {
+			...createBaseEvent(),
+			hook_event_name: 'Setup',
+			trigger: 'init',
 		};
 
 		const sessionStartEvent: SessionStartEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'SessionStart',
-			session_type: 'interactive',
+			source: 'startup',
+			model: 'claude-sonnet-4-20250514',
 		};
 
 		const sessionEndEvent: SessionEndEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'SessionEnd',
-			session_type: 'interactive',
+			reason: 'other',
 		};
 
 		describe('isPreToolUseEvent', () => {
@@ -274,6 +323,17 @@ describe('hooks types', () => {
 			});
 		});
 
+		describe('isPermissionRequestEvent', () => {
+			it('should return true for PermissionRequest event', () => {
+				expect(isPermissionRequestEvent(permissionRequestEvent)).toBe(true);
+			});
+
+			it('should return false for other events', () => {
+				expect(isPermissionRequestEvent(preToolUseEvent)).toBe(false);
+				expect(isPermissionRequestEvent(postToolUseEvent)).toBe(false);
+			});
+		});
+
 		describe('isPostToolUseEvent', () => {
 			it('should return true for PostToolUse event', () => {
 				expect(isPostToolUseEvent(postToolUseEvent)).toBe(true);
@@ -281,7 +341,19 @@ describe('hooks types', () => {
 
 			it('should return false for other events', () => {
 				expect(isPostToolUseEvent(preToolUseEvent)).toBe(false);
+				expect(isPostToolUseEvent(postToolUseFailureEvent)).toBe(false);
 				expect(isPostToolUseEvent(notificationEvent)).toBe(false);
+			});
+		});
+
+		describe('isPostToolUseFailureEvent', () => {
+			it('should return true for PostToolUseFailure event', () => {
+				expect(isPostToolUseFailureEvent(postToolUseFailureEvent)).toBe(true);
+			});
+
+			it('should return false for other events', () => {
+				expect(isPostToolUseFailureEvent(postToolUseEvent)).toBe(false);
+				expect(isPostToolUseFailureEvent(preToolUseEvent)).toBe(false);
 			});
 		});
 
@@ -307,12 +379,24 @@ describe('hooks types', () => {
 			});
 		});
 
+		describe('isSubagentStartEvent', () => {
+			it('should return true for SubagentStart event', () => {
+				expect(isSubagentStartEvent(subagentStartEvent)).toBe(true);
+			});
+
+			it('should return false for other events', () => {
+				expect(isSubagentStartEvent(subagentStopEvent)).toBe(false);
+				expect(isSubagentStartEvent(preToolUseEvent)).toBe(false);
+			});
+		});
+
 		describe('isSubagentStopEvent', () => {
 			it('should return true for SubagentStop event', () => {
 				expect(isSubagentStopEvent(subagentStopEvent)).toBe(true);
 			});
 
 			it('should return false for other events', () => {
+				expect(isSubagentStopEvent(subagentStartEvent)).toBe(false);
 				expect(isSubagentStopEvent(stopEvent)).toBe(false);
 				expect(isSubagentStopEvent(preToolUseEvent)).toBe(false);
 			});
@@ -326,6 +410,28 @@ describe('hooks types', () => {
 			it('should return false for other events', () => {
 				expect(isUserPromptSubmitEvent(preToolUseEvent)).toBe(false);
 				expect(isUserPromptSubmitEvent(sessionStartEvent)).toBe(false);
+			});
+		});
+
+		describe('isPreCompactEvent', () => {
+			it('should return true for PreCompact event', () => {
+				expect(isPreCompactEvent(preCompactEvent)).toBe(true);
+			});
+
+			it('should return false for other events', () => {
+				expect(isPreCompactEvent(preToolUseEvent)).toBe(false);
+				expect(isPreCompactEvent(sessionEndEvent)).toBe(false);
+			});
+		});
+
+		describe('isSetupEvent', () => {
+			it('should return true for Setup event', () => {
+				expect(isSetupEvent(setupEvent)).toBe(true);
+			});
+
+			it('should return false for other events', () => {
+				expect(isSetupEvent(sessionStartEvent)).toBe(false);
+				expect(isSetupEvent(preToolUseEvent)).toBe(false);
 			});
 		});
 
@@ -356,14 +462,23 @@ describe('hooks types', () => {
 				expect(isToolEvent(preToolUseEvent)).toBe(true);
 			});
 
+			it('should return true for PermissionRequest event', () => {
+				expect(isToolEvent(permissionRequestEvent)).toBe(true);
+			});
+
 			it('should return true for PostToolUse event', () => {
 				expect(isToolEvent(postToolUseEvent)).toBe(true);
+			});
+
+			it('should return true for PostToolUseFailure event', () => {
+				expect(isToolEvent(postToolUseFailureEvent)).toBe(true);
 			});
 
 			it('should return false for non-tool events', () => {
 				expect(isToolEvent(notificationEvent)).toBe(false);
 				expect(isToolEvent(stopEvent)).toBe(false);
 				expect(isToolEvent(sessionEndEvent)).toBe(false);
+				expect(isToolEvent(subagentStartEvent)).toBe(false);
 			});
 		});
 
@@ -387,12 +502,42 @@ describe('hooks types', () => {
 				}
 			});
 
-			it('should allow accessing session_type only on Session events', () => {
+			it('should allow accessing reason only on SessionEnd events', () => {
 				const event: ClaudeHookEvent = sessionEndEvent;
 
 				if (isSessionEndEvent(event)) {
 					// TypeScript should know this is a SessionEndEvent
-					expect(event.session_type).toBe('interactive');
+					expect(event.reason).toBe('other');
+				}
+			});
+
+			it('should allow accessing source only on SessionStart events', () => {
+				const event: ClaudeHookEvent = sessionStartEvent;
+
+				if (isSessionStartEvent(event)) {
+					// TypeScript should know this is a SessionStartEvent
+					expect(event.source).toBe('startup');
+					expect(event.model).toBe('claude-sonnet-4-20250514');
+				}
+			});
+
+			it('should allow accessing agent_id on subagent events', () => {
+				const event: ClaudeHookEvent = subagentStartEvent;
+
+				if (isSubagentStartEvent(event)) {
+					// TypeScript should know this is a SubagentStartEvent
+					expect(event.agent_id).toBe('agent-123');
+					expect(event.agent_type).toBe('Explore');
+				}
+			});
+
+			it('should allow accessing trigger on PreCompact events', () => {
+				const event: ClaudeHookEvent = preCompactEvent;
+
+				if (isPreCompactEvent(event)) {
+					// TypeScript should know this is a PreCompactEvent
+					expect(event.trigger).toBe('manual');
+					expect(event.custom_instructions).toBe('Keep important context');
 				}
 			});
 		});
