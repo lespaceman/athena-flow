@@ -4,6 +4,7 @@ import {Box, Static, Text, useApp} from 'ink';
 import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
+import PermissionDialog from './components/PermissionDialog.js';
 import HookEvent from './components/HookEvent.js';
 import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -14,12 +15,9 @@ import {
 	type IsolationPreset,
 	generateId,
 } from './types/index.js';
+import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
-import {registerBuiltins} from './commands/builtins/index.js';
-
-// Register built-in commands once at module load
-registerBuiltins();
 
 type Props = {
 	projectDir: string;
@@ -27,6 +25,7 @@ type Props = {
 	isolation?: IsolationPreset;
 	debug?: boolean;
 	version: string;
+	pluginMcpConfig?: string;
 };
 
 type ContentItem =
@@ -41,25 +40,28 @@ function AppContent({
 	isolation,
 	debug,
 	version,
+	pluginMcpConfig,
 	onClear,
-}: {
-	projectDir: string;
-	instanceId: number;
-	isolation?: IsolationPreset;
-	debug?: boolean;
-	version: string;
-	onClear: () => void;
-}) {
+}: Props & {onClear: () => void}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 	const hookServer = useHookContext();
-	const {events, isServerRunning, socketPath, currentSessionId} = hookServer;
+	const {
+		events,
+		isServerRunning,
+		socketPath,
+		currentSessionId,
+		currentPermissionRequest,
+		permissionQueueCount,
+		resolvePermission,
+	} = hookServer;
 	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
 		projectDir,
 		instanceId,
 		isolation,
+		pluginMcpConfig,
 	);
 	const {exit} = useApp();
 
@@ -118,12 +120,20 @@ function AppContent({
 					hookServer,
 				},
 				prompt: {
-					spawn: (prompt, sessionId) => spawnClaude(prompt, sessionId),
+					spawn: spawnClaude,
 					currentSessionId: currentSessionId ?? undefined,
 				},
 			});
 		},
 		[addMessage, spawnClaude, currentSessionId, hookServer, exit, clearScreen],
+	);
+
+	const handlePermissionDecision = useCallback(
+		(decision: PermissionDecision) => {
+			if (!currentPermissionRequest) return;
+			resolvePermission(currentPermissionRequest.requestId, decision);
+		},
+		[currentPermissionRequest, resolvePermission],
 	);
 
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
@@ -230,7 +240,20 @@ function AppContent({
 				</Box>
 			)}
 
-			<CommandInput inputKey={inputKey} onSubmit={handleSubmit} />
+			{/* Permission dialog - shown when a dangerous tool needs approval */}
+			{currentPermissionRequest && (
+				<PermissionDialog
+					request={currentPermissionRequest}
+					queuedCount={permissionQueueCount - 1}
+					onDecision={handlePermissionDecision}
+				/>
+			)}
+
+			<CommandInput
+				inputKey={inputKey}
+				onSubmit={handleSubmit}
+				disabled={currentPermissionRequest !== null}
+			/>
 		</Box>
 	);
 }
@@ -241,6 +264,7 @@ export default function App({
 	isolation,
 	debug,
 	version,
+	pluginMcpConfig,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 
@@ -253,6 +277,7 @@ export default function App({
 				isolation={isolation}
 				debug={debug}
 				version={version}
+				pluginMcpConfig={pluginMcpConfig}
 				onClear={() => setClearCount(c => c + 1)}
 			/>
 		</HookProvider>

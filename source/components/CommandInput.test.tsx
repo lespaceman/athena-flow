@@ -197,6 +197,43 @@ describe('CommandInput', () => {
 		expect(frame).not.toContain('hello');
 	});
 
+	it('shows all commands including plugin commands when / is typed', async () => {
+		// Register extra commands to exceed the old MAX_SUGGESTIONS of 6
+		for (let i = 0; i < 8; i++) {
+			registryModule.register({
+				name: `builtin-${i}`,
+				description: `Builtin ${i}`,
+				category: 'ui',
+				execute: () => {},
+			});
+		}
+		registryModule.register({
+			name: 'explore-website',
+			description: 'Explore a site',
+			category: 'prompt',
+			session: 'new' as const,
+			buildPrompt: () => 'explore',
+		});
+
+		const {lastFrame, stdin} = render(
+			<CommandInput inputKey={0} onSubmit={() => {}} />,
+		);
+
+		stdin.write('/');
+		await delay(50);
+
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('/explore-website');
+	});
+
+	it('shows disabled placeholder when disabled', () => {
+		const {lastFrame} = render(
+			<CommandInput inputKey={0} onSubmit={vi.fn()} disabled />,
+		);
+
+		expect(lastFrame()).toContain('Waiting for permission decision');
+	});
+
 	it('dismisses suggestions on Escape', async () => {
 		const {lastFrame, stdin} = render(
 			<CommandInput inputKey={0} onSubmit={() => {}} />,

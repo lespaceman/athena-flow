@@ -6,6 +6,7 @@
  */
 
 import {type Message} from '../types/common.js';
+import {type IsolationConfig} from '../types/isolation.js';
 import {type UseHookServerResult} from '../types/server.js';
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ export type UICommand = CommandBase & {
 export type PromptCommand = CommandBase & {
 	category: 'prompt';
 	session: SessionStrategy;
+	isolation?: Partial<IsolationConfig>;
 	buildPrompt: (args: Record<string, string>) => string;
 };
 
@@ -66,7 +68,11 @@ export type HookCommandContext = {
 };
 
 export type PromptCommandContext = {
-	spawn: (prompt: string, sessionId?: string) => void;
+	spawn: (
+		prompt: string,
+		sessionId?: string,
+		isolation?: Partial<IsolationConfig>,
+	) => void;
 	currentSessionId: string | undefined;
 };
 

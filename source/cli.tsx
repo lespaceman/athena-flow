@@ -6,6 +6,12 @@ import {createRequire} from 'node:module';
 import App from './app.js';
 import {processRegistry} from './utils/processRegistry.js';
 import {type IsolationPreset} from './types/isolation.js';
+import {registerBuiltins} from './commands/builtins/index.js';
+import {
+	registerPlugins,
+	readConfig,
+	readGlobalConfig,
+} from './plugins/index.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -20,14 +26,22 @@ const cli = meow(
 
 	Options
 		--project-dir   Project directory for hook socket (default: cwd)
+		--plugin        Path to a Claude Code plugin directory (repeatable)
 		--isolation     Isolation preset for spawned Claude process:
 		                  strict (default) - User settings only, no project hooks/MCP
 		                  minimal - User settings, allow project MCP servers
 		                  permissive - Full project access
 		--debug         Show hook events and server status
 
+	Plugin Config
+		Global:  ~/.config/athena/config.json
+		Project: {projectDir}/.athena/config.json
+		Format:  { "plugins": ["/absolute/path", "relative/path"] }
+		Merge order: global → project → --plugin flags
+
 	Examples
 	  $ athena-cli --project-dir=/my/project
+	  $ athena-cli --plugin=/path/to/my-plugin
 	  $ athena-cli --isolation=minimal
 	  $ athena-cli --debug
 `,
@@ -37,6 +51,10 @@ const cli = meow(
 			projectDir: {
 				type: 'string',
 				default: process.cwd(),
+			},
+			plugin: {
+				type: 'string',
+				isMultiple: true,
 			},
 			isolation: {
 				type: 'string',
@@ -61,6 +79,16 @@ if (validIsolationPresets.includes(cli.flags.isolation)) {
 	);
 }
 
+// Register commands: builtins first, then plugins (global -> project -> CLI flags)
+registerBuiltins();
+const pluginDirs = [
+	...readGlobalConfig().plugins,
+	...readConfig(cli.flags.projectDir).plugins,
+	...(cli.flags.plugin ?? []),
+];
+const pluginMcpConfig =
+	pluginDirs.length > 0 ? registerPlugins(pluginDirs) : undefined;
+
 const instanceId = process.pid;
 render(
 	<App
@@ -69,5 +97,6 @@ render(
 		isolation={isolationPreset}
 		debug={cli.flags.debug}
 		version={version}
+		pluginMcpConfig={pluginMcpConfig}
 	/>,
 );

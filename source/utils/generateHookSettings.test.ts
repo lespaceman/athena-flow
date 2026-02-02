@@ -127,6 +127,28 @@ describe('generateHookSettings', () => {
 		expect(() => result.cleanup()).not.toThrow();
 	});
 
+	it('should set extended timeout for PreToolUse hooks', () => {
+		const result = generateHookSettings();
+		createdFiles.push(result.settingsPath);
+
+		const content = fs.readFileSync(result.settingsPath, 'utf8');
+		const settings = JSON.parse(content);
+
+		const preToolUseTimeout = settings.hooks.PreToolUse[0].hooks[0].timeout;
+		expect(preToolUseTimeout).toBe(300);
+	});
+
+	it('should keep short timeout for non-PreToolUse hooks', () => {
+		const result = generateHookSettings();
+		createdFiles.push(result.settingsPath);
+
+		const content = fs.readFileSync(result.settingsPath, 'utf8');
+		const settings = JSON.parse(content);
+
+		const stopTimeout = settings.hooks.Stop[0].hooks[0].timeout;
+		expect(stopTimeout).toBe(1);
+	});
+
 	it('should write valid JSON', () => {
 		const result = generateHookSettings();
 		createdFiles.push(result.settingsPath);

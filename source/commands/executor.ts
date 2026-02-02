@@ -22,7 +22,7 @@ export function executeCommand(
 			const prompt = command.buildPrompt(args);
 			const sessionId =
 				command.session === 'resume' ? ctx.prompt.currentSessionId : undefined;
-			ctx.prompt.spawn(prompt, sessionId);
+			ctx.prompt.spawn(prompt, sessionId, command.isolation);
 			break;
 		}
 		case 'hook':

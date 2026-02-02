@@ -55,6 +55,7 @@ export {
 	createPassthroughResult,
 	createBlockResult,
 	createJsonOutputResult,
+	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 } from './result.js';
 
