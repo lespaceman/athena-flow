@@ -40,7 +40,12 @@ const builtins = [
 	manualCommand,
 ];
 
+let registered = false;
+
 export function registerBuiltins(): void {
+	if (registered) return;
+	registered = true;
+
 	for (const command of builtins) {
 		register(command);
 	}

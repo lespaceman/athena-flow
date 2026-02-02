@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useRef} from 'react';
 import {Box, Static, Text, useApp} from 'ink';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
@@ -39,6 +39,8 @@ function AppContent({
 }) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
+	const messagesRef = useRef(messages);
+	messagesRef.current = messages;
 	const hookServer = useHookContext();
 	const {events, isServerRunning, socketPath, currentSessionId} = hookServer;
 	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
@@ -77,12 +79,16 @@ function AppContent({
 
 			// It's a command
 			addMessage('user', value);
+			const addMessageObj = (msg: MessageType) =>
+				setMessages(prev => [...prev, msg]);
 			executeCommand(result.command, result.args, {
 				ui: {
 					args: result.args,
-					messages,
+					get messages() {
+						return messagesRef.current;
+					},
 					setMessages,
-					addMessage: (msg: MessageType) => setMessages(prev => [...prev, msg]),
+					addMessage: addMessageObj,
 					exit,
 				},
 				hook: {
@@ -95,7 +101,7 @@ function AppContent({
 				},
 			});
 		},
-		[addMessage, spawnClaude, currentSessionId, messages, hookServer, exit],
+		[addMessage, spawnClaude, currentSessionId, hookServer, exit],
 	);
 
 	// Interleave messages and hook events by timestamp
