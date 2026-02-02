@@ -26,6 +26,7 @@ import {
 } from './types/hooks/index.js';
 
 const SOCKET_TIMEOUT_MS = 300;
+const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for permission decisions
 
 function getSocketPath(cwd: string): string {
 	const instanceId = process.env['ATHENA_INSTANCE_ID'];
@@ -56,6 +57,7 @@ type ConnectResult = {
 async function connectAndSend(
 	socketPath: string,
 	envelope: HookEventEnvelope,
+	timeoutMs: number,
 ): Promise<ConnectResult> {
 	return new Promise(resolve => {
 		const socket = new net.Socket();
@@ -71,7 +73,7 @@ async function connectAndSend(
 		};
 
 		// Set timeout for entire operation
-		const timeoutId = setTimeout(() => cleanup('TIMEOUT'), SOCKET_TIMEOUT_MS);
+		const timeoutId = setTimeout(() => cleanup('TIMEOUT'), timeoutMs);
 
 		socket.on('connect', () => {
 			// Send the envelope as NDJSON (newline-delimited JSON)
@@ -151,11 +153,18 @@ async function main(): Promise<void> {
 		};
 
 		// Connect to Ink CLI and send
+		// Use extended timeout for PreToolUse events (permission dialog may be shown)
+		const timeoutMs =
+			hookInput.hook_event_name === 'PreToolUse'
+				? PERMISSION_TIMEOUT_MS
+				: SOCKET_TIMEOUT_MS;
+
 		// Use cwd from hook input - this is set by Claude to the project directory
 		const socketPath = getSocketPath(hookInput.cwd);
 		const {envelope: result, error} = await connectAndSend(
 			socketPath,
 			envelope,
+			timeoutMs,
 		);
 
 		// Handle connection errors with informative messages (to stderr, still passthrough)

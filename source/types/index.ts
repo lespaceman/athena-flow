@@ -36,10 +36,14 @@ export {
 } from './isolation.js';
 
 // Rule types
-export {type RuleAction, type HookRule} from './rules.js';
+export {type RuleAction, type HookRule, matchRule} from './rules.js';
 
 // Server types
-export {type PendingRequest, type UseHookServerResult} from './server.js';
+export {
+	type PendingRequest,
+	type UseHookServerResult,
+	type PermissionDecision,
+} from './server.js';
 
 // Context types
 export {type HookContextValue, type HookProviderProps} from './context.js';

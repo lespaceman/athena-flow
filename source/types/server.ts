@@ -9,6 +9,12 @@ import {type HookEventDisplay} from './hooks/display.js';
 import {type HookResultPayload} from './hooks/result.js';
 import {type HookRule} from './rules.js';
 
+export type PermissionDecision =
+	| 'allow'
+	| 'deny'
+	| 'always-allow'
+	| 'always-deny';
+
 /**
  * A pending request waiting for a response.
  */
@@ -44,4 +50,10 @@ export type UseHookServerResult = {
 	clearRules: () => void;
 	/** Clear all events */
 	clearEvents: () => void;
+	/** Current permission request awaiting user decision (first in queue) */
+	currentPermissionRequest: HookEventDisplay | null;
+	/** Number of queued permission requests */
+	permissionQueueCount: number;
+	/** Resolve a permission request with user's decision */
+	resolvePermission: (requestId: string, decision: PermissionDecision) => void;
 };

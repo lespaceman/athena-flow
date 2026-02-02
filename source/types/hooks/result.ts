@@ -59,6 +59,22 @@ export function createJsonOutputResult(
 }
 
 /**
+ * Helper to create an allow result for PreToolUse hooks.
+ * This explicitly tells Claude Code to skip its own permission prompt.
+ */
+export function createPreToolUseAllowResult(): HookResultPayload {
+	return {
+		action: 'json_output',
+		stdout_json: {
+			hookSpecificOutput: {
+				hookEventName: 'PreToolUse',
+				permissionDecision: 'allow',
+			},
+		},
+	};
+}
+
+/**
  * Helper to create a deny result for PreToolUse hooks.
  */
 export function createPreToolUseDenyResult(reason: string): HookResultPayload {

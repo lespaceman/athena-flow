@@ -120,6 +120,12 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 		timeout: 1,
 	};
 
+	const preToolUseHookCommand: HookCommand = {
+		type: 'command',
+		command: hookForwarderPath,
+		timeout: 300, // Extended timeout for permission dialog
+	};
+
 	// Build hooks configuration for all event types
 	const hooks: ClaudeSettings['hooks'] = {};
 
@@ -128,7 +134,7 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 		hooks[event] = [
 			{
 				matcher: '*',
-				hooks: [hookCommand],
+				hooks: [event === 'PreToolUse' ? preToolUseHookCommand : hookCommand],
 			},
 		];
 	}

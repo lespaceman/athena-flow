@@ -9,9 +9,10 @@ const MAX_SUGGESTIONS = 6;
 type Props = {
 	inputKey: number;
 	onSubmit: (value: string) => void;
+	disabled?: boolean;
 };
 
-export default function CommandInput({inputKey, onSubmit}: Props) {
+export default function CommandInput({inputKey, onSubmit, disabled}: Props) {
 	const [value, setValue] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	// Bump completionKey to remount TextInput with a new defaultValue after tab completion
@@ -62,6 +63,8 @@ export default function CommandInput({inputKey, onSubmit}: Props) {
 	filteredCommandsRef.current = filteredCommands;
 	const safeIndexRef = useRef(safeIndex);
 	safeIndexRef.current = safeIndex;
+	const disabledRef = useRef(disabled);
+	disabledRef.current = disabled;
 
 	// Tab completion: insert selected command name into input
 	const completeSelected = useCallback(() => {
@@ -87,7 +90,7 @@ export default function CommandInput({inputKey, onSubmit}: Props) {
 				escape: boolean;
 			},
 		) => {
-			if (!showSuggestionsRef.current) return;
+			if (disabledRef.current || !showSuggestionsRef.current) return;
 
 			if (key.tab) {
 				completeSelected();
@@ -150,13 +153,17 @@ export default function CommandInput({inputKey, onSubmit}: Props) {
 				paddingX={1}
 			>
 				<Text color="gray">{'>'} </Text>
-				<TextInput
-					key={`${inputKey}-${completionKey}`}
-					defaultValue={defaultValue}
-					onChange={setValue}
-					onSubmit={handleSubmit}
-					placeholder="Type a message or /command..."
-				/>
+				{disabled ? (
+					<Text dimColor>Waiting for permission decision...</Text>
+				) : (
+					<TextInput
+						key={`${inputKey}-${completionKey}`}
+						defaultValue={defaultValue}
+						onChange={setValue}
+						onSubmit={handleSubmit}
+						placeholder="Type a message or /command..."
+					/>
+				)}
 			</Box>
 		</Box>
 	);

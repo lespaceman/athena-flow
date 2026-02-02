@@ -10,6 +10,7 @@ import {
 	type HookEventDisplay,
 	type HookEventEnvelope,
 	createPassthroughResult,
+	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	isValidHookEventEnvelope,
 	generateId,
@@ -18,8 +19,10 @@ import {
 import {
 	type PendingRequest,
 	type UseHookServerResult,
+	type PermissionDecision,
 } from '../types/server.js';
-import {type HookRule} from '../types/rules.js';
+import {type HookRule, matchRule} from '../types/rules.js';
+import {isPermissionRequired} from '../services/permissionPolicy.js';
 import {parseTranscriptFile} from '../utils/transcriptParser.js';
 import {
 	initHookLogger,
@@ -28,32 +31,12 @@ import {
 	closeHookLogger,
 } from '../utils/hookLogger.js';
 
-// Re-export type for backwards compatibility
+// Re-export for backwards compatibility
 export type {UseHookServerResult};
+export {matchRule};
 
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
-
-/**
- * Find the first matching rule for a tool name.
- * Deny rules are checked first, then approve. First match wins.
- */
-export function matchRule(
-	rules: HookRule[],
-	toolName: string,
-): HookRule | undefined {
-	// Check deny rules first
-	const denyMatch = rules.find(
-		r => r.action === 'deny' && (r.toolName === toolName || r.toolName === '*'),
-	);
-	if (denyMatch) return denyMatch;
-
-	// Then approve rules
-	return rules.find(
-		r =>
-			r.action === 'approve' && (r.toolName === toolName || r.toolName === '*'),
-	);
-}
 
 export function useHookServer(
 	projectDir: string,
@@ -71,6 +54,11 @@ export function useHookServer(
 
 	// Keep ref in sync so the socket handler sees current rules
 	rulesRef.current = rules;
+
+	// Permission queue — requestIds waiting for user decision
+	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
+	const permissionQueueRef = useRef<string[]>([]);
+	permissionQueueRef.current = permissionQueue;
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -152,6 +140,43 @@ export function useHookServer(
 		[],
 	);
 
+	// Resolve a permission request with the user's decision
+	const resolvePermission = useCallback(
+		(requestId: string, decision: PermissionDecision) => {
+			// Look up the event to find the tool name
+			const pending = pendingRequestsRef.current.get(requestId);
+			const toolName = pending?.event.toolName;
+
+			// Handle "always" decisions by adding rules
+			if (decision === 'always-allow' && toolName) {
+				addRule({
+					toolName,
+					action: 'approve',
+					addedBy: 'permission-dialog',
+				});
+			} else if (decision === 'always-deny' && toolName) {
+				addRule({
+					toolName,
+					action: 'deny',
+					addedBy: 'permission-dialog',
+				});
+			}
+
+			// Send the actual response — use explicit allow/deny JSON
+			// so Claude Code skips its own permission prompt
+			const result =
+				decision === 'allow' || decision === 'always-allow'
+					? createPreToolUseAllowResult()
+					: createPreToolUseDenyResult('Denied by user via permission dialog');
+
+			respond(requestId, result);
+
+			// Remove from permission queue
+			setPermissionQueue(prev => prev.filter(id => id !== requestId));
+		},
+		[respond, addRule],
+	);
+
 	// Get pending events
 	const pendingEvents = events.filter(e => e.status === 'pending');
 
@@ -227,13 +252,13 @@ export function useHookServer(
 											? createPreToolUseDenyResult(
 													`Blocked by rule: ${matchedRule.addedBy}`,
 												)
-											: createPassthroughResult();
+											: createPreToolUseAllowResult();
 
 									// Store pending briefly so respond() can find it
 									pendingRequestsRef.current.set(envelope.request_id, {
 										requestId: envelope.request_id,
 										socket,
-										timeoutId: setTimeout(() => {}, 0), // placeholder
+										timeoutId: setTimeout(() => {}, 0), // placeholder; cleared by respond()
 										event: displayEvent,
 										receiveTimestamp,
 									});
@@ -253,6 +278,41 @@ export function useHookServer(
 									data = lines.slice(1).join('\n');
 									return;
 								}
+							}
+
+							// Check if permission is required for this tool
+							const needsPermission =
+								envelope.hook_event_name === 'PreToolUse' &&
+								isToolEvent(payload) &&
+								isPermissionRequired(payload.tool_name, rulesRef.current);
+
+							if (needsPermission) {
+								// Store pending request WITHOUT auto-passthrough timeout
+								const placeholderTimeout = setTimeout(() => {}, 0);
+								clearTimeout(placeholderTimeout);
+								pendingRequestsRef.current.set(envelope.request_id, {
+									requestId: envelope.request_id,
+									socket,
+									timeoutId: placeholderTimeout,
+									event: displayEvent,
+									receiveTimestamp,
+								});
+
+								// Add event to display
+								setEvents(prev => {
+									const updated = [...prev, displayEvent];
+									if (updated.length > MAX_EVENTS) {
+										return updated.slice(-MAX_EVENTS);
+									}
+									return updated;
+								});
+
+								// Add to permission queue
+								setPermissionQueue(prev => [...prev, envelope.request_id]);
+
+								// Reset for next message
+								data = lines.slice(1).join('\n');
+								return;
 							}
 
 							// Set up auto-passthrough timeout
@@ -330,8 +390,8 @@ export function useHookServer(
 							// Invalid envelope structure, close connection
 							socket.end();
 						}
-					} catch {
-						// Invalid JSON, ignore
+					} catch (err) {
+						console.error('[hook-server] Error processing event:', err);
 						socket.end();
 					}
 
@@ -346,11 +406,21 @@ export function useHookServer(
 
 			socket.on('close', () => {
 				// Clean up any pending requests for this socket
+				const closedRequestIds: string[] = [];
 				for (const [reqId, pending] of pendingRequestsRef.current) {
 					if (pending.socket === socket) {
 						clearTimeout(pending.timeoutId);
 						pendingRequestsRef.current.delete(reqId);
+						closedRequestIds.push(reqId);
 					}
+				}
+
+				// Remove closed requests from the permission queue so the
+				// dialog does not get stuck showing a dead request.
+				if (closedRequestIds.length > 0 && isMountedRef.current) {
+					setPermissionQueue(prev =>
+						prev.filter(id => !closedRequestIds.includes(id)),
+					);
 				}
 			});
 		});
@@ -406,6 +476,11 @@ export function useHookServer(
 		};
 	}, [projectDir, instanceId, respond]);
 
+	const currentPermissionRequest =
+		permissionQueue.length > 0
+			? (events.find(e => e.requestId === permissionQueue[0]) ?? null)
+			: null;
+
 	return {
 		events,
 		isServerRunning,
@@ -419,5 +494,8 @@ export function useHookServer(
 		removeRule,
 		clearRules,
 		clearEvents,
+		currentPermissionRequest,
+		permissionQueueCount: permissionQueue.length,
+		resolvePermission,
 	};
 }

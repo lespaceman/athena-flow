@@ -226,6 +226,14 @@ describe('CommandInput', () => {
 		expect(frame).toContain('/explore-website');
 	});
 
+	it('shows disabled placeholder when disabled', () => {
+		const {lastFrame} = render(
+			<CommandInput inputKey={0} onSubmit={vi.fn()} disabled />,
+		);
+
+		expect(lastFrame()).toContain('Waiting for permission decision');
+	});
+
 	it('dismisses suggestions on Escape', async () => {
 		const {lastFrame, stdin} = render(
 			<CommandInput inputKey={0} onSubmit={() => {}} />,

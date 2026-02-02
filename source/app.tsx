@@ -4,6 +4,7 @@ import {Box, Static, Text, useApp} from 'ink';
 import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
+import PermissionDialog from './components/PermissionDialog.js';
 import HookEvent from './components/HookEvent.js';
 import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -14,6 +15,7 @@ import {
 	type IsolationPreset,
 	generateId,
 } from './types/index.js';
+import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 
@@ -46,7 +48,15 @@ function AppContent({
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 	const hookServer = useHookContext();
-	const {events, isServerRunning, socketPath, currentSessionId} = hookServer;
+	const {
+		events,
+		isServerRunning,
+		socketPath,
+		currentSessionId,
+		currentPermissionRequest,
+		permissionQueueCount,
+		resolvePermission,
+	} = hookServer;
 	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
 		projectDir,
 		instanceId,
@@ -116,6 +126,14 @@ function AppContent({
 			});
 		},
 		[addMessage, spawnClaude, currentSessionId, hookServer, exit, clearScreen],
+	);
+
+	const handlePermissionDecision = useCallback(
+		(decision: PermissionDecision) => {
+			if (!currentPermissionRequest) return;
+			resolvePermission(currentPermissionRequest.requestId, decision);
+		},
+		[currentPermissionRequest, resolvePermission],
 	);
 
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
@@ -222,7 +240,20 @@ function AppContent({
 				</Box>
 			)}
 
-			<CommandInput inputKey={inputKey} onSubmit={handleSubmit} />
+			{/* Permission dialog - shown when a dangerous tool needs approval */}
+			{currentPermissionRequest && (
+				<PermissionDialog
+					request={currentPermissionRequest}
+					queuedCount={permissionQueueCount - 1}
+					onDecision={handlePermissionDecision}
+				/>
+			)}
+
+			<CommandInput
+				inputKey={inputKey}
+				onSubmit={handleSubmit}
+				disabled={currentPermissionRequest !== null}
+			/>
 		</Box>
 	);
 }

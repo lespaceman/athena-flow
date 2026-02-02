@@ -13,3 +13,21 @@ export type HookRule = {
 	action: RuleAction;
 	addedBy: string; // command that created the rule
 };
+
+/**
+ * Find the first matching rule for a tool name.
+ * Deny rules are checked first, then approve. First match wins.
+ */
+export function matchRule(
+	rules: HookRule[],
+	toolName: string,
+): HookRule | undefined {
+	const denyMatch = rules.find(
+		r => r.action === 'deny' && (r.toolName === toolName || r.toolName === '*'),
+	);
+	if (denyMatch) return denyMatch;
+	return rules.find(
+		r =>
+			r.action === 'approve' && (r.toolName === toolName || r.toolName === '*'),
+	);
+}
