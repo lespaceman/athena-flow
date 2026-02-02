@@ -12,7 +12,7 @@ const defaultPayload: SessionEndEventType = {
 	transcript_path: '/path/to/transcript.jsonl',
 	cwd: '/home/user/project',
 	hook_event_name: 'SessionEnd',
-	session_type: 'interactive',
+	reason: 'other',
 };
 
 const createSessionEndEvent = (
@@ -36,21 +36,21 @@ describe('SessionEndEvent', () => {
 		expect(lastFrame()).toContain('passthrough');
 	});
 
-	it('displays session type', () => {
-		const headlessPayload: SessionEndEventType = {
+	it('displays session end reason', () => {
+		const logoutPayload: SessionEndEventType = {
 			session_id: 'session-123',
 			transcript_path: '/path/to/transcript.jsonl',
 			cwd: '/home/user/project',
 			hook_event_name: 'SessionEnd',
-			session_type: 'headless',
+			reason: 'logout',
 		};
 		const event = createSessionEndEvent({
-			payload: headlessPayload,
+			payload: logoutPayload,
 		});
 		const {lastFrame} = render(<SessionEndEvent event={event} />);
 
-		expect(lastFrame()).toContain('Session type:');
-		expect(lastFrame()).toContain('headless');
+		expect(lastFrame()).toContain('Reason:');
+		expect(lastFrame()).toContain('logout');
 	});
 
 	it('displays loading state when transcript summary is not available', () => {

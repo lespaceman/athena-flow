@@ -3,6 +3,18 @@ import * as childProcess from 'node:child_process';
 import {spawnClaude, type SpawnClaudeOptions} from './spawnClaude.js';
 import {EventEmitter} from 'node:events';
 
+// Mock cleanup function
+const mockCleanup = vi.fn();
+
+// Mock generateHookSettings before importing spawnClaude
+vi.mock('./generateHookSettings.js', () => ({
+	generateHookSettings: vi.fn(() => ({
+		settingsPath: '/tmp/mock-settings.json',
+		cleanup: mockCleanup,
+	})),
+	registerCleanupOnExit: vi.fn(),
+}));
+
 // Create a mock ChildProcess with event emitter based stdout/stderr
 function createMockChildProcess() {
 	const stdout = new EventEmitter();
@@ -28,6 +40,7 @@ describe('spawnClaude', () => {
 	beforeEach(() => {
 		mockChildProcess = createMockChildProcess();
 		vi.mocked(childProcess.spawn).mockReturnValue(mockChildProcess);
+		mockCleanup.mockClear();
 	});
 
 	afterEach(() => {
@@ -45,7 +58,12 @@ describe('spawnClaude', () => {
 
 		expect(childProcess.spawn).toHaveBeenCalledWith(
 			'claude',
-			['-p', 'Hello, Claude!', '--output-format', 'stream-json'],
+			expect.arrayContaining([
+				'-p',
+				'Hello, Claude!',
+				'--output-format',
+				'stream-json',
+			]),
 			expect.objectContaining({
 				cwd: '/test/project',
 				stdio: ['ignore', 'pipe', 'pipe'],
@@ -180,19 +198,206 @@ describe('spawnClaude', () => {
 
 		spawnClaude(options);
 
-		expect(childProcess.spawn).toHaveBeenCalledWith(
-			'claude',
-			[
-				'-p',
-				'Test',
-				'--output-format',
-				'stream-json',
-				'--resume',
-				'abc-123-session-id',
-			],
-			expect.objectContaining({
-				cwd: '/test',
-			}),
-		);
+		const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+		expect(args).toContain('--resume');
+		expect(args).toContain('abc-123-session-id');
+	});
+
+	describe('isolation', () => {
+		it('should include --settings flag with generated settings path', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--settings');
+			expect(args).toContain('/tmp/mock-settings.json');
+		});
+
+		it('should include --setting-sources with user by default (strict preset)', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--setting-sources');
+			expect(args).toContain('user');
+		});
+
+		it('should include --strict-mcp-config by default (strict preset)', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--strict-mcp-config');
+		});
+
+		it('should not include --strict-mcp-config for minimal preset', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: 'minimal',
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).not.toContain('--strict-mcp-config');
+		});
+
+		it('should include user,project setting sources for permissive preset', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: 'permissive',
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--setting-sources');
+			expect(args).toContain('user,project');
+		});
+
+		it('should include allowed tools when specified', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					allowedTools: ['Read', 'Write'],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--allowed-tools');
+			expect(args).toContain('Read');
+			expect(args).toContain('Write');
+		});
+
+		it('should include disallowed tools when specified', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					disallowedTools: ['Bash'],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--disallowed-tools');
+			expect(args).toContain('Bash');
+		});
+
+		it('should include permission mode when specified', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					permissionMode: 'auto-accept-all',
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--permission-mode');
+			expect(args).toContain('auto-accept-all');
+		});
+
+		it('should include custom mcp config when specified', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					mcpConfig: '/path/to/mcp.json',
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--mcp-config');
+			expect(args).toContain('/path/to/mcp.json');
+		});
+
+		it('should cleanup settings file on process exit', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			};
+
+			spawnClaude(options);
+
+			// Cleanup should not be called yet
+			expect(mockCleanup).not.toHaveBeenCalled();
+
+			// Emit exit event
+			mockChildProcess.emit('exit', 0);
+
+			// Cleanup should be called
+			expect(mockCleanup).toHaveBeenCalled();
+		});
+
+		it('should cleanup settings file on process error', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			};
+
+			spawnClaude(options);
+
+			// Emit error event
+			mockChildProcess.emit('error', new Error('spawn failed'));
+
+			// Cleanup should be called
+			expect(mockCleanup).toHaveBeenCalled();
+		});
+
+		it('should merge preset with custom config', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					preset: 'strict',
+					allowedTools: ['Read'],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			// Should have strict preset's settings
+			expect(args).toContain('--strict-mcp-config');
+			expect(args).toContain('--setting-sources');
+			// Plus custom allowed tools
+			expect(args).toContain('--allowed-tools');
+			expect(args).toContain('Read');
+		});
 	});
 });

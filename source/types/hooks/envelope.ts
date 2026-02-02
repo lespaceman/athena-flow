@@ -36,16 +36,36 @@ export type HookResultEnvelope = {
 
 /**
  * Valid hook event names for validation.
+ *
+ * Complete list of Claude Code hooks:
+ * - SessionStart: Session begins or resumes
+ * - UserPromptSubmit: User submits a prompt
+ * - PreToolUse: Before tool execution
+ * - PermissionRequest: When permission dialog appears
+ * - PostToolUse: After tool succeeds
+ * - PostToolUseFailure: After tool fails
+ * - SubagentStart: When spawning a subagent
+ * - SubagentStop: When subagent finishes
+ * - Stop: Claude finishes responding
+ * - PreCompact: Before context compaction
+ * - SessionEnd: Session terminates
+ * - Notification: Claude Code sends notifications
+ * - Setup: When invoked with --init, --init-only, or --maintenance flags
  */
 export const VALID_HOOK_EVENT_NAMES = new Set<string>([
-	'PreToolUse',
-	'PostToolUse',
-	'Notification',
-	'Stop',
-	'SubagentStop',
-	'UserPromptSubmit',
 	'SessionStart',
+	'UserPromptSubmit',
+	'PreToolUse',
+	'PermissionRequest',
+	'PostToolUse',
+	'PostToolUseFailure',
+	'SubagentStart',
+	'SubagentStop',
+	'Stop',
+	'PreCompact',
 	'SessionEnd',
+	'Notification',
+	'Setup',
 ]);
 
 /**

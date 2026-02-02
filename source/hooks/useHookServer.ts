@@ -8,7 +8,9 @@ import {
 	type HookResultEnvelope,
 	type HookResultPayload,
 	type HookEventDisplay,
+	type HookEventEnvelope,
 	createPassthroughResult,
+	createPreToolUseDenyResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
@@ -17,13 +19,41 @@ import {
 	type PendingRequest,
 	type UseHookServerResult,
 } from '../types/server.js';
+import {type HookRule} from '../types/rules.js';
 import {parseTranscriptFile} from '../utils/transcriptParser.js';
+import {
+	initHookLogger,
+	logHookReceived,
+	logHookResponded,
+	closeHookLogger,
+} from '../utils/hookLogger.js';
 
 // Re-export type for backwards compatibility
 export type {UseHookServerResult};
 
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
+
+/**
+ * Find the first matching rule for a tool name.
+ * Deny rules are checked first, then approve. First match wins.
+ */
+export function matchRule(
+	rules: HookRule[],
+	toolName: string,
+): HookRule | undefined {
+	// Check deny rules first
+	const denyMatch = rules.find(
+		r => r.action === 'deny' && (r.toolName === toolName || r.toolName === '*'),
+	);
+	if (denyMatch) return denyMatch;
+
+	// Then approve rules
+	return rules.find(
+		r =>
+			r.action === 'approve' && (r.toolName === toolName || r.toolName === '*'),
+	);
+}
 
 export function useHookServer(
 	projectDir: string,
@@ -36,10 +66,29 @@ export function useHookServer(
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
 	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+	const [rules, setRules] = useState<HookRule[]>([]);
+	const rulesRef = useRef<HookRule[]>([]);
+
+	// Keep ref in sync so the socket handler sees current rules
+	rulesRef.current = rules;
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
 		setCurrentSessionId(null);
+	}, []);
+
+	// Rule management callbacks
+	const addRule = useCallback((rule: Omit<HookRule, 'id'>) => {
+		const newRule: HookRule = {...rule, id: generateId()};
+		setRules(prev => [...prev, newRule]);
+	}, []);
+
+	const removeRule = useCallback((id: string) => {
+		setRules(prev => prev.filter(r => r.id !== id));
+	}, []);
+
+	const clearRules = useCallback(() => {
+		setRules([]);
 	}, []);
 
 	// Respond to a hook event
@@ -47,6 +96,10 @@ export function useHookServer(
 		(requestId: string, result: HookResultPayload) => {
 			const pending = pendingRequestsRef.current.get(requestId);
 			if (!pending) return;
+
+			// Log the response with response time
+			const responseTimeMs = Date.now() - pending.receiveTimestamp;
+			logHookResponded(requestId, result.action, responseTimeMs);
 
 			// Clear timeout
 			clearTimeout(pending.timeoutId);
@@ -119,6 +172,9 @@ export function useHookServer(
 			// File might not exist
 		}
 
+		// Initialize hook logger
+		initHookLogger(projectDir);
+
 		// Create server
 		const server = net.createServer((socket: net.Socket) => {
 			let data = '';
@@ -134,7 +190,11 @@ export function useHookServer(
 
 						// Validate envelope structure before processing
 						if (isValidHookEventEnvelope(parsed)) {
-							const envelope = parsed;
+							const envelope = parsed as HookEventEnvelope;
+							const receiveTimestamp = Date.now();
+
+							// Log received event
+							logHookReceived(envelope);
 
 							// Create display event
 							const payload = envelope.payload;
@@ -148,6 +208,49 @@ export function useHookServer(
 								status: 'pending',
 							};
 
+							// Check rules for PreToolUse events
+							if (
+								envelope.hook_event_name === 'PreToolUse' &&
+								isToolEvent(payload)
+							) {
+								const matchedRule = matchRule(
+									rulesRef.current,
+									payload.tool_name,
+								);
+								if (matchedRule) {
+									const result =
+										matchedRule.action === 'deny'
+											? createPreToolUseDenyResult(
+													`Blocked by rule: ${matchedRule.addedBy}`,
+												)
+											: createPassthroughResult();
+
+									// Store pending briefly so respond() can find it
+									pendingRequestsRef.current.set(envelope.request_id, {
+										requestId: envelope.request_id,
+										socket,
+										timeoutId: setTimeout(() => {}, 0), // placeholder
+										event: displayEvent,
+										receiveTimestamp,
+									});
+
+									// Add event and respond immediately
+									setEvents(prev => {
+										const updated = [...prev, displayEvent];
+										if (updated.length > MAX_EVENTS) {
+											return updated.slice(-MAX_EVENTS);
+										}
+										return updated;
+									});
+
+									respond(envelope.request_id, result);
+
+									// Reset for next message
+									data = lines.slice(1).join('\n');
+									return;
+								}
+							}
+
 							// Set up auto-passthrough timeout
 							const timeoutId = setTimeout(() => {
 								respond(envelope.request_id, createPassthroughResult());
@@ -159,6 +262,7 @@ export function useHookServer(
 								socket,
 								timeoutId,
 								event: displayEvent,
+								receiveTimestamp,
 							});
 
 							// Add to events with pruning to prevent memory leak
@@ -292,6 +396,9 @@ export function useHookServer(
 			} catch {
 				// File might not exist
 			}
+
+			// Close hook logger
+			closeHookLogger();
 		};
 	}, [projectDir, instanceId, respond]);
 
@@ -303,5 +410,9 @@ export function useHookServer(
 		socketPath,
 		currentSessionId,
 		resetSession,
+		rules,
+		addRule,
+		removeRule,
+		clearRules,
 	};
 }

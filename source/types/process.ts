@@ -4,6 +4,8 @@
  * Types for spawning and managing Claude Code headless processes.
  */
 
+import {type IsolationConfig, type IsolationPreset} from './isolation.js';
+
 /**
  * Options for spawning a Claude Code headless process.
  */
@@ -16,6 +18,12 @@ export type SpawnClaudeOptions = {
 	instanceId: number;
 	/** Optional session ID to resume an existing conversation */
 	sessionId?: string;
+	/**
+	 * Isolation configuration for the spawned Claude process.
+	 * Controls which settings/hooks/MCP servers are loaded.
+	 * Defaults to 'strict' preset (user settings only, athena hooks injected).
+	 */
+	isolation?: IsolationConfig | IsolationPreset;
 	/** Called when stdout data is received */
 	onStdout?: (data: string) => void;
 	/** Called when stderr data is received */

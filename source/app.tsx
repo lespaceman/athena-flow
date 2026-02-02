@@ -1,19 +1,27 @@
-import React, {useState, useCallback} from 'react';
-import {Box, Static, Text} from 'ink';
+import React, {useState, useCallback, useRef} from 'react';
+import {Box, Static, Text, useApp} from 'ink';
 import Message from './components/Message.js';
-import InputBar from './components/InputBar.js';
+import CommandInput from './components/CommandInput.js';
 import HookEvent from './components/HookEvent.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {
 	type Message as MessageType,
 	type HookEventDisplay,
+	type IsolationPreset,
 	generateId,
 } from './types/index.js';
+import {parseInput} from './commands/parser.js';
+import {executeCommand} from './commands/executor.js';
+import {registerBuiltins} from './commands/builtins/index.js';
+
+// Register built-in commands once at module load
+registerBuiltins();
 
 type Props = {
 	projectDir: string;
 	instanceId: number;
+	isolation?: IsolationPreset;
 };
 
 type DisplayItem =
@@ -23,18 +31,24 @@ type DisplayItem =
 function AppContent({
 	projectDir,
 	instanceId,
+	isolation,
 }: {
 	projectDir: string;
 	instanceId: number;
+	isolation?: IsolationPreset;
 }) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const {events, isServerRunning, socketPath, currentSessionId} =
-		useHookContext();
+	const messagesRef = useRef(messages);
+	messagesRef.current = messages;
+	const hookServer = useHookContext();
+	const {events, isServerRunning, socketPath, currentSessionId} = hookServer;
 	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
 		projectDir,
 		instanceId,
+		isolation,
 	);
+	const {exit} = useApp();
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -53,13 +67,41 @@ function AppContent({
 		(value: string) => {
 			if (!value.trim()) return;
 
-			addMessage('user', value);
 			setInputKey(k => k + 1); // Reset input by changing key
 
-			// Spawn Claude headless process - pass sessionId for resume on follow-ups
-			spawnClaude(value, currentSessionId ?? undefined);
+			const result = parseInput(value);
+
+			if (result.type === 'prompt') {
+				addMessage('user', result.text);
+				spawnClaude(result.text, currentSessionId ?? undefined);
+				return;
+			}
+
+			// It's a command
+			addMessage('user', value);
+			const addMessageObj = (msg: MessageType) =>
+				setMessages(prev => [...prev, msg]);
+			executeCommand(result.command, result.args, {
+				ui: {
+					args: result.args,
+					get messages() {
+						return messagesRef.current;
+					},
+					setMessages,
+					addMessage: addMessageObj,
+					exit,
+				},
+				hook: {
+					args: result.args,
+					hookServer,
+				},
+				prompt: {
+					spawn: (prompt, sessionId) => spawnClaude(prompt, sessionId),
+					currentSessionId: currentSessionId ?? undefined,
+				},
+			});
 		},
-		[addMessage, spawnClaude, currentSessionId],
+		[addMessage, spawnClaude, currentSessionId, hookServer, exit],
 	);
 
 	// Interleave messages and hook events by timestamp
@@ -99,12 +141,7 @@ function AppContent({
 				<Text color={isServerRunning ? 'green' : 'red'}>
 					Hook server: {isServerRunning ? 'running' : 'stopped'}
 				</Text>
-				{socketPath && (
-					<Text color="gray" dimColor>
-						{' '}
-						({socketPath})
-					</Text>
-				)}
+				{socketPath && <Text dimColor> ({socketPath})</Text>}
 				<Text> | </Text>
 				<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
 					Claude: {isClaudeRunning ? 'running' : 'idle'}
@@ -131,15 +168,19 @@ function AppContent({
 				),
 			)}
 
-			<InputBar inputKey={inputKey} onSubmit={handleSubmit} />
+			<CommandInput inputKey={inputKey} onSubmit={handleSubmit} />
 		</Box>
 	);
 }
 
-export default function App({projectDir, instanceId}: Props) {
+export default function App({projectDir, instanceId, isolation}: Props) {
 	return (
 		<HookProvider projectDir={projectDir} instanceId={instanceId}>
-			<AppContent projectDir={projectDir} instanceId={instanceId} />
+			<AppContent
+				projectDir={projectDir}
+				instanceId={instanceId}
+				isolation={isolation}
+			/>
 		</HookProvider>
 	);
 }

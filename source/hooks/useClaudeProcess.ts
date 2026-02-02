@@ -2,6 +2,10 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {type ChildProcess} from 'node:child_process';
 import {spawnClaude} from '../utils/spawnClaude.js';
 import {type UseClaudeProcessResult} from '../types/process.js';
+import {
+	type IsolationConfig,
+	type IsolationPreset,
+} from '../types/isolation.js';
 
 // Re-export type for backwards compatibility
 export type {UseClaudeProcessResult};
@@ -16,10 +20,13 @@ const KILL_TIMEOUT_MS = 3000;
  *
  * Spawns Claude Code with `-p` flag and tracks its state.
  * Hook events are received via the separate hook server (useHookServer).
+ *
+ * By default, uses strict isolation (user settings only, athena hooks injected).
  */
 export function useClaudeProcess(
 	projectDir: string,
 	instanceId: number,
+	isolation?: IsolationConfig | IsolationPreset,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
@@ -72,6 +79,7 @@ export function useClaudeProcess(
 				projectDir,
 				instanceId,
 				sessionId,
+				isolation,
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
 					setOutput(prev => {
@@ -121,7 +129,7 @@ export function useClaudeProcess(
 
 			processRef.current = child;
 		},
-		[projectDir, instanceId, kill],
+		[projectDir, instanceId, isolation, kill],
 	);
 
 	// Cleanup on unmount - kill any running process

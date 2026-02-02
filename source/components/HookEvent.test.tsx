@@ -82,7 +82,6 @@ describe('HookEvent', () => {
 				transcript_path: '/tmp/transcript.jsonl',
 				cwd: '/project',
 				hook_event_name: 'Notification',
-				title: 'Info',
 				message: 'Task completed',
 			},
 		};
@@ -121,8 +120,8 @@ describe('HookEvent', () => {
 				transcript_path: '/tmp/transcript.jsonl',
 				cwd: '/project',
 				hook_event_name: 'Notification',
-				title: 'Build',
 				message: 'Build complete',
+				notification_type: 'permission_prompt',
 			},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
