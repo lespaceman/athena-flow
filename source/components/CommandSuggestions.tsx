@@ -12,19 +12,18 @@ export default function CommandSuggestions({commands, selectedIndex}: Props) {
 
 	return (
 		<Box flexDirection="column" paddingX={2}>
-			{commands.map((cmd, i) => (
-				<Box key={cmd.name} gap={2}>
-					<Text
-						color={i === selectedIndex ? 'cyan' : 'gray'}
-						bold={i === selectedIndex}
-					>
-						/{cmd.name}
-					</Text>
-					<Text color="gray" dimColor>
-						{cmd.description}
-					</Text>
-				</Box>
-			))}
+			{commands.map((cmd, i) => {
+				const isSelected = i === selectedIndex;
+				return (
+					<Box key={cmd.name} gap={1}>
+						<Text color="cyan">{isSelected ? '>' : ' '}</Text>
+						<Text color={isSelected ? 'cyan' : 'white'} bold={isSelected}>
+							/{cmd.name}
+						</Text>
+						<Text dimColor>{cmd.description}</Text>
+					</Box>
+				);
+			})}
 		</Box>
 	);
 }

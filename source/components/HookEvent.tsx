@@ -77,9 +77,7 @@ export default function HookEvent({event}: Props) {
 			</Box>
 			{preview && (
 				<Box>
-					<Text color="gray" dimColor>
-						{preview}
-					</Text>
+					<Text dimColor>{preview}</Text>
 				</Box>
 			)}
 			{event.result?.stderr && (

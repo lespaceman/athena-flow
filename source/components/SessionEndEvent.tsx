@@ -95,9 +95,7 @@ export default function SessionEndEvent({event}: Props) {
 			{/* Loading state when transcript is being parsed */}
 			{!summary && (
 				<Box marginTop={0}>
-					<Text color="gray" dimColor>
-						Loading transcript...
-					</Text>
+					<Text dimColor>Loading transcript...</Text>
 				</Box>
 			)}
 		</Box>

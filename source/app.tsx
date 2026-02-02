@@ -141,12 +141,7 @@ function AppContent({
 				<Text color={isServerRunning ? 'green' : 'red'}>
 					Hook server: {isServerRunning ? 'running' : 'stopped'}
 				</Text>
-				{socketPath && (
-					<Text color="gray" dimColor>
-						{' '}
-						({socketPath})
-					</Text>
-				)}
+				{socketPath && <Text dimColor> ({socketPath})</Text>}
 				<Text> | </Text>
 				<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
 					Claude: {isClaudeRunning ? 'running' : 'idle'}
