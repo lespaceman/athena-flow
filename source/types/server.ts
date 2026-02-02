@@ -42,4 +42,6 @@ export type UseHookServerResult = {
 	removeRule: (id: string) => void;
 	/** Remove all rules */
 	clearRules: () => void;
+	/** Clear all events */
+	clearEvents: () => void;
 };

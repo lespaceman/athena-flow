@@ -1,8 +1,11 @@
+import process from 'node:process';
 import React, {useState, useCallback, useRef} from 'react';
 import {Box, Static, Text, useApp} from 'ink';
+import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import HookEvent from './components/HookEvent.js';
+import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {
@@ -22,20 +25,30 @@ type Props = {
 	projectDir: string;
 	instanceId: number;
 	isolation?: IsolationPreset;
+	debug?: boolean;
+	version: string;
 };
 
-type DisplayItem =
+type ContentItem =
 	| {type: 'message'; data: MessageType}
 	| {type: 'hook'; data: HookEventDisplay};
+
+type DisplayItem = {type: 'header'; id: string} | ContentItem;
 
 function AppContent({
 	projectDir,
 	instanceId,
 	isolation,
+	debug,
+	version,
+	onClear,
 }: {
 	projectDir: string;
 	instanceId: number;
 	isolation?: IsolationPreset;
+	debug?: boolean;
+	version: string;
+	onClear: () => void;
 }) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
@@ -62,6 +75,14 @@ function AppContent({
 		},
 		[],
 	);
+
+	const clearScreen = useCallback(() => {
+		hookServer.clearEvents();
+		// ANSI: clear screen + clear scrollback + cursor home
+		process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
+		// Force full remount so Static re-renders the header
+		onClear();
+	}, [hookServer, onClear]);
 
 	const handleSubmit = useCallback(
 		(value: string) => {
@@ -90,6 +111,7 @@ function AppContent({
 					setMessages,
 					addMessage: addMessageObj,
 					exit,
+					clearScreen,
 				},
 				hook: {
 					args: result.args,
@@ -101,13 +123,36 @@ function AppContent({
 				},
 			});
 		},
-		[addMessage, spawnClaude, currentSessionId, hookServer, exit],
+		[addMessage, spawnClaude, currentSessionId, hookServer, exit, clearScreen],
 	);
 
+	// Convert SessionEnd events with transcript text into synthetic assistant messages
+	const sessionEndMessages: ContentItem[] = debug
+		? []
+		: events
+				.filter(
+					e =>
+						e.hookName === 'SessionEnd' &&
+						e.transcriptSummary?.lastAssistantText,
+				)
+				.map(e => ({
+					type: 'message' as const,
+					data: {
+						id: `${e.timestamp.getTime()}-session-end-${e.id}`,
+						role: 'assistant' as const,
+						content: e.transcriptSummary!.lastAssistantText!,
+					},
+				}));
+
 	// Interleave messages and hook events by timestamp
-	const displayItems: DisplayItem[] = [
+	const hookItems: ContentItem[] = debug
+		? events.map(e => ({type: 'hook' as const, data: e}))
+		: [];
+
+	const contentItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
-		...events.map(e => ({type: 'hook' as const, data: e})),
+		...hookItems,
+		...sessionEndMessages,
 	].sort((a, b) => {
 		const timeA =
 			a.type === 'message'
@@ -122,50 +167,67 @@ function AppContent({
 
 	// Separate stable items (for Static) from items that may update (rendered dynamically)
 	// SessionEnd events need to update when transcript loads, so keep them dynamic
-	const isStableItem = (item: DisplayItem): boolean => {
+	const isStableContent = (item: ContentItem): boolean => {
 		if (item.type === 'message') return true;
-		// Hook events are stable if they're not SessionEnd or if transcript is loaded
 		if (item.data.hookName === 'SessionEnd') {
 			return item.data.transcriptSummary !== undefined;
 		}
 		return item.data.status !== 'pending';
 	};
 
-	const stableItems = displayItems.filter(isStableItem);
-	const dynamicItems = displayItems.filter(item => !isStableItem(item));
+	const stableItems: DisplayItem[] = [
+		{type: 'header', id: 'header'},
+		...contentItems.filter(isStableContent),
+	];
+	const dynamicItems = contentItems.filter(item => !isStableContent(item));
 
 	return (
 		<Box flexDirection="column">
-			{/* Server status */}
-			<Box marginBottom={1}>
-				<Text color={isServerRunning ? 'green' : 'red'}>
-					Hook server: {isServerRunning ? 'running' : 'stopped'}
-				</Text>
-				{socketPath && <Text dimColor> ({socketPath})</Text>}
-				<Text> | </Text>
-				<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
-					Claude: {isClaudeRunning ? 'running' : 'idle'}
-				</Text>
-			</Box>
+			{/* Server status (debug only) */}
+			{debug && (
+				<Box marginBottom={1}>
+					<Text color={isServerRunning ? 'green' : 'red'}>
+						Hook server: {isServerRunning ? 'running' : 'stopped'}
+					</Text>
+					{socketPath && <Text dimColor> ({socketPath})</Text>}
+					<Text> | </Text>
+					<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
+						Claude: {isClaudeRunning ? 'running' : 'idle'}
+					</Text>
+				</Box>
+			)}
 
-			{/* Stable items - rendered once, never update */}
+			{/* Stable items - rendered once at top, never update */}
 			<Static items={stableItems}>
-				{item =>
-					item.type === 'message' ? (
+				{item => {
+					if (item.type === 'header') {
+						return (
+							<Header key="header" version={version} projectDir={projectDir} />
+						);
+					}
+					return item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
 					) : (
 						<HookEvent key={item.data.id} event={item.data} />
-					)
-				}
+					);
+				}}
 			</Static>
 
 			{/* Dynamic items - can re-render when state changes */}
-			{dynamicItems.map(item =>
-				item.type === 'message' ? (
-					<Message key={item.data.id} message={item.data} />
-				) : (
-					<HookEvent key={item.data.id} event={item.data} />
-				),
+			{dynamicItems.map(item => {
+				if (item.type === 'message') {
+					return <Message key={item.data.id} message={item.data} />;
+				}
+				if (item.type === 'hook') {
+					return <HookEvent key={item.data.id} event={item.data} />;
+				}
+				return null;
+			})}
+
+			{isClaudeRunning && (
+				<Box>
+					<Spinner label="Agent is thinking..." />
+				</Box>
 			)}
 
 			<CommandInput inputKey={inputKey} onSubmit={handleSubmit} />
@@ -173,13 +235,25 @@ function AppContent({
 	);
 }
 
-export default function App({projectDir, instanceId, isolation}: Props) {
+export default function App({
+	projectDir,
+	instanceId,
+	isolation,
+	debug,
+	version,
+}: Props) {
+	const [clearCount, setClearCount] = useState(0);
+
 	return (
 		<HookProvider projectDir={projectDir} instanceId={instanceId}>
 			<AppContent
+				key={clearCount}
 				projectDir={projectDir}
 				instanceId={instanceId}
 				isolation={isolation}
+				debug={debug}
+				version={version}
+				onClear={() => setClearCount(c => c + 1)}
 			/>
 		</HookProvider>
 	);
