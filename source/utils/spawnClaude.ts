@@ -1,6 +1,11 @@
 import {spawn, type ChildProcess} from 'node:child_process';
 import {processRegistry} from './processRegistry.js';
 import {type SpawnClaudeOptions} from '../types/process.js';
+import {resolveIsolationConfig} from '../types/isolation.js';
+import {
+	generateHookSettings,
+	registerCleanupOnExit,
+} from './generateHookSettings.js';
 
 // Re-export type for backwards compatibility
 export type {SpawnClaudeOptions};
@@ -10,6 +15,12 @@ export type {SpawnClaudeOptions};
  *
  * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
  * Passes ATHENA_INSTANCE_ID env var so hook-forwarder can route to the correct socket.
+ *
+ * By default, uses strict isolation:
+ * - Only loads user settings (API keys, model preferences)
+ * - Skips project/local settings
+ * - Injects athena's hooks via temp settings file
+ * - Blocks project MCP servers
  */
 export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	const {
@@ -17,17 +28,68 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		projectDir,
 		instanceId,
 		sessionId,
+		isolation,
 		onStdout,
 		onStderr,
 		onExit,
 		onError,
 	} = options;
 
+	// Resolve isolation config (defaults to strict)
+	const isolationConfig = resolveIsolationConfig(isolation);
+
+	// Generate temp settings file with athena's hooks
+	const {settingsPath, cleanup} = generateHookSettings();
+	registerCleanupOnExit(cleanup);
+
+	// Build CLI arguments
 	const args = ['-p', prompt, '--output-format', 'stream-json'];
+
+	// Add isolation flags
+	args.push('--settings', settingsPath);
+
+	// Setting sources (default: user only for strict isolation)
+	if (isolationConfig.settingSources?.length) {
+		args.push('--setting-sources', isolationConfig.settingSources.join(','));
+	}
+
+	// MCP isolation
+	if (isolationConfig.strictMcpConfig) {
+		args.push('--strict-mcp-config');
+	}
+
+	// Custom MCP config
+	if (isolationConfig.mcpConfig) {
+		args.push('--mcp-config', isolationConfig.mcpConfig);
+	}
+
+	// Allowed tools (whitelist)
+	if (isolationConfig.allowedTools?.length) {
+		for (const tool of isolationConfig.allowedTools) {
+			args.push('--allowed-tools', tool);
+		}
+	}
+
+	// Disallowed tools (blacklist)
+	if (isolationConfig.disallowedTools?.length) {
+		for (const tool of isolationConfig.disallowedTools) {
+			args.push('--disallowed-tools', tool);
+		}
+	}
+
+	// Permission mode
+	if (isolationConfig.permissionMode) {
+		args.push('--permission-mode', isolationConfig.permissionMode);
+	}
 
 	// Add --resume flag if continuing an existing session
 	if (sessionId) {
 		args.push('--resume', sessionId);
+	}
+
+	// Debug logging
+	if (process.env['ATHENA_DEBUG']) {
+		console.error('[athena-debug] Spawning claude with args:', args);
 	}
 
 	const child = spawn('claude', args, {
@@ -54,13 +116,18 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		});
 	}
 
-	if (onExit) {
-		child.on('exit', onExit);
-	}
+	// Clean up temp settings file when process exits
+	child.on('exit', (code: number | null) => {
+		cleanup();
+		if (onExit) {
+			onExit(code);
+		}
+	});
 
 	// Always attach error handler to prevent unhandled error events
 	// Node.js EventEmitter throws if 'error' event has no listener
 	child.on('error', (error: Error) => {
+		cleanup();
 		if (onError) {
 			onError(error);
 		}
