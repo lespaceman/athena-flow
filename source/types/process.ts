@@ -32,6 +32,12 @@ export type SpawnClaudeOptions = {
 	onExit?: (code: number | null) => void;
 	/** Called when spawn fails (e.g., claude command not found) */
 	onError?: (error: Error) => void;
+	/** jq filter expression applied to stdout via a sidecar process */
+	jqFilter?: string;
+	/** Called when jq-filtered stdout data is received */
+	onFilteredStdout?: (data: string) => void;
+	/** Called when jq writes to stderr (parse errors, etc.) */
+	onJqStderr?: (data: string) => void;
 };
 
 /**
@@ -46,4 +52,8 @@ export type UseClaudeProcessResult = {
 	isRunning: boolean;
 	output: string[];
 	kill: () => Promise<void>;
+	/** Send SIGINT to gracefully interrupt the running process */
+	sendInterrupt: () => void;
+	/** Accumulated assistant text from jq-filtered stdout (debug mode) */
+	streamingText: string;
 };

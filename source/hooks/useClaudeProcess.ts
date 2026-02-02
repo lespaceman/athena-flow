@@ -42,17 +42,28 @@ const KILL_TIMEOUT_MS = 3000;
  *
  * By default, uses strict isolation (user settings only, athena hooks injected).
  */
+// jq filter that extracts text content from assistant messages
+const JQ_ASSISTANT_TEXT_FILTER =
+	'select(.type == "message" and .role == "assistant") | .content[] | select(.type == "text") | .text';
+
 export function useClaudeProcess(
 	projectDir: string,
 	instanceId: number,
 	isolation?: IsolationConfig | IsolationPreset,
 	pluginMcpConfig?: string,
+	debug?: boolean,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
 	const exitResolverRef = useRef<(() => void) | null>(null);
 	const [isRunning, setIsRunning] = useState(false);
 	const [output, setOutput] = useState<string[]>([]);
+	const [streamingText, setStreamingText] = useState('');
+
+	const sendInterrupt = useCallback((): void => {
+		if (!processRef.current) return;
+		processRef.current.kill('SIGINT');
+	}, []);
 
 	const kill = useCallback(async (): Promise<void> => {
 		if (!processRef.current) {
@@ -96,6 +107,7 @@ export function useClaudeProcess(
 			await kill();
 
 			setOutput([]);
+			setStreamingText('');
 			setIsRunning(true);
 
 			const child = spawnClaude({
@@ -104,6 +116,19 @@ export function useClaudeProcess(
 				instanceId,
 				sessionId,
 				isolation: mergeIsolation(isolation, pluginMcpConfig, perCallIsolation),
+				...(debug
+					? {
+							jqFilter: JQ_ASSISTANT_TEXT_FILTER,
+							onFilteredStdout: (data: string) => {
+								if (!isMountedRef.current) return;
+								setStreamingText(prev => prev + data);
+							},
+							onJqStderr: (data: string) => {
+								if (!isMountedRef.current) return;
+								setOutput(prev => [...prev, `[jq] ${data}`]);
+							},
+						}
+					: {}),
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
 					setOutput(prev => {
@@ -153,7 +178,7 @@ export function useClaudeProcess(
 
 			processRef.current = child;
 		},
-		[projectDir, instanceId, isolation, pluginMcpConfig, kill],
+		[projectDir, instanceId, isolation, pluginMcpConfig, debug, kill],
 	);
 
 	// Cleanup on unmount - kill any running process
@@ -174,5 +199,7 @@ export function useClaudeProcess(
 		isRunning,
 		output,
 		kill,
+		sendInterrupt,
+		streamingText,
 	};
 }

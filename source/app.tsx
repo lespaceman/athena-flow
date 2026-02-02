@@ -6,9 +6,11 @@ import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
 import HookEvent from './components/HookEvent.js';
+import StreamingResponse from './components/StreamingResponse.js';
 import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
+import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
 	type HookEventDisplay,
@@ -42,7 +44,8 @@ function AppContent({
 	version,
 	pluginMcpConfig,
 	onClear,
-}: Props & {onClear: () => void}) {
+	inputHistory,
+}: Props & {onClear: () => void; inputHistory: InputHistory}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const messagesRef = useRef(messages);
@@ -57,11 +60,17 @@ function AppContent({
 		permissionQueueCount,
 		resolvePermission,
 	} = hookServer;
-	const {spawn: spawnClaude, isRunning: isClaudeRunning} = useClaudeProcess(
+	const {
+		spawn: spawnClaude,
+		isRunning: isClaudeRunning,
+		sendInterrupt,
+		streamingText,
+	} = useClaudeProcess(
 		projectDir,
 		instanceId,
 		isolation,
 		pluginMcpConfig,
+		debug,
 	);
 	const {exit} = useApp();
 
@@ -90,6 +99,7 @@ function AppContent({
 		(value: string) => {
 			if (!value.trim()) return;
 
+			inputHistory.push(value);
 			setInputKey(k => k + 1); // Reset input by changing key
 
 			const result = parseInput(value);
@@ -125,7 +135,15 @@ function AppContent({
 				},
 			});
 		},
-		[addMessage, spawnClaude, currentSessionId, hookServer, exit, clearScreen],
+		[
+			addMessage,
+			spawnClaude,
+			currentSessionId,
+			hookServer,
+			exit,
+			clearScreen,
+			inputHistory,
+		],
 	);
 
 	const handlePermissionDecision = useCallback(
@@ -154,10 +172,11 @@ function AppContent({
 					},
 				}));
 
-	// Interleave messages and hook events by timestamp
-	const hookItems: ContentItem[] = debug
-		? events.map(e => ({type: 'hook' as const, data: e}))
-		: [];
+	// Interleave messages and hook events by timestamp.
+	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
+	const hookItems: ContentItem[] = events
+		.filter(e => debug || e.hookName !== 'SessionEnd')
+		.map(e => ({type: 'hook' as const, data: e}));
 
 	const contentItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
@@ -218,7 +237,7 @@ function AppContent({
 					return item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
 					) : (
-						<HookEvent key={item.data.id} event={item.data} />
+						<HookEvent key={item.data.id} event={item.data} debug={debug} />
 					);
 				}}
 			</Static>
@@ -229,10 +248,16 @@ function AppContent({
 					return <Message key={item.data.id} message={item.data} />;
 				}
 				if (item.type === 'hook') {
-					return <HookEvent key={item.data.id} event={item.data} />;
+					return (
+						<HookEvent key={item.data.id} event={item.data} debug={debug} />
+					);
 				}
 				return null;
 			})}
+
+			{debug && streamingText && (
+				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
+			)}
 
 			{isClaudeRunning && (
 				<Box>
@@ -253,6 +278,9 @@ function AppContent({
 				inputKey={inputKey}
 				onSubmit={handleSubmit}
 				disabled={currentPermissionRequest !== null}
+				onEscape={isClaudeRunning ? sendInterrupt : undefined}
+				onArrowUp={inputHistory.back}
+				onArrowDown={inputHistory.forward}
 			/>
 		</Box>
 	);
@@ -267,6 +295,7 @@ export default function App({
 	pluginMcpConfig,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
+	const inputHistory = useInputHistory();
 
 	return (
 		<HookProvider projectDir={projectDir} instanceId={instanceId}>
@@ -279,6 +308,7 @@ export default function App({
 				version={version}
 				pluginMcpConfig={pluginMcpConfig}
 				onClear={() => setClearCount(c => c + 1)}
+				inputHistory={inputHistory}
 			/>
 		</HookProvider>
 	);

@@ -234,6 +234,109 @@ describe('CommandInput', () => {
 		expect(lastFrame()).toContain('Waiting for permission decision');
 	});
 
+	it('calls onEscape when Escape is pressed without suggestions', async () => {
+		const onEscape = vi.fn();
+		const {stdin} = render(
+			<CommandInput inputKey={0} onSubmit={() => {}} onEscape={onEscape} />,
+		);
+
+		// Type something that doesn't trigger suggestions
+		stdin.write('hello');
+		await delay(50);
+
+		// Press Escape
+		stdin.write('\x1b');
+		await delay(50);
+
+		expect(onEscape).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not call onEscape when Escape dismisses suggestions', async () => {
+		const onEscape = vi.fn();
+		const {lastFrame, stdin} = render(
+			<CommandInput inputKey={0} onSubmit={() => {}} onEscape={onEscape} />,
+		);
+
+		// Enter command mode to show suggestions
+		stdin.write('/');
+		await delay(50);
+
+		let frame = lastFrame() ?? '';
+		expect(frame).toContain('/help');
+
+		// Press Escape — should dismiss suggestions, not call onEscape
+		stdin.write('\x1b');
+		await delay(50);
+
+		expect(onEscape).not.toHaveBeenCalled();
+		frame = lastFrame() ?? '';
+		expect(frame).not.toContain('/help');
+	});
+
+	it('calls onArrowUp with current value when no suggestions', async () => {
+		const onArrowUp = vi.fn().mockReturnValue('previous');
+		const {lastFrame, stdin} = render(
+			<CommandInput inputKey={0} onSubmit={() => {}} onArrowUp={onArrowUp} />,
+		);
+
+		stdin.write('current');
+		await delay(50);
+
+		// Press up arrow
+		stdin.write('\x1b[A');
+		await delay(50);
+
+		expect(onArrowUp).toHaveBeenCalledWith('current');
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('previous');
+	});
+
+	it('calls onArrowDown when no suggestions', async () => {
+		const onArrowDown = vi.fn().mockReturnValue('next');
+		const {lastFrame, stdin} = render(
+			<CommandInput
+				inputKey={0}
+				onSubmit={() => {}}
+				onArrowDown={onArrowDown}
+			/>,
+		);
+
+		// Press down arrow
+		stdin.write('\x1b[B');
+		await delay(50);
+
+		expect(onArrowDown).toHaveBeenCalledTimes(1);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('next');
+	});
+
+	it('navigates suggestions with arrows when suggestions showing (not history)', async () => {
+		const onArrowUp = vi.fn();
+		const onArrowDown = vi.fn();
+		const {lastFrame, stdin} = render(
+			<CommandInput
+				inputKey={0}
+				onSubmit={() => {}}
+				onArrowUp={onArrowUp}
+				onArrowDown={onArrowDown}
+			/>,
+		);
+
+		// Enter command mode to show suggestions
+		stdin.write('/');
+		await delay(50);
+
+		// Press down arrow — should navigate suggestions, not call history
+		stdin.write('\x1b[B');
+		await delay(50);
+
+		expect(onArrowDown).not.toHaveBeenCalled();
+		const frame = lastFrame() ?? '';
+		const lines = frame.split('\n');
+		const clearLine = lines.find(l => l.includes('/clear'));
+		expect(clearLine).toContain('>');
+	});
+
 	it('dismisses suggestions on Escape', async () => {
 		const {lastFrame, stdin} = render(
 			<CommandInput inputKey={0} onSubmit={() => {}} />,

@@ -27,7 +27,10 @@ describe('useClaudeProcess', () => {
 		onStderr?: (data: string) => void;
 		onExit?: (code: number | null) => void;
 		onError?: (error: Error) => void;
+		onFilteredStdout?: (data: string) => void;
+		onJqStderr?: (data: string) => void;
 	};
+	let capturedOptions: Record<string, unknown>;
 
 	beforeEach(() => {
 		mockProcess = createMockChildProcess();
@@ -38,6 +41,9 @@ describe('useClaudeProcess', () => {
 			capturedCallbacks.onStderr = options.onStderr;
 			capturedCallbacks.onExit = options.onExit;
 			capturedCallbacks.onError = options.onError;
+			capturedCallbacks.onFilteredStdout = options.onFilteredStdout;
+			capturedCallbacks.onJqStderr = options.onJqStderr;
+			capturedOptions = options as unknown as Record<string, unknown>;
 			return mockProcess;
 		});
 	});
@@ -429,6 +435,147 @@ describe('useClaudeProcess', () => {
 				isolation: 'strict',
 			}),
 		);
+	});
+
+	it('should initialize streamingText as empty string', () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess('/test', TEST_INSTANCE_ID),
+		);
+
+		expect(result.current.streamingText).toBe('');
+	});
+
+	describe('debug mode', () => {
+		it('should pass jqFilter when debug is true', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test');
+			});
+
+			expect(capturedOptions.jqFilter).toBeDefined();
+			expect(typeof capturedOptions.jqFilter).toBe('string');
+		});
+
+		it('should not pass jqFilter when debug is false', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test');
+			});
+
+			expect(capturedOptions.jqFilter).toBeUndefined();
+		});
+
+		it('should not pass jqFilter when debug is not provided', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test');
+			});
+
+			expect(capturedOptions.jqFilter).toBeUndefined();
+		});
+
+		it('should accumulate onFilteredStdout into streamingText', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test');
+			});
+
+			act(() => {
+				capturedCallbacks.onFilteredStdout?.('Hello ');
+			});
+
+			act(() => {
+				capturedCallbacks.onFilteredStdout?.('world');
+			});
+
+			expect(result.current.streamingText).toBe('Hello world');
+		});
+
+		it('should reset streamingText on new spawn', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test1');
+			});
+
+			act(() => {
+				capturedCallbacks.onFilteredStdout?.('old text');
+			});
+
+			expect(result.current.streamingText).toBe('old text');
+
+			// Spawn new process
+			await act(async () => {
+				const spawnPromise = result.current.spawn('test2');
+				capturedCallbacks.onExit?.(0);
+				await spawnPromise;
+			});
+
+			expect(result.current.streamingText).toBe('');
+		});
+
+		it('should route jq stderr to output with [jq] prefix', async () => {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test');
+			});
+
+			act(() => {
+				capturedCallbacks.onJqStderr?.('parse error');
+			});
+
+			expect(result.current.output).toContain('[jq] parse error');
+		});
+	});
+
+	it('should send SIGINT when sendInterrupt is called', async () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess('/test', TEST_INSTANCE_ID),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test');
+		});
+
+		act(() => {
+			result.current.sendInterrupt();
+		});
+
+		expect(mockProcess.kill).toHaveBeenCalledWith('SIGINT');
+	});
+
+	it('should be a no-op when sendInterrupt is called with no process', () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess('/test', TEST_INSTANCE_ID),
+		);
+
+		// Should not throw
+		expect(() => {
+			result.current.sendInterrupt();
+		}).not.toThrow();
 	});
 
 	it('should resolve kill after timeout if process does not exit', async () => {
