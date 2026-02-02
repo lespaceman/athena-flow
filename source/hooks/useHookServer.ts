@@ -91,6 +91,10 @@ export function useHookServer(
 		setRules([]);
 	}, []);
 
+	const clearEvents = useCallback(() => {
+		setEvents([]);
+	}, []);
+
 	// Respond to a hook event
 	const respond = useCallback(
 		(requestId: string, result: HookResultPayload) => {
@@ -414,5 +418,6 @@ export function useHookServer(
 		addRule,
 		removeRule,
 		clearRules,
+		clearEvents,
 	};
 }

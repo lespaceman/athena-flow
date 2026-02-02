@@ -7,5 +7,6 @@ export const clearCommand: UICommand = {
 	aliases: ['cls'],
 	execute(ctx) {
 		ctx.setMessages([]);
+		ctx.clearScreen();
 	},
 };

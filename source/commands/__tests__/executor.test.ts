@@ -17,6 +17,7 @@ function makeContext(
 			setMessages: vi.fn(),
 			addMessage: vi.fn(),
 			exit: vi.fn(),
+			clearScreen: vi.fn(),
 		},
 		hook: {
 			args: {},

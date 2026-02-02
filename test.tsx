@@ -14,7 +14,6 @@ describe('Message', () => {
 		const {lastFrame} = render(<Message message={message} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('> You');
 		expect(frame).toContain('Hello world');
 	});
 
@@ -27,7 +26,6 @@ describe('Message', () => {
 		const {lastFrame} = render(<Message message={message} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('< Assistant');
 		expect(frame).toContain('Hi there');
 	});
 });

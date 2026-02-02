@@ -57,6 +57,7 @@ export type UICommandContext = {
 	setMessages: (msgs: Message[]) => void;
 	addMessage: (msg: Message) => void;
 	exit: () => void;
+	clearScreen: () => void;
 };
 
 export type HookCommandContext = {
