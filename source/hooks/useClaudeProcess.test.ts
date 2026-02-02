@@ -367,6 +367,70 @@ describe('useClaudeProcess', () => {
 		);
 	});
 
+	it('should merge pluginMcpConfig into isolation for every spawn', async () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				'strict',
+				'/tmp/plugin-mcp.json',
+			),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test prompt');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				isolation: expect.objectContaining({
+					mcpConfig: '/tmp/plugin-mcp.json',
+				}),
+			}),
+		);
+	});
+
+	it('should allow per-command isolation to override pluginMcpConfig', async () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				'strict',
+				'/tmp/plugin-mcp.json',
+			),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test prompt', undefined, {
+				mcpConfig: '/per-command/mcp.json',
+			});
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				isolation: expect.objectContaining({
+					mcpConfig: '/per-command/mcp.json',
+				}),
+			}),
+		);
+	});
+
+	it('should not include pluginMcpConfig when not provided', async () => {
+		const {result} = renderHook(() =>
+			useClaudeProcess('/test', TEST_INSTANCE_ID, 'strict'),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test prompt');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				isolation: 'strict',
+			}),
+		);
+	});
+
 	it('should resolve kill after timeout if process does not exit', async () => {
 		vi.useFakeTimers();
 		const {result} = renderHook(() =>

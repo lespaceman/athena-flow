@@ -32,7 +32,7 @@ export default function CommandInput({inputKey, onSubmit}: Props) {
 	// Filter commands matching the typed prefix
 	const filteredCommands = useMemo(() => {
 		if (!isCommandMode) return [];
-		if (prefix === '') return registry.getAll().slice(0, MAX_SUGGESTIONS);
+		if (prefix === '') return registry.getAll();
 
 		return registry
 			.getAll()

@@ -7,38 +7,11 @@
 
 import {register} from '../registry.js';
 
-// UI commands
 import {helpCommand} from './help.js';
 import {clearCommand} from './clear.js';
-import {statusCommand} from './status.js';
 import {quitCommand} from './quit.js';
 
-// Prompt commands
-import {commitCommand} from './commit.js';
-import {reviewCommand} from './review.js';
-import {explainCommand} from './explain.js';
-import {fixCommand} from './fix.js';
-
-// Hook commands
-import {blockCommand} from './block.js';
-import {unblockCommand} from './unblock.js';
-import {autoApproveCommand} from './autoApprove.js';
-import {manualCommand} from './manual.js';
-
-const builtins = [
-	helpCommand,
-	clearCommand,
-	statusCommand,
-	quitCommand,
-	commitCommand,
-	reviewCommand,
-	explainCommand,
-	fixCommand,
-	blockCommand,
-	unblockCommand,
-	autoApproveCommand,
-	manualCommand,
-];
+const builtins = [helpCommand, clearCommand, quitCommand];
 
 let registered = false;
 

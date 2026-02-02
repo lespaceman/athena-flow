@@ -53,14 +53,11 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		args.push('--setting-sources', isolationConfig.settingSources.join(','));
 	}
 
-	// MCP isolation
-	if (isolationConfig.strictMcpConfig) {
-		args.push('--strict-mcp-config');
-	}
-
-	// Custom MCP config
+	// MCP isolation: --mcp-config takes precedence over --strict-mcp-config
 	if (isolationConfig.mcpConfig) {
 		args.push('--mcp-config', isolationConfig.mcpConfig);
+	} else if (isolationConfig.strictMcpConfig) {
+		args.push('--strict-mcp-config');
 	}
 
 	// Allowed tools (whitelist)

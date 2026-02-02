@@ -5,10 +5,29 @@ import {type UseClaudeProcessResult} from '../types/process.js';
 import {
 	type IsolationConfig,
 	type IsolationPreset,
+	resolveIsolationConfig,
 } from '../types/isolation.js';
 
 // Re-export type for backwards compatibility
 export type {UseClaudeProcessResult};
+
+/**
+ * Merge isolation layers: base preset -> plugin MCP config -> per-command override.
+ * Returns the original preset unchanged when no overrides are needed.
+ */
+function mergeIsolation(
+	base: IsolationConfig | IsolationPreset | undefined,
+	pluginMcpConfig: string | undefined,
+	perCommand: Partial<IsolationConfig> | undefined,
+): IsolationConfig | IsolationPreset | undefined {
+	if (!pluginMcpConfig && !perCommand) return base;
+
+	return {
+		...resolveIsolationConfig(base),
+		...(pluginMcpConfig ? {mcpConfig: pluginMcpConfig} : {}),
+		...(perCommand ?? {}),
+	};
+}
 
 // Maximum output lines to keep in memory to prevent unbounded growth
 const MAX_OUTPUT = 1000;
@@ -27,6 +46,7 @@ export function useClaudeProcess(
 	projectDir: string,
 	instanceId: number,
 	isolation?: IsolationConfig | IsolationPreset,
+	pluginMcpConfig?: string,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
@@ -67,7 +87,11 @@ export function useClaudeProcess(
 	}, []);
 
 	const spawn = useCallback(
-		async (prompt: string, sessionId?: string): Promise<void> => {
+		async (
+			prompt: string,
+			sessionId?: string,
+			perCallIsolation?: Partial<IsolationConfig>,
+		): Promise<void> => {
 			// Kill existing process if running and wait for it to exit
 			await kill();
 
@@ -79,7 +103,7 @@ export function useClaudeProcess(
 				projectDir,
 				instanceId,
 				sessionId,
-				isolation,
+				isolation: mergeIsolation(isolation, pluginMcpConfig, perCallIsolation),
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
 					setOutput(prev => {
@@ -129,7 +153,7 @@ export function useClaudeProcess(
 
 			processRef.current = child;
 		},
-		[projectDir, instanceId, isolation, kill],
+		[projectDir, instanceId, isolation, pluginMcpConfig, kill],
 	);
 
 	// Cleanup on unmount - kill any running process

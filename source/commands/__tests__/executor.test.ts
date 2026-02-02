@@ -59,7 +59,11 @@ describe('executeCommand', () => {
 
 		executeCommand(cmd, {message: 'fix bug'}, ctx);
 
-		expect(ctx.prompt.spawn).toHaveBeenCalledWith('commit: fix bug', undefined);
+		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
+			'commit: fix bug',
+			undefined,
+			undefined,
+		);
 	});
 
 	it('builds prompt and resumes session for prompt commands with session "resume"', () => {
@@ -77,6 +81,46 @@ describe('executeCommand', () => {
 		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
 			'fix: null ref',
 			'session-123',
+			undefined,
+		);
+	});
+
+	it('passes command isolation to spawn for prompt commands', () => {
+		const cmd: PromptCommand = {
+			name: 'explore',
+			description: 'Explore a site',
+			category: 'prompt',
+			session: 'new',
+			isolation: {mcpConfig: '/plugins/test/.mcp.json'},
+			buildPrompt: args => `explore: ${args['args'] ?? ''}`,
+		};
+		const ctx = makeContext();
+
+		executeCommand(cmd, {args: 'https://example.com'}, ctx);
+
+		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
+			'explore: https://example.com',
+			undefined,
+			{mcpConfig: '/plugins/test/.mcp.json'},
+		);
+	});
+
+	it('passes undefined isolation when command has no isolation', () => {
+		const cmd: PromptCommand = {
+			name: 'commit',
+			description: 'Commit changes',
+			category: 'prompt',
+			session: 'new',
+			buildPrompt: args => `commit: ${args['message'] ?? ''}`,
+		};
+		const ctx = makeContext();
+
+		executeCommand(cmd, {message: 'fix'}, ctx);
+
+		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
+			'commit: fix',
+			undefined,
+			undefined,
 		);
 	});
 

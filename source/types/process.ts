@@ -38,7 +38,11 @@ export type SpawnClaudeOptions = {
  * Result returned by the useClaudeProcess hook.
  */
 export type UseClaudeProcessResult = {
-	spawn: (prompt: string, sessionId?: string) => Promise<void>;
+	spawn: (
+		prompt: string,
+		sessionId?: string,
+		isolation?: Partial<IsolationConfig>,
+	) => Promise<void>;
 	isRunning: boolean;
 	output: string[];
 	kill: () => Promise<void>;

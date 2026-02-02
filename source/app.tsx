@@ -16,10 +16,6 @@ import {
 } from './types/index.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
-import {registerBuiltins} from './commands/builtins/index.js';
-
-// Register built-in commands once at module load
-registerBuiltins();
 
 type Props = {
 	projectDir: string;
@@ -27,6 +23,7 @@ type Props = {
 	isolation?: IsolationPreset;
 	debug?: boolean;
 	version: string;
+	pluginMcpConfig?: string;
 };
 
 type ContentItem =
@@ -41,15 +38,9 @@ function AppContent({
 	isolation,
 	debug,
 	version,
+	pluginMcpConfig,
 	onClear,
-}: {
-	projectDir: string;
-	instanceId: number;
-	isolation?: IsolationPreset;
-	debug?: boolean;
-	version: string;
-	onClear: () => void;
-}) {
+}: Props & {onClear: () => void}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const messagesRef = useRef(messages);
@@ -60,6 +51,7 @@ function AppContent({
 		projectDir,
 		instanceId,
 		isolation,
+		pluginMcpConfig,
 	);
 	const {exit} = useApp();
 
@@ -118,7 +110,7 @@ function AppContent({
 					hookServer,
 				},
 				prompt: {
-					spawn: (prompt, sessionId) => spawnClaude(prompt, sessionId),
+					spawn: spawnClaude,
 					currentSessionId: currentSessionId ?? undefined,
 				},
 			});
@@ -241,6 +233,7 @@ export default function App({
 	isolation,
 	debug,
 	version,
+	pluginMcpConfig,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 
@@ -253,6 +246,7 @@ export default function App({
 				isolation={isolation}
 				debug={debug}
 				version={version}
+				pluginMcpConfig={pluginMcpConfig}
 				onClear={() => setClearCount(c => c + 1)}
 			/>
 		</HookProvider>

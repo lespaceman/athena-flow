@@ -378,6 +378,25 @@ describe('spawnClaude', () => {
 			expect(mockCleanup).toHaveBeenCalled();
 		});
 
+		it('should not pass --strict-mcp-config when mcpConfig is provided', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					strictMcpConfig: true,
+					mcpConfig: '/path/to/merged-mcp.json',
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--mcp-config');
+			expect(args).toContain('/path/to/merged-mcp.json');
+			expect(args).not.toContain('--strict-mcp-config');
+		});
+
 		it('should merge preset with custom config', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',
