@@ -4,18 +4,13 @@ import {
 	type HookEventDisplay,
 	isSessionEndEvent,
 } from '../types/hooks/index.js';
+import {STATUS_COLORS} from './hookEventUtils.js';
 
 type Props = {
 	event: HookEventDisplay;
 };
 
-const STATUS_COLORS = {
-	pending: 'yellow',
-	passthrough: 'green',
-	blocked: 'red',
-	json_output: 'blue',
-} as const;
-
+// SessionEnd uses ✓ (checkmark) for passthrough instead of ● (filled circle)
 const STATUS_SYMBOLS = {
 	pending: '\u25cb', // ○
 	passthrough: '\u2713', // ✓

@@ -5,6 +5,7 @@ import HookEvent from './HookEvent.js';
 import type {
 	HookEventDisplay,
 	PreToolUseEvent,
+	PermissionRequestEvent,
 	PostToolUseEvent,
 	PostToolUseFailureEvent,
 	SubagentStartEvent,
@@ -558,6 +559,28 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Bash');
+	});
+
+	it('renders PermissionRequest event with tool name and inline params', () => {
+		const permPayload: PermissionRequestEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PermissionRequest',
+			tool_name: 'Bash',
+			tool_input: {command: 'rm -rf /'},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PermissionRequest',
+			toolName: 'Bash',
+			payload: permPayload,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('command: "rm -rf /"');
 	});
 
 	it('renders SubagentStart with Task header and agent_id', () => {

@@ -300,7 +300,266 @@ export function useHookServer(
 			});
 		}
 
-		// Create server
+		// ── Shared helpers for pending storage ──────────────────────────
+
+		/** Store pending with auto-passthrough timeout. */
+		function storeWithAutoPassthrough(
+			requestId: string,
+			sock: net.Socket,
+			displayEvent: HookEventDisplay,
+			receiveTimestamp: number,
+		): void {
+			const timeoutId = setTimeout(() => {
+				respond(requestId, createPassthroughResult());
+			}, AUTO_PASSTHROUGH_MS);
+			storePending(requestId, sock, displayEvent, receiveTimestamp, timeoutId);
+		}
+
+		/** Store pending without auto-passthrough (requires user input). */
+		function storeWithoutPassthrough(
+			requestId: string,
+			sock: net.Socket,
+			displayEvent: HookEventDisplay,
+			receiveTimestamp: number,
+		): void {
+			const noTimeout = setTimeout(() => {}, 0);
+			clearTimeout(noTimeout);
+			storePending(requestId, sock, displayEvent, receiveTimestamp, noTimeout);
+		}
+
+		// ── Event handler functions ─────────────────────────────────────
+		// Each returns true if it handled the event (caller should return).
+
+		/** Merge PostToolUse/PostToolUseFailure into matching PreToolUse. */
+		function handlePostToolUseMerge(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+			sock: net.Socket,
+			receiveTimestamp: number,
+		): boolean {
+			if (
+				envelope.hook_event_name !== 'PostToolUse' &&
+				envelope.hook_event_name !== 'PostToolUseFailure'
+			) {
+				return false;
+			}
+
+			const payload = envelope.payload;
+			if (!isToolEvent(payload)) return false;
+
+			const match = findMatchingPreToolUse(
+				eventsRef.current,
+				payload.tool_use_id,
+				payload.tool_name,
+			);
+			if (!match) return false;
+
+			storeWithAutoPassthrough(
+				envelope.request_id,
+				sock,
+				displayEvent,
+				receiveTimestamp,
+			);
+
+			const isFailed = envelope.hook_event_name === 'PostToolUseFailure';
+			setEvents(prev =>
+				prev.map(e =>
+					e.id === match.id
+						? {
+								...e,
+								postToolPayload: payload as
+									| PostToolUseEvent
+									| PostToolUseFailureEvent,
+								postToolRequestId: envelope.request_id,
+								postToolTimestamp: new Date(envelope.ts),
+								postToolFailed: isFailed,
+							}
+						: e,
+				),
+			);
+			return true;
+		}
+
+		/** Merge SubagentStop into matching SubagentStart. */
+		function handleSubagentStopMerge(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+			sock: net.Socket,
+			receiveTimestamp: number,
+		): boolean {
+			if (envelope.hook_event_name !== 'SubagentStop') return false;
+
+			const stopPayload = envelope.payload as SubagentStopEvent;
+			const match = findMatchingSubagentStart(
+				eventsRef.current,
+				stopPayload.agent_id,
+			);
+			if (!match) return false;
+
+			storeWithAutoPassthrough(
+				envelope.request_id,
+				sock,
+				displayEvent,
+				receiveTimestamp,
+			);
+
+			setEvents(prev =>
+				prev.map(e =>
+					e.id === match.id
+						? {
+								...e,
+								subagentStopPayload: stopPayload,
+								subagentStopRequestId: envelope.request_id,
+								subagentStopTimestamp: new Date(envelope.ts),
+							}
+						: e,
+				),
+			);
+			return true;
+		}
+
+		/** Route AskUserQuestion events to the question queue. */
+		function handleAskUserQuestion(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+			sock: net.Socket,
+			receiveTimestamp: number,
+		): boolean {
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload) ||
+				envelope.payload.tool_name !== 'AskUserQuestion'
+			) {
+				return false;
+			}
+
+			storeWithoutPassthrough(
+				envelope.request_id,
+				sock,
+				displayEvent,
+				receiveTimestamp,
+			);
+			addEvent(displayEvent);
+			setQuestionQueue(prev => [...prev, envelope.request_id]);
+			return true;
+		}
+
+		/** Apply matching rules to PreToolUse events. */
+		function handlePreToolUseRules(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+			sock: net.Socket,
+			receiveTimestamp: number,
+		): boolean {
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload)
+			) {
+				return false;
+			}
+
+			const matchedRule = matchRule(
+				rulesRef.current,
+				envelope.payload.tool_name,
+			);
+			if (!matchedRule) return false;
+
+			const result =
+				matchedRule.action === 'deny'
+					? createPreToolUseDenyResult(
+							`Blocked by rule: ${matchedRule.addedBy}`,
+						)
+					: createPreToolUseAllowResult();
+
+			// Store briefly so respond() can find it
+			const placeholder = setTimeout(() => {}, 0);
+			storePending(
+				envelope.request_id,
+				sock,
+				displayEvent,
+				receiveTimestamp,
+				placeholder,
+			);
+			addEvent(displayEvent);
+			respond(envelope.request_id, result);
+			return true;
+		}
+
+		/** Route permission-required PreToolUse events to the permission queue. */
+		function handlePermissionCheck(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+			sock: net.Socket,
+			receiveTimestamp: number,
+		): boolean {
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload) ||
+				!isPermissionRequired(envelope.payload.tool_name, rulesRef.current)
+			) {
+				return false;
+			}
+
+			storeWithoutPassthrough(
+				envelope.request_id,
+				sock,
+				displayEvent,
+				receiveTimestamp,
+			);
+			addEvent(displayEvent);
+			setPermissionQueue(prev => [...prev, envelope.request_id]);
+			return true;
+		}
+
+		/** Capture session ID and enrich SessionEnd with transcript data. */
+		function handleSessionTracking(
+			envelope: HookEventEnvelope,
+			displayEvent: HookEventDisplay,
+		): void {
+			if (envelope.hook_event_name === 'SessionStart') {
+				setCurrentSessionId(envelope.session_id);
+			}
+
+			if (envelope.hook_event_name === 'SessionEnd') {
+				const transcriptPath = envelope.payload.transcript_path;
+				if (transcriptPath) {
+					parseTranscriptFile(transcriptPath)
+						.then(summary => {
+							if (!isMountedRef.current) return;
+							setEvents(prev =>
+								prev.map(e =>
+									e.id === displayEvent.id
+										? {...e, transcriptSummary: summary}
+										: e,
+								),
+							);
+						})
+						.catch(err => {
+							console.error('[SessionEnd] Failed to parse transcript:', err);
+						});
+				} else {
+					setEvents(prev =>
+						prev.map(e =>
+							e.id === displayEvent.id
+								? {
+										...e,
+										transcriptSummary: {
+											lastAssistantText: null,
+											lastAssistantTimestamp: null,
+											messageCount: 0,
+											toolCallCount: 0,
+											error: 'No transcript path provided',
+										},
+									}
+								: e,
+						),
+					);
+				}
+			}
+		}
+
+		// ── Server creation ─────────────────────────────────────────────
+
 		const server = net.createServer((socket: net.Socket) => {
 			let data = '';
 
@@ -341,223 +600,64 @@ export function useHookServer(
 						status: 'pending',
 					};
 
-					// Merge PostToolUse/PostToolUseFailure into matching PreToolUse
+					// Dispatch to handlers (each returns true if handled)
 					if (
-						(envelope.hook_event_name === 'PostToolUse' ||
-							envelope.hook_event_name === 'PostToolUseFailure') &&
-						isToolEvent(payload)
-					) {
-						const match = findMatchingPreToolUse(
-							eventsRef.current,
-							payload.tool_use_id,
-							payload.tool_name,
-						);
-
-						if (match) {
-							const timeoutId = setTimeout(() => {
-								respond(envelope.request_id, createPassthroughResult());
-							}, AUTO_PASSTHROUGH_MS);
-
-							storePending(
-								envelope.request_id,
-								socket,
-								displayEvent,
-								receiveTimestamp,
-								timeoutId,
-							);
-
-							// Merge into the matching PreToolUse entry
-							const isFailed =
-								envelope.hook_event_name === 'PostToolUseFailure';
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === match.id
-										? {
-												...e,
-												postToolPayload: payload as
-													| PostToolUseEvent
-													| PostToolUseFailureEvent,
-												postToolRequestId: envelope.request_id,
-												postToolTimestamp: new Date(envelope.ts),
-												postToolFailed: isFailed,
-											}
-										: e,
-								),
-							);
-							return;
-						}
-						// No match found -- fall through to add as standalone orphan entry
-					}
-
-					// Merge SubagentStop into matching SubagentStart
-					if (envelope.hook_event_name === 'SubagentStop') {
-						const stopPayload = payload as SubagentStopEvent;
-						const match = findMatchingSubagentStart(
-							eventsRef.current,
-							stopPayload.agent_id,
-						);
-
-						if (match) {
-							const timeoutId = setTimeout(() => {
-								respond(envelope.request_id, createPassthroughResult());
-							}, AUTO_PASSTHROUGH_MS);
-
-							storePending(
-								envelope.request_id,
-								socket,
-								displayEvent,
-								receiveTimestamp,
-								timeoutId,
-							);
-
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === match.id
-										? {
-												...e,
-												subagentStopPayload: stopPayload,
-												subagentStopRequestId: envelope.request_id,
-												subagentStopTimestamp: new Date(envelope.ts),
-											}
-										: e,
-								),
-							);
-							return;
-						}
-						// No match found -- fall through to add as standalone orphan entry
-					}
-
-					// Check if this is an AskUserQuestion event -- route to question queue
-					// Must be checked before rules to prevent rules from bypassing the question dialog
-					if (
-						envelope.hook_event_name === 'PreToolUse' &&
-						isToolEvent(payload) &&
-						payload.tool_name === 'AskUserQuestion'
-					) {
-						const noTimeout = setTimeout(() => {}, 0);
-						clearTimeout(noTimeout);
-						storePending(
-							envelope.request_id,
-							socket,
+						handlePostToolUseMerge(
+							envelope,
 							displayEvent,
-							receiveTimestamp,
-							noTimeout,
-						);
-						addEvent(displayEvent);
-						setQuestionQueue(prev => [...prev, envelope.request_id]);
-						return;
-					}
-
-					// Check rules for PreToolUse events
-					if (
-						envelope.hook_event_name === 'PreToolUse' &&
-						isToolEvent(payload)
-					) {
-						const matchedRule = matchRule(rulesRef.current, payload.tool_name);
-						if (matchedRule) {
-							const result =
-								matchedRule.action === 'deny'
-									? createPreToolUseDenyResult(
-											`Blocked by rule: ${matchedRule.addedBy}`,
-										)
-									: createPreToolUseAllowResult();
-
-							// Store pending briefly so respond() can find it
-							const placeholder = setTimeout(() => {}, 0);
-							storePending(
-								envelope.request_id,
-								socket,
-								displayEvent,
-								receiveTimestamp,
-								placeholder,
-							);
-							addEvent(displayEvent);
-							respond(envelope.request_id, result);
-							return;
-						}
-					}
-
-					// Check if permission is required for this tool
-					const needsPermission =
-						envelope.hook_event_name === 'PreToolUse' &&
-						isToolEvent(payload) &&
-						isPermissionRequired(payload.tool_name, rulesRef.current);
-
-					if (needsPermission) {
-						// No auto-passthrough timeout for permission requests
-						const noTimeout = setTimeout(() => {}, 0);
-						clearTimeout(noTimeout);
-						storePending(
-							envelope.request_id,
 							socket,
-							displayEvent,
 							receiveTimestamp,
-							noTimeout,
-						);
-						addEvent(displayEvent);
-						setPermissionQueue(prev => [...prev, envelope.request_id]);
+						)
+					)
 						return;
-					}
+					if (
+						handleSubagentStopMerge(
+							envelope,
+							displayEvent,
+							socket,
+							receiveTimestamp,
+						)
+					)
+						return;
+					if (
+						handleAskUserQuestion(
+							envelope,
+							displayEvent,
+							socket,
+							receiveTimestamp,
+						)
+					)
+						return;
+					if (
+						handlePreToolUseRules(
+							envelope,
+							displayEvent,
+							socket,
+							receiveTimestamp,
+						)
+					)
+						return;
+					if (
+						handlePermissionCheck(
+							envelope,
+							displayEvent,
+							socket,
+							receiveTimestamp,
+						)
+					)
+						return;
 
 					// Default: auto-passthrough after timeout
-					const timeoutId = setTimeout(() => {
-						respond(envelope.request_id, createPassthroughResult());
-					}, AUTO_PASSTHROUGH_MS);
-
-					storePending(
+					storeWithAutoPassthrough(
 						envelope.request_id,
 						socket,
 						displayEvent,
 						receiveTimestamp,
-						timeoutId,
 					);
 					addEvent(displayEvent);
 
-					// Capture session ID from SessionStart events for resume support
-					if (envelope.hook_event_name === 'SessionStart') {
-						setCurrentSessionId(envelope.session_id);
-					}
-
-					// Asynchronously enrich SessionEnd events with transcript data
-					if (envelope.hook_event_name === 'SessionEnd') {
-						const transcriptPath = envelope.payload.transcript_path;
-						if (transcriptPath) {
-							parseTranscriptFile(transcriptPath)
-								.then(summary => {
-									if (!isMountedRef.current) return;
-									setEvents(prev =>
-										prev.map(e =>
-											e.id === displayEvent.id
-												? {...e, transcriptSummary: summary}
-												: e,
-										),
-									);
-								})
-								.catch(err => {
-									console.error(
-										'[SessionEnd] Failed to parse transcript:',
-										err,
-									);
-								});
-						} else {
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === displayEvent.id
-										? {
-												...e,
-												transcriptSummary: {
-													lastAssistantText: null,
-													lastAssistantTimestamp: null,
-													messageCount: 0,
-													toolCallCount: 0,
-													error: 'No transcript path provided',
-												},
-											}
-										: e,
-								),
-							);
-						}
-					}
+					// Session-specific tracking
+					handleSessionTracking(envelope, displayEvent);
 				} catch (err) {
 					console.error('[hook-server] Error processing event:', err);
 					socket.end();
