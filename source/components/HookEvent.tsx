@@ -18,9 +18,14 @@ import GenericHookEvent from './GenericHookEvent.js';
 type Props = {
 	event: HookEventDisplay;
 	debug?: boolean;
+	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
-export default function HookEvent({event, debug}: Props): React.ReactNode {
+export default function HookEvent({
+	event,
+	debug,
+	childEventsByAgent,
+}: Props): React.ReactNode {
 	if (event.hookName === 'SessionEnd') {
 		return <SessionEndEvent event={event} />;
 	}
@@ -46,7 +51,9 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 		(isSubagentStartEvent(payload) || isSubagentStopEvent(payload)) &&
 		!debug
 	) {
-		return <SubagentEvent event={event} />;
+		return (
+			<SubagentEvent event={event} childEventsByAgent={childEventsByAgent} />
+		);
 	}
 
 	if (

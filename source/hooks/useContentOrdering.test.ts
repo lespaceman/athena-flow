@@ -30,6 +30,7 @@ function makeEvent(
 		postToolPayload: overrides.postToolPayload,
 		subagentStopPayload: overrides.subagentStopPayload,
 		transcriptSummary: overrides.transcriptSummary,
+		parentSubagentId: overrides.parentSubagentId,
 	};
 }
 
@@ -355,5 +356,156 @@ describe('useContentOrdering', () => {
 		expect(stableItems).toHaveLength(1);
 		expect(stableItems[0]).toEqual({type: 'header', id: 'header'});
 		expect(dynamicItems).toHaveLength(0);
+	});
+
+	describe('child event grouping', () => {
+		it('excludes events with parentSubagentId from stableItems and dynamicItems', () => {
+			const events = [
+				makeEvent({
+					id: 'parent',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+				makeEvent({
+					id: 'child-1',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					status: 'passthrough',
+					timestamp: new Date(1500),
+					parentSubagentId: 'abc123',
+					postToolPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Bash',
+						tool_use_id: 'tu-1',
+						tool_response: 'ok',
+					},
+				}),
+				makeEvent({
+					id: 'child-2',
+					hookName: 'PreToolUse',
+					toolName: 'Read',
+					status: 'pending',
+					timestamp: new Date(2000),
+					parentSubagentId: 'abc123',
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allContentIds = [
+				...stableItems
+					.filter(i => i.type !== 'header')
+					.map(i => (i as {data: {id: string}}).data.id),
+				...dynamicItems.map(i => i.data.id),
+			];
+
+			expect(allContentIds).toContain('parent');
+			expect(allContentIds).not.toContain('child-1');
+			expect(allContentIds).not.toContain('child-2');
+		});
+
+		it('groups child events correctly by agent_id in childEventsByAgent', () => {
+			const events = [
+				makeEvent({
+					id: 'child-a1',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					parentSubagentId: 'agent-a',
+					postToolPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Bash',
+						tool_use_id: 'tu-1',
+						tool_response: 'ok',
+					},
+				}),
+				makeEvent({
+					id: 'child-b1',
+					hookName: 'PreToolUse',
+					toolName: 'Read',
+					status: 'passthrough',
+					timestamp: new Date(1500),
+					parentSubagentId: 'agent-b',
+					postToolPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Read',
+						tool_use_id: 'tu-2',
+						tool_response: 'file contents',
+					},
+				}),
+				makeEvent({
+					id: 'child-a2',
+					hookName: 'PreToolUse',
+					toolName: 'Grep',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					parentSubagentId: 'agent-a',
+					postToolPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Grep',
+						tool_use_id: 'tu-3',
+						tool_response: 'match found',
+					},
+				}),
+			];
+
+			const {childEventsByAgent} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			expect(childEventsByAgent.get('agent-a')).toHaveLength(2);
+			expect(childEventsByAgent.get('agent-a')![0]!.id).toBe('child-a1');
+			expect(childEventsByAgent.get('agent-a')![1]!.id).toBe('child-a2');
+			expect(childEventsByAgent.get('agent-b')).toHaveLength(1);
+			expect(childEventsByAgent.get('agent-b')![0]!.id).toBe('child-b1');
+		});
+
+		it('events without parentSubagentId are unaffected', () => {
+			const events = [
+				makeEvent({
+					id: 'top-level',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {stableItems, childEventsByAgent} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			expect(
+				stableItems.some(i => i.type === 'hook' && i.data.id === 'top-level'),
+			).toBe(true);
+			expect(childEventsByAgent.size).toBe(0);
+		});
+
+		it('returns empty map when no child events exist', () => {
+			const {childEventsByAgent} = useContentOrdering({
+				messages: [],
+				events: [],
+			});
+
+			expect(childEventsByAgent.size).toBe(0);
+		});
 	});
 });

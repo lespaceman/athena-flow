@@ -3,7 +3,8 @@
  * SubagentStop events.
  *
  * Both variants share the same bordered-box visual treatment with diamond
- * symbols in magenta.
+ * symbols in magenta. Child events (tool calls within the subagent) are
+ * rendered compactly inside the border box.
  */
 
 import React from 'react';
@@ -14,25 +15,82 @@ import {
 	type SubagentStopEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
+	isPreToolUseEvent,
+	isPermissionRequestEvent,
 } from '../types/hooks/index.js';
+import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {
+	STATUS_COLORS,
+	STATUS_SYMBOLS,
 	SUBAGENT_COLOR,
 	SUBAGENT_SYMBOLS,
 	formatElapsed,
+	getPostToolText,
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
 
 type Props = {
 	event: HookEventDisplay;
+	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
 /**
- * SubagentStart event, optionally merged with its SubagentStop.
+ * Compact renderer for a child tool call inside a subagent box.
  */
-function SubagentStartDisplay({event}: Props): React.ReactNode {
+function ChildToolCallEvent({
+	event,
+}: {
+	event: HookEventDisplay;
+}): React.ReactNode {
+	const color = STATUS_COLORS[event.status];
+	const symbol = STATUS_SYMBOLS[event.status];
+	const payload = event.payload;
+
+	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
+		const parsed = parseToolName(payload.tool_name);
+		const inlineParams = formatInlineParams(payload.tool_input);
+		const postResponse = event.postToolPayload
+			? getPostToolText(event.postToolPayload)
+			: '';
+		return (
+			<Box flexDirection="column">
+				<Box>
+					<Text color={color}>{symbol} </Text>
+					<Text color={color} bold>
+						{parsed.displayName}
+					</Text>
+					<Text dimColor>{inlineParams}</Text>
+				</Box>
+				<ResponseBlock
+					response={postResponse}
+					isFailed={event.postToolFailed ?? false}
+				/>
+				<StderrBlock result={event.result} />
+			</Box>
+		);
+	}
+
+	// Fallback for other child event types
+	return (
+		<Box>
+			<Text color={color}>{symbol} </Text>
+			<Text color={color}>{event.hookName}</Text>
+		</Box>
+	);
+}
+
+/**
+ * SubagentStart event, optionally merged with its SubagentStop.
+ * Child events are rendered inside the bordered box.
+ */
+function SubagentStartDisplay({
+	event,
+	childEventsByAgent,
+}: Props): React.ReactNode {
 	const payload = event.payload as SubagentStartEvent;
 	const subSymbol = SUBAGENT_SYMBOLS[event.status];
+	const children = childEventsByAgent?.get(payload.agent_id) ?? [];
 	const stopResponseText = event.subagentStopPayload
 		? (event.subagentStopPayload.agent_transcript_path ?? 'completed')
 		: '';
@@ -58,6 +116,13 @@ function SubagentStartDisplay({event}: Props): React.ReactNode {
 						{elapsed ? ` ${elapsed}` : ''}
 					</Text>
 				</Box>
+				{children.length > 0 && (
+					<Box flexDirection="column" paddingLeft={1}>
+						{children.map(child => (
+							<ChildToolCallEvent key={child.id} event={child} />
+						))}
+					</Box>
+				)}
 				{stopResponseText ? (
 					<ResponseBlock response={stopResponseText} isFailed={false} />
 				) : null}
@@ -70,7 +135,11 @@ function SubagentStartDisplay({event}: Props): React.ReactNode {
 /**
  * Orphan SubagentStop (no matching SubagentStart was found).
  */
-function OrphanSubagentStopEvent({event}: Props): React.ReactNode {
+function OrphanSubagentStopEvent({
+	event,
+}: {
+	event: HookEventDisplay;
+}): React.ReactNode {
 	const payload = event.payload as SubagentStopEvent;
 	const subSymbol = SUBAGENT_SYMBOLS[event.status];
 
@@ -97,9 +166,17 @@ function OrphanSubagentStopEvent({event}: Props): React.ReactNode {
 /**
  * Dispatcher: routes to SubagentStart or orphan SubagentStop rendering.
  */
-export default function SubagentEvent({event}: Props): React.ReactNode {
+export default function SubagentEvent({
+	event,
+	childEventsByAgent,
+}: Props): React.ReactNode {
 	if (isSubagentStartEvent(event.payload)) {
-		return <SubagentStartDisplay event={event} />;
+		return (
+			<SubagentStartDisplay
+				event={event}
+				childEventsByAgent={childEventsByAgent}
+			/>
+		);
 	}
 	if (isSubagentStopEvent(event.payload)) {
 		return <OrphanSubagentStopEvent event={event} />;

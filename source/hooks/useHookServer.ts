@@ -80,6 +80,12 @@ function findMatchingPreToolUse(
 	);
 }
 
+/** Extract the agent_id from a subagent transcript path. */
+export function extractSubagentId(transcriptPath: string): string | undefined {
+	const match = transcriptPath.match(/\/subagents\/agent-([^/]+)\.jsonl$/);
+	return match?.[1];
+}
+
 /** Find a matching SubagentStart for a SubagentStop by agent_id. */
 function findMatchingSubagentStart(
 	events: HookEventDisplay[],
@@ -536,6 +542,14 @@ export function useHookServer(
 						socket,
 						receiveTimestamp: Date.now(),
 					};
+
+					// Tag child events with their parent subagent's agent_id
+					const childAgentId = extractSubagentId(
+						envelope.payload.transcript_path,
+					);
+					if (childAgentId) {
+						ctx.displayEvent.parentSubagentId = childAgentId;
+					}
 
 					// Dispatch to handlers (first match wins)
 					const handled =

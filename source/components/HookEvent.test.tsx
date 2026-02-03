@@ -1029,6 +1029,213 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('/9j/');
 	});
 
+	it('renders SubagentStart with child tool calls inside border', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-children',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const childEvent: HookEventDisplay = {
+			id: 'child-1',
+			requestId: 'req-child-1',
+			timestamp: new Date('2024-01-15T10:30:46.000Z'),
+			hookName: 'PreToolUse',
+			toolName: 'Bash',
+			payload: {
+				session_id: 'session-1',
+				transcript_path:
+					'/home/user/.claude/projects/abc/subagents/agent-children.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PreToolUse',
+				tool_name: 'Bash',
+				tool_input: {command: 'ls -la'},
+			} as PreToolUseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			parentSubagentId: 'agent-children',
+		};
+		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
+			['agent-children', [childEvent]],
+		]);
+		const {lastFrame} = render(
+			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
+		);
+		const frame = lastFrame() ?? '';
+
+		// Child tool call should be inside the bordered box
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('command: "ls -la"');
+		// Should still have border chars
+		expect(frame).toContain('\u256d'); // ╭
+		expect(frame).toContain('\u2502'); // │
+		expect(frame).toContain('\u2570'); // ╰
+	});
+
+	it('renders child event with merged PostToolUse response inside border', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-resp',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const childEvent: HookEventDisplay = {
+			id: 'child-resp-1',
+			requestId: 'req-child-resp',
+			timestamp: new Date('2024-01-15T10:30:46.000Z'),
+			hookName: 'PreToolUse',
+			toolName: 'Bash',
+			payload: {
+				session_id: 'session-1',
+				transcript_path:
+					'/home/user/.claude/projects/abc/subagents/agent-resp.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PreToolUse',
+				tool_name: 'Bash',
+				tool_input: {command: 'echo hello'},
+			} as PreToolUseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			parentSubagentId: 'agent-resp',
+			postToolPayload: {
+				session_id: 'session-1',
+				transcript_path:
+					'/home/user/.claude/projects/abc/subagents/agent-resp.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PostToolUse',
+				tool_name: 'Bash',
+				tool_input: {command: 'echo hello'},
+				tool_response: 'hello',
+			} as PostToolUseEvent,
+			postToolRequestId: 'req-post-child',
+			postToolTimestamp: new Date('2024-01-15T10:30:47.000Z'),
+			postToolFailed: false,
+		};
+		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
+			['agent-resp', [childEvent]],
+		]);
+		const {lastFrame} = render(
+			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
+		);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('hello');
+		expect(frame).toContain('\u23bf'); // ⎿ response indicator
+	});
+
+	it('renders SubagentStart with children and merged SubagentStop', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-full',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-full',
+			agent_type: 'Explore',
+			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-full',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+		};
+		const childEvent: HookEventDisplay = {
+			id: 'child-full-1',
+			requestId: 'req-child-full',
+			timestamp: new Date('2024-01-15T10:30:46.000Z'),
+			hookName: 'PreToolUse',
+			toolName: 'Read',
+			payload: {
+				session_id: 'session-1',
+				transcript_path:
+					'/home/user/.claude/projects/abc/subagents/agent-full.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PreToolUse',
+				tool_name: 'Read',
+				tool_input: {file_path: '/path/to/file'},
+			} as PreToolUseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			parentSubagentId: 'agent-full',
+		};
+		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
+			['agent-full', [childEvent]],
+		]);
+		const {lastFrame} = render(
+			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
+		);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('Read');
+		expect(frame).toContain('/tmp/subagent-transcript.jsonl');
+		expect(frame).toContain('(15.0s)');
+		expect(frame).toContain('\u256d'); // ╭
+	});
+
+	it('renders SubagentStart with empty childEventsByAgent identically to no-children', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-empty',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const emptyMap = new Map<string, HookEventDisplay[]>();
+		const {lastFrame: withMap} = render(
+			<HookEvent event={event} childEventsByAgent={emptyMap} />,
+		);
+		const {lastFrame: withoutMap} = render(<HookEvent event={event} />);
+
+		expect(withMap()).toBe(withoutMap());
+	});
+
 	it('renders orphan SubagentStop with border and diamond, no duration', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',

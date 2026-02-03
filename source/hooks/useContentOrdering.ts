@@ -70,6 +70,7 @@ type UseContentOrderingOptions = {
 type UseContentOrderingResult = {
 	stableItems: DisplayItem[];
 	dynamicItems: ContentItem[];
+	childEventsByAgent: Map<string, HookEventDisplay[]>;
 };
 
 export function useContentOrdering({
@@ -95,10 +96,25 @@ export function useContentOrdering({
 					},
 				}));
 
+	// Group child events by parent agent_id (for rendering inside subagent boxes)
+	const childEventsByAgent = new Map<string, HookEventDisplay[]>();
+	for (const e of events) {
+		if (e.parentSubagentId) {
+			const children = childEventsByAgent.get(e.parentSubagentId) ?? [];
+			children.push(e);
+			childEventsByAgent.set(e.parentSubagentId, children);
+		}
+	}
+	// Sort each group by timestamp so render order is deterministic
+	for (const children of childEventsByAgent.values()) {
+		children.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+	}
+
 	// Interleave messages and hook events by timestamp.
 	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
+	// Exclude child events (those with parentSubagentId) — they render inside their parent subagent box.
 	const hookItems: ContentItem[] = events
-		.filter(e => debug || e.hookName !== 'SessionEnd')
+		.filter(e => (debug || e.hookName !== 'SessionEnd') && !e.parentSubagentId)
 		.map(e => ({type: 'hook' as const, data: e}));
 
 	const contentItems: ContentItem[] = [
@@ -114,5 +130,5 @@ export function useContentOrdering({
 	];
 	const dynamicItems = contentItems.filter(item => !isStableContent(item));
 
-	return {stableItems, dynamicItems};
+	return {stableItems, dynamicItems, childEventsByAgent};
 }
