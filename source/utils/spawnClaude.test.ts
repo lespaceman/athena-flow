@@ -15,18 +15,27 @@ vi.mock('./generateHookSettings.js', () => ({
 	registerCleanupOnExit: vi.fn(),
 }));
 
-// Create a mock ChildProcess with event emitter based stdout/stderr
-function createMockChildProcess() {
+// Create a mock ChildProcess with event emitter based stdout/stderr/stdin
+function createMockChildProcess(opts?: {withStdin?: boolean}) {
 	const stdout = new EventEmitter();
 	const stderr = new EventEmitter();
-	const mockProcess = new EventEmitter() as childProcess.ChildProcess & {
+	const stdin = opts?.withStdin
+		? Object.assign(new EventEmitter(), {
+				write: vi.fn(),
+				end: vi.fn(),
+			})
+		: undefined;
+	const mockProcess = Object.assign(new EventEmitter(), {
+		stdout,
+		stderr,
+		stdin,
+		kill: vi.fn().mockReturnValue(true),
+	}) as unknown as childProcess.ChildProcess & {
 		stdout: EventEmitter;
 		stderr: EventEmitter;
-		kill: () => boolean;
+		stdin: typeof stdin;
+		kill: ReturnType<typeof vi.fn>;
 	};
-	mockProcess.stdout = stdout;
-	mockProcess.stderr = stderr;
-	mockProcess.kill = vi.fn().mockReturnValue(true);
 	return mockProcess;
 }
 
@@ -201,6 +210,144 @@ describe('spawnClaude', () => {
 		const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 		expect(args).toContain('--resume');
 		expect(args).toContain('abc-123-session-id');
+	});
+
+	describe('jqFilter', () => {
+		it('should not spawn jq when jqFilter is not provided', () => {
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+			});
+
+			// Only one spawn call (for claude)
+			expect(childProcess.spawn).toHaveBeenCalledTimes(1);
+			expect(childProcess.spawn).toHaveBeenCalledWith(
+				'claude',
+				expect.any(Array),
+				expect.any(Object),
+			);
+		});
+
+		it('should spawn jq with correct args when jqFilter is provided', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess) // claude
+				.mockReturnValueOnce(jqProcess); // jq
+
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+				onFilteredStdout: vi.fn(),
+			});
+
+			expect(childProcess.spawn).toHaveBeenCalledTimes(2);
+			expect(childProcess.spawn).toHaveBeenNthCalledWith(
+				2,
+				'jq',
+				['--unbuffered', '-rj', '.text'],
+				{stdio: ['pipe', 'pipe', 'pipe']},
+			);
+		});
+
+		it('should forward Claude stdout to jq stdin', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess)
+				.mockReturnValueOnce(jqProcess);
+
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+			});
+
+			const data = Buffer.from('{"text":"hello"}');
+			mockChildProcess.stdout.emit('data', data);
+
+			expect(jqProcess.stdin!.write).toHaveBeenCalledWith(data);
+		});
+
+		it('should end jq stdin when Claude stdout ends', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess)
+				.mockReturnValueOnce(jqProcess);
+
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+			});
+
+			mockChildProcess.stdout.emit('end');
+
+			expect(jqProcess.stdin!.end).toHaveBeenCalled();
+		});
+
+		it('should call onFilteredStdout when jq produces output', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess)
+				.mockReturnValueOnce(jqProcess);
+
+			const onFilteredStdout = vi.fn();
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+				onFilteredStdout,
+			});
+
+			jqProcess.stdout.emit('data', Buffer.from('hello'));
+
+			expect(onFilteredStdout).toHaveBeenCalledWith('hello');
+		});
+
+		it('should call onJqStderr on jq stderr output', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess)
+				.mockReturnValueOnce(jqProcess);
+
+			const onJqStderr = vi.fn();
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+				onJqStderr,
+			});
+
+			jqProcess.stderr.emit('data', Buffer.from('parse error'));
+
+			expect(onJqStderr).toHaveBeenCalledWith('parse error');
+		});
+
+		it('should call onJqStderr on jq spawn error', () => {
+			const jqProcess = createMockChildProcess({withStdin: true});
+			vi.mocked(childProcess.spawn)
+				.mockReturnValueOnce(mockChildProcess)
+				.mockReturnValueOnce(jqProcess);
+
+			const onJqStderr = vi.fn();
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				jqFilter: '.text',
+				onJqStderr,
+			});
+
+			jqProcess.emit('error', new Error('spawn jq ENOENT'));
+
+			expect(onJqStderr).toHaveBeenCalledWith('[jq error] spawn jq ENOENT');
+		});
 	});
 
 	describe('isolation', () => {

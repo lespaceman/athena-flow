@@ -2,13 +2,17 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
-	isToolEvent,
+	isPreToolUseEvent,
+	isPostToolUseEvent,
+	isPostToolUseFailureEvent,
+	isPermissionRequestEvent,
 	isNotificationEvent,
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 
 type Props = {
 	event: HookEventDisplay;
+	debug?: boolean;
 };
 
 const STATUS_COLORS = {
@@ -25,7 +29,68 @@ const STATUS_SYMBOLS = {
 	json_output: '\u2192', // →
 } as const;
 
-export default function HookEvent({event}: Props) {
+function truncateStr(s: string, maxLen: number): string {
+	if (s.length <= maxLen) return s;
+	return s.slice(0, maxLen - 3) + '...';
+}
+
+/**
+ * Format tool_input as key-value lines.
+ * Values are truncated since inputs like Write.content can be very large.
+ */
+function formatToolInput(input: Record<string, unknown>): string {
+	return Object.entries(input)
+		.map(([key, val]) => {
+			const valStr = typeof val === 'string' ? val : JSON.stringify(val);
+			return `  ${key}: ${truncateStr(valStr, 120)}`;
+		})
+		.join('\n');
+}
+
+/**
+ * Format tool_response for display.
+ *
+ * Responses vary by tool:
+ *  - String (e.g. Bash stdout)
+ *  - Content-block array from MCP tools: [{"type":"text","text":"..."},...]
+ *  - JSON object (e.g. Write: {"filePath":"...","success":true})
+ *  - null / undefined
+ *
+ * Shows the full text content without truncation.
+ */
+function formatToolResponse(response: unknown): string {
+	if (response == null) return '';
+	if (typeof response === 'string') return response.trim();
+
+	// Content-block array: extract text fields
+	if (Array.isArray(response)) {
+		const texts = response
+			.filter(
+				(block): block is {text: string} =>
+					typeof block === 'object' &&
+					block !== null &&
+					typeof (block as Record<string, unknown>).text === 'string',
+			)
+			.map(block => block.text);
+		if (texts.length > 0) return texts.join('\n').trim();
+		// Array of non-content-blocks — show as JSON
+		return JSON.stringify(response, null, 2);
+	}
+
+	// JSON object — show as key-value pairs
+	if (typeof response === 'object') {
+		return Object.entries(response as Record<string, unknown>)
+			.map(([key, val]) => {
+				const valStr = typeof val === 'string' ? val : JSON.stringify(val);
+				return `  ${key}: ${valStr}`;
+			})
+			.join('\n');
+	}
+
+	return String(response);
+}
+
+export default function HookEvent({event, debug}: Props) {
 	// Route SessionEnd events to specialized component
 	if (event.hookName === 'SessionEnd') {
 		return <SessionEndEvent event={event} />;
@@ -41,22 +106,48 @@ export default function HookEvent({event}: Props) {
 		second: '2-digit',
 	});
 
-	// Build label
-	const label = event.toolName
-		? `${event.hookName}:${event.toolName}`
-		: event.hookName;
-
-	// Build payload preview (truncated)
-	let preview = '';
 	const payload = event.payload;
-	if (isToolEvent(payload)) {
-		const inputStr = JSON.stringify(payload.tool_input);
-		preview = inputStr.length > 60 ? inputStr.slice(0, 57) + '...' : inputStr;
-	} else if (isNotificationEvent(payload)) {
-		preview =
-			payload.message.length > 60
-				? payload.message.slice(0, 57) + '...'
-				: payload.message;
+
+	// Build preview content based on hook type.
+	// Non-debug: formatted key-value preview for tool/notification events.
+	// Debug: full JSON for everything.
+	let previewContent: React.ReactNode = null;
+	if (!debug) {
+		if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
+			const formatted = formatToolInput(payload.tool_input);
+			if (formatted) {
+				previewContent = (
+					<Box>
+						<Text dimColor>{formatted}</Text>
+					</Box>
+				);
+			}
+		} else if (isPostToolUseFailureEvent(payload)) {
+			const response = formatToolResponse(payload.tool_response);
+			if (response) {
+				previewContent = (
+					<Box>
+						<Text color="red">{response}</Text>
+					</Box>
+				);
+			}
+		} else if (isPostToolUseEvent(payload)) {
+			const response = formatToolResponse(payload.tool_response);
+			if (response) {
+				previewContent = (
+					<Box>
+						<Text dimColor>{response}</Text>
+					</Box>
+				);
+			}
+		} else if (isNotificationEvent(payload)) {
+			const msg = truncateStr(payload.message, 200);
+			previewContent = (
+				<Box>
+					<Text dimColor>{msg}</Text>
+				</Box>
+			);
+		}
 	}
 
 	return (
@@ -69,16 +160,28 @@ export default function HookEvent({event}: Props) {
 		>
 			<Box>
 				<Text color={color}>
-					{symbol} [{time}] {label}
+					{symbol} [{time}]{' '}
 				</Text>
+				{event.toolName ? (
+					<>
+						<Text color="gray">{event.hookName}:</Text>
+						<Text color={color} bold>
+							{event.toolName}
+						</Text>
+					</>
+				) : (
+					<Text color={color}>{event.hookName}</Text>
+				)}
 				{event.status !== 'pending' && (
 					<Text color="gray"> ({event.status})</Text>
 				)}
 			</Box>
-			{preview && (
+			{debug ? (
 				<Box>
-					<Text dimColor>{preview}</Text>
+					<Text dimColor>{JSON.stringify(event.payload, null, 2)}</Text>
 				</Box>
+			) : (
+				previewContent
 			)}
 			{event.result?.stderr && (
 				<Box>

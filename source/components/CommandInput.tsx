@@ -10,9 +10,19 @@ type Props = {
 	inputKey: number;
 	onSubmit: (value: string) => void;
 	disabled?: boolean;
+	onEscape?: () => void;
+	onArrowUp?: (currentValue: string) => string | undefined;
+	onArrowDown?: () => string | undefined;
 };
 
-export default function CommandInput({inputKey, onSubmit, disabled}: Props) {
+export default function CommandInput({
+	inputKey,
+	onSubmit,
+	disabled,
+	onEscape,
+	onArrowUp,
+	onArrowDown,
+}: Props) {
 	const [value, setValue] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	// Bump completionKey to remount TextInput with a new defaultValue after tab completion
@@ -65,6 +75,14 @@ export default function CommandInput({inputKey, onSubmit, disabled}: Props) {
 	safeIndexRef.current = safeIndex;
 	const disabledRef = useRef(disabled);
 	disabledRef.current = disabled;
+	const onEscapeRef = useRef(onEscape);
+	onEscapeRef.current = onEscape;
+	const onArrowUpRef = useRef(onArrowUp);
+	onArrowUpRef.current = onArrowUp;
+	const onArrowDownRef = useRef(onArrowDown);
+	onArrowDownRef.current = onArrowDown;
+	const valueRef = useRef(value);
+	valueRef.current = value;
 
 	// Tab completion: insert selected command name into input
 	const completeSelected = useCallback(() => {
@@ -90,33 +108,59 @@ export default function CommandInput({inputKey, onSubmit, disabled}: Props) {
 				escape: boolean;
 			},
 		) => {
-			if (disabledRef.current || !showSuggestionsRef.current) return;
+			if (disabledRef.current) return;
 
-			if (key.tab) {
-				completeSelected();
+			// ESC: dismiss suggestions if showing, otherwise delegate to parent
+			if (key.escape) {
+				if (showSuggestionsRef.current) {
+					setDefaultValue('');
+					setCompletionKey(k => k + 1);
+					setValue('');
+				} else if (onEscapeRef.current) {
+					onEscapeRef.current();
+				}
 				return;
 			}
 
+			// Arrow keys: navigate suggestions when showing, otherwise delegate to parent for history
 			if (key.upArrow) {
-				setSelectedIndex(i => {
-					const len = filteredCommandsRef.current.length;
-					return i <= 0 ? len - 1 : i - 1;
-				});
+				if (showSuggestionsRef.current) {
+					setSelectedIndex(i => {
+						const len = filteredCommandsRef.current.length;
+						return i <= 0 ? len - 1 : i - 1;
+					});
+				} else if (onArrowUpRef.current) {
+					const result = onArrowUpRef.current(valueRef.current);
+					if (result !== undefined) {
+						setDefaultValue(result);
+						setCompletionKey(k => k + 1);
+						setValue(result);
+					}
+				}
 				return;
 			}
 
 			if (key.downArrow) {
-				setSelectedIndex(i => {
-					const len = filteredCommandsRef.current.length;
-					return i >= len - 1 ? 0 : i + 1;
-				});
+				if (showSuggestionsRef.current) {
+					setSelectedIndex(i => {
+						const len = filteredCommandsRef.current.length;
+						return i >= len - 1 ? 0 : i + 1;
+					});
+				} else if (onArrowDownRef.current) {
+					const result = onArrowDownRef.current();
+					if (result !== undefined) {
+						setDefaultValue(result);
+						setCompletionKey(k => k + 1);
+						setValue(result);
+					}
+				}
 				return;
 			}
 
-			if (key.escape) {
-				setDefaultValue('');
-				setCompletionKey(k => k + 1);
-				setValue('');
+			if (!showSuggestionsRef.current) return;
+
+			if (key.tab) {
+				completeSelected();
 			}
 		},
 		[completeSelected],
