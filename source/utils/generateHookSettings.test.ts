@@ -138,6 +138,17 @@ describe('generateHookSettings', () => {
 		expect(preToolUseTimeout).toBe(300);
 	});
 
+	it('should set extended timeout for PermissionRequest hooks', () => {
+		const result = generateHookSettings();
+		createdFiles.push(result.settingsPath);
+
+		const content = fs.readFileSync(result.settingsPath, 'utf8');
+		const settings = JSON.parse(content);
+
+		const permReqTimeout = settings.hooks.PermissionRequest[0].hooks[0].timeout;
+		expect(permReqTimeout).toBe(300);
+	});
+
 	it('should keep short timeout for non-PreToolUse hooks', () => {
 		const result = generateHookSettings();
 		createdFiles.push(result.settingsPath);

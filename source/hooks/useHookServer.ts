@@ -17,6 +17,8 @@ import {
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
+	createPermissionRequestAllowResult,
+	createBlockResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
@@ -389,6 +391,34 @@ export function useHookServer(
 			return true;
 		}
 
+		/** Auto-allow PermissionRequest events (deny rules still apply). */
+		function handlePermissionRequest(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (envelope.hook_event_name !== 'PermissionRequest') return false;
+			if (!isToolEvent(envelope.payload)) return false;
+
+			// Deny rules still take effect at the PermissionRequest stage
+			const matchedRule = matchRule(
+				rulesRef.current,
+				envelope.payload.tool_name,
+			);
+			if (matchedRule?.action === 'deny') {
+				storeWithoutPassthrough(ctx);
+				addEvent(ctx.displayEvent);
+				respond(
+					envelope.request_id,
+					createBlockResult(`Blocked by rule: ${matchedRule.addedBy}`),
+				);
+				return true;
+			}
+
+			// Auto-allow everything else — don't addEvent() since PermissionRequest
+			// duplicates the PreToolUse event that follows and would create UI noise.
+			storeWithoutPassthrough(ctx);
+			respond(envelope.request_id, createPermissionRequestAllowResult());
+			return true;
+		}
+
 		/** Route AskUserQuestion events to the question queue. */
 		function handleAskUserQuestion(ctx: HandlerContext): boolean {
 			const {envelope} = ctx;
@@ -560,6 +590,7 @@ export function useHookServer(
 					const handled =
 						handlePostToolUseMerge(ctx) ||
 						handleSubagentStopMerge(ctx) ||
+						handlePermissionRequest(ctx) ||
 						handleAskUserQuestion(ctx) ||
 						handlePreToolUseRules(ctx) ||
 						handlePermissionCheck(ctx);
