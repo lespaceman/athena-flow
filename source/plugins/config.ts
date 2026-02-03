@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {isMarketplaceRef, resolveMarketplacePlugin} from './marketplace.js';
 
 export type AthenaConfig = {
 	plugins: string[];
@@ -46,9 +47,12 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		plugins?: string[];
 	};
 
-	const plugins = (raw.plugins ?? []).map(p =>
-		path.isAbsolute(p) ? p : path.resolve(baseDir, p),
-	);
+	const plugins = (raw.plugins ?? []).map(p => {
+		if (isMarketplaceRef(p)) {
+			return resolveMarketplacePlugin(p);
+		}
+		return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
+	});
 
 	return {plugins};
 }

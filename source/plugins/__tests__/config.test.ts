@@ -18,6 +18,14 @@ vi.mock('node:os', () => ({
 	},
 }));
 
+const resolveMarketplacePluginMock = vi.fn();
+
+vi.mock('../marketplace.js', () => ({
+	isMarketplaceRef: (entry: string) =>
+		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
+	resolveMarketplacePlugin: (ref: string) => resolveMarketplacePluginMock(ref),
+}));
+
 // Import after mocks are set up
 const {readConfig, readGlobalConfig} = await import('../config.js');
 
@@ -25,6 +33,7 @@ beforeEach(() => {
 	for (const key of Object.keys(files)) {
 		delete files[key];
 	}
+	resolveMarketplacePluginMock.mockReset();
 });
 
 describe('readConfig', () => {
@@ -101,5 +110,42 @@ describe('readGlobalConfig', () => {
 		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({});
 
 		expect(readGlobalConfig()).toEqual({plugins: []});
+	});
+});
+
+describe('marketplace ref integration', () => {
+	it('delegates marketplace refs to resolveMarketplacePlugin', () => {
+		resolveMarketplacePluginMock.mockReturnValue(
+			'/resolved/marketplace/plugin',
+		);
+
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: ['my-plugin@owner/repo'],
+		});
+
+		const result = readConfig('/project');
+
+		expect(resolveMarketplacePluginMock).toHaveBeenCalledWith(
+			'my-plugin@owner/repo',
+		);
+		expect(result.plugins).toEqual(['/resolved/marketplace/plugin']);
+	});
+
+	it('handles mix of paths and marketplace refs', () => {
+		resolveMarketplacePluginMock.mockReturnValue(
+			'/resolved/marketplace/plugin',
+		);
+
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: ['/absolute/plugin', 'my-plugin@owner/repo', 'relative/plugin'],
+		});
+
+		const result = readConfig('/project');
+
+		expect(result.plugins).toEqual([
+			'/absolute/plugin',
+			'/resolved/marketplace/plugin',
+			'/project/relative/plugin',
+		]);
 	});
 });
