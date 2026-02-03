@@ -72,6 +72,7 @@ type UseContentOrderingResult = {
 	dynamicItems: ContentItem[];
 	activeSubagents: HookEventDisplay[];
 	childEventsByAgent: Map<string, HookEventDisplay[]>;
+	activeTodoList: HookEventDisplay | null;
 };
 
 export function useContentOrdering({
@@ -115,14 +116,28 @@ export function useContentOrdering({
 	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
 	// Exclude child events (those with parentSubagentId) — they render inside their parent subagent box.
 	// Exclude SubagentStart — handled separately to avoid dynamic→static duplicate.
+	// Exclude TodoWrite (PreToolUse with tool_name 'TodoWrite') — rendered as sticky bottom widget.
 	const hookItems: ContentItem[] = events
 		.filter(
 			e =>
 				(debug || e.hookName !== 'SessionEnd') &&
 				!e.parentSubagentId &&
-				e.hookName !== 'SubagentStart',
+				e.hookName !== 'SubagentStart' &&
+				!(e.hookName === 'PreToolUse' && e.toolName === 'TodoWrite' && !debug),
 		)
 		.map(e => ({type: 'hook' as const, data: e}));
+
+	// Extract the latest TodoWrite event for sticky bottom rendering.
+	const todoWriteEvents = events.filter(
+		e =>
+			e.hookName === 'PreToolUse' &&
+			e.toolName === 'TodoWrite' &&
+			!e.parentSubagentId,
+	);
+	const activeTodoList =
+		todoWriteEvents.length > 0
+			? todoWriteEvents[todoWriteEvents.length - 1]!
+			: null;
 
 	// Running subagents: rendered in the dynamic section directly (never go through hookItems).
 	const activeSubagents: HookEventDisplay[] = events.filter(
@@ -156,5 +171,11 @@ export function useContentOrdering({
 	];
 	const dynamicItems = contentItems.filter(item => !isStableContent(item));
 
-	return {stableItems, dynamicItems, activeSubagents, childEventsByAgent};
+	return {
+		stableItems,
+		dynamicItems,
+		activeSubagents,
+		childEventsByAgent,
+		activeTodoList,
+	};
 }

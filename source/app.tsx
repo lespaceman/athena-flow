@@ -7,6 +7,7 @@ import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import HookEvent from './components/HookEvent.js';
+import TodoWriteEvent from './components/TodoWriteEvent.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -160,12 +161,17 @@ function AppContent({
 		[currentQuestionRequest, resolveQuestion],
 	);
 
-	const {stableItems, dynamicItems, activeSubagents, childEventsByAgent} =
-		useContentOrdering({
-			messages,
-			events,
-			debug,
-		});
+	const {
+		stableItems,
+		dynamicItems,
+		activeSubagents,
+		childEventsByAgent,
+		activeTodoList,
+	} = useContentOrdering({
+		messages,
+		events,
+		debug,
+	});
 
 	return (
 		<Box flexDirection="column">
@@ -227,6 +233,9 @@ function AppContent({
 					childEventsByAgent={childEventsByAgent}
 				/>
 			))}
+
+			{/* Active todo list - always dynamic, shows latest state */}
+			{activeTodoList && <TodoWriteEvent event={activeTodoList} />}
 
 			{debug && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
