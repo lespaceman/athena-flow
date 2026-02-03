@@ -160,7 +160,7 @@ function AppContent({
 		[currentQuestionRequest, resolveQuestion],
 	);
 
-	const {stableItems, dynamicItems} = useContentOrdering({
+	const {stableItems, dynamicItems, childEventsByAgent} = useContentOrdering({
 		messages,
 		events,
 		debug,
@@ -193,7 +193,12 @@ function AppContent({
 					return item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
 					) : (
-						<HookEvent key={item.data.id} event={item.data} debug={debug} />
+						<HookEvent
+							key={item.data.id}
+							event={item.data}
+							debug={debug}
+							childEventsByAgent={childEventsByAgent}
+						/>
 					);
 				}}
 			</Static>
@@ -203,7 +208,12 @@ function AppContent({
 				item.type === 'message' ? (
 					<Message key={item.data.id} message={item.data} />
 				) : (
-					<HookEvent key={item.data.id} event={item.data} debug={debug} />
+					<HookEvent
+						key={item.data.id}
+						event={item.data}
+						debug={debug}
+						childEventsByAgent={childEventsByAgent}
+					/>
 				),
 			)}
 

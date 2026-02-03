@@ -58,6 +58,7 @@ export {
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
+	createPermissionRequestAllowResult,
 } from './result.js';
 
 // Display types

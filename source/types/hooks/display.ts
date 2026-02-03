@@ -44,4 +44,6 @@ export type HookEventDisplay = {
 	subagentStopPayload?: SubagentStopEvent;
 	subagentStopRequestId?: string;
 	subagentStopTimestamp?: Date;
+	/** agent_id of the parent subagent this event belongs to */
+	parentSubagentId?: string;
 };

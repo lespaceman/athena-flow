@@ -8,6 +8,7 @@ import {
 	createJsonOutputResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
+	createPermissionRequestAllowResult,
 	type HookEventEnvelope,
 	type ClaudeHookEvent,
 	type PreToolUseEvent,
@@ -223,7 +224,7 @@ describe('hooks types', () => {
 	});
 
 	describe('createAskUserQuestionResult', () => {
-		it('should create PreToolUse allow result with answers in updatedInput', () => {
+		it('should create PreToolUse allow result with answers and additionalContext', () => {
 			const answers = {'Which library?': 'React', 'Which style?': 'CSS'};
 			const result = createAskUserQuestionResult(answers);
 			expect(result).toEqual({
@@ -238,6 +239,8 @@ describe('hooks types', () => {
 								'Which style?': 'CSS',
 							},
 						},
+						additionalContext:
+							'User answered via athena-cli:\nQ: Which library?\nA: React\nQ: Which style?\nA: CSS',
 					},
 				},
 			});
@@ -246,11 +249,45 @@ describe('hooks types', () => {
 		it('should handle empty answers', () => {
 			const result = createAskUserQuestionResult({});
 			expect(result.action).toBe('json_output');
-			expect(
-				(result.stdout_json as Record<string, unknown>)?.hookSpecificOutput,
-			).toMatchObject({
+			const output = (result.stdout_json as Record<string, unknown>)
+				?.hookSpecificOutput as Record<string, unknown>;
+			expect(output).toMatchObject({
 				permissionDecision: 'allow',
 				updatedInput: {answers: {}},
+			});
+			expect(output.additionalContext).toBe('User answered via athena-cli:\n');
+		});
+	});
+
+	describe('createPermissionRequestAllowResult', () => {
+		it('should create PermissionRequest allow result without updatedInput', () => {
+			const result = createPermissionRequestAllowResult();
+			expect(result).toEqual({
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PermissionRequest',
+						decision: {behavior: 'allow'},
+					},
+				},
+			});
+		});
+
+		it('should include updatedInput when provided', () => {
+			const result = createPermissionRequestAllowResult({
+				answers: {q: 'a'},
+			});
+			expect(result).toEqual({
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PermissionRequest',
+						decision: {
+							behavior: 'allow',
+							updatedInput: {answers: {q: 'a'}},
+						},
+					},
+				},
 			});
 		});
 	});

@@ -17,6 +17,8 @@ import {
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
+	createPermissionRequestAllowResult,
+	createBlockResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
@@ -100,6 +102,7 @@ export function useHookServer(
 ): UseHookServerResult {
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
+	const activeSubagentStackRef = useRef<string[]>([]);
 	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const eventsRef = useRef<HookEventDisplay[]>([]);
@@ -388,6 +391,34 @@ export function useHookServer(
 			return true;
 		}
 
+		/** Auto-allow PermissionRequest events (deny rules still apply). */
+		function handlePermissionRequest(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (envelope.hook_event_name !== 'PermissionRequest') return false;
+			if (!isToolEvent(envelope.payload)) return false;
+
+			// Deny rules still take effect at the PermissionRequest stage
+			const matchedRule = matchRule(
+				rulesRef.current,
+				envelope.payload.tool_name,
+			);
+			if (matchedRule?.action === 'deny') {
+				storeWithoutPassthrough(ctx);
+				addEvent(ctx.displayEvent);
+				respond(
+					envelope.request_id,
+					createBlockResult(`Blocked by rule: ${matchedRule.addedBy}`),
+				);
+				return true;
+			}
+
+			// Auto-allow everything else — don't addEvent() since PermissionRequest
+			// duplicates the PreToolUse event that follows and would create UI noise.
+			storeWithoutPassthrough(ctx);
+			respond(envelope.request_id, createPermissionRequestAllowResult());
+			return true;
+		}
+
 		/** Route AskUserQuestion events to the question queue. */
 		function handleAskUserQuestion(ctx: HandlerContext): boolean {
 			const {envelope} = ctx;
@@ -537,10 +568,29 @@ export function useHookServer(
 						receiveTimestamp: Date.now(),
 					};
 
+					// Track active subagents and tag child events
+					if (envelope.hook_event_name === 'SubagentStart') {
+						const startPayload = envelope.payload as SubagentStartEvent;
+						activeSubagentStackRef.current.push(startPayload.agent_id);
+					} else if (envelope.hook_event_name === 'SubagentStop') {
+						const stopPayload = envelope.payload as SubagentStopEvent;
+						activeSubagentStackRef.current =
+							activeSubagentStackRef.current.filter(
+								id => id !== stopPayload.agent_id,
+							);
+					} else if (activeSubagentStackRef.current.length > 0) {
+						// Tag non-subagent events with the innermost active subagent
+						ctx.displayEvent.parentSubagentId =
+							activeSubagentStackRef.current[
+								activeSubagentStackRef.current.length - 1
+							];
+					}
+
 					// Dispatch to handlers (first match wins)
 					const handled =
 						handlePostToolUseMerge(ctx) ||
 						handleSubagentStopMerge(ctx) ||
+						handlePermissionRequest(ctx) ||
 						handleAskUserQuestion(ctx) ||
 						handlePreToolUseRules(ctx) ||
 						handlePermissionCheck(ctx);
@@ -614,6 +664,9 @@ export function useHookServer(
 		return () => {
 			// Mark as unmounted to prevent state updates
 			isMountedRef.current = false;
+
+			// Clear active subagent tracking
+			activeSubagentStackRef.current = [];
 
 			// Clear all pending timeouts
 			for (const pending of pendingRequests.values()) {

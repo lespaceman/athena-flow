@@ -134,7 +134,11 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 		hooks[event] = [
 			{
 				matcher: '*',
-				hooks: [event === 'PreToolUse' ? preToolUseHookCommand : hookCommand],
+				hooks: [
+					event === 'PreToolUse' || event === 'PermissionRequest'
+						? preToolUseHookCommand
+						: hookCommand,
+				],
 			},
 		];
 	}
