@@ -16,6 +16,7 @@ import {
 	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
+	createAskUserQuestionResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
@@ -121,6 +122,9 @@ export function useHookServer(
 
 	// Permission queue -- requestIds waiting for user decision
 	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
+
+	// Question queue -- requestIds for AskUserQuestion events waiting for answers
+	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -230,6 +234,16 @@ export function useHookServer(
 			setPermissionQueue(prev => prev.filter(id => id !== requestId));
 		},
 		[respond, addRule],
+	);
+
+	// Resolve an AskUserQuestion request with the user's answers
+	const resolveQuestion = useCallback(
+		(requestId: string, answers: Record<string, string>) => {
+			const result = createAskUserQuestionResult(answers);
+			respond(requestId, result);
+			setQuestionQueue(prev => prev.filter(id => id !== requestId));
+		},
+		[respond],
 	);
 
 	// Get pending events
@@ -413,6 +427,27 @@ export function useHookServer(
 						// No match found -- fall through to add as standalone orphan entry
 					}
 
+					// Check if this is an AskUserQuestion event -- route to question queue
+					// Must be checked before rules to prevent rules from bypassing the question dialog
+					if (
+						envelope.hook_event_name === 'PreToolUse' &&
+						isToolEvent(payload) &&
+						payload.tool_name === 'AskUserQuestion'
+					) {
+						const noTimeout = setTimeout(() => {}, 0);
+						clearTimeout(noTimeout);
+						storePending(
+							envelope.request_id,
+							socket,
+							displayEvent,
+							receiveTimestamp,
+							noTimeout,
+						);
+						addEvent(displayEvent);
+						setQuestionQueue(prev => [...prev, envelope.request_id]);
+						return;
+					}
+
 					// Check rules for PreToolUse events
 					if (
 						envelope.hook_event_name === 'PreToolUse' &&
@@ -544,10 +579,13 @@ export function useHookServer(
 					}
 				}
 
-				// Remove closed requests from the permission queue so the
-				// dialog does not get stuck showing a dead request.
+				// Remove closed requests from the permission/question queues so the
+				// dialogs do not get stuck showing a dead request.
 				if (closedRequestIds.length > 0 && isMountedRef.current) {
 					setPermissionQueue(prev =>
+						prev.filter(id => !closedRequestIds.includes(id)),
+					);
+					setQuestionQueue(prev =>
 						prev.filter(id => !closedRequestIds.includes(id)),
 					);
 				}
@@ -610,6 +648,11 @@ export function useHookServer(
 			? (events.find(e => e.requestId === permissionQueue[0]) ?? null)
 			: null;
 
+	const currentQuestionRequest =
+		questionQueue.length > 0
+			? (events.find(e => e.requestId === questionQueue[0]) ?? null)
+			: null;
+
 	return {
 		events,
 		isServerRunning,
@@ -626,5 +669,8 @@ export function useHookServer(
 		currentPermissionRequest,
 		permissionQueueCount: permissionQueue.length,
 		resolvePermission,
+		currentQuestionRequest,
+		questionQueueCount: questionQueue.length,
+		resolveQuestion,
 	};
 }

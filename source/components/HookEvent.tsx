@@ -34,6 +34,15 @@ const STATUS_SYMBOLS = {
 	json_output: '\u2192', // →
 } as const;
 
+const SUBAGENT_COLOR = 'magenta';
+
+const SUBAGENT_SYMBOLS = {
+	pending: '\u25c7', // ◇ (open diamond)
+	passthrough: '\u25c6', // ◆ (filled diamond)
+	blocked: '\u2717', // ✗ (same as regular)
+	json_output: '\u2192', // → (same as regular)
+} as const;
+
 function truncateStr(s: string, maxLen: number): string {
 	if (s.length <= maxLen) return s;
 	return s.slice(0, maxLen - 3) + '...';
@@ -56,6 +65,18 @@ function formatResponseBlock(text: string): string {
 		.join('\n');
 }
 
+function formatElapsed(start: Date, end: Date): string {
+	const ms = end.getTime() - start.getTime();
+	if (ms < 0) return '';
+	const totalSeconds = ms / 1000;
+	if (totalSeconds < 60) {
+		return `(${totalSeconds.toFixed(1)}s)`;
+	}
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = Math.round(totalSeconds % 60);
+	return `(${minutes}m ${seconds}s)`;
+}
+
 /**
  * Format tool_response for display.
  *
@@ -73,17 +94,19 @@ function formatToolResponse(response: unknown): string {
 	if (response == null) return '';
 	if (typeof response === 'string') return response.trim();
 
-	// Content-block array: extract text fields
+	// Content-block array: extract text fields, replace images with placeholder
 	if (Array.isArray(response)) {
-		const texts = response
-			.filter(
-				(block): block is {text: string} =>
-					typeof block === 'object' &&
-					block !== null &&
-					typeof (block as Record<string, unknown>).text === 'string',
-			)
-			.map(block => block.text);
-		if (texts.length > 0) return texts.join('\n').trim();
+		const parts: string[] = [];
+		for (const block of response) {
+			if (typeof block !== 'object' || block === null) continue;
+			const obj = block as Record<string, unknown>;
+			if (obj['type'] === 'image') {
+				parts.push('[image]');
+			} else if (typeof obj['text'] === 'string') {
+				parts.push(obj['text']);
+			}
+		}
+		if (parts.length > 0) return parts.join('\n').trim();
 		// Array of non-content-blocks — show as JSON
 		return JSON.stringify(response, null, 2);
 	}
@@ -175,6 +198,50 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 	const symbol = STATUS_SYMBOLS[event.status];
 	const payload = event.payload;
 
+	// AskUserQuestion: Show questions and answers
+	if (
+		isPreToolUseEvent(payload) &&
+		payload.tool_name === 'AskUserQuestion' &&
+		!debug
+	) {
+		const questions = (
+			payload.tool_input as {
+				questions?: Array<{question: string; header: string}>;
+			}
+		).questions;
+		const answers = (
+			event.result?.stdout_json as {
+				hookSpecificOutput?: {
+					updatedInput?: {answers?: Record<string, string>};
+				};
+			}
+		)?.hookSpecificOutput?.updatedInput?.answers;
+
+		return (
+			<Box flexDirection="column" marginBottom={1}>
+				<Box>
+					<Text color={color}>{symbol} </Text>
+					<Text color="cyan" bold>
+						Question
+					</Text>
+				</Box>
+				{questions?.map((q, i) => (
+					<Box key={`${i}-${q.header}`} paddingLeft={3} flexDirection="column">
+						<Text>
+							<Text bold>[{q.header}]</Text> {q.question}
+						</Text>
+						{answers?.[q.question] && (
+							<Text color="green">
+								{RESPONSE_PREFIX}
+								{answers[q.question]}
+							</Text>
+						)}
+					</Box>
+				))}
+			</Box>
+		);
+	}
+
 	// Tool header: PreToolUse or PermissionRequest (consolidated with PostToolUse)
 	const isToolHeader =
 		isPreToolUseEvent(payload) || isPermissionRequestEvent(payload);
@@ -206,20 +273,36 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 
 	// Subagent header: SubagentStart (consolidated with SubagentStop)
 	if (isSubagentStartEvent(payload) && !debug) {
+		const subSymbol = SUBAGENT_SYMBOLS[event.status];
 		const stopResponseText = event.subagentStopPayload
 			? (event.subagentStopPayload.agent_transcript_path ?? 'completed')
+			: '';
+		const elapsed = event.subagentStopTimestamp
+			? formatElapsed(event.timestamp, event.subagentStopTimestamp)
 			: '';
 
 		return (
 			<Box flexDirection="column" marginBottom={1}>
-				<Box>
-					<Text color={color}>{symbol} </Text>
-					<Text color={color} bold>
-						Task({payload.agent_type})
-					</Text>
-					<Text dimColor> {payload.agent_id}</Text>
+				<Box
+					borderStyle="round"
+					borderColor={SUBAGENT_COLOR}
+					flexDirection="column"
+				>
+					<Box>
+						<Text color={SUBAGENT_COLOR}>{subSymbol} </Text>
+						<Text color={SUBAGENT_COLOR} bold>
+							Task({payload.agent_type})
+						</Text>
+						<Text dimColor>
+							{' '}
+							{payload.agent_id}
+							{elapsed ? ` ${elapsed}` : ''}
+						</Text>
+					</Box>
+					{stopResponseText ? (
+						<ResponseBlock response={stopResponseText} isFailed={false} />
+					) : null}
 				</Box>
-				<ResponseBlock response={stopResponseText} isFailed={false} />
 				<StderrBlock result={event.result} />
 			</Box>
 		);
@@ -227,14 +310,21 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 
 	// Standalone SubagentStop (orphan -- no matching SubagentStart)
 	if (isSubagentStopEvent(payload) && !debug) {
+		const subSymbol = SUBAGENT_SYMBOLS[event.status];
 		return (
 			<Box flexDirection="column" marginBottom={1}>
-				<Box>
-					<Text color={color}>{symbol} </Text>
-					<Text color={color} bold>
-						Task({payload.agent_type})
-					</Text>
-					<Text dimColor> (completed)</Text>
+				<Box
+					borderStyle="round"
+					borderColor={SUBAGENT_COLOR}
+					flexDirection="column"
+				>
+					<Box>
+						<Text color={SUBAGENT_COLOR}>{subSymbol} </Text>
+						<Text color={SUBAGENT_COLOR} bold>
+							Task({payload.agent_type})
+						</Text>
+						<Text dimColor> (completed)</Text>
+					</Box>
 				</Box>
 				<StderrBlock result={event.result} />
 			</Box>

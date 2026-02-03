@@ -56,4 +56,10 @@ export type UseHookServerResult = {
 	permissionQueueCount: number;
 	/** Resolve a permission request with user's decision */
 	resolvePermission: (requestId: string, decision: PermissionDecision) => void;
+	/** Current AskUserQuestion request awaiting user answers (first in queue) */
+	currentQuestionRequest: HookEventDisplay | null;
+	/** Number of queued question requests */
+	questionQueueCount: number;
+	/** Resolve an AskUserQuestion request with the user's answers */
+	resolveQuestion: (requestId: string, answers: Record<string, string>) => void;
 };

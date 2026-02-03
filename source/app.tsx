@@ -5,6 +5,7 @@ import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
+import QuestionDialog from './components/QuestionDialog.js';
 import HookEvent from './components/HookEvent.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import Header from './components/Header.js';
@@ -59,6 +60,9 @@ function AppContent({
 		currentPermissionRequest,
 		permissionQueueCount,
 		resolvePermission,
+		currentQuestionRequest,
+		questionQueueCount,
+		resolveQuestion,
 	} = hookServer;
 	const {
 		spawn: spawnClaude,
@@ -154,6 +158,14 @@ function AppContent({
 		[currentPermissionRequest, resolvePermission],
 	);
 
+	const handleQuestionAnswer = useCallback(
+		(answers: Record<string, string>) => {
+			if (!currentQuestionRequest) return;
+			resolveQuestion(currentQuestionRequest.requestId, answers);
+		},
+		[currentQuestionRequest, resolveQuestion],
+	);
+
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
 	const sessionEndMessages: ContentItem[] = debug
 		? []
@@ -200,6 +212,10 @@ function AppContent({
 				return item.data.transcriptSummary !== undefined;
 			case 'PreToolUse':
 			case 'PermissionRequest':
+				// AskUserQuestion: stable once answered (no PostToolUse expected)
+				if (item.data.toolName === 'AskUserQuestion') {
+					return item.data.status !== 'pending';
+				}
 				// Stable when blocked (no PostToolUse expected) or when PostToolUse merged in.
 				// Keep dynamic until then so <Static> does not freeze before the response appears.
 				return (
@@ -283,10 +299,21 @@ function AppContent({
 				/>
 			)}
 
+			{/* Question dialog - shown when AskUserQuestion needs answers */}
+			{currentQuestionRequest && !currentPermissionRequest && (
+				<QuestionDialog
+					request={currentQuestionRequest}
+					queuedCount={questionQueueCount - 1}
+					onAnswer={handleQuestionAnswer}
+				/>
+			)}
+
 			<CommandInput
 				inputKey={inputKey}
 				onSubmit={handleSubmit}
-				disabled={currentPermissionRequest !== null}
+				disabled={
+					currentPermissionRequest !== null || currentQuestionRequest !== null
+				}
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
 				onArrowDown={inputHistory.forward}

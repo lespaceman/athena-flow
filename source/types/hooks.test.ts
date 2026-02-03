@@ -7,6 +7,7 @@ import {
 	createBlockResult,
 	createJsonOutputResult,
 	createPreToolUseDenyResult,
+	createAskUserQuestionResult,
 	type HookEventEnvelope,
 	type ClaudeHookEvent,
 	type PreToolUseEvent,
@@ -217,6 +218,39 @@ describe('hooks types', () => {
 						permissionDecisionReason: 'Blocked by policy',
 					},
 				},
+			});
+		});
+	});
+
+	describe('createAskUserQuestionResult', () => {
+		it('should create PreToolUse allow result with answers in updatedInput', () => {
+			const answers = {'Which library?': 'React', 'Which style?': 'CSS'};
+			const result = createAskUserQuestionResult(answers);
+			expect(result).toEqual({
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse',
+						permissionDecision: 'allow',
+						updatedInput: {
+							answers: {
+								'Which library?': 'React',
+								'Which style?': 'CSS',
+							},
+						},
+					},
+				},
+			});
+		});
+
+		it('should handle empty answers', () => {
+			const result = createAskUserQuestionResult({});
+			expect(result.action).toBe('json_output');
+			expect(
+				(result.stdout_json as Record<string, unknown>)?.hookSpecificOutput,
+			).toMatchObject({
+				permissionDecision: 'allow',
+				updatedInput: {answers: {}},
 			});
 		});
 	});
