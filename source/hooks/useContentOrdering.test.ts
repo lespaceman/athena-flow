@@ -358,6 +358,148 @@ describe('useContentOrdering', () => {
 		expect(dynamicItems).toHaveLength(0);
 	});
 
+	describe('SubagentStart rendering paths', () => {
+		it('excludes SubagentStart events from hookItems (not in dynamicItems)', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-running',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {dynamicItems} = useContentOrdering({messages: [], events});
+
+			// SubagentStart should NOT appear in dynamicItems (handled via activeSubagents)
+			const subagentInDynamic = dynamicItems.filter(
+				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
+			);
+			expect(subagentInDynamic).toHaveLength(0);
+		});
+
+		it('returns running SubagentStart events in activeSubagents', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-running',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {activeSubagents} = useContentOrdering({messages: [], events});
+
+			expect(activeSubagents).toHaveLength(1);
+			expect(activeSubagents[0]!.id).toBe('sub-running');
+		});
+
+		it('does not include completed SubagentStart in activeSubagents', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-done',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+					subagentStopPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStop',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {activeSubagents} = useContentOrdering({messages: [], events});
+
+			expect(activeSubagents).toHaveLength(0);
+		});
+
+		it('places completed SubagentStart in stableItems', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-done',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+					subagentStopPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStop',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {stableItems} = useContentOrdering({messages: [], events});
+
+			const subagentInStable = stableItems.filter(
+				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
+			);
+			expect(subagentInStable).toHaveLength(1);
+		});
+
+		it('excludes child SubagentStart (parentSubagentId set) from activeSubagents', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-child',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					parentSubagentId: 'parent-agent',
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'nested-a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {activeSubagents} = useContentOrdering({messages: [], events});
+
+			expect(activeSubagents).toHaveLength(0);
+		});
+	});
+
 	describe('child event grouping', () => {
 		it('excludes events with parentSubagentId from stableItems and dynamicItems', () => {
 			const events = [
@@ -394,7 +536,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems, activeSubagents} = useContentOrdering({
 				messages: [],
 				events,
 			});
@@ -406,7 +548,9 @@ describe('useContentOrdering', () => {
 				...dynamicItems.map(i => i.data.id),
 			];
 
-			expect(allContentIds).toContain('parent');
+			// Running SubagentStart is in activeSubagents, not in stableItems/dynamicItems
+			expect(activeSubagents.map(e => e.id)).toContain('parent');
+			expect(allContentIds).not.toContain('parent');
 			expect(allContentIds).not.toContain('child-1');
 			expect(allContentIds).not.toContain('child-2');
 		});

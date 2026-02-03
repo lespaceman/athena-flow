@@ -388,6 +388,25 @@ export function useHookServer(
 						: e,
 				),
 			);
+
+			// Parse subagent transcript to extract response text
+			const transcriptPath = stopPayload.agent_transcript_path;
+			if (transcriptPath) {
+				parseTranscriptFile(transcriptPath)
+					.then(summary => {
+						if (isMountedRef.current) {
+							setEvents(prev =>
+								prev.map(e =>
+									e.id === match.id ? {...e, transcriptSummary: summary} : e,
+								),
+							);
+						}
+					})
+					.catch(err => {
+						console.error('[SubagentStop] Failed to parse transcript:', err);
+					});
+			}
+
 			return true;
 		}
 

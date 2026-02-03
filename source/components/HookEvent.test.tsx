@@ -611,7 +611,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u2502'); // │ border side
 	});
 
-	it('renders SubagentStart with merged SubagentStop showing transcript path', () => {
+	it('renders SubagentStart with merged SubagentStop showing transcript text', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -640,12 +640,19 @@ describe('HookEvent', () => {
 			subagentStopPayload: stopPayload,
 			subagentStopRequestId: 'req-stop-1',
 			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+			transcriptSummary: {
+				lastAssistantText: 'Found 3 matching files in the codebase.',
+				lastAssistantTimestamp: null,
+				messageCount: 4,
+				toolCallCount: 2,
+			},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('/tmp/subagent-transcript.jsonl');
+		expect(frame).toContain('Found 3 matching files in the codebase.');
+		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
 		expect(frame).toContain('\u25c6'); // ◆ filled diamond
 		expect(frame).not.toContain('\u25cf'); // ● no circle
 		expect(frame).toContain('\u256d'); // ╭ round border
@@ -690,6 +697,50 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('\u25cf'); // ● no circle
 		expect(frame).toContain('\u256d'); // ╭ round border
 		expect(frame).toContain('(15.0s)'); // elapsed duration
+	});
+
+	it('renders SubagentStart with transcriptSummary but null lastAssistantText as completed', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-null-text',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-null-text',
+			agent_type: 'Explore',
+			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-null',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+			transcriptSummary: {
+				lastAssistantText: null,
+				lastAssistantTimestamp: null,
+				messageCount: 2,
+				toolCallCount: 0,
+			},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('completed');
+		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
 	});
 
 	it('renders pending SubagentStart with open diamond and no duration', () => {
@@ -1175,6 +1226,12 @@ describe('HookEvent', () => {
 			subagentStopPayload: stopPayload,
 			subagentStopRequestId: 'req-stop-full',
 			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+			transcriptSummary: {
+				lastAssistantText: 'Analysis complete.',
+				lastAssistantTimestamp: null,
+				messageCount: 3,
+				toolCallCount: 1,
+			},
 		};
 		const childEvent: HookEventDisplay = {
 			id: 'child-full-1',
@@ -1205,7 +1262,8 @@ describe('HookEvent', () => {
 
 		expect(frame).toContain('Task(Explore)');
 		expect(frame).toContain('Read');
-		expect(frame).toContain('/tmp/subagent-transcript.jsonl');
+		expect(frame).toContain('Analysis complete.');
+		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
 		expect(frame).toContain('(15.0s)');
 		expect(frame).toContain('\u256d'); // ╭
 	});
