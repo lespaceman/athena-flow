@@ -4,7 +4,12 @@
  * These types are used by the Ink UI to render and track hook events.
  */
 
-import {type ClaudeHookEvent, type HookEventName} from './events.js';
+import {
+	type ClaudeHookEvent,
+	type HookEventName,
+	type PostToolUseEvent,
+	type PostToolUseFailureEvent,
+} from './events.js';
 import {type HookResultPayload} from './result.js';
 import {type ParsedTranscriptSummary} from '../transcript.js';
 
@@ -30,4 +35,9 @@ export type HookEventDisplay = {
 	status: HookEventStatus;
 	result?: HookResultPayload;
 	transcriptSummary?: ParsedTranscriptSummary;
+	toolUseId?: string;
+	postToolPayload?: PostToolUseEvent | PostToolUseFailureEvent;
+	postToolRequestId?: string;
+	postToolTimestamp?: Date;
+	postToolFailed?: boolean;
 };

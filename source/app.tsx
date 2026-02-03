@@ -178,30 +178,37 @@ function AppContent({
 		.filter(e => debug || e.hookName !== 'SessionEnd')
 		.map(e => ({type: 'hook' as const, data: e}));
 
+	const getItemTime = (item: ContentItem): number =>
+		item.type === 'message'
+			? Number.parseInt(item.data.id.split('-')[0] ?? '0', 10)
+			: item.data.timestamp.getTime();
+
 	const contentItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
 		...sessionEndMessages,
-	].sort((a, b) => {
-		const timeA =
-			a.type === 'message'
-				? Number.parseInt(a.data.id.split('-')[0] ?? '0', 10)
-				: a.data.timestamp.getTime();
-		const timeB =
-			b.type === 'message'
-				? Number.parseInt(b.data.id.split('-')[0] ?? '0', 10)
-				: b.data.timestamp.getTime();
-		return timeA - timeB;
-	});
+	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	// Separate stable items (for Static) from items that may update (rendered dynamically)
-	// SessionEnd events need to update when transcript loads, so keep them dynamic
+	// Separate stable items (for Static) from items that may update (rendered dynamically).
+	// An item is "stable" once it will no longer change and can be rendered once by <Static>.
 	const isStableContent = (item: ContentItem): boolean => {
 		if (item.type === 'message') return true;
-		if (item.data.hookName === 'SessionEnd') {
-			return item.data.transcriptSummary !== undefined;
+
+		switch (item.data.hookName) {
+			case 'SessionEnd':
+				// Stable once transcript data has loaded
+				return item.data.transcriptSummary !== undefined;
+			case 'PreToolUse':
+			case 'PermissionRequest':
+				// Stable when blocked (no PostToolUse expected) or when PostToolUse merged in.
+				// Keep dynamic until then so <Static> does not freeze before the response appears.
+				return (
+					item.data.status === 'blocked' ||
+					item.data.postToolPayload !== undefined
+				);
+			default:
+				return item.data.status !== 'pending';
 		}
-		return item.data.status !== 'pending';
 	};
 
 	const stableItems: DisplayItem[] = [
@@ -243,17 +250,13 @@ function AppContent({
 			</Static>
 
 			{/* Dynamic items - can re-render when state changes */}
-			{dynamicItems.map(item => {
-				if (item.type === 'message') {
-					return <Message key={item.data.id} message={item.data} />;
-				}
-				if (item.type === 'hook') {
-					return (
-						<HookEvent key={item.data.id} event={item.data} debug={debug} />
-					);
-				}
-				return null;
-			})}
+			{dynamicItems.map(item =>
+				item.type === 'message' ? (
+					<Message key={item.data.id} message={item.data} />
+				) : (
+					<HookEvent key={item.data.id} event={item.data} debug={debug} />
+				),
+			)}
 
 			{debug && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
