@@ -10,6 +10,7 @@ import {
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
+import TodoWriteEvent from './TodoWriteEvent.js';
 import ToolCallEvent from './ToolCallEvent.js';
 import SubagentEvent from './SubagentEvent.js';
 import OrphanPostToolUseEvent from './OrphanPostToolUseEvent.js';
@@ -38,6 +39,17 @@ export default function HookEvent({
 		!debug
 	) {
 		return <AskUserQuestionEvent event={event} />;
+	}
+
+	// TodoWrite events are excluded from the main timeline (useContentOrdering
+	// renders the latest one as a sticky widget). This branch is reached when
+	// a TodoWrite appears as a child event inside a subagent box.
+	if (
+		isPreToolUseEvent(payload) &&
+		payload.tool_name === 'TodoWrite' &&
+		!debug
+	) {
+		return <TodoWriteEvent event={event} />;
 	}
 
 	if (

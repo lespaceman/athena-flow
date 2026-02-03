@@ -652,4 +652,174 @@ describe('useContentOrdering', () => {
 			expect(childEventsByAgent.size).toBe(0);
 		});
 	});
+
+	describe('TodoWrite (activeTodoList)', () => {
+		it('returns the latest TodoWrite event as activeTodoList', () => {
+			const events = [
+				makeEvent({
+					id: 'todo-1',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {todos: [{content: 'Task 1', status: 'pending'}]},
+					},
+				}),
+				makeEvent({
+					id: 'todo-2',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {
+							todos: [
+								{content: 'Task 1', status: 'completed'},
+								{content: 'Task 2', status: 'in_progress'},
+							],
+						},
+					},
+				}),
+			];
+
+			const {activeTodoList} = useContentOrdering({messages: [], events});
+
+			expect(activeTodoList).not.toBeNull();
+			expect(activeTodoList!.id).toBe('todo-2');
+		});
+
+		it('excludes TodoWrite events from stableItems and dynamicItems in non-debug mode', () => {
+			const events = [
+				makeEvent({
+					id: 'todo-1',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {todos: [{content: 'Task 1', status: 'pending'}]},
+					},
+				}),
+				makeEvent({
+					id: 'notif-1',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allContentIds = [
+				...stableItems
+					.filter(i => i.type !== 'header')
+					.map(i => (i as {data: {id: string}}).data.id),
+				...dynamicItems.map(i => i.data.id),
+			];
+
+			expect(allContentIds).not.toContain('todo-1');
+			expect(allContentIds).toContain('notif-1');
+		});
+
+		it('includes TodoWrite events in hookItems when debug is true', () => {
+			const events = [
+				makeEvent({
+					id: 'todo-debug',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {todos: [{content: 'Task 1', status: 'pending'}]},
+					},
+					postToolPayload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PostToolUse',
+						tool_name: 'TodoWrite',
+						tool_use_id: 'tu-1',
+						tool_response: '',
+					},
+				}),
+			];
+
+			const {stableItems} = useContentOrdering({
+				messages: [],
+				events,
+				debug: true,
+			});
+
+			const todoInStable = stableItems.filter(
+				i => i.type === 'hook' && i.data.id === 'todo-debug',
+			);
+			expect(todoInStable).toHaveLength(1);
+		});
+
+		it('returns null activeTodoList when no TodoWrite events exist', () => {
+			const events = [
+				makeEvent({
+					id: 'notif-1',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {activeTodoList} = useContentOrdering({messages: [], events});
+
+			expect(activeTodoList).toBeNull();
+		});
+
+		it('excludes child TodoWrite events (with parentSubagentId) from activeTodoList', () => {
+			const events = [
+				makeEvent({
+					id: 'todo-child',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					parentSubagentId: 'agent-1',
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {
+							todos: [{content: 'Subagent task', status: 'pending'}],
+						},
+					},
+				}),
+			];
+
+			const {activeTodoList} = useContentOrdering({messages: [], events});
+
+			expect(activeTodoList).toBeNull();
+		});
+	});
 });
