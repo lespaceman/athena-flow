@@ -9,6 +9,8 @@ import {
 	isPostToolUseFailureEvent,
 	isPermissionRequestEvent,
 	isNotificationEvent,
+	isSubagentStartEvent,
+	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
@@ -202,6 +204,43 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 		);
 	}
 
+	// Subagent header: SubagentStart (consolidated with SubagentStop)
+	if (isSubagentStartEvent(payload) && !debug) {
+		const stopResponseText = event.subagentStopPayload
+			? (event.subagentStopPayload.agent_transcript_path ?? 'completed')
+			: '';
+
+		return (
+			<Box flexDirection="column" marginBottom={1}>
+				<Box>
+					<Text color={color}>{symbol} </Text>
+					<Text color={color} bold>
+						Task({payload.agent_type})
+					</Text>
+					<Text dimColor> {payload.agent_id}</Text>
+				</Box>
+				<ResponseBlock response={stopResponseText} isFailed={false} />
+				<StderrBlock result={event.result} />
+			</Box>
+		);
+	}
+
+	// Standalone SubagentStop (orphan -- no matching SubagentStart)
+	if (isSubagentStopEvent(payload) && !debug) {
+		return (
+			<Box flexDirection="column" marginBottom={1}>
+				<Box>
+					<Text color={color}>{symbol} </Text>
+					<Text color={color} bold>
+						Task({payload.agent_type})
+					</Text>
+					<Text dimColor> (completed)</Text>
+				</Box>
+				<StderrBlock result={event.result} />
+			</Box>
+		);
+	}
+
 	// Standalone PostToolUse/PostToolUseFailure (orphan -- no matching PreToolUse)
 	if (
 		(isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) &&
@@ -227,7 +266,7 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 		);
 	}
 
-	// Non-tool events (Notification, Stop, SubagentStart, etc.)
+	// Non-tool events (Notification, Stop, etc.) and debug-mode fallback
 	const time = event.timestamp.toLocaleTimeString('en-US', {
 		hour12: false,
 		hour: '2-digit',

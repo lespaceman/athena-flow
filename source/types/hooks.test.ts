@@ -277,6 +277,7 @@ describe('hooks types', () => {
 			hook_event_name: 'SubagentStop',
 			stop_hook_active: false,
 			agent_id: 'agent-123',
+			agent_type: 'Explore',
 		};
 
 		const userPromptSubmitEvent: UserPromptSubmitEvent = {
@@ -528,6 +529,17 @@ describe('hooks types', () => {
 					// TypeScript should know this is a SubagentStartEvent
 					expect(event.agent_id).toBe('agent-123');
 					expect(event.agent_type).toBe('Explore');
+				}
+			});
+
+			it('should allow accessing agent_type on SubagentStop events', () => {
+				const event: ClaudeHookEvent = subagentStopEvent;
+
+				if (isSubagentStopEvent(event)) {
+					// TypeScript should know this is a SubagentStopEvent
+					expect(event.agent_id).toBe('agent-123');
+					expect(event.agent_type).toBe('Explore');
+					expect(event.stop_hook_active).toBe(false);
 				}
 			});
 

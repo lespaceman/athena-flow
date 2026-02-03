@@ -11,6 +11,8 @@ import {
 	type HookEventEnvelope,
 	type PostToolUseEvent,
 	type PostToolUseFailureEvent,
+	type SubagentStartEvent,
+	type SubagentStopEvent,
 	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
@@ -74,6 +76,27 @@ function findMatchingPreToolUse(
 		}
 	}
 
+	return undefined;
+}
+
+/**
+ * Find a matching SubagentStart event for a SubagentStop.
+ * Matches by agent_id, returns most recent unmatched SubagentStart.
+ */
+function findMatchingSubagentStart(
+	events: HookEventDisplay[],
+	agentId: string,
+): HookEventDisplay | undefined {
+	for (let i = events.length - 1; i >= 0; i--) {
+		const e = events[i]!;
+		if (
+			e.hookName === 'SubagentStart' &&
+			(e.payload as SubagentStartEvent).agent_id === agentId &&
+			!e.subagentStopPayload
+		) {
+			return e;
+		}
+	}
 	return undefined;
 }
 
@@ -343,6 +366,44 @@ export function useHookServer(
 												postToolRequestId: envelope.request_id,
 												postToolTimestamp: new Date(envelope.ts),
 												postToolFailed: isFailed,
+											}
+										: e,
+								),
+							);
+							return;
+						}
+						// No match found -- fall through to add as standalone orphan entry
+					}
+
+					// Merge SubagentStop into matching SubagentStart
+					if (envelope.hook_event_name === 'SubagentStop') {
+						const stopPayload = payload as SubagentStopEvent;
+						const match = findMatchingSubagentStart(
+							eventsRef.current,
+							stopPayload.agent_id,
+						);
+
+						if (match) {
+							const timeoutId = setTimeout(() => {
+								respond(envelope.request_id, createPassthroughResult());
+							}, AUTO_PASSTHROUGH_MS);
+
+							storePending(
+								envelope.request_id,
+								socket,
+								displayEvent,
+								receiveTimestamp,
+								timeoutId,
+							);
+
+							setEvents(prev =>
+								prev.map(e =>
+									e.id === match.id
+										? {
+												...e,
+												subagentStopPayload: stopPayload,
+												subagentStopRequestId: envelope.request_id,
+												subagentStopTimestamp: new Date(envelope.ts),
 											}
 										: e,
 								),

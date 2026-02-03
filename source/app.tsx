@@ -206,6 +206,12 @@ function AppContent({
 					item.data.status === 'blocked' ||
 					item.data.postToolPayload !== undefined
 				);
+			case 'SubagentStart':
+				// Stable when blocked or when SubagentStop has been merged in.
+				return (
+					item.data.status === 'blocked' ||
+					item.data.subagentStopPayload !== undefined
+				);
 			default:
 				return item.data.status !== 'pending';
 		}

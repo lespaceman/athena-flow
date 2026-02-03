@@ -140,6 +140,50 @@ All hooks receive JSON via stdin:
 }
 ```
 
+| Field | Type | Description |
+|-------|------|-------------|
+| `stop_hook_active` | boolean | `true` if Claude is already continuing from a previous stop hook (prevents infinite loops) |
+
+### SubagentStart Input
+
+```json
+{
+  "session_id": "abc123",
+  "hook_event_name": "SubagentStart",
+  "agent_id": "task-abc123",
+  "agent_type": "Explore"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `agent_id` | string | Unique identifier for the spawned subagent |
+| `agent_type` | string | Type of subagent (e.g. "Explore", "code-reviewer", "Bash") |
+
+**JSON Output:** `additionalContext` string is injected into the subagent's context.
+
+### SubagentStop Input
+
+```json
+{
+  "session_id": "abc123",
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_id": "task-abc123",
+  "agent_type": "Explore",
+  "agent_transcript_path": "/path/to/subagent-transcript.jsonl"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stop_hook_active` | boolean | `true` if the subagent is already continuing from a previous stop hook |
+| `agent_id` | string | Unique identifier for the subagent that finished |
+| `agent_type` | string | Type of subagent (e.g. "Explore", "code-reviewer", "Bash") |
+| `agent_transcript_path` | string? | Path to the subagent's transcript file (may be absent) |
+
+**Decision Control:** Same as Stop — exit code 2 blocks stoppage and feeds stderr back to the subagent.
+
 ## Hook Output
 
 ### Exit Code Based

@@ -9,6 +9,7 @@ import {
 	type HookEventName,
 	type PostToolUseEvent,
 	type PostToolUseFailureEvent,
+	type SubagentStopEvent,
 } from './events.js';
 import {type HookResultPayload} from './result.js';
 import {type ParsedTranscriptSummary} from '../transcript.js';
@@ -40,4 +41,7 @@ export type HookEventDisplay = {
 	postToolRequestId?: string;
 	postToolTimestamp?: Date;
 	postToolFailed?: boolean;
+	subagentStopPayload?: SubagentStopEvent;
+	subagentStopRequestId?: string;
+	subagentStopTimestamp?: Date;
 };

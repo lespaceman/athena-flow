@@ -7,6 +7,8 @@ import type {
 	PreToolUseEvent,
 	PostToolUseEvent,
 	PostToolUseFailureEvent,
+	SubagentStartEvent,
+	SubagentStopEvent,
 } from '../types/hooks/index.js';
 
 describe('HookEvent', () => {
@@ -556,5 +558,102 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Bash');
+	});
+
+	it('renders SubagentStart with Task header and agent_id', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('agent-abc');
+	});
+
+	it('renders SubagentStart with merged SubagentStop showing transcript path', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-1',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('/tmp/subagent-transcript.jsonl');
+	});
+
+	it('renders SubagentStart with merged SubagentStop showing completed when no transcript', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-2',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('completed');
 	});
 });
