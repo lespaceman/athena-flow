@@ -93,10 +93,14 @@ export function createPreToolUseDenyResult(reason: string): HookResultPayload {
 /**
  * Helper to create an AskUserQuestion result for PreToolUse hooks.
  * Sends back the user's answers via updatedInput so Claude Code receives them.
+ * Also includes additionalContext as a belt-and-suspenders approach.
  */
 export function createAskUserQuestionResult(
 	answers: Record<string, string>,
 ): HookResultPayload {
+	const formatted = Object.entries(answers)
+		.map(([q, a]) => `Q: ${q}\nA: ${a}`)
+		.join('\n');
 	return {
 		action: 'json_output',
 		stdout_json: {
@@ -106,6 +110,27 @@ export function createAskUserQuestionResult(
 				updatedInput: {
 					answers,
 				},
+				additionalContext: `User answered via athena-cli:\n${formatted}`,
+			},
+		},
+	};
+}
+
+/**
+ * Helper to create an allow result for PermissionRequest hooks.
+ * This tells Claude Code to allow the tool and skip its own permission dialog.
+ */
+export function createPermissionRequestAllowResult(
+	updatedInput?: Record<string, unknown>,
+): HookResultPayload {
+	const decision: Record<string, unknown> = {behavior: 'allow'};
+	if (updatedInput) decision.updatedInput = updatedInput;
+	return {
+		action: 'json_output',
+		stdout_json: {
+			hookSpecificOutput: {
+				hookEventName: 'PermissionRequest',
+				decision,
 			},
 		},
 	};

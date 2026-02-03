@@ -153,9 +153,10 @@ async function main(): Promise<void> {
 		};
 
 		// Connect to Ink CLI and send
-		// Use extended timeout for PreToolUse events (permission dialog or question dialog may be shown)
+		// Use extended timeout for PreToolUse and PermissionRequest events (permission/question dialog may be shown)
 		const timeoutMs =
-			hookInput.hook_event_name === 'PreToolUse'
+			hookInput.hook_event_name === 'PreToolUse' ||
+			hookInput.hook_event_name === 'PermissionRequest'
 				? PERMISSION_TIMEOUT_MS
 				: SOCKET_TIMEOUT_MS;
 
