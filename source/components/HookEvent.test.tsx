@@ -29,16 +29,15 @@ describe('HookEvent', () => {
 		status: 'pending',
 	};
 
-	it('renders pending event with yellow indicator', () => {
+	it('renders pending event with yellow open circle', () => {
 		const {lastFrame} = render(<HookEvent event={baseEvent} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('PreToolUse:');
 		expect(frame).toContain('Bash');
 		expect(frame).toContain('\u25cb'); // ○ symbol for pending
 	});
 
-	it('renders passthrough event with green indicator', () => {
+	it('renders passthrough event with green filled circle', () => {
 		const event: HookEventDisplay = {
 			...baseEvent,
 			status: 'passthrough',
@@ -47,11 +46,10 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u2713'); // ✓ symbol for passthrough
-		expect(frame).toContain('passthrough');
+		expect(frame).toContain('\u25cf'); // ● symbol for passthrough
 	});
 
-	it('renders blocked event with red indicator', () => {
+	it('renders blocked event with red X', () => {
 		const event: HookEventDisplay = {
 			...baseEvent,
 			status: 'blocked',
@@ -61,11 +59,10 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('\u2717'); // ✗ symbol for blocked
-		expect(frame).toContain('blocked');
 		expect(frame).toContain('Access denied');
 	});
 
-	it('renders json_output event with blue indicator', () => {
+	it('renders json_output event with arrow', () => {
 		const event: HookEventDisplay = {
 			...baseEvent,
 			status: 'json_output',
@@ -75,7 +72,146 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('\u2192'); // → symbol for json_output
-		expect(frame).toContain('json_output');
+	});
+
+	it('renders PreToolUse header with inline params', () => {
+		const {lastFrame} = render(<HookEvent event={baseEvent} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('command: "ls -la"');
+	});
+
+	it('renders MCP tool name parsed correctly in header', () => {
+		const mcpPayload: PreToolUseEvent = {
+			...basePayload,
+			tool_name: 'mcp__agent-web-interface__navigate',
+			tool_input: {url: 'https://www.google.com'},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			toolName: 'mcp__agent-web-interface__navigate',
+			payload: mcpPayload,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('agent-web-interface - navigate (MCP)');
+		expect(frame).toContain('url: "https://www.google.com"');
+	});
+
+	it('renders PreToolUse with merged PostToolUse showing response', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Bash',
+			tool_input: {command: 'echo hi'},
+			tool_response: 'hi\n',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			postToolPayload: postPayload,
+			postToolRequestId: 'req-2',
+			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
+			postToolFailed: false,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('\u23bf'); // ⎿ response indicator
+		expect(frame).toContain('hi');
+	});
+
+	it('indents multiline response continuation lines', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Bash',
+			tool_input: {command: 'ls'},
+			tool_response: 'line1\nline2\nline3',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			postToolPayload: postPayload,
+			postToolRequestId: 'req-2',
+			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
+			postToolFailed: false,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		// First line has ⎿ prefix, continuation lines have matching indentation
+		expect(frame).toContain('\u23bf  line1');
+		expect(frame).toContain('   line2');
+		expect(frame).toContain('   line3');
+	});
+
+	it('renders merged PostToolUseFailure response in red', () => {
+		const failPayload: PostToolUseFailureEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUseFailure',
+			tool_name: 'Bash',
+			tool_input: {command: 'bad-cmd'},
+			error: 'command not found',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			postToolPayload: failPayload,
+			postToolRequestId: 'req-3',
+			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
+			postToolFailed: true,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('command not found');
+		expect(frame).toContain('\u23bf'); // ⎿ response indicator
+	});
+
+	it('renders non-tool events borderless', () => {
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'Notification',
+			toolName: undefined,
+			payload: {
+				session_id: 'session-1',
+				transcript_path: '/tmp/transcript.jsonl',
+				cwd: '/project',
+				hook_event_name: 'Notification',
+				message: 'Task completed',
+			},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Notification');
+		// Should not contain box border characters
+		expect(frame).not.toContain('\u250c'); // ┌
+		expect(frame).not.toContain('\u2500'); // ─
+		expect(frame).not.toContain('\u2502'); // │
+	});
+
+	it('renders tool events without border boxes', () => {
+		const {lastFrame} = render(<HookEvent event={baseEvent} />);
+		const frame = lastFrame() ?? '';
+
+		// Should not contain box border characters
+		expect(frame).not.toContain('\u250c'); // ┌
+		expect(frame).not.toContain('\u2500'); // ─
+		expect(frame).not.toContain('\u2502'); // │
 	});
 
 	it('renders hook event without tool name', () => {
@@ -98,40 +234,7 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain(':undefined');
 	});
 
-	it('shows PreToolUse key-value pairs for tool_input', () => {
-		const event: HookEventDisplay = {
-			...baseEvent,
-			payload: {
-				...basePayload,
-				tool_input: {command: 'ls -la', timeout: 5000},
-			},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('command:');
-		expect(frame).toContain('ls -la');
-		expect(frame).toContain('timeout:');
-		expect(frame).toContain('5000');
-	});
-
-	it('truncates long tool_input values', () => {
-		const longValue = 'x'.repeat(200);
-		const event: HookEventDisplay = {
-			...baseEvent,
-			payload: {
-				...basePayload,
-				tool_input: {command: longValue},
-			},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('...');
-		expect(frame).not.toContain(longValue);
-	});
-
-	it('shows PostToolUse response preview', () => {
+	it('shows standalone PostToolUse response', () => {
 		const postPayload: PostToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -152,9 +255,10 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('hi');
+		expect(frame).toContain('Bash');
 	});
 
-	it('shows PostToolUseFailure response in red', () => {
+	it('shows PostToolUseFailure error message', () => {
 		const failPayload: PostToolUseFailureEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -162,7 +266,7 @@ describe('HookEvent', () => {
 			hook_event_name: 'PostToolUseFailure',
 			tool_name: 'Bash',
 			tool_input: {command: 'bad-cmd'},
-			tool_response: 'command not found',
+			error: 'command not found',
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
@@ -192,6 +296,7 @@ describe('HookEvent', () => {
 				},
 			],
 		};
+		// As standalone orphan PostToolUse
 		const event: HookEventDisplay = {
 			...baseEvent,
 			hookName: 'PostToolUse',
@@ -203,9 +308,89 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		// Should show the extracted text, not the JSON wrapper
 		expect(frame).toContain('Example Link');
 		expect(frame).not.toContain('"type"');
+	});
+
+	it('extracts text from single content block response', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Read',
+			tool_input: {file_path: '/tmp/file.txt'},
+			tool_response: {type: 'text', text: 'file contents here'},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'Read',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('file contents here');
+		// Should not show raw object keys
+		expect(frame).not.toContain('"type"');
+		expect(frame).not.toContain('type:');
+	});
+
+	it('extracts content from wrapped response object', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'mcp__server__action',
+			tool_input: {query: 'test'},
+			tool_response: {
+				content: [{type: 'text', text: 'extracted content'}],
+				isError: false,
+			},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'mcp__server__action',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('extracted content');
+		// Should not show the wrapper fields
+		expect(frame).not.toContain('isError');
+	});
+
+	it('extracts string content from wrapped response', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Bash',
+			tool_input: {command: 'echo hi'},
+			tool_response: {content: 'wrapped string content'},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'Bash',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('wrapped string content');
+		expect(frame).not.toContain('content:');
 	});
 
 	it('shows JSON object response as key-value pairs (Write tool)', () => {
@@ -256,7 +441,7 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		// Should render without crashing
-		expect(frame).toContain('PostToolUse');
+		expect(frame).toContain('Bash');
 	});
 
 	it('handles undefined tool_response gracefully', () => {
@@ -279,7 +464,7 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('PostToolUse');
+		expect(frame).toContain('Bash');
 	});
 
 	it('shows notification message preview', () => {
@@ -339,7 +524,7 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={baseEvent} />);
 		const frame = lastFrame() ?? '';
 
-		// Should show the key-value preview, not full payload
+		// Should show inline params, not full payload
 		expect(frame).not.toContain('transcript_path');
 		expect(frame).not.toContain('/tmp/transcript.jsonl');
 	});
@@ -366,11 +551,10 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('transcript_path');
 	});
 
-	it('renders bold tool name in label', () => {
+	it('renders tool name in header', () => {
 		const {lastFrame} = render(<HookEvent event={baseEvent} />);
 		const frame = lastFrame() ?? '';
 
-		// Tool name should appear in the output
 		expect(frame).toContain('Bash');
 	});
 });

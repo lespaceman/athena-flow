@@ -249,7 +249,7 @@ describe('hooks types', () => {
 			hook_event_name: 'PostToolUseFailure',
 			tool_name: 'Bash',
 			tool_input: {command: 'ls'},
-			tool_response: {error: 'command not found'},
+			error: 'command not found',
 		};
 
 		const notificationEvent: NotificationEvent = {

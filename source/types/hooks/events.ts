@@ -52,9 +52,12 @@ export type PostToolUseEvent = ToolEventBase & {
 };
 
 // PostToolUseFailure: After a tool fails
+// Per the hooks reference, failure events carry `error` and `is_interrupt`
+// instead of `tool_response`.
 export type PostToolUseFailureEvent = ToolEventBase & {
 	hook_event_name: 'PostToolUseFailure';
-	tool_response: unknown;
+	error: string;
+	is_interrupt?: boolean;
 };
 
 // Notification: Claude sends a notification

@@ -9,6 +9,8 @@ import {
 	type HookResultPayload,
 	type HookEventDisplay,
 	type HookEventEnvelope,
+	type PostToolUseEvent,
+	type PostToolUseFailureEvent,
 	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
@@ -38,6 +40,43 @@ export {matchRule};
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
+/**
+ * Find a matching PreToolUse event for a PostToolUse/PostToolUseFailure.
+ * 1. Try matching by tool_use_id (preferred)
+ * 2. Fallback: most recent unmatched PreToolUse with same tool_name
+ * "Unmatched" means no postToolPayload has been merged yet.
+ */
+function findMatchingPreToolUse(
+	events: HookEventDisplay[],
+	toolUseId: string | undefined,
+	toolName: string,
+): HookEventDisplay | undefined {
+	// Try tool_use_id match first
+	if (toolUseId) {
+		const byId = events.find(
+			e =>
+				(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+				e.toolUseId === toolUseId &&
+				!e.postToolPayload,
+		);
+		if (byId) return byId;
+	}
+
+	// Fallback: most recent unmatched PreToolUse with same tool_name (search from end)
+	for (let i = events.length - 1; i >= 0; i--) {
+		const e = events[i]!;
+		if (
+			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+			e.toolName === toolName &&
+			!e.postToolPayload
+		) {
+			return e;
+		}
+	}
+
+	return undefined;
+}
+
 export function useHookServer(
 	projectDir: string,
 	instanceId: number,
@@ -46,6 +85,8 @@ export function useHookServer(
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
+	const eventsRef = useRef<HookEventDisplay[]>([]);
+	eventsRef.current = events;
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
 	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -55,10 +96,8 @@ export function useHookServer(
 	// Keep ref in sync so the socket handler sees current rules
 	rulesRef.current = rules;
 
-	// Permission queue — requestIds waiting for user decision
+	// Permission queue -- requestIds waiting for user decision
 	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
-	const permissionQueueRef = useRef<string[]>([]);
-	permissionQueueRef.current = permissionQueue;
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -143,35 +182,28 @@ export function useHookServer(
 	// Resolve a permission request with the user's decision
 	const resolvePermission = useCallback(
 		(requestId: string, decision: PermissionDecision) => {
-			// Look up the event to find the tool name
-			const pending = pendingRequestsRef.current.get(requestId);
-			const toolName = pending?.event.toolName;
+			const toolName =
+				pendingRequestsRef.current.get(requestId)?.event.toolName;
+			const isAllow = decision === 'allow' || decision === 'always-allow';
 
-			// Handle "always" decisions by adding rules
-			if (decision === 'always-allow' && toolName) {
+			// Persist "always" decisions as rules for future requests
+			if (
+				toolName &&
+				(decision === 'always-allow' || decision === 'always-deny')
+			) {
 				addRule({
 					toolName,
-					action: 'approve',
-					addedBy: 'permission-dialog',
-				});
-			} else if (decision === 'always-deny' && toolName) {
-				addRule({
-					toolName,
-					action: 'deny',
+					action: isAllow ? 'approve' : 'deny',
 					addedBy: 'permission-dialog',
 				});
 			}
 
-			// Send the actual response — use explicit allow/deny JSON
-			// so Claude Code skips its own permission prompt
-			const result =
-				decision === 'allow' || decision === 'always-allow'
-					? createPreToolUseAllowResult()
-					: createPreToolUseDenyResult('Denied by user via permission dialog');
+			// Send explicit allow/deny so Claude Code skips its own permission prompt
+			const result = isAllow
+				? createPreToolUseAllowResult()
+				: createPreToolUseDenyResult('Denied by user via permission dialog');
 
 			respond(requestId, result);
-
-			// Remove from permission queue
 			setPermissionQueue(prev => prev.filter(id => id !== requestId));
 		},
 		[respond, addRule],
@@ -204,6 +236,33 @@ export function useHookServer(
 		// Initialize hook logger
 		initHookLogger(projectDir);
 
+		// Append a display event and prune to MAX_EVENTS
+		function addEvent(event: HookEventDisplay): void {
+			setEvents(prev => {
+				const updated = [...prev, event];
+				return updated.length > MAX_EVENTS
+					? updated.slice(-MAX_EVENTS)
+					: updated;
+			});
+		}
+
+		// Register a pending request for the given envelope/socket
+		function storePending(
+			requestId: string,
+			socket: net.Socket,
+			displayEvent: HookEventDisplay,
+			receiveTimestamp: number,
+			timeoutId: ReturnType<typeof setTimeout>,
+		): void {
+			pendingRequestsRef.current.set(requestId, {
+				requestId,
+				socket,
+				timeoutId,
+				event: displayEvent,
+				receiveTimestamp,
+			});
+		}
+
 		// Create server
 		const server = net.createServer((socket: net.Socket) => {
 			let data = '';
@@ -213,190 +272,199 @@ export function useHookServer(
 
 				// Check for complete NDJSON line
 				const lines = data.split('\n');
-				if (lines.length > 1 && lines[0]) {
-					try {
-						const parsed: unknown = JSON.parse(lines[0]);
+				if (lines.length <= 1 || !lines[0]) return;
 
-						// Validate envelope structure before processing
-						if (isValidHookEventEnvelope(parsed)) {
-							const envelope = parsed as HookEventEnvelope;
-							const receiveTimestamp = Date.now();
+				// Reset buffer for next message before processing
+				const line = lines[0];
+				data = lines.slice(1).join('\n');
 
-							// Log received event
-							logHookReceived(envelope);
+				try {
+					const parsed: unknown = JSON.parse(line);
 
-							// Create display event
-							const payload = envelope.payload;
-							const displayEvent: HookEventDisplay = {
-								id: generateId(),
-								requestId: envelope.request_id,
-								timestamp: new Date(envelope.ts),
-								hookName: envelope.hook_event_name,
-								toolName: isToolEvent(payload) ? payload.tool_name : undefined,
-								payload: payload,
-								status: 'pending',
-							};
+					if (!isValidHookEventEnvelope(parsed)) {
+						socket.end();
+						return;
+					}
 
-							// Check rules for PreToolUse events
-							if (
-								envelope.hook_event_name === 'PreToolUse' &&
-								isToolEvent(payload)
-							) {
-								const matchedRule = matchRule(
-									rulesRef.current,
-									payload.tool_name,
-								);
-								if (matchedRule) {
-									const result =
-										matchedRule.action === 'deny'
-											? createPreToolUseDenyResult(
-													`Blocked by rule: ${matchedRule.addedBy}`,
-												)
-											: createPreToolUseAllowResult();
+					const envelope = parsed as HookEventEnvelope;
+					const receiveTimestamp = Date.now();
 
-									// Store pending briefly so respond() can find it
-									pendingRequestsRef.current.set(envelope.request_id, {
-										requestId: envelope.request_id,
-										socket,
-										timeoutId: setTimeout(() => {}, 0), // placeholder; cleared by respond()
-										event: displayEvent,
-										receiveTimestamp,
-									});
+					logHookReceived(envelope);
 
-									// Add event and respond immediately
-									setEvents(prev => {
-										const updated = [...prev, displayEvent];
-										if (updated.length > MAX_EVENTS) {
-											return updated.slice(-MAX_EVENTS);
-										}
-										return updated;
-									});
+					// Create display event
+					const payload = envelope.payload;
+					const displayEvent: HookEventDisplay = {
+						id: generateId(),
+						requestId: envelope.request_id,
+						timestamp: new Date(envelope.ts),
+						hookName: envelope.hook_event_name,
+						toolName: isToolEvent(payload) ? payload.tool_name : undefined,
+						toolUseId: isToolEvent(payload) ? payload.tool_use_id : undefined,
+						payload,
+						status: 'pending',
+					};
 
-									respond(envelope.request_id, result);
+					// Merge PostToolUse/PostToolUseFailure into matching PreToolUse
+					if (
+						(envelope.hook_event_name === 'PostToolUse' ||
+							envelope.hook_event_name === 'PostToolUseFailure') &&
+						isToolEvent(payload)
+					) {
+						const match = findMatchingPreToolUse(
+							eventsRef.current,
+							payload.tool_use_id,
+							payload.tool_name,
+						);
 
-									// Reset for next message
-									data = lines.slice(1).join('\n');
-									return;
-								}
-							}
-
-							// Check if permission is required for this tool
-							const needsPermission =
-								envelope.hook_event_name === 'PreToolUse' &&
-								isToolEvent(payload) &&
-								isPermissionRequired(payload.tool_name, rulesRef.current);
-
-							if (needsPermission) {
-								// Store pending request WITHOUT auto-passthrough timeout
-								const placeholderTimeout = setTimeout(() => {}, 0);
-								clearTimeout(placeholderTimeout);
-								pendingRequestsRef.current.set(envelope.request_id, {
-									requestId: envelope.request_id,
-									socket,
-									timeoutId: placeholderTimeout,
-									event: displayEvent,
-									receiveTimestamp,
-								});
-
-								// Add event to display
-								setEvents(prev => {
-									const updated = [...prev, displayEvent];
-									if (updated.length > MAX_EVENTS) {
-										return updated.slice(-MAX_EVENTS);
-									}
-									return updated;
-								});
-
-								// Add to permission queue
-								setPermissionQueue(prev => [...prev, envelope.request_id]);
-
-								// Reset for next message
-								data = lines.slice(1).join('\n');
-								return;
-							}
-
-							// Set up auto-passthrough timeout
+						if (match) {
 							const timeoutId = setTimeout(() => {
 								respond(envelope.request_id, createPassthroughResult());
 							}, AUTO_PASSTHROUGH_MS);
 
-							// Store pending request
-							pendingRequestsRef.current.set(envelope.request_id, {
-								requestId: envelope.request_id,
+							storePending(
+								envelope.request_id,
 								socket,
-								timeoutId,
-								event: displayEvent,
+								displayEvent,
 								receiveTimestamp,
-							});
+								timeoutId,
+							);
 
-							// Add to events with pruning to prevent memory leak
-							setEvents(prev => {
-								const updated = [...prev, displayEvent];
-								// Keep only the most recent MAX_EVENTS
-								if (updated.length > MAX_EVENTS) {
-									return updated.slice(-MAX_EVENTS);
-								}
-								return updated;
-							});
+							// Merge into the matching PreToolUse entry
+							const isFailed =
+								envelope.hook_event_name === 'PostToolUseFailure';
+							setEvents(prev =>
+								prev.map(e =>
+									e.id === match.id
+										? {
+												...e,
+												postToolPayload: payload as
+													| PostToolUseEvent
+													| PostToolUseFailureEvent,
+												postToolRequestId: envelope.request_id,
+												postToolTimestamp: new Date(envelope.ts),
+												postToolFailed: isFailed,
+											}
+										: e,
+								),
+							);
+							return;
+						}
+						// No match found -- fall through to add as standalone orphan entry
+					}
 
-							// Capture session ID from SessionStart events for resume support
-							if (envelope.hook_event_name === 'SessionStart') {
-								setCurrentSessionId(envelope.session_id);
-							}
+					// Check rules for PreToolUse events
+					if (
+						envelope.hook_event_name === 'PreToolUse' &&
+						isToolEvent(payload)
+					) {
+						const matchedRule = matchRule(rulesRef.current, payload.tool_name);
+						if (matchedRule) {
+							const result =
+								matchedRule.action === 'deny'
+									? createPreToolUseDenyResult(
+											`Blocked by rule: ${matchedRule.addedBy}`,
+										)
+									: createPreToolUseAllowResult();
 
-							// Asynchronously enrich SessionEnd events with transcript data
-							if (envelope.hook_event_name === 'SessionEnd') {
-								const transcriptPath = envelope.payload.transcript_path;
-								if (transcriptPath) {
-									parseTranscriptFile(transcriptPath)
-										.then(summary => {
-											if (!isMountedRef.current) return;
-											setEvents(prev =>
-												prev.map(e =>
-													e.id === displayEvent.id
-														? {...e, transcriptSummary: summary}
-														: e,
-												),
-											);
-										})
-										.catch(err => {
-											// Log error for debugging, but don't crash
-											console.error(
-												'[SessionEnd] Failed to parse transcript:',
-												err,
-											);
-										});
-								} else {
-									// No transcript path - set error state
+							// Store pending briefly so respond() can find it
+							const placeholder = setTimeout(() => {}, 0);
+							storePending(
+								envelope.request_id,
+								socket,
+								displayEvent,
+								receiveTimestamp,
+								placeholder,
+							);
+							addEvent(displayEvent);
+							respond(envelope.request_id, result);
+							return;
+						}
+					}
+
+					// Check if permission is required for this tool
+					const needsPermission =
+						envelope.hook_event_name === 'PreToolUse' &&
+						isToolEvent(payload) &&
+						isPermissionRequired(payload.tool_name, rulesRef.current);
+
+					if (needsPermission) {
+						// No auto-passthrough timeout for permission requests
+						const noTimeout = setTimeout(() => {}, 0);
+						clearTimeout(noTimeout);
+						storePending(
+							envelope.request_id,
+							socket,
+							displayEvent,
+							receiveTimestamp,
+							noTimeout,
+						);
+						addEvent(displayEvent);
+						setPermissionQueue(prev => [...prev, envelope.request_id]);
+						return;
+					}
+
+					// Default: auto-passthrough after timeout
+					const timeoutId = setTimeout(() => {
+						respond(envelope.request_id, createPassthroughResult());
+					}, AUTO_PASSTHROUGH_MS);
+
+					storePending(
+						envelope.request_id,
+						socket,
+						displayEvent,
+						receiveTimestamp,
+						timeoutId,
+					);
+					addEvent(displayEvent);
+
+					// Capture session ID from SessionStart events for resume support
+					if (envelope.hook_event_name === 'SessionStart') {
+						setCurrentSessionId(envelope.session_id);
+					}
+
+					// Asynchronously enrich SessionEnd events with transcript data
+					if (envelope.hook_event_name === 'SessionEnd') {
+						const transcriptPath = envelope.payload.transcript_path;
+						if (transcriptPath) {
+							parseTranscriptFile(transcriptPath)
+								.then(summary => {
+									if (!isMountedRef.current) return;
 									setEvents(prev =>
 										prev.map(e =>
 											e.id === displayEvent.id
-												? {
-														...e,
-														transcriptSummary: {
-															lastAssistantText: null,
-															lastAssistantTimestamp: null,
-															messageCount: 0,
-															toolCallCount: 0,
-															error: 'No transcript path provided',
-														},
-													}
+												? {...e, transcriptSummary: summary}
 												: e,
 										),
 									);
-								}
-							}
+								})
+								.catch(err => {
+									console.error(
+										'[SessionEnd] Failed to parse transcript:',
+										err,
+									);
+								});
 						} else {
-							// Invalid envelope structure, close connection
-							socket.end();
+							setEvents(prev =>
+								prev.map(e =>
+									e.id === displayEvent.id
+										? {
+												...e,
+												transcriptSummary: {
+													lastAssistantText: null,
+													lastAssistantTimestamp: null,
+													messageCount: 0,
+													toolCallCount: 0,
+													error: 'No transcript path provided',
+												},
+											}
+										: e,
+								),
+							);
 						}
-					} catch (err) {
-						console.error('[hook-server] Error processing event:', err);
-						socket.end();
 					}
-
-					// Reset for next message
-					data = lines.slice(1).join('\n');
+				} catch (err) {
+					console.error('[hook-server] Error processing event:', err);
+					socket.end();
 				}
 			});
 
