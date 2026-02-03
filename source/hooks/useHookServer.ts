@@ -80,12 +80,6 @@ function findMatchingPreToolUse(
 	);
 }
 
-/** Extract the agent_id from a subagent transcript path. */
-export function extractSubagentId(transcriptPath: string): string | undefined {
-	const match = transcriptPath.match(/\/subagents\/agent-([^/]+)\.jsonl$/);
-	return match?.[1];
-}
-
 /** Find a matching SubagentStart for a SubagentStop by agent_id. */
 function findMatchingSubagentStart(
 	events: HookEventDisplay[],
@@ -106,6 +100,7 @@ export function useHookServer(
 ): UseHookServerResult {
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
+	const activeSubagentStackRef = useRef<string[]>([]);
 	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const eventsRef = useRef<HookEventDisplay[]>([]);
@@ -543,12 +538,22 @@ export function useHookServer(
 						receiveTimestamp: Date.now(),
 					};
 
-					// Tag child events with their parent subagent's agent_id
-					const childAgentId = extractSubagentId(
-						envelope.payload.transcript_path,
-					);
-					if (childAgentId) {
-						ctx.displayEvent.parentSubagentId = childAgentId;
+					// Track active subagents and tag child events
+					if (envelope.hook_event_name === 'SubagentStart') {
+						const startPayload = envelope.payload as SubagentStartEvent;
+						activeSubagentStackRef.current.push(startPayload.agent_id);
+					} else if (envelope.hook_event_name === 'SubagentStop') {
+						const stopPayload = envelope.payload as SubagentStopEvent;
+						activeSubagentStackRef.current =
+							activeSubagentStackRef.current.filter(
+								id => id !== stopPayload.agent_id,
+							);
+					} else if (activeSubagentStackRef.current.length > 0) {
+						// Tag non-subagent events with the innermost active subagent
+						ctx.displayEvent.parentSubagentId =
+							activeSubagentStackRef.current[
+								activeSubagentStackRef.current.length - 1
+							];
 					}
 
 					// Dispatch to handlers (first match wins)
@@ -628,6 +633,9 @@ export function useHookServer(
 		return () => {
 			// Mark as unmounted to prevent state updates
 			isMountedRef.current = false;
+
+			// Clear active subagent tracking
+			activeSubagentStackRef.current = [];
 
 			// Clear all pending timeouts
 			for (const pending of pendingRequests.values()) {

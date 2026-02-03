@@ -117,9 +117,15 @@ function SubagentStartDisplay({
 					</Text>
 				</Box>
 				{children.length > 0 && (
-					<Box flexDirection="column" paddingLeft={1}>
-						{children.map(child => (
-							<ChildToolCallEvent key={child.id} event={child} />
+					<Box flexDirection="column" paddingLeft={1} marginTop={1}>
+						{children.map((child, i) => (
+							<Box
+								key={child.id}
+								flexDirection="column"
+								marginTop={i > 0 ? 1 : 0}
+							>
+								<ChildToolCallEvent event={child} />
+							</Box>
 						))}
 					</Box>
 				)}
