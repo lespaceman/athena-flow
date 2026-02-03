@@ -91,9 +91,11 @@ function SubagentStartDisplay({
 	const payload = event.payload as SubagentStartEvent;
 	const subSymbol = SUBAGENT_SYMBOLS[event.status];
 	const children = childEventsByAgent?.get(payload.agent_id) ?? [];
-	const stopResponseText = event.subagentStopPayload
-		? (event.subagentStopPayload.agent_transcript_path ?? 'completed')
-		: '';
+	const stopResponseText = event.transcriptSummary?.lastAssistantText
+		? event.transcriptSummary.lastAssistantText
+		: event.subagentStopPayload
+			? 'completed'
+			: '';
 	const elapsed = event.subagentStopTimestamp
 		? formatElapsed(event.timestamp, event.subagentStopTimestamp)
 		: '';

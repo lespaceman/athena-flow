@@ -70,6 +70,7 @@ type UseContentOrderingOptions = {
 type UseContentOrderingResult = {
 	stableItems: DisplayItem[];
 	dynamicItems: ContentItem[];
+	activeSubagents: HookEventDisplay[];
 	childEventsByAgent: Map<string, HookEventDisplay[]>;
 };
 
@@ -113,13 +114,38 @@ export function useContentOrdering({
 	// Interleave messages and hook events by timestamp.
 	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
 	// Exclude child events (those with parentSubagentId) — they render inside their parent subagent box.
+	// Exclude SubagentStart — handled separately to avoid dynamic→static duplicate.
 	const hookItems: ContentItem[] = events
-		.filter(e => (debug || e.hookName !== 'SessionEnd') && !e.parentSubagentId)
+		.filter(
+			e =>
+				(debug || e.hookName !== 'SessionEnd') &&
+				!e.parentSubagentId &&
+				e.hookName !== 'SubagentStart',
+		)
+		.map(e => ({type: 'hook' as const, data: e}));
+
+	// Running subagents: rendered in the dynamic section directly (never go through hookItems).
+	const activeSubagents: HookEventDisplay[] = events.filter(
+		e =>
+			e.hookName === 'SubagentStart' &&
+			!e.parentSubagentId &&
+			!e.subagentStopPayload,
+	);
+
+	// Completed subagents: added to contentItems (pass isStableContent, no dynamic→static transition).
+	const completedSubagentItems: ContentItem[] = events
+		.filter(
+			e =>
+				e.hookName === 'SubagentStart' &&
+				!e.parentSubagentId &&
+				e.subagentStopPayload !== undefined,
+		)
 		.map(e => ({type: 'hook' as const, data: e}));
 
 	const contentItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
+		...completedSubagentItems,
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
@@ -130,5 +156,5 @@ export function useContentOrdering({
 	];
 	const dynamicItems = contentItems.filter(item => !isStableContent(item));
 
-	return {stableItems, dynamicItems, childEventsByAgent};
+	return {stableItems, dynamicItems, activeSubagents, childEventsByAgent};
 }

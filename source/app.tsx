@@ -160,11 +160,12 @@ function AppContent({
 		[currentQuestionRequest, resolveQuestion],
 	);
 
-	const {stableItems, dynamicItems, childEventsByAgent} = useContentOrdering({
-		messages,
-		events,
-		debug,
-	});
+	const {stableItems, dynamicItems, activeSubagents, childEventsByAgent} =
+		useContentOrdering({
+			messages,
+			events,
+			debug,
+		});
 
 	return (
 		<Box flexDirection="column">
@@ -216,6 +217,16 @@ function AppContent({
 					/>
 				),
 			)}
+
+			{/* Active subagents - always dynamic, updates with child events */}
+			{activeSubagents.map(event => (
+				<HookEvent
+					key={event.id}
+					event={event}
+					debug={debug}
+					childEventsByAgent={childEventsByAgent}
+				/>
+			))}
 
 			{debug && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
