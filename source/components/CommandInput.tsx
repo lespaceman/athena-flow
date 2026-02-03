@@ -10,6 +10,7 @@ type Props = {
 	inputKey: number;
 	onSubmit: (value: string) => void;
 	disabled?: boolean;
+	disabledMessage?: string;
 	onEscape?: () => void;
 	onArrowUp?: (currentValue: string) => string | undefined;
 	onArrowDown?: () => string | undefined;
@@ -19,6 +20,7 @@ export default function CommandInput({
 	inputKey,
 	onSubmit,
 	disabled,
+	disabledMessage,
 	onEscape,
 	onArrowUp,
 	onArrowDown,
@@ -198,7 +200,9 @@ export default function CommandInput({
 			>
 				<Text color="gray">{'>'} </Text>
 				{disabled ? (
-					<Text dimColor>Waiting for permission decision...</Text>
+					<Text dimColor>
+						{disabledMessage ?? 'Waiting for permission decision...'}
+					</Text>
 				) : (
 					<TextInput
 						key={`${inputKey}-${completionKey}`}

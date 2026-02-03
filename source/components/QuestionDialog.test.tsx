@@ -51,12 +51,11 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Question');
 		expect(frame).toContain('[Library]');
 		expect(frame).toContain('Which library should we use?');
 	});
 
-	it('renders option descriptions', () => {
+	it('renders options with label and description combined in select', () => {
 		const request = makeRequest([
 			{
 				question: 'Which library?',
@@ -74,8 +73,8 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('React: Popular UI library');
-		expect(frame).toContain('Vue: Progressive framework');
+		expect(frame).toContain('React - Popular UI library');
+		expect(frame).toContain('Vue - Progressive framework');
 	});
 
 	it('renders Other option for single-select', () => {
@@ -93,7 +92,7 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Other (type custom answer)');
+		expect(frame).toContain('Other');
 	});
 
 	it('renders Other option for multi-select', () => {
@@ -111,10 +110,10 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Other (type custom answer)');
+		expect(frame).toContain('Other');
 	});
 
-	it('shows question counter when multiple questions', () => {
+	it('shows tab headers when multiple questions', () => {
 		const request = makeRequest([
 			{
 				question: 'First question?',
@@ -135,10 +134,13 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('(1/2)');
+		// Active tab is bracketed
+		expect(frame).toContain('[1. Q1]');
+		// Inactive tab is numbered
+		expect(frame).toContain('2. Q2');
 	});
 
-	it('does not show counter for single question', () => {
+	it('does not show tabs for single question', () => {
 		const request = makeRequest([
 			{
 				question: 'Only question?',
@@ -153,7 +155,7 @@ describe('QuestionDialog', () => {
 		);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).not.toContain('(1/1)');
+		expect(frame).not.toContain('1.');
 	});
 
 	it('shows queued count when more questions are queued', () => {

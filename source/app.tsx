@@ -314,6 +314,11 @@ function AppContent({
 				disabled={
 					currentPermissionRequest !== null || currentQuestionRequest !== null
 				}
+				disabledMessage={
+					currentQuestionRequest && !currentPermissionRequest
+						? 'Answering question...'
+						: undefined
+				}
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
 				onArrowDown={inputHistory.forward}

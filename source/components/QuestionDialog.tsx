@@ -24,10 +24,54 @@ type Props = {
 
 const OTHER_VALUE = '__other__';
 
+function buildSelectOptions(options: QuestionOption[]) {
+	return [
+		...options.map(o => ({
+			label: o.description ? `${o.label} - ${o.description}` : o.label,
+			value: o.label,
+		})),
+		{label: 'Other', value: OTHER_VALUE},
+	];
+}
+
 function extractQuestions(request: HookEventDisplay): Question[] {
 	if (!isToolEvent(request.payload)) return [];
 	const input = request.payload.tool_input as {questions?: Question[]};
 	return Array.isArray(input.questions) ? input.questions : [];
+}
+
+function QuestionTabs({
+	questions,
+	currentIndex,
+	answers,
+}: {
+	questions: Question[];
+	currentIndex: number;
+	answers: Record<string, string>;
+}) {
+	if (questions.length <= 1) return null;
+
+	return (
+		<Box gap={1}>
+			{questions.map((q, i) => {
+				const answered = answers[q.question] !== undefined;
+				const active = i === currentIndex;
+				const prefix = answered ? '\u2713' : `${i + 1}`; // ✓ or number
+				const label = `${prefix}. ${q.header}`;
+
+				return (
+					<Text
+						key={`${i}-${q.header}`}
+						bold={active}
+						color={active ? 'cyan' : answered ? 'green' : 'gray'}
+						dimColor={!active && !answered}
+					>
+						{active ? `[${label}]` : ` ${label} `}
+					</Text>
+				);
+			})}
+		</Box>
+	);
 }
 
 function SingleQuestion({
@@ -38,14 +82,7 @@ function SingleQuestion({
 	onAnswer: (answer: string) => void;
 }) {
 	const [isOther, setIsOther] = useState(false);
-
-	const options = [
-		...question.options.map(o => ({
-			label: o.label,
-			value: o.label,
-		})),
-		{label: 'Other (type custom answer)', value: OTHER_VALUE},
-	];
+	const options = buildSelectOptions(question.options);
 
 	const handleSelect = useCallback(
 		(value: string) => {
@@ -67,36 +104,19 @@ function SingleQuestion({
 		[onAnswer],
 	);
 
-	return (
-		<Box flexDirection="column">
+	if (isOther) {
+		return (
 			<Box>
-				<Text bold color="cyan">
-					[{question.header}]
-				</Text>
-				<Text> {question.question}</Text>
+				<Text color="yellow">{'> '}</Text>
+				<TextInput
+					placeholder="Type your answer..."
+					onSubmit={handleOtherSubmit}
+				/>
 			</Box>
-			{question.options.map(o => (
-				<Box key={o.label} paddingLeft={2}>
-					<Text dimColor>
-						{o.label}: {o.description}
-					</Text>
-				</Box>
-			))}
-			<Box marginTop={1}>
-				{isOther ? (
-					<Box>
-						<Text color="yellow">{'> '}</Text>
-						<TextInput
-							placeholder="Type your answer..."
-							onSubmit={handleOtherSubmit}
-						/>
-					</Box>
-				) : (
-					<Select options={options} onChange={handleSelect} />
-				)}
-			</Box>
-		</Box>
-	);
+		);
+	}
+
+	return <Select options={options} onChange={handleSelect} />;
 }
 
 function MultiQuestion({
@@ -108,14 +128,7 @@ function MultiQuestion({
 }) {
 	const [isOther, setIsOther] = useState(false);
 	const [selected, setSelected] = useState<string[]>([]);
-
-	const options = [
-		...question.options.map(o => ({
-			label: o.label,
-			value: o.label,
-		})),
-		{label: 'Other (type custom answer)', value: OTHER_VALUE},
-	];
+	const options = buildSelectOptions(question.options);
 
 	const handleSubmit = useCallback(
 		(values: string[]) => {
@@ -139,36 +152,19 @@ function MultiQuestion({
 		[onAnswer, selected],
 	);
 
-	return (
-		<Box flexDirection="column">
+	if (isOther) {
+		return (
 			<Box>
-				<Text bold color="cyan">
-					[{question.header}]
-				</Text>
-				<Text> {question.question}</Text>
+				<Text color="yellow">{'> '}</Text>
+				<TextInput
+					placeholder="Type your answer..."
+					onSubmit={handleOtherSubmit}
+				/>
 			</Box>
-			{question.options.map(o => (
-				<Box key={o.label} paddingLeft={2}>
-					<Text dimColor>
-						{o.label}: {o.description}
-					</Text>
-				</Box>
-			))}
-			<Box marginTop={1}>
-				{isOther ? (
-					<Box>
-						<Text color="yellow">{'> '}</Text>
-						<TextInput
-							placeholder="Type your answer..."
-							onSubmit={handleOtherSubmit}
-						/>
-					</Box>
-				) : (
-					<MultiSelect options={options} onSubmit={handleSubmit} />
-				)}
-			</Box>
-		</Box>
-	);
+		);
+	}
+
+	return <MultiSelect options={options} onSubmit={handleSubmit} />;
 }
 
 export default function QuestionDialog({
@@ -219,16 +215,16 @@ export default function QuestionDialog({
 			borderColor="cyan"
 			paddingX={1}
 		>
-			<Box>
+			<QuestionTabs
+				questions={questions}
+				currentIndex={currentIndex}
+				answers={answers}
+			/>
+			<Box marginTop={questions.length > 1 ? 1 : 0}>
 				<Text bold color="cyan">
-					Question
+					[{question.header}]
 				</Text>
-				{questions.length > 1 && (
-					<Text dimColor>
-						{' '}
-						({currentIndex + 1}/{questions.length})
-					</Text>
-				)}
+				<Text> {question.question}</Text>
 				{queuedCount > 0 && <Text dimColor> ({queuedCount} more queued)</Text>}
 			</Box>
 			<Box marginTop={1}>

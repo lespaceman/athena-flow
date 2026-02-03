@@ -807,7 +807,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('React');
 	});
 
-	it('renders AskUserQuestion pending without answer', () => {
+	it('renders AskUserQuestion pending as minimal indicator', () => {
 		const askPayload: PreToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -836,10 +836,10 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Question');
-		expect(frame).toContain('[Approach]');
-		expect(frame).toContain('Which approach?');
-		// No answer shown yet
-		expect(frame).not.toContain('\u23bf');
+		expect(frame).toContain('(1 question)');
+		// Should not show full question text while pending (dialog handles it)
+		expect(frame).not.toContain('[Approach]');
+		expect(frame).not.toContain('Which approach?');
 	});
 
 	it('renders AskUserQuestion with multiple questions and answers', () => {

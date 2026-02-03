@@ -217,6 +217,25 @@ export default function HookEvent({event, debug}: Props): React.ReactNode {
 			}
 		)?.hookSpecificOutput?.updatedInput?.answers;
 
+		// While pending, show minimal indicator (the dialog handles the full UI)
+		if (event.status === 'pending') {
+			return (
+				<Box marginBottom={1}>
+					<Text color={color}>{symbol} </Text>
+					<Text color="cyan" bold>
+						Question
+					</Text>
+					{questions && questions.length > 0 && (
+						<Text dimColor>
+							{' '}
+							({questions.length} question{questions.length > 1 ? 's' : ''})
+						</Text>
+					)}
+				</Box>
+			);
+		}
+
+		// After answering, show questions with answers inline
 		return (
 			<Box flexDirection="column" marginBottom={1}>
 				<Box>
