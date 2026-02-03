@@ -5,8 +5,11 @@ import HookEvent from './HookEvent.js';
 import type {
 	HookEventDisplay,
 	PreToolUseEvent,
+	PermissionRequestEvent,
 	PostToolUseEvent,
 	PostToolUseFailureEvent,
+	SubagentStartEvent,
+	SubagentStopEvent,
 } from '../types/hooks/index.js';
 
 describe('HookEvent', () => {
@@ -556,5 +559,503 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Bash');
+	});
+
+	it('renders PermissionRequest event with tool name and inline params', () => {
+		const permPayload: PermissionRequestEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PermissionRequest',
+			tool_name: 'Bash',
+			tool_input: {command: 'rm -rf /'},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PermissionRequest',
+			toolName: 'Bash',
+			payload: permPayload,
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Bash');
+		expect(frame).toContain('command: "rm -rf /"');
+	});
+
+	it('renders SubagentStart with Task header and agent_id', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('agent-abc');
+		expect(frame).toContain('\u25c6'); // ◆ filled diamond
+		expect(frame).not.toContain('\u25cf'); // ● no circle
+		expect(frame).toContain('\u256d'); // ╭ round border
+		expect(frame).toContain('\u2502'); // │ border side
+	});
+
+	it('renders SubagentStart with merged SubagentStop showing transcript path', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-1',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('/tmp/subagent-transcript.jsonl');
+		expect(frame).toContain('\u25c6'); // ◆ filled diamond
+		expect(frame).not.toContain('\u25cf'); // ● no circle
+		expect(frame).toContain('\u256d'); // ╭ round border
+		expect(frame).toContain('(15.0s)'); // elapsed duration
+	});
+
+	it('renders SubagentStart with merged SubagentStop showing completed when no transcript', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-2',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('completed');
+		expect(frame).toContain('\u25c6'); // ◆ filled diamond
+		expect(frame).not.toContain('\u25cf'); // ● no circle
+		expect(frame).toContain('\u256d'); // ╭ round border
+		expect(frame).toContain('(15.0s)'); // elapsed duration
+	});
+
+	it('renders pending SubagentStart with open diamond and no duration', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-pending',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'pending',
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('\u25c7'); // ◇ open diamond
+		expect(frame).not.toContain('\u25cb'); // ○ no circle
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
+	});
+
+	it('renders SubagentStart with bordered box (round corners)', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-box',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('\u256d'); // ╭ top-left round corner
+		expect(frame).toContain('\u256e'); // ╮ top-right round corner
+		expect(frame).toContain('\u2570'); // ╰ bottom-left round corner
+		expect(frame).toContain('\u256f'); // ╯ bottom-right round corner
+		expect(frame).toContain('\u2502'); // │ vertical border
+	});
+
+	it('formats long elapsed duration as minutes and seconds', () => {
+		const subagentPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-long',
+			agent_type: 'Explore',
+		};
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-long',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: subagentPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			subagentStopPayload: stopPayload,
+			subagentStopRequestId: 'req-stop-long',
+			subagentStopTimestamp: new Date('2024-01-15T10:31:50.000Z'), // 65s after baseEvent timestamp
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('(1m 5s)');
+	});
+
+	it('renders AskUserQuestion with question header and text', () => {
+		const askPayload: PreToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PreToolUse',
+			tool_name: 'AskUserQuestion',
+			tool_input: {
+				questions: [
+					{
+						question: 'Which library should we use?',
+						header: 'Library',
+						options: [
+							{label: 'React', description: 'Popular UI library'},
+							{label: 'Vue', description: 'Progressive framework'},
+						],
+						multiSelect: false,
+					},
+				],
+			},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PreToolUse',
+			toolName: 'AskUserQuestion',
+			payload: askPayload,
+			status: 'json_output',
+			result: {
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse',
+						permissionDecision: 'allow',
+						updatedInput: {
+							answers: {
+								'Which library should we use?': 'React',
+							},
+						},
+					},
+				},
+			},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Question');
+		expect(frame).toContain('[Library]');
+		expect(frame).toContain('Which library should we use?');
+		expect(frame).toContain('React');
+	});
+
+	it('renders AskUserQuestion pending as minimal indicator', () => {
+		const askPayload: PreToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PreToolUse',
+			tool_name: 'AskUserQuestion',
+			tool_input: {
+				questions: [
+					{
+						question: 'Which approach?',
+						header: 'Approach',
+						options: [{label: 'Option A', description: 'First approach'}],
+						multiSelect: false,
+					},
+				],
+			},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PreToolUse',
+			toolName: 'AskUserQuestion',
+			payload: askPayload,
+			status: 'pending',
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Question');
+		expect(frame).toContain('(1 question)');
+		// Should not show full question text while pending (dialog handles it)
+		expect(frame).not.toContain('[Approach]');
+		expect(frame).not.toContain('Which approach?');
+	});
+
+	it('renders AskUserQuestion with multiple questions and answers', () => {
+		const askPayload: PreToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PreToolUse',
+			tool_name: 'AskUserQuestion',
+			tool_input: {
+				questions: [
+					{
+						question: 'Which library?',
+						header: 'Library',
+						options: [{label: 'React', description: 'UI lib'}],
+						multiSelect: false,
+					},
+					{
+						question: 'Which style?',
+						header: 'Style',
+						options: [{label: 'CSS Modules', description: 'Scoped CSS'}],
+						multiSelect: false,
+					},
+				],
+			},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PreToolUse',
+			toolName: 'AskUserQuestion',
+			payload: askPayload,
+			status: 'json_output',
+			result: {
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse',
+						permissionDecision: 'allow',
+						updatedInput: {
+							answers: {
+								'Which library?': 'React',
+								'Which style?': 'CSS Modules',
+							},
+						},
+					},
+				},
+			},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('[Library]');
+		expect(frame).toContain('[Style]');
+		expect(frame).toContain('React');
+		expect(frame).toContain('CSS Modules');
+	});
+
+	it('shows [image] placeholder for image content blocks', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'mcp__agent-web-interface__take_screenshot',
+			tool_input: {fullPage: true, format: 'png'},
+			tool_response: [
+				{
+					type: 'image',
+					source: {
+						type: 'base64',
+						media_type: 'image/png',
+						data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAB',
+					},
+				},
+			],
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'mcp__agent-web-interface__take_screenshot',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('[image]');
+		expect(frame).not.toContain('base64');
+		expect(frame).not.toContain('iVBOR');
+	});
+
+	it('shows [image] placeholder for mixed text and image content blocks', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'mcp__agent-web-interface__take_screenshot',
+			tool_input: {eid: 'el-1'},
+			tool_response: [
+				{type: 'text', text: 'Screenshot captured'},
+				{
+					type: 'image',
+					source: {
+						type: 'base64',
+						media_type: 'image/png',
+						data: 'iVBORw0KGgoAAAANSUhEUg...',
+					},
+				},
+			],
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'mcp__agent-web-interface__take_screenshot',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Screenshot captured');
+		expect(frame).toContain('[image]');
+		expect(frame).not.toContain('base64');
+	});
+
+	it('shows [image] placeholder for wrapped image content', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'mcp__server__screenshot',
+			tool_input: {},
+			tool_response: {
+				content: [
+					{
+						type: 'image',
+						source: {
+							type: 'base64',
+							media_type: 'image/jpeg',
+							data: '/9j/4AAQSkZJRgABAQ...',
+						},
+					},
+				],
+				isError: false,
+			},
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'PostToolUse',
+			toolName: 'mcp__server__screenshot',
+			payload: postPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('[image]');
+		expect(frame).not.toContain('base64');
+		expect(frame).not.toContain('/9j/');
+	});
+
+	it('renders orphan SubagentStop with border and diamond, no duration', () => {
+		const stopPayload: SubagentStopEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStop',
+			stop_hook_active: false,
+			agent_id: 'agent-orphan',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStop',
+			toolName: undefined,
+			payload: stopPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('\u25c6'); // ◆ filled diamond
+		expect(frame).not.toContain('\u25cf'); // ● no circle
+		expect(frame).toContain('\u256d'); // ╭ round border
+		expect(frame).toContain('\u2502'); // │ border side
+		expect(frame).toContain('Task(Explore)');
+		expect(frame).toContain('(completed)');
+		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
 	});
 });

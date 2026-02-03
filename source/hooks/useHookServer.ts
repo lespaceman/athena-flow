@@ -11,9 +11,12 @@ import {
 	type HookEventEnvelope,
 	type PostToolUseEvent,
 	type PostToolUseFailureEvent,
+	type SubagentStartEvent,
+	type SubagentStopEvent,
 	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
+	createAskUserQuestionResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
@@ -40,41 +43,55 @@ export {matchRule};
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
+/** Search events from most recent to oldest, returning the first match. */
+function findLastWhere(
+	events: HookEventDisplay[],
+	predicate: (e: HookEventDisplay) => boolean,
+): HookEventDisplay | undefined {
+	for (let i = events.length - 1; i >= 0; i--) {
+		if (predicate(events[i]!)) return events[i];
+	}
+	return undefined;
+}
+
+const isPreToolHook = (e: HookEventDisplay) =>
+	e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest';
+
 /**
  * Find a matching PreToolUse event for a PostToolUse/PostToolUseFailure.
  * 1. Try matching by tool_use_id (preferred)
  * 2. Fallback: most recent unmatched PreToolUse with same tool_name
- * "Unmatched" means no postToolPayload has been merged yet.
  */
 function findMatchingPreToolUse(
 	events: HookEventDisplay[],
 	toolUseId: string | undefined,
 	toolName: string,
 ): HookEventDisplay | undefined {
-	// Try tool_use_id match first
 	if (toolUseId) {
-		const byId = events.find(
-			e =>
-				(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-				e.toolUseId === toolUseId &&
-				!e.postToolPayload,
+		const byId = findLastWhere(
+			events,
+			e => isPreToolHook(e) && e.toolUseId === toolUseId && !e.postToolPayload,
 		);
 		if (byId) return byId;
 	}
+	return findLastWhere(
+		events,
+		e => isPreToolHook(e) && e.toolName === toolName && !e.postToolPayload,
+	);
+}
 
-	// Fallback: most recent unmatched PreToolUse with same tool_name (search from end)
-	for (let i = events.length - 1; i >= 0; i--) {
-		const e = events[i]!;
-		if (
-			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-			e.toolName === toolName &&
-			!e.postToolPayload
-		) {
-			return e;
-		}
-	}
-
-	return undefined;
+/** Find a matching SubagentStart for a SubagentStop by agent_id. */
+function findMatchingSubagentStart(
+	events: HookEventDisplay[],
+	agentId: string,
+): HookEventDisplay | undefined {
+	return findLastWhere(
+		events,
+		e =>
+			e.hookName === 'SubagentStart' &&
+			(e.payload as SubagentStartEvent).agent_id === agentId &&
+			!e.subagentStopPayload,
+	);
 }
 
 export function useHookServer(
@@ -98,6 +115,9 @@ export function useHookServer(
 
 	// Permission queue -- requestIds waiting for user decision
 	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
+
+	// Question queue -- requestIds for AskUserQuestion events waiting for answers
+	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -158,22 +178,11 @@ export function useHookServer(
 			if (!isMountedRef.current) return;
 
 			// Update event status
-			const statusMap: Record<string, HookEventDisplay['status']> = {
-				passthrough: 'passthrough',
-				block_with_stderr: 'blocked',
-				json_output: 'json_output',
-			};
+			const status: HookEventDisplay['status'] =
+				result.action === 'block_with_stderr' ? 'blocked' : result.action;
 
 			setEvents(prev =>
-				prev.map(e =>
-					e.requestId === requestId
-						? {
-								...e,
-								status: statusMap[result.action] ?? 'passthrough',
-								result,
-							}
-						: e,
-				),
+				prev.map(e => (e.requestId === requestId ? {...e, status, result} : e)),
 			);
 		},
 		[],
@@ -209,6 +218,16 @@ export function useHookServer(
 		[respond, addRule],
 	);
 
+	// Resolve an AskUserQuestion request with the user's answers
+	const resolveQuestion = useCallback(
+		(requestId: string, answers: Record<string, string>) => {
+			const result = createAskUserQuestionResult(answers);
+			respond(requestId, result);
+			setQuestionQueue(prev => prev.filter(id => id !== requestId));
+		},
+		[respond],
+	);
+
 	// Get pending events
 	const pendingEvents = events.filter(e => e.status === 'pending');
 
@@ -235,6 +254,14 @@ export function useHookServer(
 
 		// Initialize hook logger
 		initHookLogger(projectDir);
+
+		/** Shared context passed to each handler in the dispatch chain. */
+		type HandlerContext = {
+			envelope: HookEventEnvelope;
+			displayEvent: HookEventDisplay;
+			socket: net.Socket;
+			receiveTimestamp: number;
+		};
 
 		// Append a display event and prune to MAX_EVENTS
 		function addEvent(event: HookEventDisplay): void {
@@ -263,7 +290,209 @@ export function useHookServer(
 			});
 		}
 
-		// Create server
+		/** Store pending with auto-passthrough timeout. */
+		function storeWithAutoPassthrough(ctx: HandlerContext): void {
+			const timeoutId = setTimeout(() => {
+				respond(ctx.envelope.request_id, createPassthroughResult());
+			}, AUTO_PASSTHROUGH_MS);
+			storePending(
+				ctx.envelope.request_id,
+				ctx.socket,
+				ctx.displayEvent,
+				ctx.receiveTimestamp,
+				timeoutId,
+			);
+		}
+
+		/** Store pending without auto-passthrough (requires user input). */
+		function storeWithoutPassthrough(ctx: HandlerContext): void {
+			storePending(
+				ctx.envelope.request_id,
+				ctx.socket,
+				ctx.displayEvent,
+				ctx.receiveTimestamp,
+				undefined as unknown as ReturnType<typeof setTimeout>,
+			);
+		}
+
+		// ── Event handler functions ─────────────────────────────────────
+		// Each returns true if it handled the event (caller should return).
+
+		/** Merge PostToolUse/PostToolUseFailure into matching PreToolUse. */
+		function handlePostToolUseMerge(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (
+				envelope.hook_event_name !== 'PostToolUse' &&
+				envelope.hook_event_name !== 'PostToolUseFailure'
+			) {
+				return false;
+			}
+
+			const payload = envelope.payload;
+			if (!isToolEvent(payload)) return false;
+
+			const match = findMatchingPreToolUse(
+				eventsRef.current,
+				payload.tool_use_id,
+				payload.tool_name,
+			);
+			if (!match) return false;
+
+			storeWithAutoPassthrough(ctx);
+
+			setEvents(prev =>
+				prev.map(e =>
+					e.id === match.id
+						? {
+								...e,
+								postToolPayload: payload as
+									| PostToolUseEvent
+									| PostToolUseFailureEvent,
+								postToolRequestId: envelope.request_id,
+								postToolTimestamp: new Date(envelope.ts),
+								postToolFailed:
+									envelope.hook_event_name === 'PostToolUseFailure',
+							}
+						: e,
+				),
+			);
+			return true;
+		}
+
+		/** Merge SubagentStop into matching SubagentStart. */
+		function handleSubagentStopMerge(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (envelope.hook_event_name !== 'SubagentStop') return false;
+
+			const stopPayload = envelope.payload as SubagentStopEvent;
+			const match = findMatchingSubagentStart(
+				eventsRef.current,
+				stopPayload.agent_id,
+			);
+			if (!match) return false;
+
+			storeWithAutoPassthrough(ctx);
+
+			setEvents(prev =>
+				prev.map(e =>
+					e.id === match.id
+						? {
+								...e,
+								subagentStopPayload: stopPayload,
+								subagentStopRequestId: envelope.request_id,
+								subagentStopTimestamp: new Date(envelope.ts),
+							}
+						: e,
+				),
+			);
+			return true;
+		}
+
+		/** Route AskUserQuestion events to the question queue. */
+		function handleAskUserQuestion(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload) ||
+				envelope.payload.tool_name !== 'AskUserQuestion'
+			) {
+				return false;
+			}
+
+			storeWithoutPassthrough(ctx);
+			addEvent(ctx.displayEvent);
+			setQuestionQueue(prev => [...prev, envelope.request_id]);
+			return true;
+		}
+
+		/** Apply matching rules to PreToolUse events. */
+		function handlePreToolUseRules(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload)
+			) {
+				return false;
+			}
+
+			const matchedRule = matchRule(
+				rulesRef.current,
+				envelope.payload.tool_name,
+			);
+			if (!matchedRule) return false;
+
+			const result =
+				matchedRule.action === 'deny'
+					? createPreToolUseDenyResult(
+							`Blocked by rule: ${matchedRule.addedBy}`,
+						)
+					: createPreToolUseAllowResult();
+
+			// Store briefly so respond() can find it, then respond immediately
+			storeWithoutPassthrough(ctx);
+			addEvent(ctx.displayEvent);
+			respond(envelope.request_id, result);
+			return true;
+		}
+
+		/** Route permission-required PreToolUse events to the permission queue. */
+		function handlePermissionCheck(ctx: HandlerContext): boolean {
+			const {envelope} = ctx;
+			if (
+				envelope.hook_event_name !== 'PreToolUse' ||
+				!isToolEvent(envelope.payload) ||
+				!isPermissionRequired(envelope.payload.tool_name, rulesRef.current)
+			) {
+				return false;
+			}
+
+			storeWithoutPassthrough(ctx);
+			addEvent(ctx.displayEvent);
+			setPermissionQueue(prev => [...prev, envelope.request_id]);
+			return true;
+		}
+
+		/** Capture session ID and enrich SessionEnd with transcript data. */
+		function handleSessionTracking(ctx: HandlerContext): void {
+			const {envelope, displayEvent} = ctx;
+
+			if (envelope.hook_event_name === 'SessionStart') {
+				setCurrentSessionId(envelope.session_id);
+			}
+
+			if (envelope.hook_event_name !== 'SessionEnd') return;
+
+			const updateTranscript = (
+				summary: HookEventDisplay['transcriptSummary'],
+			) =>
+				setEvents(prev =>
+					prev.map(e =>
+						e.id === displayEvent.id ? {...e, transcriptSummary: summary} : e,
+					),
+				);
+
+			const transcriptPath = envelope.payload.transcript_path;
+			if (transcriptPath) {
+				parseTranscriptFile(transcriptPath)
+					.then(summary => {
+						if (isMountedRef.current) updateTranscript(summary);
+					})
+					.catch(err => {
+						console.error('[SessionEnd] Failed to parse transcript:', err);
+					});
+			} else {
+				updateTranscript({
+					lastAssistantText: null,
+					lastAssistantTimestamp: null,
+					messageCount: 0,
+					toolCallCount: 0,
+					error: 'No transcript path provided',
+				});
+			}
+		}
+
+		// ── Server creation ─────────────────────────────────────────────
+
 		const server = net.createServer((socket: net.Socket) => {
 			let data = '';
 
@@ -287,181 +516,43 @@ export function useHookServer(
 					}
 
 					const envelope = parsed as HookEventEnvelope;
-					const receiveTimestamp = Date.now();
+					const payload = envelope.payload;
 
 					logHookReceived(envelope);
 
-					// Create display event
-					const payload = envelope.payload;
-					const displayEvent: HookEventDisplay = {
-						id: generateId(),
-						requestId: envelope.request_id,
-						timestamp: new Date(envelope.ts),
-						hookName: envelope.hook_event_name,
-						toolName: isToolEvent(payload) ? payload.tool_name : undefined,
-						toolUseId: isToolEvent(payload) ? payload.tool_use_id : undefined,
-						payload,
-						status: 'pending',
+					// Build shared context for the handler chain
+					const ctx: HandlerContext = {
+						envelope,
+						displayEvent: {
+							id: generateId(),
+							requestId: envelope.request_id,
+							timestamp: new Date(envelope.ts),
+							hookName: envelope.hook_event_name,
+							toolName: isToolEvent(payload) ? payload.tool_name : undefined,
+							toolUseId: isToolEvent(payload) ? payload.tool_use_id : undefined,
+							payload,
+							status: 'pending',
+						},
+						socket,
+						receiveTimestamp: Date.now(),
 					};
 
-					// Merge PostToolUse/PostToolUseFailure into matching PreToolUse
-					if (
-						(envelope.hook_event_name === 'PostToolUse' ||
-							envelope.hook_event_name === 'PostToolUseFailure') &&
-						isToolEvent(payload)
-					) {
-						const match = findMatchingPreToolUse(
-							eventsRef.current,
-							payload.tool_use_id,
-							payload.tool_name,
-						);
+					// Dispatch to handlers (first match wins)
+					const handled =
+						handlePostToolUseMerge(ctx) ||
+						handleSubagentStopMerge(ctx) ||
+						handleAskUserQuestion(ctx) ||
+						handlePreToolUseRules(ctx) ||
+						handlePermissionCheck(ctx);
 
-						if (match) {
-							const timeoutId = setTimeout(() => {
-								respond(envelope.request_id, createPassthroughResult());
-							}, AUTO_PASSTHROUGH_MS);
-
-							storePending(
-								envelope.request_id,
-								socket,
-								displayEvent,
-								receiveTimestamp,
-								timeoutId,
-							);
-
-							// Merge into the matching PreToolUse entry
-							const isFailed =
-								envelope.hook_event_name === 'PostToolUseFailure';
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === match.id
-										? {
-												...e,
-												postToolPayload: payload as
-													| PostToolUseEvent
-													| PostToolUseFailureEvent,
-												postToolRequestId: envelope.request_id,
-												postToolTimestamp: new Date(envelope.ts),
-												postToolFailed: isFailed,
-											}
-										: e,
-								),
-							);
-							return;
-						}
-						// No match found -- fall through to add as standalone orphan entry
+					if (!handled) {
+						// Default: auto-passthrough after timeout
+						storeWithAutoPassthrough(ctx);
+						addEvent(ctx.displayEvent);
 					}
 
-					// Check rules for PreToolUse events
-					if (
-						envelope.hook_event_name === 'PreToolUse' &&
-						isToolEvent(payload)
-					) {
-						const matchedRule = matchRule(rulesRef.current, payload.tool_name);
-						if (matchedRule) {
-							const result =
-								matchedRule.action === 'deny'
-									? createPreToolUseDenyResult(
-											`Blocked by rule: ${matchedRule.addedBy}`,
-										)
-									: createPreToolUseAllowResult();
-
-							// Store pending briefly so respond() can find it
-							const placeholder = setTimeout(() => {}, 0);
-							storePending(
-								envelope.request_id,
-								socket,
-								displayEvent,
-								receiveTimestamp,
-								placeholder,
-							);
-							addEvent(displayEvent);
-							respond(envelope.request_id, result);
-							return;
-						}
-					}
-
-					// Check if permission is required for this tool
-					const needsPermission =
-						envelope.hook_event_name === 'PreToolUse' &&
-						isToolEvent(payload) &&
-						isPermissionRequired(payload.tool_name, rulesRef.current);
-
-					if (needsPermission) {
-						// No auto-passthrough timeout for permission requests
-						const noTimeout = setTimeout(() => {}, 0);
-						clearTimeout(noTimeout);
-						storePending(
-							envelope.request_id,
-							socket,
-							displayEvent,
-							receiveTimestamp,
-							noTimeout,
-						);
-						addEvent(displayEvent);
-						setPermissionQueue(prev => [...prev, envelope.request_id]);
-						return;
-					}
-
-					// Default: auto-passthrough after timeout
-					const timeoutId = setTimeout(() => {
-						respond(envelope.request_id, createPassthroughResult());
-					}, AUTO_PASSTHROUGH_MS);
-
-					storePending(
-						envelope.request_id,
-						socket,
-						displayEvent,
-						receiveTimestamp,
-						timeoutId,
-					);
-					addEvent(displayEvent);
-
-					// Capture session ID from SessionStart events for resume support
-					if (envelope.hook_event_name === 'SessionStart') {
-						setCurrentSessionId(envelope.session_id);
-					}
-
-					// Asynchronously enrich SessionEnd events with transcript data
-					if (envelope.hook_event_name === 'SessionEnd') {
-						const transcriptPath = envelope.payload.transcript_path;
-						if (transcriptPath) {
-							parseTranscriptFile(transcriptPath)
-								.then(summary => {
-									if (!isMountedRef.current) return;
-									setEvents(prev =>
-										prev.map(e =>
-											e.id === displayEvent.id
-												? {...e, transcriptSummary: summary}
-												: e,
-										),
-									);
-								})
-								.catch(err => {
-									console.error(
-										'[SessionEnd] Failed to parse transcript:',
-										err,
-									);
-								});
-						} else {
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === displayEvent.id
-										? {
-												...e,
-												transcriptSummary: {
-													lastAssistantText: null,
-													lastAssistantTimestamp: null,
-													messageCount: 0,
-													toolCallCount: 0,
-													error: 'No transcript path provided',
-												},
-											}
-										: e,
-								),
-							);
-						}
-					}
+					// Session-specific tracking (runs regardless of handler)
+					handleSessionTracking(ctx);
 				} catch (err) {
 					console.error('[hook-server] Error processing event:', err);
 					socket.end();
@@ -483,10 +574,13 @@ export function useHookServer(
 					}
 				}
 
-				// Remove closed requests from the permission queue so the
-				// dialog does not get stuck showing a dead request.
+				// Remove closed requests from the permission/question queues so the
+				// dialogs do not get stuck showing a dead request.
 				if (closedRequestIds.length > 0 && isMountedRef.current) {
 					setPermissionQueue(prev =>
+						prev.filter(id => !closedRequestIds.includes(id)),
+					);
+					setQuestionQueue(prev =>
 						prev.filter(id => !closedRequestIds.includes(id)),
 					);
 				}
@@ -549,6 +643,11 @@ export function useHookServer(
 			? (events.find(e => e.requestId === permissionQueue[0]) ?? null)
 			: null;
 
+	const currentQuestionRequest =
+		questionQueue.length > 0
+			? (events.find(e => e.requestId === questionQueue[0]) ?? null)
+			: null;
+
 	return {
 		events,
 		isServerRunning,
@@ -565,5 +664,8 @@ export function useHookServer(
 		currentPermissionRequest,
 		permissionQueueCount: permissionQueue.length,
 		resolvePermission,
+		currentQuestionRequest,
+		questionQueueCount: questionQueue.length,
+		resolveQuestion,
 	};
 }

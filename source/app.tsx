@@ -5,6 +5,7 @@ import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
+import QuestionDialog from './components/QuestionDialog.js';
 import HookEvent from './components/HookEvent.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import Header from './components/Header.js';
@@ -13,10 +14,10 @@ import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
-	type HookEventDisplay,
 	type IsolationPreset,
 	generateId,
 } from './types/index.js';
+import {useContentOrdering} from './hooks/useContentOrdering.js';
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
@@ -29,12 +30,6 @@ type Props = {
 	version: string;
 	pluginMcpConfig?: string;
 };
-
-type ContentItem =
-	| {type: 'message'; data: MessageType}
-	| {type: 'hook'; data: HookEventDisplay};
-
-type DisplayItem = {type: 'header'; id: string} | ContentItem;
 
 function AppContent({
 	projectDir,
@@ -59,6 +54,9 @@ function AppContent({
 		currentPermissionRequest,
 		permissionQueueCount,
 		resolvePermission,
+		currentQuestionRequest,
+		questionQueueCount,
+		resolveQuestion,
 	} = hookServer;
 	const {
 		spawn: spawnClaude,
@@ -154,68 +152,19 @@ function AppContent({
 		[currentPermissionRequest, resolvePermission],
 	);
 
-	// Convert SessionEnd events with transcript text into synthetic assistant messages
-	const sessionEndMessages: ContentItem[] = debug
-		? []
-		: events
-				.filter(
-					e =>
-						e.hookName === 'SessionEnd' &&
-						e.transcriptSummary?.lastAssistantText,
-				)
-				.map(e => ({
-					type: 'message' as const,
-					data: {
-						id: `${e.timestamp.getTime()}-session-end-${e.id}`,
-						role: 'assistant' as const,
-						content: e.transcriptSummary!.lastAssistantText!,
-					},
-				}));
+	const handleQuestionAnswer = useCallback(
+		(answers: Record<string, string>) => {
+			if (!currentQuestionRequest) return;
+			resolveQuestion(currentQuestionRequest.requestId, answers);
+		},
+		[currentQuestionRequest, resolveQuestion],
+	);
 
-	// Interleave messages and hook events by timestamp.
-	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
-	const hookItems: ContentItem[] = events
-		.filter(e => debug || e.hookName !== 'SessionEnd')
-		.map(e => ({type: 'hook' as const, data: e}));
-
-	const getItemTime = (item: ContentItem): number =>
-		item.type === 'message'
-			? Number.parseInt(item.data.id.split('-')[0] ?? '0', 10)
-			: item.data.timestamp.getTime();
-
-	const contentItems: ContentItem[] = [
-		...messages.map(m => ({type: 'message' as const, data: m})),
-		...hookItems,
-		...sessionEndMessages,
-	].sort((a, b) => getItemTime(a) - getItemTime(b));
-
-	// Separate stable items (for Static) from items that may update (rendered dynamically).
-	// An item is "stable" once it will no longer change and can be rendered once by <Static>.
-	const isStableContent = (item: ContentItem): boolean => {
-		if (item.type === 'message') return true;
-
-		switch (item.data.hookName) {
-			case 'SessionEnd':
-				// Stable once transcript data has loaded
-				return item.data.transcriptSummary !== undefined;
-			case 'PreToolUse':
-			case 'PermissionRequest':
-				// Stable when blocked (no PostToolUse expected) or when PostToolUse merged in.
-				// Keep dynamic until then so <Static> does not freeze before the response appears.
-				return (
-					item.data.status === 'blocked' ||
-					item.data.postToolPayload !== undefined
-				);
-			default:
-				return item.data.status !== 'pending';
-		}
-	};
-
-	const stableItems: DisplayItem[] = [
-		{type: 'header', id: 'header'},
-		...contentItems.filter(isStableContent),
-	];
-	const dynamicItems = contentItems.filter(item => !isStableContent(item));
+	const {stableItems, dynamicItems} = useContentOrdering({
+		messages,
+		events,
+		debug,
+	});
 
 	return (
 		<Box flexDirection="column">
@@ -277,10 +226,26 @@ function AppContent({
 				/>
 			)}
 
+			{/* Question dialog - shown when AskUserQuestion needs answers */}
+			{currentQuestionRequest && !currentPermissionRequest && (
+				<QuestionDialog
+					request={currentQuestionRequest}
+					queuedCount={questionQueueCount - 1}
+					onAnswer={handleQuestionAnswer}
+				/>
+			)}
+
 			<CommandInput
 				inputKey={inputKey}
 				onSubmit={handleSubmit}
-				disabled={currentPermissionRequest !== null}
+				disabled={
+					currentPermissionRequest !== null || currentQuestionRequest !== null
+				}
+				disabledMessage={
+					currentQuestionRequest && !currentPermissionRequest
+						? 'Answering question...'
+						: undefined
+				}
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
 				onArrowDown={inputHistory.forward}

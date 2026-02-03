@@ -89,3 +89,24 @@ export function createPreToolUseDenyResult(reason: string): HookResultPayload {
 		},
 	};
 }
+
+/**
+ * Helper to create an AskUserQuestion result for PreToolUse hooks.
+ * Sends back the user's answers via updatedInput so Claude Code receives them.
+ */
+export function createAskUserQuestionResult(
+	answers: Record<string, string>,
+): HookResultPayload {
+	return {
+		action: 'json_output',
+		stdout_json: {
+			hookSpecificOutput: {
+				hookEventName: 'PreToolUse',
+				permissionDecision: 'allow',
+				updatedInput: {
+					answers,
+				},
+			},
+		},
+	};
+}

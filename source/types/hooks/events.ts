@@ -85,6 +85,7 @@ export type SubagentStopEvent = BaseHookEvent & {
 	hook_event_name: 'SubagentStop';
 	stop_hook_active: boolean;
 	agent_id: string;
+	agent_type: string;
 	agent_transcript_path?: string;
 };
 

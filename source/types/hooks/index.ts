@@ -57,6 +57,7 @@ export {
 	createJsonOutputResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
+	createAskUserQuestionResult,
 } from './result.js';
 
 // Display types

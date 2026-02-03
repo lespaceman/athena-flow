@@ -50,6 +50,10 @@ describe('permissionPolicy', () => {
 			expect(getToolCategory('Task')).toBe('safe');
 		});
 
+		it('classifies AskUserQuestion as safe', () => {
+			expect(getToolCategory('AskUserQuestion')).toBe('safe');
+		});
+
 		it('classifies unknown tools as dangerous by default', () => {
 			expect(getToolCategory('SomeNewTool')).toBe('dangerous');
 		});
@@ -62,6 +66,10 @@ describe('permissionPolicy', () => {
 
 		it('returns false for safe tools', () => {
 			expect(isPermissionRequired('Read', [])).toBe(false);
+		});
+
+		it('returns false for AskUserQuestion (safe tool)', () => {
+			expect(isPermissionRequired('AskUserQuestion', [])).toBe(false);
 		});
 
 		it('returns false when an approve rule exists for the tool', () => {

@@ -7,6 +7,7 @@ import {
 	createBlockResult,
 	createJsonOutputResult,
 	createPreToolUseDenyResult,
+	createAskUserQuestionResult,
 	type HookEventEnvelope,
 	type ClaudeHookEvent,
 	type PreToolUseEvent,
@@ -221,6 +222,39 @@ describe('hooks types', () => {
 		});
 	});
 
+	describe('createAskUserQuestionResult', () => {
+		it('should create PreToolUse allow result with answers in updatedInput', () => {
+			const answers = {'Which library?': 'React', 'Which style?': 'CSS'};
+			const result = createAskUserQuestionResult(answers);
+			expect(result).toEqual({
+				action: 'json_output',
+				stdout_json: {
+					hookSpecificOutput: {
+						hookEventName: 'PreToolUse',
+						permissionDecision: 'allow',
+						updatedInput: {
+							answers: {
+								'Which library?': 'React',
+								'Which style?': 'CSS',
+							},
+						},
+					},
+				},
+			});
+		});
+
+		it('should handle empty answers', () => {
+			const result = createAskUserQuestionResult({});
+			expect(result.action).toBe('json_output');
+			expect(
+				(result.stdout_json as Record<string, unknown>)?.hookSpecificOutput,
+			).toMatchObject({
+				permissionDecision: 'allow',
+				updatedInput: {answers: {}},
+			});
+		});
+	});
+
 	describe('type guards', () => {
 		const preToolUseEvent: PreToolUseEvent = {
 			...createBaseEvent(),
@@ -277,6 +311,7 @@ describe('hooks types', () => {
 			hook_event_name: 'SubagentStop',
 			stop_hook_active: false,
 			agent_id: 'agent-123',
+			agent_type: 'Explore',
 		};
 
 		const userPromptSubmitEvent: UserPromptSubmitEvent = {
@@ -528,6 +563,17 @@ describe('hooks types', () => {
 					// TypeScript should know this is a SubagentStartEvent
 					expect(event.agent_id).toBe('agent-123');
 					expect(event.agent_type).toBe('Explore');
+				}
+			});
+
+			it('should allow accessing agent_type on SubagentStop events', () => {
+				const event: ClaudeHookEvent = subagentStopEvent;
+
+				if (isSubagentStopEvent(event)) {
+					// TypeScript should know this is a SubagentStopEvent
+					expect(event.agent_id).toBe('agent-123');
+					expect(event.agent_type).toBe('Explore');
+					expect(event.stop_hook_active).toBe(false);
 				}
 			});
 
