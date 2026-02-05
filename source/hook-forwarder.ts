@@ -25,7 +25,7 @@ import {
 	generateId,
 } from './types/hooks/index.js';
 
-const SOCKET_TIMEOUT_MS = 300;
+const SOCKET_TIMEOUT_MS = 5000; // 5 seconds - generous buffer for busy UI
 const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for permission decisions
 
 function getSocketPath(cwd: string): string {
