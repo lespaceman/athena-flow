@@ -47,15 +47,19 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).toContain('[Library]');
 		expect(frame).toContain('Which library should we use?');
 	});
 
-	it('renders options with label and description combined in select', () => {
+	it('shows short option labels for all options', () => {
 		const request = makeRequest([
 			{
 				question: 'Which library?',
@@ -69,15 +73,47 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('React - Popular UI library');
-		expect(frame).toContain('Vue - Progressive framework');
+		expect(frame).toContain('React');
+		expect(frame).toContain('Vue');
 	});
 
-	it('renders Other option for single-select', () => {
+	it('shows description only for focused option (first by default)', () => {
+		const request = makeRequest([
+			{
+				question: 'Which library?',
+				header: 'Library',
+				options: [
+					{label: 'React', description: 'Popular UI library'},
+					{label: 'Vue', description: 'Progressive framework'},
+				],
+				multiSelect: false,
+			},
+		]);
+
+		const {lastFrame} = render(
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
+		);
+		const frame = lastFrame() ?? '';
+		// Focused option description visible
+		expect(frame).toContain('Popular UI library');
+		// Non-focused description hidden
+		expect(frame).not.toContain('Progressive framework');
+	});
+
+	it('renders Other option with clarifier description', () => {
 		const request = makeRequest([
 			{
 				question: 'Which library?',
@@ -88,14 +124,42 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).toContain('Other');
 	});
 
-	it('renders Other option for multi-select', () => {
+	it('renders keybinding hints for single-select', () => {
+		const request = makeRequest([
+			{
+				question: 'Question?',
+				header: 'Q',
+				options: [{label: 'A', description: 'desc'}],
+				multiSelect: false,
+			},
+		]);
+
+		const {lastFrame} = render(
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
+		);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('Navigate');
+		expect(frame).toContain('Select');
+		expect(frame).toContain('Skip');
+	});
+
+	it('renders keybinding hints for multi-select', () => {
 		const request = makeRequest([
 			{
 				question: 'Which features?',
@@ -106,11 +170,16 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Other');
+		expect(frame).toContain('Toggle');
+		expect(frame).toContain('Submit');
 	});
 
 	it('shows tab headers when multiple questions', () => {
@@ -130,13 +199,15 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
-		// Active tab is bracketed
 		expect(frame).toContain('[1. Q1]');
-		// Inactive tab is numbered
 		expect(frame).toContain('2. Q2');
 	});
 
@@ -151,10 +222,14 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).not.toContain('1.');
 	});
 
@@ -169,10 +244,14 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={2} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={2}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).toContain('(2 more queued)');
 	});
 
@@ -197,10 +276,14 @@ describe('QuestionDialog', () => {
 		};
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).toContain('No questions found');
 	});
 
@@ -215,14 +298,44 @@ describe('QuestionDialog', () => {
 		]);
 
 		const {lastFrame} = render(
-			<QuestionDialog request={request} queuedCount={0} onAnswer={vi.fn()} />,
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={vi.fn()}
+			/>,
 		);
 		const frame = lastFrame() ?? '';
-
 		// Round border corners
 		expect(frame).toContain('\u256d'); // ╭
 		expect(frame).toContain('\u256e'); // ╮
 		expect(frame).toContain('\u2570'); // ╰
 		expect(frame).toContain('\u256f'); // ╯
+	});
+
+	it('calls onSkip when Esc is pressed', () => {
+		const onSkip = vi.fn();
+		const request = makeRequest([
+			{
+				question: 'Question?',
+				header: 'Q',
+				options: [{label: 'A', description: 'desc'}],
+				multiSelect: false,
+			},
+		]);
+
+		const {stdin} = render(
+			<QuestionDialog
+				request={request}
+				queuedCount={0}
+				onAnswer={vi.fn()}
+				onSkip={onSkip}
+			/>,
+		);
+
+		// Press Escape
+		stdin.write('\x1B');
+
+		expect(onSkip).toHaveBeenCalled();
 	});
 });
