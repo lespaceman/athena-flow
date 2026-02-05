@@ -38,7 +38,10 @@ beforeEach(() => {
 
 describe('readConfig', () => {
 	it('returns empty plugins when config file does not exist', () => {
-		expect(readConfig('/project')).toEqual({plugins: []});
+		expect(readConfig('/project')).toEqual({
+			plugins: [],
+			additionalDirectories: [],
+		});
 	});
 
 	it('reads plugins from .athena/config.json', () => {
@@ -48,6 +51,7 @@ describe('readConfig', () => {
 
 		expect(readConfig('/project')).toEqual({
 			plugins: ['/absolute/plugin'],
+			additionalDirectories: [],
 		});
 	});
 
@@ -77,13 +81,31 @@ describe('readConfig', () => {
 	it('returns empty plugins when plugins key is missing', () => {
 		files['/project/.athena/config.json'] = JSON.stringify({});
 
-		expect(readConfig('/project')).toEqual({plugins: []});
+		expect(readConfig('/project')).toEqual({
+			plugins: [],
+			additionalDirectories: [],
+		});
+	});
+
+	it('reads additionalDirectories and resolves relative paths', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+			additionalDirectories: ['/absolute/dir', 'relative/dir'],
+		});
+
+		expect(readConfig('/project')).toEqual({
+			plugins: [],
+			additionalDirectories: ['/absolute/dir', '/project/relative/dir'],
+		});
 	});
 });
 
 describe('readGlobalConfig', () => {
 	it('returns empty plugins when global config does not exist', () => {
-		expect(readGlobalConfig()).toEqual({plugins: []});
+		expect(readGlobalConfig()).toEqual({
+			plugins: [],
+			additionalDirectories: [],
+		});
 	});
 
 	it('reads plugins from ~/.config/athena/config.json', () => {
@@ -93,6 +115,7 @@ describe('readGlobalConfig', () => {
 
 		expect(readGlobalConfig()).toEqual({
 			plugins: ['/absolute/global-plugin'],
+			additionalDirectories: [],
 		});
 	});
 
@@ -109,7 +132,10 @@ describe('readGlobalConfig', () => {
 	it('returns empty plugins when plugins key is missing', () => {
 		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({});
 
-		expect(readGlobalConfig()).toEqual({plugins: []});
+		expect(readGlobalConfig()).toEqual({
+			plugins: [],
+			additionalDirectories: [],
+		});
 	});
 });
 

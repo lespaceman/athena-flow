@@ -33,4 +33,10 @@ export type HookEventDisplay = {
 	toolUseId?: string;
 	/** agent_id of the parent subagent this event belongs to */
 	parentSubagentId?: string;
+	/**
+	 * For SubagentStart events: holds the corresponding SubagentStop event data
+	 * when the subagent completes. Used to render the completion response in a
+	 * single unified subagent box instead of separate Start/Stop boxes.
+	 */
+	stopEvent?: HookEventDisplay;
 };

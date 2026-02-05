@@ -365,7 +365,7 @@ describe('spawnClaude', () => {
 			expect(args).toContain('/tmp/mock-settings.json');
 		});
 
-		it('should include --setting-sources with user by default (strict preset)', () => {
+		it('should include --setting-sources with empty string for full isolation', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',
 				projectDir: '/test',
@@ -376,7 +376,7 @@ describe('spawnClaude', () => {
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 			expect(args).toContain('--setting-sources');
-			expect(args).toContain('user');
+			expect(args).toContain('');
 		});
 
 		it('should include --strict-mcp-config by default (strict preset)', () => {
@@ -406,7 +406,7 @@ describe('spawnClaude', () => {
 			expect(args).not.toContain('--strict-mcp-config');
 		});
 
-		it('should include user,project setting sources for permissive preset', () => {
+		it('should use empty setting-sources for permissive preset (full isolation)', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',
 				projectDir: '/test',
@@ -417,8 +417,9 @@ describe('spawnClaude', () => {
 			spawnClaude(options);
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			// All presets use full isolation with empty setting-sources
 			expect(args).toContain('--setting-sources');
-			expect(args).toContain('user,project');
+			expect(args).toContain('');
 		});
 
 		it('should include allowed tools when specified', () => {
@@ -471,6 +472,40 @@ describe('spawnClaude', () => {
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 			expect(args).toContain('--permission-mode');
 			expect(args).toContain('auto-accept-all');
+		});
+
+		it('should include --add-dir flags for additional directories', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					additionalDirectories: ['/extra/path1', '/extra/path2'],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--add-dir');
+			expect(args).toContain('/extra/path1');
+			expect(args).toContain('/extra/path2');
+		});
+
+		it('should not include --add-dir when additionalDirectories is empty', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					additionalDirectories: [],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).not.toContain('--add-dir');
 		});
 
 		it('should include custom mcp config when specified', () => {

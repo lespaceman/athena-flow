@@ -458,6 +458,131 @@ describe('useContentOrdering', () => {
 			expect(subagentInStable).toHaveLength(1);
 		});
 
+		it('merges stopEvent data into completed SubagentStart items', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-done',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+				makeEvent({
+					id: 'sub-stop',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					transcriptSummary: {
+						lastAssistantText: 'Task completed successfully',
+						lastAssistantTimestamp: null,
+						messageCount: 5,
+						toolCallCount: 3,
+					},
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStop',
+						stop_hook_active: false,
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {stableItems} = useContentOrdering({messages: [], events});
+
+			const completedSubagent = stableItems.find(
+				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
+			);
+			expect(completedSubagent).toBeDefined();
+			expect(
+				completedSubagent?.type === 'hook' && completedSubagent.data.stopEvent,
+			).toBeDefined();
+			expect(
+				completedSubagent?.type === 'hook' &&
+					completedSubagent.data.stopEvent?.transcriptSummary?.lastAssistantText,
+			).toBe('Task completed successfully');
+		});
+
+		it('excludes SubagentStop from hookItems (merged into SubagentStart)', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-start',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+				makeEvent({
+					id: 'sub-stop',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStop',
+						stop_hook_active: false,
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allItems = [...stableItems, ...dynamicItems];
+			const subagentStopItems = allItems.filter(
+				i => i.type === 'hook' && i.data.hookName === 'SubagentStop',
+			);
+			expect(subagentStopItems).toHaveLength(0);
+		});
+
+		it('excludes PostToolUse for Task tool (content shown in subagent box)', () => {
+			const events = [
+				makeEvent({
+					id: 'task-result',
+					hookName: 'PostToolUse',
+					toolName: 'Task',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allItems = [...stableItems, ...dynamicItems];
+			const taskPostToolUse = allItems.filter(
+				i =>
+					i.type === 'hook' &&
+					i.data.hookName === 'PostToolUse' &&
+					i.data.toolName === 'Task',
+			);
+			expect(taskPostToolUse).toHaveLength(0);
+		});
+
 		it('excludes child SubagentStart (parentSubagentId set) from activeSubagents', () => {
 			const events = [
 				makeEvent({
