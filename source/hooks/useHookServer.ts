@@ -40,7 +40,7 @@ import {
 export type {UseHookServerResult};
 export {matchRule};
 
-const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
+const AUTO_PASSTHROUGH_MS = 4000; // Auto-passthrough before forwarder timeout (5000ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
 export function useHookServer(

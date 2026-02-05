@@ -117,7 +117,7 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 	const hookCommand: HookCommand = {
 		type: 'command',
 		command: hookForwarderPath,
-		timeout: 1,
+		timeout: 60, // 60 seconds - matching Claude Code's default
 	};
 
 	const preToolUseHookCommand: HookCommand = {
