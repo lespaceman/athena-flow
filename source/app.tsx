@@ -22,6 +22,7 @@ import {useContentOrdering} from './hooks/useContentOrdering.js';
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
+import {getAgentChain} from './utils/agentChain.js';
 
 type Props = {
 	projectDir: string;
@@ -240,9 +241,15 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{isClaudeRunning && (
+			{isClaudeRunning && !currentPermissionRequest && (
 				<Box>
 					<Spinner label="Agent is thinking..." />
+				</Box>
+			)}
+
+			{isClaudeRunning && currentPermissionRequest && (
+				<Box>
+					<Spinner label="Agent paused — permission needed" />
 				</Box>
 			)}
 
@@ -252,6 +259,10 @@ function AppContent({
 					request={currentPermissionRequest}
 					queuedCount={permissionQueueCount - 1}
 					onDecision={handlePermissionDecision}
+					agentChain={getAgentChain(
+						events,
+						currentPermissionRequest.parentSubagentId,
+					)}
 				/>
 			)}
 
