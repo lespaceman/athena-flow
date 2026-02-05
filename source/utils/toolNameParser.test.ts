@@ -5,39 +5,43 @@ describe('parseToolName', () => {
 	it('parses MCP tool name into server and action', () => {
 		const result = parseToolName('mcp__agent-web-interface__navigate');
 		expect(result).toEqual({
-			displayName: 'agent-web-interface - navigate (MCP)',
+			displayName: 'navigate',
 			isMcp: true,
 			mcpServer: 'agent-web-interface',
 			mcpAction: 'navigate',
+			serverLabel: 'agent-web-interface (MCP)',
 		});
 	});
 
 	it('handles MCP tool with underscores in action', () => {
 		const result = parseToolName('mcp__server__get_element_details');
 		expect(result).toEqual({
-			displayName: 'server - get_element_details (MCP)',
+			displayName: 'get_element_details',
 			isMcp: true,
 			mcpServer: 'server',
 			mcpAction: 'get_element_details',
+			serverLabel: 'server (MCP)',
 		});
 	});
 
 	it('handles MCP tool with hyphenated server name', () => {
 		const result = parseToolName('mcp__my-server__do_thing');
 		expect(result).toEqual({
-			displayName: 'my-server - do_thing (MCP)',
+			displayName: 'do_thing',
 			isMcp: true,
 			mcpServer: 'my-server',
 			mcpAction: 'do_thing',
+			serverLabel: 'my-server (MCP)',
 		});
 	});
 
-	it('returns built-in tool name as-is', () => {
+	it('returns built-in tool name as-is with no serverLabel', () => {
 		const result = parseToolName('Bash');
 		expect(result).toEqual({
 			displayName: 'Bash',
 			isMcp: false,
 		});
+		expect(result.serverLabel).toBeUndefined();
 	});
 
 	it('returns non-MCP tool name with underscores as-is', () => {
@@ -46,6 +50,7 @@ describe('parseToolName', () => {
 			displayName: 'some_tool',
 			isMcp: false,
 		});
+		expect(result.serverLabel).toBeUndefined();
 	});
 
 	it('does not parse single mcp__ prefix without action', () => {
@@ -53,6 +58,78 @@ describe('parseToolName', () => {
 		expect(result).toEqual({
 			displayName: 'mcp__server',
 			isMcp: false,
+		});
+		expect(result.serverLabel).toBeUndefined();
+	});
+
+	describe('plugin prefix patterns', () => {
+		it('extracts friendly server from plugin prefix', () => {
+			const result = parseToolName(
+				'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+			);
+			expect(result).toEqual({
+				displayName: 'navigate',
+				isMcp: true,
+				mcpServer: 'plugin_web-testing-toolkit_agent-web-interface',
+				mcpAction: 'navigate',
+				serverLabel: 'agent-web-interface (MCP)',
+			});
+		});
+
+		it('extracts friendly server from plugin prefix with complex action', () => {
+			const result = parseToolName(
+				'mcp__plugin_web-testing-toolkit_agent-web-interface__get_element_details',
+			);
+			expect(result).toEqual({
+				displayName: 'get_element_details',
+				isMcp: true,
+				mcpServer: 'plugin_web-testing-toolkit_agent-web-interface',
+				mcpAction: 'get_element_details',
+				serverLabel: 'agent-web-interface (MCP)',
+			});
+		});
+
+		it('handles plugin prefix with go_back action', () => {
+			const result = parseToolName(
+				'mcp__plugin_web-testing-toolkit_agent-web-interface__go_back',
+			);
+			expect(result).toEqual({
+				displayName: 'go_back',
+				isMcp: true,
+				mcpServer: 'plugin_web-testing-toolkit_agent-web-interface',
+				mcpAction: 'go_back',
+				serverLabel: 'agent-web-interface (MCP)',
+			});
+		});
+	});
+
+	describe('serverLabel behavior', () => {
+		it('provides serverLabel for standard MCP tools', () => {
+			const result = parseToolName('mcp__agent-web-interface__go_back');
+			expect(result.displayName).toBe('go_back');
+			expect(result.serverLabel).toBe('agent-web-interface (MCP)');
+		});
+
+		it('provides serverLabel for plugin MCP tools', () => {
+			const result = parseToolName(
+				'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+			);
+			expect(result.serverLabel).toBe('agent-web-interface (MCP)');
+		});
+
+		it('does not provide serverLabel for built-in tools', () => {
+			const result = parseToolName('Bash');
+			expect(result.serverLabel).toBeUndefined();
+		});
+
+		it('does not provide serverLabel for Read tool', () => {
+			const result = parseToolName('Read');
+			expect(result.serverLabel).toBeUndefined();
+		});
+
+		it('does not provide serverLabel for Write tool', () => {
+			const result = parseToolName('Write');
+			expect(result.serverLabel).toBeUndefined();
 		});
 	});
 });

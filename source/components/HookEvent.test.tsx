@@ -99,7 +99,8 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('agent-web-interface - navigate (MCP)');
+		// displayName is now just the action, serverLabel is separate
+		expect(frame).toContain('navigate');
 		expect(frame).toContain('url: "https://www.google.com"');
 	});
 

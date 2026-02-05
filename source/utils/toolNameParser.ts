@@ -7,24 +7,44 @@ export type ParsedToolName = {
 	isMcp: boolean;
 	mcpServer?: string;
 	mcpAction?: string;
+	serverLabel?: string;
 };
+
+/**
+ * Extract friendly server name from MCP server string.
+ *
+ * For plugin prefixes like `plugin_web-testing-toolkit_agent-web-interface`,
+ * extracts the last hyphenated segment: `agent-web-interface`.
+ * For regular servers like `agent-web-interface`, returns as-is.
+ */
+function extractFriendlyServerName(mcpServer: string): string {
+	// Plugin pattern: plugin_<toolkit-name>_<server-name>
+	const pluginMatch = /^plugin_[^_]+_(.+)$/.exec(mcpServer);
+	if (pluginMatch) {
+		return pluginMatch[1]!;
+	}
+	return mcpServer;
+}
 
 /**
  * Parse a tool name into a display-friendly format.
  *
- * MCP tools follow the pattern `mcp__server__action` and are displayed as
- * `server - action (MCP)`. Built-in tools are returned as-is.
+ * MCP tools follow the pattern `mcp__server__action`. The displayName is set
+ * to just the action, and serverLabel provides context like `server (MCP)`.
+ * Built-in tools are returned as-is with no serverLabel.
  */
 export function parseToolName(toolName: string): ParsedToolName {
 	const match = /^mcp__([^_]+(?:_[^_]+)*)__(.+)$/.exec(toolName);
 	if (match) {
 		const mcpServer = match[1]!;
 		const mcpAction = match[2]!;
+		const friendlyServer = extractFriendlyServerName(mcpServer);
 		return {
-			displayName: `${mcpServer} - ${mcpAction} (MCP)`,
+			displayName: mcpAction,
 			isMcp: true,
 			mcpServer,
 			mcpAction,
+			serverLabel: `${friendlyServer} (MCP)`,
 		};
 	}
 
