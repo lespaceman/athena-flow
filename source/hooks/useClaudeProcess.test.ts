@@ -616,4 +616,56 @@ describe('useClaudeProcess', () => {
 
 		vi.useRealTimers();
 	});
+
+	it('should pass pluginDirs through to spawnClaude when present in isolation config', async () => {
+		const isolationWithPlugins = {
+			preset: 'strict' as const,
+			pluginDirs: ['/path/to/plugin1', '/path/to/plugin2'],
+		};
+
+		const {result} = renderHook(() =>
+			useClaudeProcess('/test', TEST_INSTANCE_ID, isolationWithPlugins),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test prompt');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				isolation: expect.objectContaining({
+					pluginDirs: ['/path/to/plugin1', '/path/to/plugin2'],
+				}),
+			}),
+		);
+	});
+
+	it('should preserve pluginDirs when merging with pluginMcpConfig', async () => {
+		const isolationWithPlugins = {
+			preset: 'strict' as const,
+			pluginDirs: ['/path/to/plugin1'],
+		};
+
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				isolationWithPlugins,
+				'/tmp/plugin-mcp.json',
+			),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test prompt');
+		});
+
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				isolation: expect.objectContaining({
+					pluginDirs: ['/path/to/plugin1'],
+					mcpConfig: '/tmp/plugin-mcp.json',
+				}),
+			}),
+		);
+	});
 });

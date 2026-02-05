@@ -508,7 +508,8 @@ describe('useContentOrdering', () => {
 			).toBeDefined();
 			expect(
 				completedSubagent?.type === 'hook' &&
-					completedSubagent.data.stopEvent?.transcriptSummary?.lastAssistantText,
+					completedSubagent.data.stopEvent?.transcriptSummary
+						?.lastAssistantText,
 			).toBe('Task completed successfully');
 		});
 

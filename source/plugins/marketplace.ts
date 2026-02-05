@@ -4,6 +4,10 @@
  * Handles config entries like `"web-testing-toolkit@lespaceman/athena-plugin-marketplace"`
  * by cloning the marketplace repo, reading its manifest, and returning the
  * absolute path to the requested plugin directory.
+ *
+ * Clone/pull behavior:
+ * - Clone: only when plugin is in config but repo not found locally
+ * - Pull: only when explicitly requested (not on startup)
  */
 
 import {execFileSync} from 'node:child_process';
@@ -62,23 +66,15 @@ function parseRef(ref: string): {
 }
 
 /**
- * Ensure the marketplace repo is cloned locally, pulling latest if cached.
+ * Ensure the marketplace repo is cloned locally.
+ * Only clones if repo doesn't exist. No automatic pull on startup.
  * Returns the absolute path to the cached repo directory.
  */
 function ensureRepo(cacheDir: string, owner: string, repo: string): string {
 	const repoDir = path.join(cacheDir, owner, repo);
 
-	if (fs.existsSync(repoDir)) {
-		// Already cached — try to pull latest (silent failure is OK)
-		try {
-			execFileSync('git', ['pull', '--ff-only'], {
-				cwd: repoDir,
-				stdio: 'ignore',
-			});
-		} catch {
-			// Offline or diverged — use cached version
-		}
-	} else {
+	if (!fs.existsSync(repoDir)) {
+		// Not cached — clone the repo
 		const repoUrl = `https://github.com/${owner}/${repo}.git`;
 		fs.mkdirSync(repoDir, {recursive: true});
 
@@ -96,6 +92,26 @@ function ensureRepo(cacheDir: string, owner: string, repo: string): string {
 	}
 
 	return repoDir;
+}
+
+/**
+ * Pull latest changes for a cached marketplace repo.
+ * Call this explicitly when user requests an update.
+ */
+export function pullMarketplaceRepo(owner: string, repo: string): void {
+	const cacheDir = path.join(os.homedir(), '.config', 'athena', 'marketplaces');
+	const repoDir = path.join(cacheDir, owner, repo);
+
+	if (!fs.existsSync(repoDir)) {
+		throw new Error(
+			`Marketplace repo ${owner}/${repo} is not cached. It will be cloned on first use.`,
+		);
+	}
+
+	execFileSync('git', ['pull', '--ff-only'], {
+		cwd: repoDir,
+		stdio: 'ignore',
+	});
 }
 
 /**
