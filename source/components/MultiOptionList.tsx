@@ -48,8 +48,7 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 								bold={isFocused}
 								inverse={isFocused}
 							>
-								{isFocused ? ' › ' : '   '}
-								[{checkbox}] {option.label}
+								{isFocused ? ' › ' : '   '}[{checkbox}] {option.label}
 								{isFocused ? ' ' : ''}
 							</Text>
 						</Box>
