@@ -51,7 +51,7 @@ export function useClaudeProcess(
 	instanceId: number,
 	isolation?: IsolationConfig | IsolationPreset,
 	pluginMcpConfig?: string,
-	debug?: boolean,
+	verbose?: boolean,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
@@ -116,7 +116,7 @@ export function useClaudeProcess(
 				instanceId,
 				sessionId,
 				isolation: mergeIsolation(isolation, pluginMcpConfig, perCallIsolation),
-				...(debug
+				...(verbose
 					? {
 							jqFilter: JQ_ASSISTANT_TEXT_FILTER,
 							onFilteredStdout: (data: string) => {
@@ -178,7 +178,7 @@ export function useClaudeProcess(
 
 			processRef.current = child;
 		},
-		[projectDir, instanceId, isolation, pluginMcpConfig, debug, kill],
+		[projectDir, instanceId, isolation, pluginMcpConfig, verbose, kill],
 	);
 
 	// Cleanup on unmount - kill any running process

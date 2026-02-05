@@ -18,12 +18,12 @@ import {
 
 type Props = {
 	event: HookEventDisplay;
-	debug?: boolean;
+	verbose?: boolean;
 };
 
 export default function GenericHookEvent({
 	event,
-	debug,
+	verbose,
 }: Props): React.ReactNode {
 	const color = STATUS_COLORS[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
@@ -47,7 +47,7 @@ export default function GenericHookEvent({
 					<Text color="gray"> ({event.status})</Text>
 				)}
 			</Box>
-			{debug ? (
+			{verbose ? (
 				<Box>
 					<Text dimColor>{JSON.stringify(payload, null, 2)}</Text>
 				</Box>

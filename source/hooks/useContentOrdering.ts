@@ -7,7 +7,11 @@
  */
 
 import {type Message} from '../types/common.js';
-import {type HookEventDisplay} from '../types/hooks/index.js';
+import {
+	type HookEventDisplay,
+	isSubagentStartEvent,
+	isSubagentStopEvent,
+} from '../types/hooks/index.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -28,8 +32,14 @@ function getItemTime(item: ContentItem): number {
 /**
  * Determine whether a content item has reached a terminal state and can
  * be moved into the Ink `<Static>` list (rendered once, never updated).
+ *
+ * @param stoppedAgentIds - Set of agent_ids that have a matching SubagentStop event.
+ *   Used to determine SubagentStart stability without merged fields.
  */
-export function isStableContent(item: ContentItem): boolean {
+export function isStableContent(
+	item: ContentItem,
+	stoppedAgentIds?: Set<string>,
+): boolean {
 	if (item.type === 'message') return true;
 
 	switch (item.data.hookName) {
@@ -38,22 +48,14 @@ export function isStableContent(item: ContentItem): boolean {
 			return item.data.transcriptSummary !== undefined;
 		case 'PreToolUse':
 		case 'PermissionRequest':
-			// AskUserQuestion: stable once answered (no PostToolUse expected)
-			if (item.data.toolName === 'AskUserQuestion') {
-				return item.data.status !== 'pending';
-			}
-			// Stable when blocked (no PostToolUse expected) or when PostToolUse merged in.
-			// Keep dynamic until then so <Static> does not freeze before the response appears.
-			return (
-				item.data.status === 'blocked' ||
-				item.data.postToolPayload !== undefined
-			);
-		case 'SubagentStart':
-			// Stable when blocked or when SubagentStop has been merged in.
-			return (
-				item.data.status === 'blocked' ||
-				item.data.subagentStopPayload !== undefined
-			);
+			// Stable once no longer pending (answered, passthrough, or blocked)
+			return item.data.status !== 'pending';
+		case 'SubagentStart': {
+			// Stable when blocked or when a matching SubagentStop exists
+			if (item.data.status === 'blocked') return true;
+			if (!isSubagentStartEvent(item.data.payload)) return false;
+			return stoppedAgentIds?.has(item.data.payload.agent_id) ?? false;
+		}
 		default:
 			return item.data.status !== 'pending';
 	}
@@ -64,7 +66,6 @@ export function isStableContent(item: ContentItem): boolean {
 type UseContentOrderingOptions = {
 	messages: Message[];
 	events: HookEventDisplay[];
-	debug?: boolean;
 };
 
 type UseContentOrderingResult = {
@@ -78,33 +79,34 @@ type UseContentOrderingResult = {
 export function useContentOrdering({
 	messages,
 	events,
-	debug,
 }: UseContentOrderingOptions): UseContentOrderingResult {
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
-	const sessionEndMessages: ContentItem[] = debug
-		? []
-		: events
-				.filter(
-					e =>
-						e.hookName === 'SessionEnd' &&
-						e.transcriptSummary?.lastAssistantText,
-				)
-				.map(e => ({
-					type: 'message' as const,
-					data: {
-						id: `${e.timestamp.getTime()}-session-end-${e.id}`,
-						role: 'assistant' as const,
-						content: e.transcriptSummary!.lastAssistantText!,
-					},
-				}));
+	const sessionEndMessages: ContentItem[] = events
+		.filter(
+			e =>
+				e.hookName === 'SessionEnd' && e.transcriptSummary?.lastAssistantText,
+		)
+		.map(e => ({
+			type: 'message' as const,
+			data: {
+				id: `${e.timestamp.getTime()}-session-end-${e.id}`,
+				role: 'assistant' as const,
+				content: e.transcriptSummary!.lastAssistantText!,
+			},
+		}));
 
-	// Group child events by parent agent_id (for rendering inside subagent boxes)
+	// Build stoppedAgentIds (agent_ids that have a SubagentStop event)
+	// and childEventsByAgent in a single pass.
 	const childEventsByAgent = new Map<string, HookEventDisplay[]>();
+	const stoppedAgentIds = new Set<string>();
 	for (const e of events) {
 		if (e.parentSubagentId) {
 			const children = childEventsByAgent.get(e.parentSubagentId) ?? [];
 			children.push(e);
 			childEventsByAgent.set(e.parentSubagentId, children);
+		}
+		if (isSubagentStopEvent(e.payload)) {
+			stoppedAgentIds.add(e.payload.agent_id);
 		}
 	}
 	// Sort each group by timestamp so render order is deterministic
@@ -113,17 +115,17 @@ export function useContentOrdering({
 	}
 
 	// Interleave messages and hook events by timestamp.
-	// In non-debug mode, exclude SessionEnd (rendered as synthetic assistant messages instead).
+	// Exclude SessionEnd (rendered as synthetic assistant messages instead).
 	// Exclude child events (those with parentSubagentId) — they render inside their parent subagent box.
 	// Exclude SubagentStart — handled separately to avoid dynamic→static duplicate.
 	// Exclude TodoWrite (PreToolUse with tool_name 'TodoWrite') — rendered as sticky bottom widget.
 	const hookItems: ContentItem[] = events
 		.filter(
 			e =>
-				(debug || e.hookName !== 'SessionEnd') &&
+				e.hookName !== 'SessionEnd' &&
 				!e.parentSubagentId &&
 				e.hookName !== 'SubagentStart' &&
-				!(e.hookName === 'PreToolUse' && e.toolName === 'TodoWrite' && !debug),
+				!(e.hookName === 'PreToolUse' && e.toolName === 'TodoWrite'),
 		)
 		.map(e => ({type: 'hook' as const, data: e}));
 
@@ -134,26 +136,23 @@ export function useContentOrdering({
 			e.toolName === 'TodoWrite' &&
 			!e.parentSubagentId,
 	);
-	const activeTodoList =
-		todoWriteEvents.length > 0
-			? todoWriteEvents[todoWriteEvents.length - 1]!
-			: null;
+	const activeTodoList = todoWriteEvents.at(-1) ?? null;
 
 	// Running subagents: rendered in the dynamic section directly (never go through hookItems).
 	const activeSubagents: HookEventDisplay[] = events.filter(
 		e =>
-			e.hookName === 'SubagentStart' &&
+			isSubagentStartEvent(e.payload) &&
 			!e.parentSubagentId &&
-			!e.subagentStopPayload,
+			!stoppedAgentIds.has(e.payload.agent_id),
 	);
 
 	// Completed subagents: added to contentItems (pass isStableContent, no dynamic→static transition).
 	const completedSubagentItems: ContentItem[] = events
 		.filter(
 			e =>
-				e.hookName === 'SubagentStart' &&
+				isSubagentStartEvent(e.payload) &&
 				!e.parentSubagentId &&
-				e.subagentStopPayload !== undefined,
+				stoppedAgentIds.has(e.payload.agent_id),
 		)
 		.map(e => ({type: 'hook' as const, data: e}));
 
@@ -165,11 +164,13 @@ export function useContentOrdering({
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
 	// Separate stable items (for Static) from items that may update (rendered dynamically).
+	const isStable = (item: ContentItem) =>
+		isStableContent(item, stoppedAgentIds);
 	const stableItems: DisplayItem[] = [
 		{type: 'header', id: 'header'},
-		...contentItems.filter(isStableContent),
+		...contentItems.filter(isStable),
 	];
-	const dynamicItems = contentItems.filter(item => !isStableContent(item));
+	const dynamicItems = contentItems.filter(item => !isStable(item));
 
 	return {
 		stableItems,

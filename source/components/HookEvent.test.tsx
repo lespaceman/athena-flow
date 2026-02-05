@@ -103,34 +103,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('url: "https://www.google.com"');
 	});
 
-	it('renders PreToolUse with merged PostToolUse showing response', () => {
-		const postPayload: PostToolUseEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PostToolUse',
-			tool_name: 'Bash',
-			tool_input: {command: 'echo hi'},
-			tool_response: 'hi\n',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			postToolPayload: postPayload,
-			postToolRequestId: 'req-2',
-			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
-			postToolFailed: false,
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Bash');
-		expect(frame).toContain('\u23bf'); // ⎿ response indicator
-		expect(frame).toContain('hi');
-	});
-
-	it('indents multiline response continuation lines', () => {
+	it('indents multiline PostToolUse response continuation lines', () => {
 		const postPayload: PostToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -142,46 +115,18 @@ describe('HookEvent', () => {
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
+			hookName: 'PostToolUse',
+			payload: postPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			postToolPayload: postPayload,
-			postToolRequestId: 'req-2',
-			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
-			postToolFailed: false,
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		// First line has ⎿ prefix, continuation lines have matching indentation
 		expect(frame).toContain('\u23bf  line1');
 		expect(frame).toContain('   line2');
 		expect(frame).toContain('   line3');
-	});
-
-	it('renders merged PostToolUseFailure response in red', () => {
-		const failPayload: PostToolUseFailureEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PostToolUseFailure',
-			tool_name: 'Bash',
-			tool_input: {command: 'bad-cmd'},
-			error: 'command not found',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			postToolPayload: failPayload,
-			postToolRequestId: 'req-3',
-			postToolTimestamp: new Date('2024-01-15T10:30:46.000Z'),
-			postToolFailed: true,
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('command not found');
-		expect(frame).toContain('\u23bf'); // ⎿ response indicator
 	});
 
 	it('renders non-tool events borderless', () => {
@@ -254,7 +199,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('hi');
@@ -278,7 +223,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('command not found');
@@ -299,7 +244,7 @@ describe('HookEvent', () => {
 				},
 			],
 		};
-		// As standalone orphan PostToolUse
+		// As standalone PostToolUse
 		const event: HookEventDisplay = {
 			...baseEvent,
 			hookName: 'PostToolUse',
@@ -308,7 +253,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Example Link');
@@ -333,7 +278,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('file contents here');
@@ -363,7 +308,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('extracted content');
@@ -389,7 +334,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('wrapped string content');
@@ -414,7 +359,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('filePath:');
@@ -511,19 +456,16 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain(longMessage);
 	});
 
-	it('renders full JSON payload when debug is true', () => {
-		const {lastFrame} = render(<HookEvent event={baseEvent} debug={true} />);
+	it('renders tool input JSON when verbose is true', () => {
+		const {lastFrame} = render(<HookEvent event={baseEvent} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
-		// Should contain fields from the full payload
-		expect(frame).toContain('session-1');
-		expect(frame).toContain('/tmp/transcript.jsonl');
-		expect(frame).toContain('/project');
-		expect(frame).toContain('PreToolUse');
+		// Should contain fields from the tool_input
+		expect(frame).toContain('command');
 		expect(frame).toContain('ls -la');
 	});
 
-	it('does not show full payload when debug prop is omitted', () => {
+	it('does not show full payload when verbose prop is omitted', () => {
 		const {lastFrame} = render(<HookEvent event={baseEvent} />);
 		const frame = lastFrame() ?? '';
 
@@ -611,15 +553,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u2502'); // │ border side
 	});
 
-	it('renders SubagentStart with merged SubagentStop showing transcript text', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-abc',
-			agent_type: 'Explore',
-		};
+	it('renders SubagentStop with transcript text', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -632,14 +566,11 @@ describe('HookEvent', () => {
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
+			hookName: 'SubagentStop',
 			toolName: undefined,
-			payload: subagentPayload,
+			payload: stopPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			subagentStopPayload: stopPayload,
-			subagentStopRequestId: 'req-stop-1',
-			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
 			transcriptSummary: {
 				lastAssistantText: 'Found 3 matching files in the codebase.',
 				lastAssistantTimestamp: null,
@@ -656,18 +587,9 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u25c6'); // ◆ filled diamond
 		expect(frame).not.toContain('\u25cf'); // ● no circle
 		expect(frame).toContain('\u256d'); // ╭ round border
-		expect(frame).toContain('(15.0s)'); // elapsed duration
 	});
 
-	it('renders SubagentStart with merged SubagentStop showing completed when no transcript', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-abc',
-			agent_type: 'Explore',
-		};
+	it('renders SubagentStop showing completed when no transcript', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -679,14 +601,11 @@ describe('HookEvent', () => {
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
+			hookName: 'SubagentStop',
 			toolName: undefined,
-			payload: subagentPayload,
+			payload: stopPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			subagentStopPayload: stopPayload,
-			subagentStopRequestId: 'req-stop-2',
-			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
@@ -696,18 +615,9 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u25c6'); // ◆ filled diamond
 		expect(frame).not.toContain('\u25cf'); // ● no circle
 		expect(frame).toContain('\u256d'); // ╭ round border
-		expect(frame).toContain('(15.0s)'); // elapsed duration
 	});
 
-	it('renders SubagentStart with transcriptSummary but null lastAssistantText as completed', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-null-text',
-			agent_type: 'Explore',
-		};
+	it('renders SubagentStop with null lastAssistantText as completed', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -720,14 +630,11 @@ describe('HookEvent', () => {
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
+			hookName: 'SubagentStop',
 			toolName: undefined,
-			payload: subagentPayload,
+			payload: stopPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			subagentStopPayload: stopPayload,
-			subagentStopRequestId: 'req-stop-null',
-			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
 			transcriptSummary: {
 				lastAssistantText: null,
 				lastAssistantTimestamp: null,
@@ -793,41 +700,6 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u2570'); // ╰ bottom-left round corner
 		expect(frame).toContain('\u256f'); // ╯ bottom-right round corner
 		expect(frame).toContain('\u2502'); // │ vertical border
-	});
-
-	it('formats long elapsed duration as minutes and seconds', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-long',
-			agent_type: 'Explore',
-		};
-		const stopPayload: SubagentStopEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-long',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			subagentStopPayload: stopPayload,
-			subagentStopRequestId: 'req-stop-long',
-			subagentStopTimestamp: new Date('2024-01-15T10:31:50.000Z'), // 65s after baseEvent timestamp
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('(1m 5s)');
 	});
 
 	it('renders AskUserQuestion with question header and text', () => {
@@ -998,7 +870,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('[image]');
@@ -1034,7 +906,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Screenshot captured');
@@ -1072,7 +944,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
+		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('[image]');
@@ -1134,7 +1006,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u2570'); // ╰
 	});
 
-	it('renders child event with merged PostToolUse response inside border', () => {
+	it('renders child PostToolUse response inside subagent border', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -1151,7 +1023,7 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const childEvent: HookEventDisplay = {
+		const childPreEvent: HookEventDisplay = {
 			id: 'child-resp-1',
 			requestId: 'req-child-resp',
 			timestamp: new Date('2024-01-15T10:30:46.000Z'),
@@ -1169,7 +1041,14 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 			parentSubagentId: 'agent-resp',
-			postToolPayload: {
+		};
+		const childPostEvent: HookEventDisplay = {
+			id: 'child-resp-2',
+			requestId: 'req-post-child',
+			timestamp: new Date('2024-01-15T10:30:47.000Z'),
+			hookName: 'PostToolUse',
+			toolName: 'Bash',
+			payload: {
 				session_id: 'session-1',
 				transcript_path:
 					'/home/user/.claude/projects/abc/subagents/agent-resp.jsonl',
@@ -1179,12 +1058,12 @@ describe('HookEvent', () => {
 				tool_input: {command: 'echo hello'},
 				tool_response: 'hello',
 			} as PostToolUseEvent,
-			postToolRequestId: 'req-post-child',
-			postToolTimestamp: new Date('2024-01-15T10:30:47.000Z'),
-			postToolFailed: false,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+			parentSubagentId: 'agent-resp',
 		};
 		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
-			['agent-resp', [childEvent]],
+			['agent-resp', [childPreEvent, childPostEvent]],
 		]);
 		const {lastFrame} = render(
 			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
@@ -1194,10 +1073,10 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Task(Explore)');
 		expect(frame).toContain('Bash');
 		expect(frame).toContain('hello');
-		expect(frame).toContain('\u23bf'); // ⎿ response indicator
+		expect(frame).toContain('(response)');
 	});
 
-	it('renders SubagentStart with children and merged SubagentStop', () => {
+	it('renders SubagentStart with children', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -1206,16 +1085,6 @@ describe('HookEvent', () => {
 			agent_id: 'agent-full',
 			agent_type: 'Explore',
 		};
-		const stopPayload: SubagentStopEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-full',
-			agent_type: 'Explore',
-			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
-		};
 		const event: HookEventDisplay = {
 			...baseEvent,
 			hookName: 'SubagentStart',
@@ -1223,15 +1092,6 @@ describe('HookEvent', () => {
 			payload: subagentPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			subagentStopPayload: stopPayload,
-			subagentStopRequestId: 'req-stop-full',
-			subagentStopTimestamp: new Date('2024-01-15T10:31:00.000Z'),
-			transcriptSummary: {
-				lastAssistantText: 'Analysis complete.',
-				lastAssistantTimestamp: null,
-				messageCount: 3,
-				toolCallCount: 1,
-			},
 		};
 		const childEvent: HookEventDisplay = {
 			id: 'child-full-1',
@@ -1262,9 +1122,6 @@ describe('HookEvent', () => {
 
 		expect(frame).toContain('Task(Explore)');
 		expect(frame).toContain('Read');
-		expect(frame).toContain('Analysis complete.');
-		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
-		expect(frame).toContain('(15.0s)');
 		expect(frame).toContain('\u256d'); // ╭
 	});
 

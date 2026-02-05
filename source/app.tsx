@@ -27,7 +27,7 @@ type Props = {
 	projectDir: string;
 	instanceId: number;
 	isolation?: IsolationPreset;
-	debug?: boolean;
+	verbose?: boolean;
 	version: string;
 	pluginMcpConfig?: string;
 };
@@ -36,7 +36,7 @@ function AppContent({
 	projectDir,
 	instanceId,
 	isolation,
-	debug,
+	verbose,
 	version,
 	pluginMcpConfig,
 	onClear,
@@ -69,7 +69,7 @@ function AppContent({
 		instanceId,
 		isolation,
 		pluginMcpConfig,
-		debug,
+		verbose,
 	);
 	const {exit} = useApp();
 
@@ -170,13 +170,12 @@ function AppContent({
 	} = useContentOrdering({
 		messages,
 		events,
-		debug,
 	});
 
 	return (
 		<Box flexDirection="column">
-			{/* Server status (debug only) */}
-			{debug && (
+			{/* Server status (verbose only) */}
+			{verbose && (
 				<Box marginBottom={1}>
 					<Text color={isServerRunning ? 'green' : 'red'}>
 						Hook server: {isServerRunning ? 'running' : 'stopped'}
@@ -203,7 +202,7 @@ function AppContent({
 						<HookEvent
 							key={item.data.id}
 							event={item.data}
-							debug={debug}
+							verbose={verbose}
 							childEventsByAgent={childEventsByAgent}
 						/>
 					);
@@ -218,7 +217,7 @@ function AppContent({
 					<HookEvent
 						key={item.data.id}
 						event={item.data}
-						debug={debug}
+						verbose={verbose}
 						childEventsByAgent={childEventsByAgent}
 					/>
 				),
@@ -229,7 +228,7 @@ function AppContent({
 				<HookEvent
 					key={event.id}
 					event={event}
-					debug={debug}
+					verbose={verbose}
 					childEventsByAgent={childEventsByAgent}
 				/>
 			))}
@@ -237,7 +236,7 @@ function AppContent({
 			{/* Active todo list - always dynamic, shows latest state */}
 			{activeTodoList && <TodoWriteEvent event={activeTodoList} />}
 
-			{debug && streamingText && (
+			{verbose && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
@@ -288,7 +287,7 @@ export default function App({
 	projectDir,
 	instanceId,
 	isolation,
-	debug,
+	verbose,
 	version,
 	pluginMcpConfig,
 }: Props) {
@@ -302,7 +301,7 @@ export default function App({
 				projectDir={projectDir}
 				instanceId={instanceId}
 				isolation={isolation}
-				debug={debug}
+				verbose={verbose}
 				version={version}
 				pluginMcpConfig={pluginMcpConfig}
 				onClear={() => setClearCount(c => c + 1)}
