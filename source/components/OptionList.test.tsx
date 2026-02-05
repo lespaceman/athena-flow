@@ -138,4 +138,32 @@ describe('OptionList', () => {
 		expect(frame).toContain('Option A');
 		expect(frame).toContain('Option B');
 	});
+
+	it('selects option directly when pressing its number key', () => {
+		const onSelect = vi.fn();
+		const {stdin} = render(
+			<OptionList options={options} onSelect={onSelect} />,
+		);
+		stdin.write('2');
+		expect(onSelect).toHaveBeenCalledWith('verbose');
+	});
+
+	it('selects first option when pressing 1', () => {
+		const onSelect = vi.fn();
+		const {stdin} = render(
+			<OptionList options={options} onSelect={onSelect} />,
+		);
+		stdin.write('1');
+		expect(onSelect).toHaveBeenCalledWith('concise');
+	});
+
+	it('ignores number keys beyond option count', () => {
+		const onSelect = vi.fn();
+		const {stdin} = render(
+			<OptionList options={options} onSelect={onSelect} />,
+		);
+		// options has 3 items, pressing 9 should do nothing
+		stdin.write('9');
+		expect(onSelect).not.toHaveBeenCalled();
+	});
 });
