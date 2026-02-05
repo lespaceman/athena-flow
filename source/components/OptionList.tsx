@@ -1,0 +1,58 @@
+import React, {useState} from 'react';
+import {Box, Text, useInput} from 'ink';
+
+export type OptionItem = {
+	label: string;
+	description: string;
+	value: string;
+};
+
+type Props = {
+	options: OptionItem[];
+	onSelect: (value: string) => void;
+};
+
+export default function OptionList({options, onSelect}: Props) {
+	const [focusIndex, setFocusIndex] = useState(0);
+
+	useInput((_input, key) => {
+		if (key.downArrow) {
+			setFocusIndex(i => (i + 1) % options.length);
+		} else if (key.upArrow) {
+			setFocusIndex(i => (i - 1 + options.length) % options.length);
+		} else if (key.return) {
+			const option = options[focusIndex];
+			if (option) {
+				onSelect(option.value);
+			}
+		}
+	});
+
+	return (
+		<Box flexDirection="column">
+			{options.map((option, index) => {
+				const isFocused = index === focusIndex;
+				return (
+					<Box key={option.value} flexDirection="column">
+						<Box>
+							<Text
+								color={isFocused ? 'cyan' : undefined}
+								bold={isFocused}
+								inverse={isFocused}
+							>
+								{isFocused ? ' › ' : '   '}
+								{option.label}
+								{isFocused ? ' ' : ''}
+							</Text>
+						</Box>
+						{isFocused && option.description ? (
+							<Box paddingLeft={3}>
+								<Text dimColor>{option.description}</Text>
+							</Box>
+						) : null}
+					</Box>
+				);
+			})}
+		</Box>
+	);
+}
