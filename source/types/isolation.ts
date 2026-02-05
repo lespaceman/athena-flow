@@ -3,21 +3,24 @@
  *
  * Controls how the spawned headless Claude Code process is isolated
  * from the project's configuration.
+ *
+ * IMPORTANT: athena-cli always uses `--setting-sources ""` to completely
+ * isolate from Claude Code's settings. All configuration comes from athena's
+ * own generated settings file. This ensures athena is fully self-contained
+ * and doesn't inherit unexpected behavior from user's Claude settings.
  */
 
 /**
  * Preset isolation levels for common use cases.
  *
- * - `strict`: User settings only, no project hooks/MCP/plugins (default)
- * - `minimal`: User settings only, but allow project MCP servers
- * - `permissive`: User + project settings, full project access
+ * All presets use full settings isolation (`--setting-sources ""`).
+ * The difference is in MCP server access:
+ *
+ * - `strict`: Block all MCP servers (default)
+ * - `minimal`: Allow project MCP servers
+ * - `permissive`: Allow project MCP servers (same as minimal for now)
  */
 export type IsolationPreset = 'strict' | 'minimal' | 'permissive';
-
-/**
- * Setting source levels that Claude Code can load from.
- */
-export type SettingSource = 'user' | 'project' | 'local';
 
 /**
  * Configuration for isolating the spawned Claude Code process.
@@ -25,15 +28,13 @@ export type SettingSource = 'user' | 'project' | 'local';
 export type IsolationConfig = {
 	/** Use a preset configuration instead of custom settings */
 	preset?: IsolationPreset;
-	/** Which setting sources to load (default: ['user'] for strict isolation) */
-	settingSources?: SettingSource[];
 	/** Tools to allow (whitelist) */
 	allowedTools?: string[];
 	/** Tools to disallow (blacklist) */
 	disallowedTools?: string[];
 	/** Path to custom MCP config file */
 	mcpConfig?: string;
-	/** Ignore project MCP servers */
+	/** Ignore project MCP servers (default: true for strict isolation) */
 	strictMcpConfig?: boolean;
 	/** Permission mode for tool execution */
 	permissionMode?: string;
@@ -43,6 +44,9 @@ export type IsolationConfig = {
 
 /**
  * Preset configurations for common isolation use cases.
+ *
+ * All presets use `--setting-sources ""` for full isolation from Claude's
+ * settings. The presets differ only in MCP server access.
  */
 export const ISOLATION_PRESETS: Record<
 	IsolationPreset,
@@ -50,35 +54,29 @@ export const ISOLATION_PRESETS: Record<
 > = {
 	/**
 	 * Strict isolation (default):
-	 * - Only load user settings (API keys, model preferences)
-	 * - Skip all project/local settings
+	 * - No Claude settings loaded (full isolation)
 	 * - Block all MCP servers
-	 * - No plugins
+	 * - All config comes from athena's settings file
 	 */
 	strict: {
-		settingSources: ['user'],
 		strictMcpConfig: true,
 	},
 
 	/**
 	 * Minimal isolation:
-	 * - Only load user settings
+	 * - No Claude settings loaded (full isolation)
 	 * - Allow project MCP servers (for tools that need external services)
-	 * - No plugins
 	 */
 	minimal: {
-		settingSources: ['user'],
 		strictMcpConfig: false,
 	},
 
 	/**
-	 * Permissive (full access):
-	 * - Load user and project settings
+	 * Permissive:
+	 * - No Claude settings loaded (full isolation)
 	 * - Allow project MCP servers
-	 * - Allow project plugins
 	 */
 	permissive: {
-		settingSources: ['user', 'project'],
 		strictMcpConfig: false,
 	},
 };

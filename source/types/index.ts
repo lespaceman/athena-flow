@@ -29,7 +29,6 @@ export {
 // Isolation types
 export {
 	type IsolationPreset,
-	type SettingSource,
 	type IsolationConfig,
 	ISOLATION_PRESETS,
 	resolveIsolationConfig,

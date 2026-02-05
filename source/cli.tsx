@@ -28,10 +28,13 @@ const cli = meow(
 		--project-dir   Project directory for hook socket (default: cwd)
 		--plugin        Path to a Claude Code plugin directory (repeatable)
 		--isolation     Isolation preset for spawned Claude process:
-		                  strict (default) - User settings only, no project hooks/MCP
-		                  minimal - User settings, allow project MCP servers
-		                  permissive - Full project access
+		                  strict (default) - Full isolation, no MCP servers
+		                  minimal - Full isolation, allow project MCP servers
+		                  permissive - Full isolation, allow project MCP servers
 		--verbose       Show additional rendering detail and streaming display
+
+	Note: All isolation modes use --setting-sources "" to completely isolate
+	      from Claude Code's settings. athena-cli is fully self-contained.
 
 	Config Files
 		Global:  ~/.config/athena/config.json

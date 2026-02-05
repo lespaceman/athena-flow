@@ -51,10 +51,10 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	// Add isolation flags
 	args.push('--settings', settingsPath);
 
-	// Setting sources (default: user only for strict isolation)
-	if (isolationConfig.settingSources?.length) {
-		args.push('--setting-sources', isolationConfig.settingSources.join(','));
-	}
+	// Full settings isolation: don't load any Claude settings
+	// All configuration comes from athena's generated settings file
+	// Authentication still works (stored in ~/.claude.json, not settings)
+	args.push('--setting-sources', '');
 
 	// MCP isolation: --mcp-config takes precedence over --strict-mcp-config
 	if (isolationConfig.mcpConfig) {

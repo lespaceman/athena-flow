@@ -365,7 +365,7 @@ describe('spawnClaude', () => {
 			expect(args).toContain('/tmp/mock-settings.json');
 		});
 
-		it('should include --setting-sources with user by default (strict preset)', () => {
+		it('should include --setting-sources with empty string for full isolation', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',
 				projectDir: '/test',
@@ -376,7 +376,7 @@ describe('spawnClaude', () => {
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 			expect(args).toContain('--setting-sources');
-			expect(args).toContain('user');
+			expect(args).toContain('');
 		});
 
 		it('should include --strict-mcp-config by default (strict preset)', () => {
@@ -406,7 +406,7 @@ describe('spawnClaude', () => {
 			expect(args).not.toContain('--strict-mcp-config');
 		});
 
-		it('should include user,project setting sources for permissive preset', () => {
+		it('should use empty setting-sources for permissive preset (full isolation)', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',
 				projectDir: '/test',
@@ -417,8 +417,9 @@ describe('spawnClaude', () => {
 			spawnClaude(options);
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			// All presets use full isolation with empty setting-sources
 			expect(args).toContain('--setting-sources');
-			expect(args).toContain('user,project');
+			expect(args).toContain('');
 		});
 
 		it('should include allowed tools when specified', () => {
