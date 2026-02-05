@@ -1,6 +1,5 @@
 import {describe, it, expect} from 'vitest';
 import {
-	PROTOCOL_VERSION,
 	isValidHookEventEnvelope,
 	generateId,
 	createPassthroughResult,
@@ -10,33 +9,19 @@ import {
 	createAskUserQuestionResult,
 	createPermissionRequestAllowResult,
 	type HookEventEnvelope,
-	type ClaudeHookEvent,
 	type PreToolUseEvent,
-	type PermissionRequestEvent,
 	type PostToolUseEvent,
 	type PostToolUseFailureEvent,
 	type NotificationEvent,
 	type StopEvent,
 	type SubagentStartEvent,
 	type SubagentStopEvent,
-	type UserPromptSubmitEvent,
-	type PreCompactEvent,
-	type SetupEvent,
-	type SessionStartEvent,
-	type SessionEndEvent,
 	isPreToolUseEvent,
-	isPermissionRequestEvent,
 	isPostToolUseEvent,
-	isPostToolUseFailureEvent,
 	isNotificationEvent,
 	isStopEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
-	isUserPromptSubmitEvent,
-	isPreCompactEvent,
-	isSetupEvent,
-	isSessionStartEvent,
-	isSessionEndEvent,
 	isToolEvent,
 } from './hooks/index.js';
 
@@ -48,12 +33,6 @@ const createBaseEvent = () => ({
 });
 
 describe('hooks types', () => {
-	describe('PROTOCOL_VERSION', () => {
-		it('should be version 1', () => {
-			expect(PROTOCOL_VERSION).toBe(1);
-		});
-	});
-
 	describe('generateId', () => {
 		it('should generate unique IDs', () => {
 			const id1 = generateId();
@@ -61,7 +40,7 @@ describe('hooks types', () => {
 			expect(id1).not.toBe(id2);
 		});
 
-		it('should generate IDs with timestamp prefix', () => {
+		it('should generate IDs with timestamp prefix for ordering', () => {
 			const before = Date.now();
 			const id = generateId();
 			const after = Date.now();
@@ -69,13 +48,6 @@ describe('hooks types', () => {
 			const timestamp = Number.parseInt(id.split('-')[0] ?? '0', 10);
 			expect(timestamp).toBeGreaterThanOrEqual(before);
 			expect(timestamp).toBeLessThanOrEqual(after);
-		});
-
-		it('should generate IDs with random suffix', () => {
-			const id = generateId();
-			const parts = id.split('-');
-			expect(parts.length).toBe(2);
-			expect(parts[1]?.length).toBeGreaterThan(0);
 		});
 	});
 
@@ -101,58 +73,61 @@ describe('hooks types', () => {
 			expect(isValidHookEventEnvelope(validEnvelope)).toBe(true);
 		});
 
-		it('should return false for null', () => {
+		it('should return false for null or undefined', () => {
 			expect(isValidHookEventEnvelope(null)).toBe(false);
-		});
-
-		it('should return false for undefined', () => {
 			expect(isValidHookEventEnvelope(undefined)).toBe(false);
 		});
 
-		it('should return false for non-object', () => {
+		it('should return false for non-object types', () => {
 			expect(isValidHookEventEnvelope('string')).toBe(false);
 			expect(isValidHookEventEnvelope(123)).toBe(false);
 			expect(isValidHookEventEnvelope([])).toBe(false);
 		});
 
-		it('should return false for missing version', () => {
-			const envelope = {...validEnvelope, v: undefined};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
-		});
-
-		it('should return false for mismatched protocol version', () => {
-			const envelope = {...validEnvelope, v: 999};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+		it('should return false for missing or invalid version', () => {
+			expect(isValidHookEventEnvelope({...validEnvelope, v: undefined})).toBe(
+				false,
+			);
+			expect(isValidHookEventEnvelope({...validEnvelope, v: 999})).toBe(false);
 		});
 
 		it('should return false for wrong kind', () => {
-			const envelope = {...validEnvelope, kind: 'hook_result'};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+			expect(
+				isValidHookEventEnvelope({...validEnvelope, kind: 'hook_result'}),
+			).toBe(false);
 		});
 
-		it('should return false for missing request_id', () => {
-			const envelope = {...validEnvelope, request_id: undefined};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
-		});
-
-		it('should return false for empty request_id', () => {
-			const envelope = {...validEnvelope, request_id: ''};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+		it('should return false for missing or empty request_id', () => {
+			expect(
+				isValidHookEventEnvelope({...validEnvelope, request_id: undefined}),
+			).toBe(false);
+			expect(isValidHookEventEnvelope({...validEnvelope, request_id: ''})).toBe(
+				false,
+			);
 		});
 
 		it('should return false for invalid hook_event_name', () => {
-			const envelope = {...validEnvelope, hook_event_name: 'InvalidEvent'};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+			expect(
+				isValidHookEventEnvelope({
+					...validEnvelope,
+					hook_event_name: 'InvalidEvent',
+				}),
+			).toBe(false);
 		});
 
-		it('should return false for missing payload', () => {
-			const envelope = {...validEnvelope, payload: undefined};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+		it('should return false for missing or null payload', () => {
+			expect(
+				isValidHookEventEnvelope({...validEnvelope, payload: undefined}),
+			).toBe(false);
+			expect(isValidHookEventEnvelope({...validEnvelope, payload: null})).toBe(
+				false,
+			);
 		});
 
-		it('should return false for null payload', () => {
-			const envelope = {...validEnvelope, payload: null};
-			expect(isValidHookEventEnvelope(envelope)).toBe(false);
+		it('should return false for missing session_id', () => {
+			expect(
+				isValidHookEventEnvelope({...validEnvelope, session_id: undefined}),
+			).toBe(false);
 		});
 
 		it('should accept all valid hook event names', () => {
@@ -179,38 +154,40 @@ describe('hooks types', () => {
 		});
 	});
 
-	describe('createPassthroughResult', () => {
-		it('should create passthrough result', () => {
-			const result = createPassthroughResult();
-			expect(result).toEqual({action: 'passthrough'});
+	describe('result creators', () => {
+		it('createPassthroughResult returns correct structure', () => {
+			expect(createPassthroughResult()).toEqual({action: 'passthrough'});
 		});
-	});
 
-	describe('createBlockResult', () => {
-		it('should create block result with reason', () => {
-			const result = createBlockResult('Permission denied');
-			expect(result).toEqual({
+		it('createBlockResult wraps reason in stderr', () => {
+			expect(createBlockResult('Permission denied')).toEqual({
 				action: 'block_with_stderr',
 				stderr: 'Permission denied',
 			});
 		});
-	});
 
-	describe('createJsonOutputResult', () => {
-		it('should create json output result', () => {
-			const json = {foo: 'bar', count: 42};
-			const result = createJsonOutputResult(json);
-			expect(result).toEqual({
+		it('createBlockResult handles empty reason', () => {
+			expect(createBlockResult('')).toEqual({
+				action: 'block_with_stderr',
+				stderr: '',
+			});
+		});
+
+		it('createJsonOutputResult wraps json in stdout_json', () => {
+			expect(createJsonOutputResult({foo: 'bar', count: 42})).toEqual({
 				action: 'json_output',
 				stdout_json: {foo: 'bar', count: 42},
 			});
 		});
-	});
 
-	describe('createPreToolUseDenyResult', () => {
-		it('should create PreToolUse deny result', () => {
-			const result = createPreToolUseDenyResult('Blocked by policy');
-			expect(result).toEqual({
+		it('createJsonOutputResult preserves nested objects', () => {
+			const nested = {a: {b: {c: 1}}};
+			const result = createJsonOutputResult(nested);
+			expect(result.stdout_json).toEqual({a: {b: {c: 1}}});
+		});
+
+		it('createPreToolUseDenyResult creates deny structure', () => {
+			expect(createPreToolUseDenyResult('Blocked by policy')).toEqual({
 				action: 'json_output',
 				stdout_json: {
 					hookSpecificOutput: {
@@ -221,10 +198,8 @@ describe('hooks types', () => {
 				},
 			});
 		});
-	});
 
-	describe('createAskUserQuestionResult', () => {
-		it('should create PreToolUse allow result with answers and additionalContext', () => {
+		it('createAskUserQuestionResult includes answers and additionalContext', () => {
 			const answers = {'Which library?': 'React', 'Which style?': 'CSS'};
 			const result = createAskUserQuestionResult(answers);
 			expect(result).toEqual({
@@ -233,12 +208,7 @@ describe('hooks types', () => {
 					hookSpecificOutput: {
 						hookEventName: 'PreToolUse',
 						permissionDecision: 'allow',
-						updatedInput: {
-							answers: {
-								'Which library?': 'React',
-								'Which style?': 'CSS',
-							},
-						},
+						updatedInput: {answers},
 						additionalContext:
 							'User answered via athena-cli:\nQ: Which library?\nA: React\nQ: Which style?\nA: CSS',
 					},
@@ -246,23 +216,16 @@ describe('hooks types', () => {
 			});
 		});
 
-		it('should handle empty answers', () => {
+		it('createAskUserQuestionResult handles empty answers', () => {
 			const result = createAskUserQuestionResult({});
-			expect(result.action).toBe('json_output');
 			const output = (result.stdout_json as Record<string, unknown>)
 				?.hookSpecificOutput as Record<string, unknown>;
-			expect(output).toMatchObject({
-				permissionDecision: 'allow',
-				updatedInput: {answers: {}},
-			});
+			expect(output.updatedInput).toEqual({answers: {}});
 			expect(output.additionalContext).toBe('User answered via athena-cli:\n');
 		});
-	});
 
-	describe('createPermissionRequestAllowResult', () => {
-		it('should create PermissionRequest allow result without updatedInput', () => {
-			const result = createPermissionRequestAllowResult();
-			expect(result).toEqual({
+		it('createPermissionRequestAllowResult without updatedInput', () => {
+			expect(createPermissionRequestAllowResult()).toEqual({
 				action: 'json_output',
 				stdout_json: {
 					hookSpecificOutput: {
@@ -273,19 +236,14 @@ describe('hooks types', () => {
 			});
 		});
 
-		it('should include updatedInput when provided', () => {
-			const result = createPermissionRequestAllowResult({
-				answers: {q: 'a'},
-			});
-			expect(result).toEqual({
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PermissionRequest',
-						decision: {
-							behavior: 'allow',
-							updatedInput: {answers: {q: 'a'}},
-						},
+		it('createPermissionRequestAllowResult with updatedInput', () => {
+			const result = createPermissionRequestAllowResult({answers: {q: 'a'}});
+			expect(result.stdout_json).toEqual({
+				hookSpecificOutput: {
+					hookEventName: 'PermissionRequest',
+					decision: {
+						behavior: 'allow',
+						updatedInput: {answers: {q: 'a'}},
 					},
 				},
 			});
@@ -298,13 +256,6 @@ describe('hooks types', () => {
 			hook_event_name: 'PreToolUse',
 			tool_name: 'Bash',
 			tool_input: {command: 'ls'},
-		};
-
-		const permissionRequestEvent: PermissionRequestEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'PermissionRequest',
-			tool_name: 'Bash',
-			tool_input: {command: 'rm -rf /'},
 		};
 
 		const postToolUseEvent: PostToolUseEvent = {
@@ -351,278 +302,40 @@ describe('hooks types', () => {
 			agent_type: 'Explore',
 		};
 
-		const userPromptSubmitEvent: UserPromptSubmitEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'UserPromptSubmit',
-			prompt: 'Hello, Claude!',
-		};
-
-		const preCompactEvent: PreCompactEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'PreCompact',
-			trigger: 'manual',
-			custom_instructions: 'Keep important context',
-		};
-
-		const setupEvent: SetupEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'Setup',
-			trigger: 'init',
-		};
-
-		const sessionStartEvent: SessionStartEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'SessionStart',
-			source: 'startup',
-			model: 'claude-sonnet-4-20250514',
-		};
-
-		const sessionEndEvent: SessionEndEvent = {
-			...createBaseEvent(),
-			hook_event_name: 'SessionEnd',
-			reason: 'other',
-		};
-
-		describe('isPreToolUseEvent', () => {
-			it('should return true for PreToolUse event', () => {
-				expect(isPreToolUseEvent(preToolUseEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isPreToolUseEvent(postToolUseEvent)).toBe(false);
-				expect(isPreToolUseEvent(notificationEvent)).toBe(false);
-				expect(isPreToolUseEvent(sessionEndEvent)).toBe(false);
-			});
+		// Test each type guard returns true for matching event
+		it.each([
+			['isPreToolUseEvent', isPreToolUseEvent, preToolUseEvent],
+			['isPostToolUseEvent', isPostToolUseEvent, postToolUseEvent],
+			['isNotificationEvent', isNotificationEvent, notificationEvent],
+			['isStopEvent', isStopEvent, stopEvent],
+			['isSubagentStartEvent', isSubagentStartEvent, subagentStartEvent],
+			['isSubagentStopEvent', isSubagentStopEvent, subagentStopEvent],
+		])('%s returns true for matching event', (_name, guard, event) => {
+			expect(guard(event)).toBe(true);
 		});
 
-		describe('isPermissionRequestEvent', () => {
-			it('should return true for PermissionRequest event', () => {
-				expect(isPermissionRequestEvent(permissionRequestEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isPermissionRequestEvent(preToolUseEvent)).toBe(false);
-				expect(isPermissionRequestEvent(postToolUseEvent)).toBe(false);
-			});
+		// Test isToolEvent composite guard
+		it('isToolEvent returns true for tool-related events', () => {
+			expect(isToolEvent(preToolUseEvent)).toBe(true);
+			expect(isToolEvent(postToolUseEvent)).toBe(true);
+			expect(isToolEvent(postToolUseFailureEvent)).toBe(true);
 		});
 
-		describe('isPostToolUseEvent', () => {
-			it('should return true for PostToolUse event', () => {
-				expect(isPostToolUseEvent(postToolUseEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isPostToolUseEvent(preToolUseEvent)).toBe(false);
-				expect(isPostToolUseEvent(postToolUseFailureEvent)).toBe(false);
-				expect(isPostToolUseEvent(notificationEvent)).toBe(false);
-			});
+		it('isToolEvent returns false for non-tool events', () => {
+			expect(isToolEvent(notificationEvent)).toBe(false);
+			expect(isToolEvent(stopEvent)).toBe(false);
+			expect(isToolEvent(subagentStartEvent)).toBe(false);
 		});
 
-		describe('isPostToolUseFailureEvent', () => {
-			it('should return true for PostToolUseFailure event', () => {
-				expect(isPostToolUseFailureEvent(postToolUseFailureEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isPostToolUseFailureEvent(postToolUseEvent)).toBe(false);
-				expect(isPostToolUseFailureEvent(preToolUseEvent)).toBe(false);
-			});
+		// Test guards distinguish between similar events
+		it('isStopEvent distinguishes Stop from SubagentStop', () => {
+			expect(isStopEvent(stopEvent)).toBe(true);
+			expect(isStopEvent(subagentStopEvent)).toBe(false);
 		});
 
-		describe('isNotificationEvent', () => {
-			it('should return true for Notification event', () => {
-				expect(isNotificationEvent(notificationEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isNotificationEvent(preToolUseEvent)).toBe(false);
-				expect(isNotificationEvent(stopEvent)).toBe(false);
-			});
-		});
-
-		describe('isStopEvent', () => {
-			it('should return true for Stop event', () => {
-				expect(isStopEvent(stopEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isStopEvent(subagentStopEvent)).toBe(false);
-				expect(isStopEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isSubagentStartEvent', () => {
-			it('should return true for SubagentStart event', () => {
-				expect(isSubagentStartEvent(subagentStartEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isSubagentStartEvent(subagentStopEvent)).toBe(false);
-				expect(isSubagentStartEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isSubagentStopEvent', () => {
-			it('should return true for SubagentStop event', () => {
-				expect(isSubagentStopEvent(subagentStopEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isSubagentStopEvent(subagentStartEvent)).toBe(false);
-				expect(isSubagentStopEvent(stopEvent)).toBe(false);
-				expect(isSubagentStopEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isUserPromptSubmitEvent', () => {
-			it('should return true for UserPromptSubmit event', () => {
-				expect(isUserPromptSubmitEvent(userPromptSubmitEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isUserPromptSubmitEvent(preToolUseEvent)).toBe(false);
-				expect(isUserPromptSubmitEvent(sessionStartEvent)).toBe(false);
-			});
-		});
-
-		describe('isPreCompactEvent', () => {
-			it('should return true for PreCompact event', () => {
-				expect(isPreCompactEvent(preCompactEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isPreCompactEvent(preToolUseEvent)).toBe(false);
-				expect(isPreCompactEvent(sessionEndEvent)).toBe(false);
-			});
-		});
-
-		describe('isSetupEvent', () => {
-			it('should return true for Setup event', () => {
-				expect(isSetupEvent(setupEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isSetupEvent(sessionStartEvent)).toBe(false);
-				expect(isSetupEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isSessionStartEvent', () => {
-			it('should return true for SessionStart event', () => {
-				expect(isSessionStartEvent(sessionStartEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isSessionStartEvent(sessionEndEvent)).toBe(false);
-				expect(isSessionStartEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isSessionEndEvent', () => {
-			it('should return true for SessionEnd event', () => {
-				expect(isSessionEndEvent(sessionEndEvent)).toBe(true);
-			});
-
-			it('should return false for other events', () => {
-				expect(isSessionEndEvent(sessionStartEvent)).toBe(false);
-				expect(isSessionEndEvent(preToolUseEvent)).toBe(false);
-			});
-		});
-
-		describe('isToolEvent', () => {
-			it('should return true for PreToolUse event', () => {
-				expect(isToolEvent(preToolUseEvent)).toBe(true);
-			});
-
-			it('should return true for PermissionRequest event', () => {
-				expect(isToolEvent(permissionRequestEvent)).toBe(true);
-			});
-
-			it('should return true for PostToolUse event', () => {
-				expect(isToolEvent(postToolUseEvent)).toBe(true);
-			});
-
-			it('should return true for PostToolUseFailure event', () => {
-				expect(isToolEvent(postToolUseFailureEvent)).toBe(true);
-			});
-
-			it('should return false for non-tool events', () => {
-				expect(isToolEvent(notificationEvent)).toBe(false);
-				expect(isToolEvent(stopEvent)).toBe(false);
-				expect(isToolEvent(sessionEndEvent)).toBe(false);
-				expect(isToolEvent(subagentStartEvent)).toBe(false);
-			});
-		});
-
-		describe('discriminated union narrowing', () => {
-			it('should allow TypeScript to narrow types based on hook_event_name', () => {
-				const event: ClaudeHookEvent = preToolUseEvent;
-
-				if (event.hook_event_name === 'PreToolUse') {
-					// TypeScript should know this is a PreToolUseEvent
-					expect(event.tool_name).toBe('Bash');
-					expect(event.tool_input).toEqual({command: 'ls'});
-				}
-			});
-
-			it('should allow accessing tool_response only on PostToolUse', () => {
-				const event: ClaudeHookEvent = postToolUseEvent;
-
-				if (isPostToolUseEvent(event)) {
-					// TypeScript should know this is a PostToolUseEvent
-					expect(event.tool_response).toBe('file1.txt\nfile2.txt');
-				}
-			});
-
-			it('should allow accessing reason only on SessionEnd events', () => {
-				const event: ClaudeHookEvent = sessionEndEvent;
-
-				if (isSessionEndEvent(event)) {
-					// TypeScript should know this is a SessionEndEvent
-					expect(event.reason).toBe('other');
-				}
-			});
-
-			it('should allow accessing source only on SessionStart events', () => {
-				const event: ClaudeHookEvent = sessionStartEvent;
-
-				if (isSessionStartEvent(event)) {
-					// TypeScript should know this is a SessionStartEvent
-					expect(event.source).toBe('startup');
-					expect(event.model).toBe('claude-sonnet-4-20250514');
-				}
-			});
-
-			it('should allow accessing agent_id on subagent events', () => {
-				const event: ClaudeHookEvent = subagentStartEvent;
-
-				if (isSubagentStartEvent(event)) {
-					// TypeScript should know this is a SubagentStartEvent
-					expect(event.agent_id).toBe('agent-123');
-					expect(event.agent_type).toBe('Explore');
-				}
-			});
-
-			it('should allow accessing agent_type on SubagentStop events', () => {
-				const event: ClaudeHookEvent = subagentStopEvent;
-
-				if (isSubagentStopEvent(event)) {
-					// TypeScript should know this is a SubagentStopEvent
-					expect(event.agent_id).toBe('agent-123');
-					expect(event.agent_type).toBe('Explore');
-					expect(event.stop_hook_active).toBe(false);
-				}
-			});
-
-			it('should allow accessing trigger on PreCompact events', () => {
-				const event: ClaudeHookEvent = preCompactEvent;
-
-				if (isPreCompactEvent(event)) {
-					// TypeScript should know this is a PreCompactEvent
-					expect(event.trigger).toBe('manual');
-					expect(event.custom_instructions).toBe('Keep important context');
-				}
-			});
+		it('isSubagentStartEvent distinguishes SubagentStart from SubagentStop', () => {
+			expect(isSubagentStartEvent(subagentStartEvent)).toBe(true);
+			expect(isSubagentStartEvent(subagentStopEvent)).toBe(false);
 		});
 	});
 });

@@ -4,57 +4,92 @@ import {render} from 'ink-testing-library';
 import TypeToConfirm from './TypeToConfirm.js';
 
 describe('TypeToConfirm', () => {
-	it('displays confirmation prompt with confirmText', () => {
-		const {lastFrame} = render(
-			<TypeToConfirm
-				confirmText="rm -rf"
-				onConfirm={vi.fn()}
-				onCancel={vi.fn()}
-			/>,
-		);
-		const frame = lastFrame() ?? '';
+	describe('rendering', () => {
+		it('displays confirmation prompt with confirmText', () => {
+			const {lastFrame} = render(
+				<TypeToConfirm
+					confirmText="rm -rf"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+				/>,
+			);
+			const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Type "rm -rf" or "yes" to allow:');
+			expect(frame).toContain('Type "rm -rf" or "yes" to allow:');
+		});
+
+		it('shows hint for cancel (Escape)', () => {
+			const {lastFrame} = render(
+				<TypeToConfirm
+					confirmText="delete-all"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+				/>,
+			);
+			const frame = lastFrame() ?? '';
+
+			expect(frame).toContain('Press Escape to deny');
+		});
+
+		it('shows input line with cursor', () => {
+			const {lastFrame} = render(
+				<TypeToConfirm
+					confirmText="test"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+				/>,
+			);
+			const frame = lastFrame() ?? '';
+
+			// Should show the input prompt with cursor character
+			expect(frame).toContain('>');
+			expect(frame).toContain('\u258c'); // ▌ cursor
+		});
+
+		it('shows stop sign emoji in prompt', () => {
+			const {lastFrame} = render(
+				<TypeToConfirm
+					confirmText="danger"
+					onConfirm={vi.fn()}
+					onCancel={vi.fn()}
+				/>,
+			);
+			const frame = lastFrame() ?? '';
+
+			// Should show stop sign emoji
+			expect(frame).toContain('\u26d4'); // ⛔
+		});
 	});
 
-	it('shows hint for cancel (Escape)', () => {
-		const {lastFrame} = render(
-			<TypeToConfirm
-				confirmText="delete-all"
-				onConfirm={vi.fn()}
-				onCancel={vi.fn()}
-			/>,
-		);
-		const frame = lastFrame() ?? '';
+	describe('interactions', () => {
+		it('calls onCancel when Escape is pressed', () => {
+			const onCancel = vi.fn();
+			const {stdin} = render(
+				<TypeToConfirm
+					confirmText="test"
+					onConfirm={vi.fn()}
+					onCancel={onCancel}
+				/>,
+			);
 
-		expect(frame).toContain('Press Escape to deny');
-	});
+			stdin.write('\x1b'); // Escape key
 
-	it('shows input line with cursor', () => {
-		const {lastFrame} = render(
-			<TypeToConfirm
-				confirmText="test"
-				onConfirm={vi.fn()}
-				onCancel={vi.fn()}
-			/>,
-		);
-		const frame = lastFrame() ?? '';
+			expect(onCancel).toHaveBeenCalled();
+		});
 
-		// Should show the input prompt with cursor character
-		expect(frame).toContain('>');
-	});
+		it('does not call onConfirm when Enter is pressed with empty input', () => {
+			const onConfirm = vi.fn();
+			const {stdin} = render(
+				<TypeToConfirm
+					confirmText="test"
+					onConfirm={onConfirm}
+					onCancel={vi.fn()}
+				/>,
+			);
 
-	it('shows stop sign emoji in prompt', () => {
-		const {lastFrame} = render(
-			<TypeToConfirm
-				confirmText="danger"
-				onConfirm={vi.fn()}
-				onCancel={vi.fn()}
-			/>,
-		);
-		const frame = lastFrame() ?? '';
+			stdin.write('\r'); // Enter key with no input
 
-		// Should show stop sign emoji
-		expect(frame).toContain('\u26d4'); // ⛔
+			expect(onConfirm).not.toHaveBeenCalled();
+		});
 	});
 });

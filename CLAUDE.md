@@ -47,12 +47,22 @@ npx vitest run source/types/hooks.test.ts
 Claude Code → hook-forwarder (stdin JSON) → UDS → Ink CLI → UDS → hook-forwarder (stdout/exit code) → Claude Code
 ```
 
+### Plugin Loading Flow
+
+```
+cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + commands
+                     ↓
+              isolationConfig.pluginDirs → spawnClaude() → --plugin-dir flags → Claude
+```
+
 ### Key Files
 
 - **source/hooks/useHookServer.ts**: React hook managing the UDS server; handles auto-passthrough timeout (250ms)
 - **source/context/HookContext.tsx**: React context providing hook server state to components
 - **source/types/hooks.ts**: Protocol types, validation, and helper functions for hook communication
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
+- **source/types/isolation.ts**: IsolationConfig type and presets for spawning Claude processes
+- **source/utils/spawnClaude.ts**: Spawns headless Claude process with isolation config → CLI flags
 
 ## Tech Stack
 
@@ -67,3 +77,9 @@ Claude Code → hook-forwarder (stdin JSON) → UDS → Ink CLI → UDS → hook
 - ESM modules (`"type": "module"`)
 - Prettier formatting via @vdemedes/prettier-config
 - React function components with hooks
+
+## Testing Patterns
+
+- Prefer one comprehensive test over many repetitive flag tests
+- For CLI arg mapping, test multiple options in a single test instead of one test per flag
+- Focus tests on behavior (callbacks, cleanup, error handling) not trivial pass-through logic
