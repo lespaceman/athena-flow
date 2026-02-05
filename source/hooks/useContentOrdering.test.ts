@@ -27,8 +27,6 @@ function makeEvent(
 			hook_event_name: overrides.hookName,
 		},
 		status: overrides.status ?? 'pending',
-		postToolPayload: overrides.postToolPayload,
-		subagentStopPayload: overrides.subagentStopPayload,
 		transcriptSummary: overrides.transcriptSummary,
 		parentSubagentId: overrides.parentSubagentId,
 	};
@@ -95,7 +93,7 @@ describe('isStableContent', () => {
 			expect(isStableContent(item)).toBe(true);
 		});
 
-		it('unstable when pending without postToolPayload', () => {
+		it('unstable when pending', () => {
 			const item = {
 				type: 'hook' as const,
 				data: makeEvent({
@@ -119,22 +117,13 @@ describe('isStableContent', () => {
 			expect(isStableContent(item)).toBe(true);
 		});
 
-		it('stable when postToolPayload is present', () => {
+		it('stable when passthrough', () => {
 			const item = {
 				type: 'hook' as const,
 				data: makeEvent({
 					hookName: 'PreToolUse',
 					toolName: 'Bash',
 					status: 'passthrough',
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'Bash',
-						tool_use_id: 'tu-1',
-						tool_response: 'ok',
-					},
 				}),
 			};
 			expect(isStableContent(item)).toBe(true);
@@ -168,10 +157,21 @@ describe('isStableContent', () => {
 	});
 
 	describe('SubagentStart', () => {
-		it('unstable when pending without subagentStopPayload', () => {
+		it('unstable when not in stoppedAgentIds', () => {
 			const item = {
 				type: 'hook' as const,
-				data: makeEvent({hookName: 'SubagentStart', status: 'pending'}),
+				data: makeEvent({
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
 			};
 			expect(isStableContent(item)).toBe(false);
 		});
@@ -184,23 +184,24 @@ describe('isStableContent', () => {
 			expect(isStableContent(item)).toBe(true);
 		});
 
-		it('stable when subagentStopPayload is present', () => {
+		it('stable when agent_id is in stoppedAgentIds', () => {
 			const item = {
 				type: 'hook' as const,
 				data: makeEvent({
 					hookName: 'SubagentStart',
 					status: 'passthrough',
-					subagentStopPayload: {
+					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
 						cwd: '/project',
-						hook_event_name: 'SubagentStop',
+						hook_event_name: 'SubagentStart',
 						agent_id: 'a1',
-						agent_name: 'test',
+						agent_type: 'Explore',
 					},
 				}),
 			};
-			expect(isStableContent(item)).toBe(true);
+			const stoppedAgentIds = new Set(['a1']);
+			expect(isStableContent(item, stoppedAgentIds)).toBe(true);
 		});
 	});
 
@@ -270,7 +271,7 @@ describe('useContentOrdering', () => {
 
 		const {stableItems} = useContentOrdering({messages: [], events});
 
-		// Should NOT include SessionEnd as hook item (excluded in non-debug)
+		// Should NOT include SessionEnd as hook item (excluded from timeline)
 		const hookItems = stableItems.filter(
 			i => i.type === 'hook' && i.data.hookName === 'SessionEnd',
 		);
@@ -282,38 +283,6 @@ describe('useContentOrdering', () => {
 		expect(msgItems[0]!.type === 'message' && msgItems[0]!.data.content).toBe(
 			'Done!',
 		);
-	});
-
-	it('keeps SessionEnd as hook event in debug mode', () => {
-		const events = [
-			makeEvent({
-				id: 'se-1',
-				hookName: 'SessionEnd',
-				status: 'passthrough',
-				timestamp: new Date(1000),
-				transcriptSummary: {
-					lastAssistantText: 'Done!',
-					lastAssistantTimestamp: null,
-					messageCount: 2,
-					toolCallCount: 1,
-				},
-			}),
-		];
-
-		const {stableItems} = useContentOrdering({
-			messages: [],
-			events,
-			debug: true,
-		});
-
-		// In debug mode: SessionEnd stays as hook item, no synthetic message
-		const hookItems = stableItems.filter(
-			i => i.type === 'hook' && i.data.hookName === 'SessionEnd',
-		);
-		expect(hookItems).toHaveLength(1);
-
-		const msgItems = stableItems.filter(i => i.type === 'message');
-		expect(msgItems).toHaveLength(0);
 	});
 
 	it('splits pending items into dynamicItems', () => {
@@ -425,11 +394,18 @@ describe('useContentOrdering', () => {
 						agent_id: 'a1',
 						agent_type: 'Explore',
 					},
-					subagentStopPayload: {
+				}),
+				makeEvent({
+					id: 'sub-stop',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
 						cwd: '/project',
 						hook_event_name: 'SubagentStop',
+						stop_hook_active: false,
 						agent_id: 'a1',
 						agent_type: 'Explore',
 					},
@@ -456,11 +432,18 @@ describe('useContentOrdering', () => {
 						agent_id: 'a1',
 						agent_type: 'Explore',
 					},
-					subagentStopPayload: {
+				}),
+				makeEvent({
+					id: 'sub-stop',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
 						cwd: '/project',
 						hook_event_name: 'SubagentStop',
+						stop_hook_active: false,
 						agent_id: 'a1',
 						agent_type: 'Explore',
 					},
@@ -516,15 +499,6 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(1500),
 					parentSubagentId: 'abc123',
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'Bash',
-						tool_use_id: 'tu-1',
-						tool_response: 'ok',
-					},
 				}),
 				makeEvent({
 					id: 'child-2',
@@ -564,15 +538,6 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(1000),
 					parentSubagentId: 'agent-a',
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'Bash',
-						tool_use_id: 'tu-1',
-						tool_response: 'ok',
-					},
 				}),
 				makeEvent({
 					id: 'child-b1',
@@ -581,15 +546,6 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(1500),
 					parentSubagentId: 'agent-b',
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'Read',
-						tool_use_id: 'tu-2',
-						tool_response: 'file contents',
-					},
 				}),
 				makeEvent({
 					id: 'child-a2',
@@ -598,15 +554,6 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(2000),
 					parentSubagentId: 'agent-a',
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'Grep',
-						tool_use_id: 'tu-3',
-						tool_response: 'match found',
-					},
 				}),
 			];
 
@@ -699,7 +646,7 @@ describe('useContentOrdering', () => {
 			expect(activeTodoList!.id).toBe('todo-2');
 		});
 
-		it('excludes TodoWrite events from stableItems and dynamicItems in non-debug mode', () => {
+		it('excludes TodoWrite events from stableItems and dynamicItems', () => {
 			const events = [
 				makeEvent({
 					id: 'todo-1',
@@ -738,46 +685,6 @@ describe('useContentOrdering', () => {
 
 			expect(allContentIds).not.toContain('todo-1');
 			expect(allContentIds).toContain('notif-1');
-		});
-
-		it('includes TodoWrite events in hookItems when debug is true', () => {
-			const events = [
-				makeEvent({
-					id: 'todo-debug',
-					hookName: 'PreToolUse',
-					toolName: 'TodoWrite',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PreToolUse',
-						tool_name: 'TodoWrite',
-						tool_input: {todos: [{content: 'Task 1', status: 'pending'}]},
-					},
-					postToolPayload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PostToolUse',
-						tool_name: 'TodoWrite',
-						tool_use_id: 'tu-1',
-						tool_response: '',
-					},
-				}),
-			];
-
-			const {stableItems} = useContentOrdering({
-				messages: [],
-				events,
-				debug: true,
-			});
-
-			const todoInStable = stableItems.filter(
-				i => i.type === 'hook' && i.data.id === 'todo-debug',
-			);
-			expect(todoInStable).toHaveLength(1);
 		});
 
 		it('returns null activeTodoList when no TodoWrite events exist', () => {

@@ -4,13 +4,7 @@
  * These types are used by the Ink UI to render and track hook events.
  */
 
-import {
-	type ClaudeHookEvent,
-	type HookEventName,
-	type PostToolUseEvent,
-	type PostToolUseFailureEvent,
-	type SubagentStopEvent,
-} from './events.js';
+import {type ClaudeHookEvent, type HookEventName} from './events.js';
 import {type HookResultPayload} from './result.js';
 import {type ParsedTranscriptSummary} from '../transcript.js';
 
@@ -37,13 +31,6 @@ export type HookEventDisplay = {
 	result?: HookResultPayload;
 	transcriptSummary?: ParsedTranscriptSummary;
 	toolUseId?: string;
-	postToolPayload?: PostToolUseEvent | PostToolUseFailureEvent;
-	postToolRequestId?: string;
-	postToolTimestamp?: Date;
-	postToolFailed?: boolean;
-	subagentStopPayload?: SubagentStopEvent;
-	subagentStopRequestId?: string;
-	subagentStopTimestamp?: Date;
 	/** agent_id of the parent subagent this event belongs to */
 	parentSubagentId?: string;
 };

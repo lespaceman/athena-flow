@@ -9,10 +9,6 @@ import {
 	type HookResultPayload,
 	type HookEventDisplay,
 	type HookEventEnvelope,
-	type PostToolUseEvent,
-	type PostToolUseFailureEvent,
-	type SubagentStartEvent,
-	type SubagentStopEvent,
 	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
@@ -22,6 +18,8 @@ import {
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
+	isSubagentStartEvent,
+	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
 	type PendingRequest,
@@ -45,57 +43,6 @@ export {matchRule};
 const AUTO_PASSTHROUGH_MS = 250; // Auto-passthrough before forwarder timeout (300ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
-/** Search events from most recent to oldest, returning the first match. */
-function findLastWhere(
-	events: HookEventDisplay[],
-	predicate: (e: HookEventDisplay) => boolean,
-): HookEventDisplay | undefined {
-	for (let i = events.length - 1; i >= 0; i--) {
-		if (predicate(events[i]!)) return events[i];
-	}
-	return undefined;
-}
-
-const isPreToolHook = (e: HookEventDisplay) =>
-	e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest';
-
-/**
- * Find a matching PreToolUse event for a PostToolUse/PostToolUseFailure.
- * 1. Try matching by tool_use_id (preferred)
- * 2. Fallback: most recent unmatched PreToolUse with same tool_name
- */
-function findMatchingPreToolUse(
-	events: HookEventDisplay[],
-	toolUseId: string | undefined,
-	toolName: string,
-): HookEventDisplay | undefined {
-	if (toolUseId) {
-		const byId = findLastWhere(
-			events,
-			e => isPreToolHook(e) && e.toolUseId === toolUseId && !e.postToolPayload,
-		);
-		if (byId) return byId;
-	}
-	return findLastWhere(
-		events,
-		e => isPreToolHook(e) && e.toolName === toolName && !e.postToolPayload,
-	);
-}
-
-/** Find a matching SubagentStart for a SubagentStop by agent_id. */
-function findMatchingSubagentStart(
-	events: HookEventDisplay[],
-	agentId: string,
-): HookEventDisplay | undefined {
-	return findLastWhere(
-		events,
-		e =>
-			e.hookName === 'SubagentStart' &&
-			(e.payload as SubagentStartEvent).agent_id === agentId &&
-			!e.subagentStopPayload,
-	);
-}
-
 export function useHookServer(
 	projectDir: string,
 	instanceId: number,
@@ -105,8 +52,6 @@ export function useHookServer(
 	const activeSubagentStackRef = useRef<string[]>([]);
 	const isMountedRef = useRef(true); // Track if component is mounted
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
-	const eventsRef = useRef<HookEventDisplay[]>([]);
-	eventsRef.current = events;
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
 	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -321,75 +266,16 @@ export function useHookServer(
 		// ── Event handler functions ─────────────────────────────────────
 		// Each returns true if it handled the event (caller should return).
 
-		/** Merge PostToolUse/PostToolUseFailure into matching PreToolUse. */
-		function handlePostToolUseMerge(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (
-				envelope.hook_event_name !== 'PostToolUse' &&
-				envelope.hook_event_name !== 'PostToolUseFailure'
-			) {
-				return false;
-			}
-
-			const payload = envelope.payload;
-			if (!isToolEvent(payload)) return false;
-
-			const match = findMatchingPreToolUse(
-				eventsRef.current,
-				payload.tool_use_id,
-				payload.tool_name,
-			);
-			if (!match) return false;
+		/** Handle SubagentStop: add as first-class event and parse transcript. */
+		function handleSubagentStop(ctx: HandlerContext): boolean {
+			const {envelope, displayEvent} = ctx;
+			if (!isSubagentStopEvent(envelope.payload)) return false;
 
 			storeWithAutoPassthrough(ctx);
-
-			setEvents(prev =>
-				prev.map(e =>
-					e.id === match.id
-						? {
-								...e,
-								postToolPayload: payload as
-									| PostToolUseEvent
-									| PostToolUseFailureEvent,
-								postToolRequestId: envelope.request_id,
-								postToolTimestamp: new Date(envelope.ts),
-								postToolFailed:
-									envelope.hook_event_name === 'PostToolUseFailure',
-							}
-						: e,
-				),
-			);
-			return true;
-		}
-
-		/** Merge SubagentStop into matching SubagentStart. */
-		function handleSubagentStopMerge(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (envelope.hook_event_name !== 'SubagentStop') return false;
-
-			const stopPayload = envelope.payload as SubagentStopEvent;
-			const match = findMatchingSubagentStart(
-				eventsRef.current,
-				stopPayload.agent_id,
-			);
-			if (!match) return false;
-
-			storeWithAutoPassthrough(ctx);
-
-			setEvents(prev =>
-				prev.map(e =>
-					e.id === match.id
-						? {
-								...e,
-								subagentStopPayload: stopPayload,
-								subagentStopRequestId: envelope.request_id,
-								subagentStopTimestamp: new Date(envelope.ts),
-							}
-						: e,
-				),
-			);
+			addEvent(displayEvent);
 
 			// Parse subagent transcript to extract response text
+			const stopPayload = envelope.payload;
 			const transcriptPath = stopPayload.agent_transcript_path;
 			if (transcriptPath) {
 				parseTranscriptFile(transcriptPath)
@@ -397,7 +283,9 @@ export function useHookServer(
 						if (isMountedRef.current) {
 							setEvents(prev =>
 								prev.map(e =>
-									e.id === match.id ? {...e, transcriptSummary: summary} : e,
+									e.id === displayEvent.id
+										? {...e, transcriptSummary: summary}
+										: e,
 								),
 							);
 						}
@@ -588,15 +476,12 @@ export function useHookServer(
 					};
 
 					// Track active subagents and tag child events
-					if (envelope.hook_event_name === 'SubagentStart') {
-						const startPayload = envelope.payload as SubagentStartEvent;
-						activeSubagentStackRef.current.push(startPayload.agent_id);
-					} else if (envelope.hook_event_name === 'SubagentStop') {
-						const stopPayload = envelope.payload as SubagentStopEvent;
+					if (isSubagentStartEvent(envelope.payload)) {
+						activeSubagentStackRef.current.push(envelope.payload.agent_id);
+					} else if (isSubagentStopEvent(envelope.payload)) {
+						const agentId = envelope.payload.agent_id;
 						activeSubagentStackRef.current =
-							activeSubagentStackRef.current.filter(
-								id => id !== stopPayload.agent_id,
-							);
+							activeSubagentStackRef.current.filter(id => id !== agentId);
 					} else if (activeSubagentStackRef.current.length > 0) {
 						// Tag non-subagent events with the innermost active subagent
 						ctx.displayEvent.parentSubagentId =
@@ -607,8 +492,7 @@ export function useHookServer(
 
 					// Dispatch to handlers (first match wins)
 					const handled =
-						handlePostToolUseMerge(ctx) ||
-						handleSubagentStopMerge(ctx) ||
+						handleSubagentStop(ctx) ||
 						handlePermissionRequest(ctx) ||
 						handleAskUserQuestion(ctx) ||
 						handlePreToolUseRules(ctx) ||

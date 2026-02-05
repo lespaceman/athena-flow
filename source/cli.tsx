@@ -31,7 +31,7 @@ const cli = meow(
 		                  strict (default) - User settings only, no project hooks/MCP
 		                  minimal - User settings, allow project MCP servers
 		                  permissive - Full project access
-		--debug         Show hook events and server status
+		--verbose       Show additional rendering detail and streaming display
 
 	Plugin Config
 		Global:  ~/.config/athena/config.json
@@ -43,7 +43,7 @@ const cli = meow(
 	  $ athena-cli --project-dir=/my/project
 	  $ athena-cli --plugin=/path/to/my-plugin
 	  $ athena-cli --isolation=minimal
-	  $ athena-cli --debug
+	  $ athena-cli --verbose
 `,
 	{
 		importMeta: import.meta,
@@ -60,7 +60,7 @@ const cli = meow(
 				type: 'string',
 				default: 'strict',
 			},
-			debug: {
+			verbose: {
 				type: 'boolean',
 				default: false,
 			},
@@ -95,7 +95,7 @@ render(
 		projectDir={cli.flags.projectDir}
 		instanceId={instanceId}
 		isolation={isolationPreset}
-		debug={cli.flags.debug}
+		verbose={cli.flags.verbose}
 		version={version}
 		pluginMcpConfig={pluginMcpConfig}
 	/>,

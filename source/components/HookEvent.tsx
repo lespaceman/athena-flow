@@ -12,19 +12,20 @@ import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import TodoWriteEvent from './TodoWriteEvent.js';
 import ToolCallEvent from './ToolCallEvent.js';
+import ToolResultEvent from './ToolResultEvent.js';
 import SubagentEvent from './SubagentEvent.js';
-import OrphanPostToolUseEvent from './OrphanPostToolUseEvent.js';
+import SubagentStopEvent from './SubagentStopEvent.js';
 import GenericHookEvent from './GenericHookEvent.js';
 
 type Props = {
 	event: HookEventDisplay;
-	debug?: boolean;
+	verbose?: boolean;
 	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
 export default function HookEvent({
 	event,
-	debug,
+	verbose,
 	childEventsByAgent,
 }: Props): React.ReactNode {
 	if (event.hookName === 'SessionEnd') {
@@ -33,47 +34,35 @@ export default function HookEvent({
 
 	const payload = event.payload;
 
-	if (
-		isPreToolUseEvent(payload) &&
-		payload.tool_name === 'AskUserQuestion' &&
-		!debug
-	) {
+	if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
 		return <AskUserQuestionEvent event={event} />;
 	}
 
 	// TodoWrite events are excluded from the main timeline (useContentOrdering
 	// renders the latest one as a sticky widget). This branch is reached when
 	// a TodoWrite appears as a child event inside a subagent box.
-	if (
-		isPreToolUseEvent(payload) &&
-		payload.tool_name === 'TodoWrite' &&
-		!debug
-	) {
+	if (isPreToolUseEvent(payload) && payload.tool_name === 'TodoWrite') {
 		return <TodoWriteEvent event={event} />;
 	}
 
-	if (
-		(isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) &&
-		!debug
-	) {
-		return <ToolCallEvent event={event} />;
+	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
+		return <ToolCallEvent event={event} verbose={verbose} />;
 	}
 
-	if (
-		(isSubagentStartEvent(payload) || isSubagentStopEvent(payload)) &&
-		!debug
-	) {
+	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
+		return <ToolResultEvent event={event} verbose={verbose} />;
+	}
+
+	if (isSubagentStartEvent(payload)) {
 		return (
 			<SubagentEvent event={event} childEventsByAgent={childEventsByAgent} />
 		);
 	}
 
-	if (
-		(isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) &&
-		!debug
-	) {
-		return <OrphanPostToolUseEvent event={event} />;
+	if (isSubagentStopEvent(payload)) {
+		return <SubagentStopEvent event={event} verbose={verbose} />;
 	}
 
-	return <GenericHookEvent event={event} debug={debug} />;
+	// GenericHookEvent — only for truly unrecognized event types
+	return <GenericHookEvent event={event} verbose={verbose} />;
 }
