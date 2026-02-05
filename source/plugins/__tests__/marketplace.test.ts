@@ -123,7 +123,7 @@ describe('resolveMarketplacePlugin', () => {
 		);
 	});
 
-	it('pulls latest when repo is already cached', () => {
+	it('uses cached repo without pulling on startup', () => {
 		// Repo already exists
 		dirs.add(cacheBase);
 		files[manifestPath] = validManifest;
@@ -137,29 +137,11 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
 
-		// Verify pull was called (not clone)
-		expect(execFileSyncMock).toHaveBeenCalledWith(
-			'git',
-			['pull', '--ff-only'],
-			{cwd: cacheBase, stdio: 'ignore'},
-		);
-	});
-
-	it('uses cached version when pull fails (offline)', () => {
-		dirs.add(cacheBase);
-		files[manifestPath] = validManifest;
-		dirs.add(`${cacheBase}/plugins/web-testing-toolkit`);
-
-		execFileSyncMock.mockImplementation((_cmd: string, args: string[]) => {
-			if (args[0] === 'pull') throw new Error('network error');
+		// Verify only git --version was called (not clone or pull)
+		expect(execFileSyncMock).toHaveBeenCalledTimes(1);
+		expect(execFileSyncMock).toHaveBeenCalledWith('git', ['--version'], {
+			stdio: 'ignore',
 		});
-
-		// Should not throw — silently uses cached
-		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
-		);
-
-		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
 	});
 
 	it('throws when git is not installed', () => {

@@ -103,10 +103,12 @@ const additionalDirectories = [
 	...projectConfig.additionalDirectories,
 ];
 
-// Build isolation config with preset and additional directories
+// Build isolation config with preset, additional directories, and plugin dirs
 const isolationConfig: IsolationConfig = {
 	preset: isolationPreset,
 	additionalDirectories,
+	pluginDirs: pluginDirs.length > 0 ? pluginDirs : undefined,
+	debug: cli.flags.verbose, // Pass --debug to Claude when --verbose is set
 };
 
 const instanceId = process.pid;

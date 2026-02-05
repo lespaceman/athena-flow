@@ -24,22 +24,105 @@ export type IsolationPreset = 'strict' | 'minimal' | 'permissive';
 
 /**
  * Configuration for isolating the spawned Claude Code process.
+ *
+ * These options map to Claude Code CLI flags. See:
+ * https://docs.anthropic.com/en/docs/claude-code/cli-reference
  */
 export type IsolationConfig = {
 	/** Use a preset configuration instead of custom settings */
 	preset?: IsolationPreset;
-	/** Tools to allow (whitelist) */
+
+	// === Tool Access ===
+	/** Tools to allow without prompting (whitelist). See permission rule syntax. */
 	allowedTools?: string[];
-	/** Tools to disallow (blacklist) */
+	/** Tools to remove from model context (blacklist) */
 	disallowedTools?: string[];
-	/** Path to custom MCP config file */
+	/** Restrict which built-in tools Claude can use ("" to disable all, "default" for all, or tool names) */
+	tools?: string;
+
+	// === MCP Configuration ===
+	/** Path to custom MCP config file or JSON string */
 	mcpConfig?: string;
 	/** Ignore project MCP servers (default: true for strict isolation) */
 	strictMcpConfig?: boolean;
-	/** Permission mode for tool execution */
+
+	// === Permission & Security ===
+	/** Permission mode for tool execution (e.g., "plan", "default") */
 	permissionMode?: string;
+	/** Skip all permission prompts (use with caution) */
+	dangerouslySkipPermissions?: boolean;
+	/** Enable permission bypassing as an option without immediately activating it */
+	allowDangerouslySkipPermissions?: boolean;
+
+	// === Directories ===
 	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
 	additionalDirectories?: string[];
+
+	// === Model & Agent ===
+	/** Model to use (alias like "sonnet"/"opus" or full model name) */
+	model?: string;
+	/** Fallback model when default is overloaded */
+	fallbackModel?: string;
+	/** Specify an agent for the session */
+	agent?: string;
+	/** Define custom subagents dynamically via JSON object */
+	agents?: Record<
+		string,
+		{
+			description: string;
+			prompt: string;
+			tools?: string[];
+			model?: 'sonnet' | 'opus' | 'haiku' | 'inherit';
+		}
+	>;
+
+	// === System Prompt ===
+	/** Replace the entire system prompt with custom text */
+	systemPrompt?: string;
+	/** Path to file containing system prompt replacement */
+	systemPromptFile?: string;
+	/** Append custom text to the end of the default system prompt */
+	appendSystemPrompt?: string;
+	/** Path to file containing text to append to system prompt */
+	appendSystemPromptFile?: string;
+
+	// === Session Management ===
+	/** Continue most recent conversation in current directory */
+	continueSession?: boolean;
+	/** When resuming, create a new session ID instead of reusing the original */
+	forkSession?: boolean;
+	/** Disable session persistence (sessions not saved to disk) */
+	noSessionPersistence?: boolean;
+
+	// === Output & Debugging ===
+	/** Enable verbose logging (full turn-by-turn output) */
+	verbose?: boolean;
+	/** Enable debug mode with optional category filtering (e.g., "api,hooks") */
+	debug?: string | boolean;
+
+	// === Limits ===
+	/** Maximum number of agentic turns before stopping */
+	maxTurns?: number;
+	/** Maximum dollar amount for API calls */
+	maxBudgetUsd?: number;
+
+	// === Plugins ===
+	/** Load plugins from directories (repeatable) */
+	pluginDirs?: string[];
+
+	// === Features ===
+	/** Disable all skills and slash commands */
+	disableSlashCommands?: boolean;
+	/** Enable Chrome browser integration */
+	chrome?: boolean;
+	/** Disable Chrome browser integration */
+	noChrome?: boolean;
+
+	// === Structured Output ===
+	/** JSON Schema for validated output (requires json output format) */
+	jsonSchema?: string | Record<string, unknown>;
+	/** Include partial streaming events in output */
+	includePartialMessages?: boolean;
 };
 
 /**
