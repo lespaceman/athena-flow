@@ -1,5 +1,11 @@
+import {vi} from 'vitest';
+
+vi.hoisted(() => {
+	process.env['FORCE_COLOR'] = '1';
+});
+
 import React from 'react';
-import {describe, it, expect, vi} from 'vitest';
+import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import OptionList from './OptionList.js';
 
@@ -107,6 +113,17 @@ describe('OptionList', () => {
 		await delay(50);
 		stdin.write('\r');
 		expect(onSelect).toHaveBeenCalledWith('verbose');
+	});
+
+	it('renders non-focused options with dim styling', async () => {
+		const {lastFrame, stdin} = render(
+			<OptionList options={options} onSelect={vi.fn()} />,
+		);
+		stdin.write('\x1B[B');
+		await delay(50);
+		const frame = lastFrame() ?? '';
+		// Non-focused items should have dim escape sequence
+		expect(frame).toContain('\u001B[2m');
 	});
 
 	it('renders option without description when description is empty', () => {

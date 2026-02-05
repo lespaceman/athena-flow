@@ -39,6 +39,7 @@ export default function OptionList({options, onSelect}: Props) {
 								color={isFocused ? 'cyan' : undefined}
 								bold={isFocused}
 								inverse={isFocused}
+								dimColor={!isFocused}
 							>
 								{isFocused ? ' › ' : '   '}
 								{option.label}
