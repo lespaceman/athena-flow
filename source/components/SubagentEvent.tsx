@@ -1,9 +1,9 @@
 /**
  * Renders a SubagentStart event with child events inside a bordered box.
  *
- * The SubagentStop event is now a separate first-class timeline entry
- * rendered by SubagentStopEvent.tsx. This component only handles the
- * running or completed SubagentStart display.
+ * When the subagent completes, the corresponding SubagentStop event is merged
+ * into event.stopEvent, allowing this single component to render both the
+ * running state and the completed state with response text.
  */
 
 import React from 'react';
@@ -96,6 +96,11 @@ export default function SubagentEvent({
 	const subSymbol = SUBAGENT_SYMBOLS[event.status];
 	const children = childEventsByAgent?.get(payload.agent_id) ?? [];
 
+	// Check if subagent has completed (stopEvent is merged from SubagentStop)
+	const isCompleted = Boolean(event.stopEvent);
+	const responseText =
+		event.stopEvent?.transcriptSummary?.lastAssistantText ?? '';
+
 	return (
 		<Box flexDirection="column" marginBottom={1}>
 			<Box
@@ -108,7 +113,11 @@ export default function SubagentEvent({
 					<Text color={SUBAGENT_COLOR} bold>
 						Task({payload.agent_type})
 					</Text>
-					<Text dimColor> {payload.agent_id}</Text>
+					<Text dimColor>
+						{' '}
+						{payload.agent_id}
+						{isCompleted ? ' (completed)' : ''}
+					</Text>
 				</Box>
 				{children.length > 0 && (
 					<Box flexDirection="column" paddingLeft={1} marginTop={1}>
@@ -122,6 +131,9 @@ export default function SubagentEvent({
 							</Box>
 						))}
 					</Box>
+				)}
+				{isCompleted && responseText && (
+					<ResponseBlock response={responseText} isFailed={false} />
 				)}
 			</Box>
 			<StderrBlock result={event.result} />

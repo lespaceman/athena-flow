@@ -5,7 +5,7 @@ import meow from 'meow';
 import {createRequire} from 'node:module';
 import App from './app.js';
 import {processRegistry} from './utils/processRegistry.js';
-import {type IsolationPreset} from './types/isolation.js';
+import {type IsolationPreset, type IsolationConfig} from './types/isolation.js';
 import {registerBuiltins} from './commands/builtins/index.js';
 import {
 	registerPlugins,
@@ -33,10 +33,13 @@ const cli = meow(
 		                  permissive - Full project access
 		--verbose       Show additional rendering detail and streaming display
 
-	Plugin Config
+	Config Files
 		Global:  ~/.config/athena/config.json
 		Project: {projectDir}/.athena/config.json
-		Format:  { "plugins": ["/absolute/path", "relative/path"] }
+		Format:  {
+		           "plugins": ["/path/to/plugin"],
+		           "additionalDirectories": ["/path/to/allow"]
+		         }
 		Merge order: global → project → --plugin flags
 
 	Examples
@@ -81,20 +84,34 @@ if (validIsolationPresets.includes(cli.flags.isolation)) {
 
 // Register commands: builtins first, then plugins (global -> project -> CLI flags)
 registerBuiltins();
+const globalConfig = readGlobalConfig();
+const projectConfig = readConfig(cli.flags.projectDir);
 const pluginDirs = [
-	...readGlobalConfig().plugins,
-	...readConfig(cli.flags.projectDir).plugins,
+	...globalConfig.plugins,
+	...projectConfig.plugins,
 	...(cli.flags.plugin ?? []),
 ];
 const pluginMcpConfig =
 	pluginDirs.length > 0 ? registerPlugins(pluginDirs) : undefined;
+
+// Merge additionalDirectories from global and project configs
+const additionalDirectories = [
+	...globalConfig.additionalDirectories,
+	...projectConfig.additionalDirectories,
+];
+
+// Build isolation config with preset and additional directories
+const isolationConfig: IsolationConfig = {
+	preset: isolationPreset,
+	additionalDirectories,
+};
 
 const instanceId = process.pid;
 render(
 	<App
 		projectDir={cli.flags.projectDir}
 		instanceId={instanceId}
-		isolation={isolationPreset}
+		isolation={isolationConfig}
 		verbose={cli.flags.verbose}
 		version={version}
 		pluginMcpConfig={pluginMcpConfig}

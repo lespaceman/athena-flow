@@ -30,6 +30,28 @@ function getItemTime(item: ContentItem): number {
 }
 
 /**
+ * Determines which events should be filtered out of the main content stream.
+ *
+ * Excluded events:
+ * - SessionEnd: rendered as synthetic assistant messages instead
+ * - Child events (with parentSubagentId): render inside their parent subagent box
+ * - SubagentStart/SubagentStop: handled separately for unified rendering
+ * - PostToolUse for Task: content already shown in subagent box
+ * - PreToolUse for TodoWrite: rendered as sticky bottom widget
+ */
+function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
+	if (event.hookName === 'SessionEnd') return true;
+	if (event.parentSubagentId) return true;
+	if (event.hookName === 'SubagentStart') return true;
+	if (event.hookName === 'SubagentStop') return true;
+	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
+		return true;
+	if (event.hookName === 'PreToolUse' && event.toolName === 'TodoWrite')
+		return true;
+	return false;
+}
+
+/**
  * Determine whether a content item has reached a terminal state and can
  * be moved into the Ink `<Static>` list (rendered once, never updated).
  *
@@ -95,10 +117,13 @@ export function useContentOrdering({
 			},
 		}));
 
-	// Build stoppedAgentIds (agent_ids that have a SubagentStop event)
-	// and childEventsByAgent in a single pass.
+	// Build maps for subagent tracking:
+	// - stoppedAgentIds: agent_ids that have a SubagentStop event
+	// - stopEventsByAgent: SubagentStop events indexed by agent_id (for merging)
+	// - childEventsByAgent: child events grouped by parent subagent
 	const childEventsByAgent = new Map<string, HookEventDisplay[]>();
 	const stoppedAgentIds = new Set<string>();
+	const stopEventsByAgent = new Map<string, HookEventDisplay>();
 	for (const e of events) {
 		if (e.parentSubagentId) {
 			const children = childEventsByAgent.get(e.parentSubagentId) ?? [];
@@ -107,6 +132,7 @@ export function useContentOrdering({
 		}
 		if (isSubagentStopEvent(e.payload)) {
 			stoppedAgentIds.add(e.payload.agent_id);
+			stopEventsByAgent.set(e.payload.agent_id, e);
 		}
 	}
 	// Sort each group by timestamp so render order is deterministic
@@ -115,18 +141,9 @@ export function useContentOrdering({
 	}
 
 	// Interleave messages and hook events by timestamp.
-	// Exclude SessionEnd (rendered as synthetic assistant messages instead).
-	// Exclude child events (those with parentSubagentId) — they render inside their parent subagent box.
-	// Exclude SubagentStart — handled separately to avoid dynamic→static duplicate.
-	// Exclude TodoWrite (PreToolUse with tool_name 'TodoWrite') — rendered as sticky bottom widget.
+	// See shouldExcludeFromMainStream for the list of excluded event types.
 	const hookItems: ContentItem[] = events
-		.filter(
-			e =>
-				e.hookName !== 'SessionEnd' &&
-				!e.parentSubagentId &&
-				e.hookName !== 'SubagentStart' &&
-				!(e.hookName === 'PreToolUse' && e.toolName === 'TodoWrite'),
-		)
+		.filter(e => !shouldExcludeFromMainStream(e))
 		.map(e => ({type: 'hook' as const, data: e}));
 
 	// Extract the latest TodoWrite event for sticky bottom rendering.
@@ -146,15 +163,22 @@ export function useContentOrdering({
 			!stoppedAgentIds.has(e.payload.agent_id),
 	);
 
-	// Completed subagents: added to contentItems (pass isStableContent, no dynamic→static transition).
+	// Completed subagents: added to contentItems with merged stopEvent data.
+	// This enables rendering the subagent response in a single unified box.
 	const completedSubagentItems: ContentItem[] = events
 		.filter(
-			e =>
+			(e): e is HookEventDisplay & {payload: {agent_id: string}} =>
 				isSubagentStartEvent(e.payload) &&
 				!e.parentSubagentId &&
 				stoppedAgentIds.has(e.payload.agent_id),
 		)
-		.map(e => ({type: 'hook' as const, data: e}));
+		.map(e => {
+			const stopEvent = stopEventsByAgent.get(e.payload.agent_id);
+			return {
+				type: 'hook' as const,
+				data: stopEvent ? {...e, stopEvent} : e,
+			};
+		});
 
 	const contentItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),

@@ -37,6 +37,8 @@ export type IsolationConfig = {
 	strictMcpConfig?: boolean;
 	/** Permission mode for tool execution */
 	permissionMode?: string;
+	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
+	additionalDirectories?: string[];
 };
 
 /**

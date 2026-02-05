@@ -473,6 +473,40 @@ describe('spawnClaude', () => {
 			expect(args).toContain('auto-accept-all');
 		});
 
+		it('should include --add-dir flags for additional directories', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					additionalDirectories: ['/extra/path1', '/extra/path2'],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).toContain('--add-dir');
+			expect(args).toContain('/extra/path1');
+			expect(args).toContain('/extra/path2');
+		});
+
+		it('should not include --add-dir when additionalDirectories is empty', () => {
+			const options: SpawnClaudeOptions = {
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 12345,
+				isolation: {
+					additionalDirectories: [],
+				},
+			};
+
+			spawnClaude(options);
+
+			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
+			expect(args).not.toContain('--add-dir');
+		});
+
 		it('should include custom mcp config when specified', () => {
 			const options: SpawnClaudeOptions = {
 				prompt: 'Test',

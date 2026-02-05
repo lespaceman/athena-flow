@@ -15,7 +15,7 @@ import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
-	type IsolationPreset,
+	type IsolationConfig,
 	generateId,
 } from './types/index.js';
 import {useContentOrdering} from './hooks/useContentOrdering.js';
@@ -26,7 +26,7 @@ import {executeCommand} from './commands/executor.js';
 type Props = {
 	projectDir: string;
 	instanceId: number;
-	isolation?: IsolationPreset;
+	isolation?: IsolationConfig;
 	verbose?: boolean;
 	version: string;
 	pluginMcpConfig?: string;

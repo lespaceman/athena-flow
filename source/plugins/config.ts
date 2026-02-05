@@ -13,9 +13,11 @@ import {isMarketplaceRef, resolveMarketplacePlugin} from './marketplace.js';
 
 export type AthenaConfig = {
 	plugins: string[];
+	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
+	additionalDirectories: string[];
 };
 
-const EMPTY_CONFIG: AthenaConfig = {plugins: []};
+const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
 
 /**
  * Read per-project plugin config from `{projectDir}/.athena/config.json`.
@@ -45,6 +47,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 
 	const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
 		plugins?: string[];
+		additionalDirectories?: string[];
 	};
 
 	const plugins = (raw.plugins ?? []).map(p => {
@@ -54,5 +57,10 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
 	});
 
-	return {plugins};
+	// Resolve relative paths for additional directories
+	const additionalDirectories = (raw.additionalDirectories ?? []).map(dir =>
+		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
+	);
+
+	return {plugins, additionalDirectories};
 }

@@ -82,6 +82,13 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		args.push('--permission-mode', isolationConfig.permissionMode);
 	}
 
+	// Additional directories (grant access to external paths)
+	if (isolationConfig.additionalDirectories?.length) {
+		for (const dir of isolationConfig.additionalDirectories) {
+			args.push('--add-dir', dir);
+		}
+	}
+
 	// Add --resume flag if continuing an existing session
 	if (sessionId) {
 		args.push('--resume', sessionId);
