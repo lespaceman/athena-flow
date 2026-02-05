@@ -47,6 +47,7 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 								color={isFocused ? 'cyan' : undefined}
 								bold={isFocused}
 								inverse={isFocused}
+								dimColor={!isFocused}
 							>
 								{isFocused ? ' › ' : '   '}[{checkbox}] {option.label}
 								{isFocused ? ' ' : ''}

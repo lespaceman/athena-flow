@@ -1,6 +1,7 @@
 import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
+import chalk from 'chalk';
 import MultiOptionList from './MultiOptionList.js';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -73,5 +74,26 @@ describe('MultiOptionList', () => {
 		await delay(50);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('In-memory cache');
+	});
+
+	it('renders non-focused options with dim styling', async () => {
+		const originalLevel = chalk.level;
+		chalk.level = 3;
+		try {
+			const {lastFrame, stdin} = render(
+				<MultiOptionList options={options} onSubmit={vi.fn()} />,
+			);
+			stdin.write('\x1B[B');
+			await delay(50);
+			const frame = lastFrame() ?? '';
+			// Find lines containing non-focused option labels
+			const lines = frame.split('\n');
+			const authLine = lines.find(l => l.includes('Auth'));
+			expect(authLine).toBeDefined();
+			// The non-focused option label line should have dim escape sequence
+			expect(authLine).toContain('\u001B[2m');
+		} finally {
+			chalk.level = originalLevel;
+		}
 	});
 });
