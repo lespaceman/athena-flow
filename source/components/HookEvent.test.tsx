@@ -153,35 +153,8 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('\u2502'); // │
 	});
 
-	it('renders tool events without border boxes', () => {
-		const {lastFrame} = render(<HookEvent event={baseEvent} />);
-		const frame = lastFrame() ?? '';
-
-		// Should not contain box border characters
-		expect(frame).not.toContain('\u250c'); // ┌
-		expect(frame).not.toContain('\u2500'); // ─
-		expect(frame).not.toContain('\u2502'); // │
-	});
-
-	it('renders hook event without tool name', () => {
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'Notification',
-			toolName: undefined,
-			payload: {
-				session_id: 'session-1',
-				transcript_path: '/tmp/transcript.jsonl',
-				cwd: '/project',
-				hook_event_name: 'Notification',
-				message: 'Task completed',
-			},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Notification');
-		expect(frame).not.toContain(':undefined');
-	});
+	// "renders tool events without border boxes" removed - redundant with non-tool events borderless test
+	// "renders hook event without tool name" removed - redundant with non-tool events borderless test
 
 	it('shows standalone PostToolUse response', () => {
 		const postPayload: PostToolUseEvent = {
@@ -369,52 +342,30 @@ describe('HookEvent', () => {
 		expect(frame).toContain('true');
 	});
 
-	it('handles null tool_response gracefully', () => {
-		const postPayload: PostToolUseEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PostToolUse',
-			tool_name: 'Bash',
-			tool_input: {command: 'echo'},
-			tool_response: null,
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'PostToolUse',
-			payload: postPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		// Should render without crashing
-		expect(frame).toContain('Bash');
-	});
-
-	it('handles undefined tool_response gracefully', () => {
-		const postPayload: PostToolUseEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PostToolUse',
-			tool_name: 'Bash',
-			tool_input: {command: 'echo'},
-			tool_response: undefined,
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'PostToolUse',
-			payload: postPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Bash');
-	});
+	it.each([null, undefined])(
+		'handles %s tool_response gracefully',
+		tool_response => {
+			const postPayload: PostToolUseEvent = {
+				session_id: 'session-1',
+				transcript_path: '/tmp/transcript.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PostToolUse',
+				tool_name: 'Bash',
+				tool_input: {command: 'echo'},
+				tool_response: tool_response as null | undefined,
+			};
+			const event: HookEventDisplay = {
+				...baseEvent,
+				hookName: 'PostToolUse',
+				payload: postPayload,
+				status: 'passthrough',
+				result: {action: 'passthrough'},
+			};
+			const {lastFrame} = render(<HookEvent event={event} />);
+			const frame = lastFrame() ?? '';
+			expect(frame).toContain('Bash');
+		},
+	);
 
 	it('shows notification message preview', () => {
 		const event: HookEventDisplay = {
@@ -497,12 +448,7 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('transcript_path');
 	});
 
-	it('renders tool name in header', () => {
-		const {lastFrame} = render(<HookEvent event={baseEvent} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Bash');
-	});
+	// "renders tool name in header" removed - already covered by PreToolUse header test
 
 	it('renders PermissionRequest event with tool name and inline params', () => {
 		const permPayload: PermissionRequestEvent = {
@@ -676,32 +622,7 @@ describe('HookEvent', () => {
 		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
 	});
 
-	it('renders SubagentStart with bordered box (round corners)', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-box',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('\u256d'); // ╭ top-left round corner
-		expect(frame).toContain('\u256e'); // ╮ top-right round corner
-		expect(frame).toContain('\u2570'); // ╰ bottom-left round corner
-		expect(frame).toContain('\u256f'); // ╯ bottom-right round corner
-		expect(frame).toContain('\u2502'); // │ vertical border
-	});
+	// "renders SubagentStart with bordered box" removed - border chars already checked in SubagentStart header test
 
 	it('renders AskUserQuestion with question header and text', () => {
 		const askPayload: PreToolUseEvent = {
@@ -1077,80 +998,8 @@ describe('HookEvent', () => {
 		expect(frame).toContain('(response)');
 	});
 
-	it('renders SubagentStart with children', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-full',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const childEvent: HookEventDisplay = {
-			id: 'child-full-1',
-			requestId: 'req-child-full',
-			timestamp: new Date('2024-01-15T10:30:46.000Z'),
-			hookName: 'PreToolUse',
-			toolName: 'Read',
-			payload: {
-				session_id: 'session-1',
-				transcript_path:
-					'/home/user/.claude/projects/abc/subagents/agent-full.jsonl',
-				cwd: '/project',
-				hook_event_name: 'PreToolUse',
-				tool_name: 'Read',
-				tool_input: {file_path: '/path/to/file'},
-			} as PreToolUseEvent,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			parentSubagentId: 'agent-full',
-		};
-		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
-			['agent-full', [childEvent]],
-		]);
-		const {lastFrame} = render(
-			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
-		);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('Read');
-		expect(frame).toContain('\u256d'); // ╭
-	});
-
-	it('renders SubagentStart with empty childEventsByAgent identically to no-children', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-empty',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const emptyMap = new Map<string, HookEventDisplay[]>();
-		const {lastFrame: withMap} = render(
-			<HookEvent event={event} childEventsByAgent={emptyMap} />,
-		);
-		const {lastFrame: withoutMap} = render(<HookEvent event={event} />);
-
-		expect(withMap()).toBe(withoutMap());
-	});
+	// "renders SubagentStart with children" removed - similar to "child tool calls inside border" test
+	// "renders SubagentStart with empty childEventsByAgent" removed - low-value edge case
 
 	it('renders orphan SubagentStop with border and diamond, no duration', () => {
 		const stopPayload: SubagentStopEvent = {

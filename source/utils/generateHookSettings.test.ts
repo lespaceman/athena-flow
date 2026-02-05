@@ -149,15 +149,16 @@ describe('generateHookSettings', () => {
 		expect(permReqTimeout).toBe(300);
 	});
 
-	it('should keep short timeout for non-PreToolUse hooks', () => {
+	it('should use default timeout for non-PreToolUse hooks', () => {
 		const result = generateHookSettings();
 		createdFiles.push(result.settingsPath);
 
 		const content = fs.readFileSync(result.settingsPath, 'utf8');
 		const settings = JSON.parse(content);
 
+		// Non-PreToolUse hooks use the default 60s timeout
 		const stopTimeout = settings.hooks.Stop[0].hooks[0].timeout;
-		expect(stopTimeout).toBe(1);
+		expect(stopTimeout).toBe(60);
 	});
 
 	it('should write valid JSON', () => {
