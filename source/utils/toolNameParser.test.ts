@@ -1,5 +1,9 @@
 import {describe, it, expect} from 'vitest';
-import {parseToolName, formatInlineParams} from './toolNameParser.js';
+import {
+	parseToolName,
+	formatInlineParams,
+	formatArgs,
+} from './toolNameParser.js';
 
 describe('parseToolName', () => {
 	it('parses MCP tool name into server and action', () => {
@@ -191,5 +195,114 @@ describe('formatInlineParams', () => {
 		);
 		expect(result.startsWith('(')).toBe(true);
 		expect(result.endsWith(')')).toBe(true);
+	});
+});
+
+describe('formatArgs', () => {
+	describe('empty/undefined handling', () => {
+		it('returns "(none)" for empty object', () => {
+			expect(formatArgs({})).toBe('(none)');
+		});
+
+		it('returns "(none)" for undefined', () => {
+			expect(formatArgs(undefined)).toBe('(none)');
+		});
+	});
+
+	describe('string values', () => {
+		it('formats string values with quotes', () => {
+			expect(formatArgs({command: 'ls -la'})).toBe('command: "ls -la"');
+		});
+
+		it('formats multiple string values', () => {
+			expect(formatArgs({file_path: '/tmp/test.ts', content: 'hello'})).toBe(
+				'file_path: "/tmp/test.ts", content: "hello"',
+			);
+		});
+
+		it('truncates long string values at 40 chars with ellipsis', () => {
+			const longValue = 'a'.repeat(50);
+			const result = formatArgs({value: longValue});
+			expect(result).toBe(`value: "${'a'.repeat(37)}..."`);
+		});
+	});
+
+	describe('boolean values', () => {
+		it('formats boolean true without quotes', () => {
+			expect(formatArgs({clear: true})).toBe('clear: true');
+		});
+
+		it('formats boolean false without quotes', () => {
+			expect(formatArgs({enabled: false})).toBe('enabled: false');
+		});
+	});
+
+	describe('number values', () => {
+		it('formats number values without quotes', () => {
+			expect(formatArgs({timeout: 5000})).toBe('timeout: 5000');
+		});
+
+		it('formats negative numbers', () => {
+			expect(formatArgs({offset: -10})).toBe('offset: -10');
+		});
+
+		it('formats decimal numbers', () => {
+			expect(formatArgs({ratio: 0.5})).toBe('ratio: 0.5');
+		});
+	});
+
+	describe('object/array values', () => {
+		it('formats object values as [object]', () => {
+			expect(formatArgs({config: {key: 'value'}})).toBe('config: [object]');
+		});
+
+		it('formats array values as [object]', () => {
+			expect(formatArgs({items: [1, 2, 3]})).toBe('items: [object]');
+		});
+
+		it('formats null as [object]', () => {
+			expect(formatArgs({value: null})).toBe('value: [object]');
+		});
+	});
+
+	describe('mixed types', () => {
+		it('formats mixed types correctly', () => {
+			const result = formatArgs({
+				command: 'ls',
+				timeout: 5000,
+				force: true,
+			});
+			expect(result).toBe('command: "ls", timeout: 5000, force: true');
+		});
+	});
+
+	describe('total length truncation', () => {
+		it('uses default maxLength of 80', () => {
+			const result = formatArgs({
+				file_path: '/very/long/path/to/file.txt',
+				content: 'some content here',
+				timeout: 5000,
+				force: true,
+			});
+			expect(result.length).toBeLessThanOrEqual(80);
+		});
+
+		it('truncates total output to custom maxLength with ellipsis', () => {
+			const result = formatArgs(
+				{
+					file_path: '/tmp/test.ts',
+					content: 'hello world',
+				},
+				30,
+			);
+			expect(result.length).toBeLessThanOrEqual(30);
+			expect(result.endsWith('...')).toBe(true);
+		});
+
+		it('does not truncate if within maxLength', () => {
+			const result = formatArgs({command: 'ls'}, 80);
+			expect(result).toBe('command: "ls"');
+			expect(result.endsWith('...')).toBe(false);
+		});
 	});
 });

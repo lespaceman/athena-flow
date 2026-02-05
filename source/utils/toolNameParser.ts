@@ -95,3 +95,47 @@ export function formatInlineParams(
 
 	return result + ')';
 }
+
+/**
+ * Format tool arguments as a compact key-value string for display.
+ *
+ * Formats arguments as `key: "value"` for strings (truncated at 40 chars),
+ * `key: value` for booleans/numbers, and `key: [object]` for objects/arrays.
+ * Returns "(none)" for empty or undefined input.
+ */
+export function formatArgs(
+	input: Record<string, unknown> | undefined,
+	maxLength = 80,
+): string {
+	if (!input || Object.keys(input).length === 0) {
+		return '(none)';
+	}
+
+	const VALUE_MAX_LENGTH = 40;
+
+	const formatValue = (val: unknown): string => {
+		if (typeof val === 'string') {
+			if (val.length > VALUE_MAX_LENGTH) {
+				return `"${val.slice(0, VALUE_MAX_LENGTH - 3)}..."`;
+			}
+			return `"${val}"`;
+		}
+		if (typeof val === 'boolean' || typeof val === 'number') {
+			return String(val);
+		}
+		// Arrays, objects, null, etc.
+		return '[object]';
+	};
+
+	const parts = Object.entries(input).map(
+		([key, val]) => `${key}: ${formatValue(val)}`,
+	);
+
+	const full = parts.join(', ');
+	if (full.length <= maxLength) {
+		return full;
+	}
+
+	// Truncate total output
+	return full.slice(0, maxLength - 3) + '...';
+}
