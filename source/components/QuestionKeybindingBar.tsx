@@ -3,14 +3,23 @@ import {Box, Text} from 'ink';
 
 type Props = {
 	multiSelect: boolean;
+	optionCount?: number;
 };
 
-export default function QuestionKeybindingBar({multiSelect}: Props) {
+export default function QuestionKeybindingBar({
+	multiSelect,
+	optionCount = 0,
+}: Props) {
 	return (
 		<Box gap={2}>
 			<Text>
 				<Text dimColor>↑/↓</Text> Navigate
 			</Text>
+			{optionCount > 0 && (
+				<Text>
+					<Text dimColor>1-{optionCount}</Text> Jump
+				</Text>
+			)}
 			{multiSelect ? (
 				<>
 					<Text>

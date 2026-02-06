@@ -134,7 +134,10 @@ function SingleQuestion({
 					/>
 				</Box>
 				<Box marginTop={1}>
-					<QuestionKeybindingBar multiSelect={false} />
+					<QuestionKeybindingBar
+						multiSelect={false}
+						optionCount={options.length}
+					/>
 				</Box>
 			</Box>
 		);
@@ -144,7 +147,10 @@ function SingleQuestion({
 		<Box flexDirection="column">
 			<OptionList options={options} onSelect={handleSelect} />
 			<Box marginTop={1}>
-				<QuestionKeybindingBar multiSelect={false} />
+				<QuestionKeybindingBar
+					multiSelect={false}
+					optionCount={options.length}
+				/>
 			</Box>
 		</Box>
 	);
@@ -202,7 +208,10 @@ function MultiQuestion({
 					/>
 				</Box>
 				<Box marginTop={1}>
-					<QuestionKeybindingBar multiSelect={true} />
+					<QuestionKeybindingBar
+						multiSelect={true}
+						optionCount={options.length}
+					/>
 				</Box>
 			</Box>
 		);
@@ -212,7 +221,10 @@ function MultiQuestion({
 		<Box flexDirection="column">
 			<MultiOptionList options={options} onSubmit={handleSubmit} />
 			<Box marginTop={1}>
-				<QuestionKeybindingBar multiSelect={true} />
+				<QuestionKeybindingBar
+					multiSelect={true}
+					optionCount={options.length}
+				/>
 			</Box>
 		</Box>
 	);
