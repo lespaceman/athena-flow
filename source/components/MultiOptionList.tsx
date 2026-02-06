@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type OptionItem} from './OptionList.js';
 
@@ -11,6 +11,18 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 	const [focusIndex, setFocusIndex] = useState(0);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 
+	const toggleOption = useCallback((value: string) => {
+		setSelected(prev => {
+			const next = new Set(prev);
+			if (next.has(value)) {
+				next.delete(value);
+			} else {
+				next.add(value);
+			}
+			return next;
+		});
+	}, []);
+
 	useInput((input, key) => {
 		if (key.downArrow) {
 			setFocusIndex(i => (i + 1) % options.length);
@@ -19,18 +31,18 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 		} else if (input === ' ') {
 			const option = options[focusIndex];
 			if (option) {
-				setSelected(prev => {
-					const next = new Set(prev);
-					if (next.has(option.value)) {
-						next.delete(option.value);
-					} else {
-						next.add(option.value);
-					}
-					return next;
-				});
+				toggleOption(option.value);
 			}
 		} else if (key.return) {
 			onSubmit(options.filter(o => selected.has(o.value)).map(o => o.value));
+		} else {
+			const num = parseInt(input, 10);
+			if (num >= 1 && num <= options.length) {
+				const option = options[num - 1];
+				if (option) {
+					toggleOption(option.value);
+				}
+			}
 		}
 	});
 

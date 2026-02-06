@@ -76,6 +76,40 @@ describe('MultiOptionList', () => {
 		expect(frame).toContain('In-memory cache');
 	});
 
+	it('toggles selection when pressing a number key', async () => {
+		const {lastFrame, stdin} = render(
+			<MultiOptionList options={options} onSubmit={vi.fn()} />,
+		);
+		stdin.write('1');
+		await delay(50);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('✓');
+	});
+
+	it('submits number-key-toggled selections on Enter', async () => {
+		const onSubmit = vi.fn();
+		const {stdin} = render(
+			<MultiOptionList options={options} onSubmit={onSubmit} />,
+		);
+		stdin.write('1');
+		await delay(50);
+		stdin.write('3');
+		await delay(50);
+		stdin.write('\r');
+		expect(onSubmit).toHaveBeenCalledWith(['auth', 'cache']);
+	});
+
+	it('ignores number keys beyond option count', async () => {
+		const {lastFrame, stdin} = render(
+			<MultiOptionList options={options} onSubmit={vi.fn()} />,
+		);
+		stdin.write('9');
+		await delay(50);
+		const frame = lastFrame() ?? '';
+		// Should not have any checkmarks
+		expect(frame).not.toContain('✓');
+	});
+
 	it('renders non-focused options with dim styling', async () => {
 		const originalLevel = chalk.level;
 		chalk.level = 3;
