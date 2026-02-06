@@ -80,9 +80,33 @@ describe('riskTier', () => {
 			},
 		);
 
-		// DESTRUCTIVE tier - shell commands
-		it('classifies Bash as DESTRUCTIVE', () => {
+		// DESTRUCTIVE tier - shell commands (no command provided)
+		it('classifies Bash without command as DESTRUCTIVE', () => {
 			expect(getRiskTier('Bash')).toBe('DESTRUCTIVE');
+		});
+
+		describe('Bash command-level classification', () => {
+			it('classifies Bash with read-only command as READ', () => {
+				expect(getRiskTier('Bash', {command: 'echo hi'})).toBe('READ');
+			});
+
+			it('classifies Bash with npm install as MODERATE', () => {
+				expect(getRiskTier('Bash', {command: 'npm install'})).toBe('MODERATE');
+			});
+
+			it('classifies Bash with git push as WRITE', () => {
+				expect(getRiskTier('Bash', {command: 'git push'})).toBe('WRITE');
+			});
+
+			it('classifies Bash with rm as DESTRUCTIVE', () => {
+				expect(getRiskTier('Bash', {command: 'rm -rf /tmp'})).toBe(
+					'DESTRUCTIVE',
+				);
+			});
+
+			it('classifies Bash with empty command as MODERATE', () => {
+				expect(getRiskTier('Bash', {command: ''})).toBe('MODERATE');
+			});
 		});
 
 		describe('plugin prefix handling', () => {

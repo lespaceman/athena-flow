@@ -28,8 +28,8 @@ function makePermissionEvent(
 
 describe('PermissionDialog', () => {
 	describe('risk tier badge', () => {
-		it('shows DESTRUCTIVE badge for Bash tool', () => {
-			const event = makePermissionEvent('Bash', {command: 'ls -la'});
+		it('shows DESTRUCTIVE badge for Bash tool with destructive command', () => {
+			const event = makePermissionEvent('Bash', {command: 'rm -rf /tmp'});
 			const {lastFrame} = render(
 				<PermissionDialog
 					request={event}
@@ -39,6 +39,19 @@ describe('PermissionDialog', () => {
 			);
 
 			expect(lastFrame()).toContain('[DESTRUCTIVE]');
+		});
+
+		it('shows READ badge for Bash tool with read-only command', () => {
+			const event = makePermissionEvent('Bash', {command: 'ls -la'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).toContain('[READ]');
 		});
 
 		it('shows WRITE badge for Edit tool', () => {
@@ -344,6 +357,20 @@ describe('PermissionDialog', () => {
 
 			stdin.write('D');
 			expect(onDecision).toHaveBeenCalledWith('always-deny');
+		});
+
+		it('calls onDecision with "deny" when Escape is pressed', () => {
+			const onDecision = vi.fn();
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {stdin} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={onDecision}
+				/>,
+			);
+			stdin.write('\x1B');
+			expect(onDecision).toHaveBeenCalledWith('deny');
 		});
 	});
 });

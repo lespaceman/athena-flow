@@ -7,12 +7,8 @@ describe('KeybindingBar', () => {
 	it('renders all keybinding letters', () => {
 		const {lastFrame} = render(<KeybindingBar toolName="Bash" />);
 		const frame = lastFrame() ?? '';
-
-		// Line 1 keybindings
 		expect(frame).toContain('a');
 		expect(frame).toContain('d');
-		expect(frame).toContain('i');
-		// Line 2 and 3 keybindings (uppercase)
 		expect(frame).toContain('A');
 		expect(frame).toContain('D');
 	});
@@ -42,12 +38,24 @@ describe('KeybindingBar', () => {
 		expect(frame).toContain('Always deny "fetch" on mcp-server');
 	});
 
-	it('renders line 1 labels', () => {
+	it('renders line 1 labels without redundant Details', () => {
 		const {lastFrame} = render(<KeybindingBar toolName="Bash" />);
 		const frame = lastFrame() ?? '';
-
 		expect(frame).toContain('Allow');
 		expect(frame).toContain('Deny');
-		expect(frame).toContain('Details');
+		expect(frame).not.toContain('Details');
+	});
+
+	it('shows Escape hint', () => {
+		const {lastFrame} = render(<KeybindingBar toolName="Bash" />);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('Esc');
+		expect(frame).toContain('Cancel');
+	});
+
+	it('shows separator between single-action and persistent keybindings', () => {
+		const {lastFrame} = render(<KeybindingBar toolName="Bash" />);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('Persistent:');
 	});
 });

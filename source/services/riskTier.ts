@@ -7,6 +7,7 @@
  */
 
 import {parseToolName} from '../utils/toolNameParser.js';
+import {classifyBashCommand} from './bashClassifier.js';
 
 export type RiskTier = 'READ' | 'MODERATE' | 'WRITE' | 'DESTRUCTIVE';
 
@@ -107,20 +108,24 @@ const MODERATE_MCP_ACTIONS: readonly string[] = [
 const WRITE_TOOLS: readonly string[] = ['Edit', 'Write', 'NotebookEdit'];
 
 /**
- * Built-in tools classified as DESTRUCTIVE tier.
- * These can execute arbitrary code or perform irreversible operations.
- */
-const DESTRUCTIVE_TOOLS: readonly string[] = ['Bash'];
-
-/**
  * Classify a tool into a risk tier based on its name.
  *
  * For MCP tools (prefixed with mcp__), extracts the action and classifies
  * based on the action name. Unknown tools default to MODERATE.
  */
-export function getRiskTier(toolName: string): RiskTier {
-	// Check built-in tools first
-	if (DESTRUCTIVE_TOOLS.includes(toolName)) return 'DESTRUCTIVE';
+export function getRiskTier(
+	toolName: string,
+	toolInput?: Record<string, unknown>,
+): RiskTier {
+	// Bash: sub-classify by command content
+	if (toolName === 'Bash') {
+		if (toolInput && typeof toolInput['command'] === 'string') {
+			return classifyBashCommand(toolInput['command']);
+		}
+		return 'DESTRUCTIVE'; // No command to inspect = assume worst
+	}
+
+	// Check built-in tools
 	if (WRITE_TOOLS.includes(toolName)) return 'WRITE';
 	if (READ_TOOLS.includes(toolName)) return 'READ';
 	if (MODERATE_TOOLS.includes(toolName)) return 'MODERATE';

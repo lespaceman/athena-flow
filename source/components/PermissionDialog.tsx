@@ -32,15 +32,15 @@ export default function PermissionDialog({
 	const parsed = parseToolName(rawToolName);
 	const {displayName, serverLabel} = parsed;
 
-	// Get risk tier
-	const tier = getRiskTier(rawToolName);
-	const tierConfig = RISK_TIER_CONFIG[tier];
-
 	// Extract tool input from payload if it's a tool event
 	let toolInput: Record<string, unknown> | undefined;
 	if (isToolEvent(request.payload)) {
 		toolInput = request.payload.tool_input;
 	}
+
+	// Get risk tier (pass toolInput for Bash command-level classification)
+	const tier = getRiskTier(rawToolName, toolInput);
+	const tierConfig = RISK_TIER_CONFIG[tier];
 
 	// Format args for display
 	const formattedArgs = formatArgs(toolInput);
@@ -63,6 +63,11 @@ export default function PermissionDialog({
 			// If tier requires confirmation, don't process keyboard shortcuts
 			// (TypeToConfirm handles its own input)
 			if (requiresConfirmation) {
+				return;
+			}
+
+			if (key.escape) {
+				onDecision('deny');
 				return;
 			}
 
