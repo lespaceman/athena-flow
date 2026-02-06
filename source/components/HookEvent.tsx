@@ -10,7 +10,8 @@ import {
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
-import TodoWriteEvent from './TodoWriteEvent.js';
+import TaskList from './TaskList.js';
+import {type TodoWriteInput} from '../types/todo.js';
 import ToolCallEvent from './ToolCallEvent.js';
 import ToolResultEvent from './ToolResultEvent.js';
 import SubagentEvent from './SubagentEvent.js';
@@ -42,7 +43,9 @@ export default function HookEvent({
 	// renders the latest one as a sticky widget). This branch is reached when
 	// a TodoWrite appears as a child event inside a subagent box.
 	if (isPreToolUseEvent(payload) && payload.tool_name === 'TodoWrite') {
-		return <TodoWriteEvent event={event} />;
+		const input = payload.tool_input as TodoWriteInput;
+		const todos = Array.isArray(input.todos) ? input.todos : [];
+		return <TaskList tasks={todos} />;
 	}
 
 	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
