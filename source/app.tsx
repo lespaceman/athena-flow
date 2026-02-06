@@ -254,12 +254,6 @@ function AppContent({
 					</Box>
 				)}
 
-			{isClaudeRunning && currentPermissionRequest && (
-				<Box>
-					<Spinner label="Agent paused — permission needed" />
-				</Box>
-			)}
-
 			{/* Permission dialog - shown when a dangerous tool needs approval */}
 			{currentPermissionRequest && (
 				<PermissionDialog
