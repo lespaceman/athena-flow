@@ -127,12 +127,21 @@ describe('TaskList', () => {
 		expect(frame).toContain('Only task');
 	});
 
-	it('calls onToggle when provided', () => {
+	it('calls onToggle on Ctrl+t', () => {
+		const onToggle = vi.fn();
+		const {stdin} = render(<TaskList tasks={baseTasks} onToggle={onToggle} />);
+
+		// Ctrl+t = ASCII 0x14
+		stdin.write('\x14');
+		expect(onToggle).toHaveBeenCalled();
+	});
+
+	it('does not toggle on plain "t" keypress', () => {
 		const onToggle = vi.fn();
 		const {stdin} = render(<TaskList tasks={baseTasks} onToggle={onToggle} />);
 
 		stdin.write('t');
-		expect(onToggle).toHaveBeenCalled();
+		expect(onToggle).not.toHaveBeenCalled();
 	});
 
 	it('shows activeForm text for in-progress tasks in expanded view', () => {

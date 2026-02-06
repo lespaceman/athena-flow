@@ -61,8 +61,8 @@ export default function TaskList({tasks, collapsed = false, onToggle}: Props) {
 	const spinnerFrame = useSpinner(hasInProgress);
 
 	useInput(
-		input => {
-			if (input === 't' && onToggle) {
+		(input, key) => {
+			if (input === 't' && key.ctrl && onToggle) {
 				onToggle();
 			}
 		},
