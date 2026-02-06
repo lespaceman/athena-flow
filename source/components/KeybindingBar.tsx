@@ -27,8 +27,13 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 					Deny <Text dimColor>(default)</Text>
 				</Text>
 				<Text>
-					<Text dimColor>i</Text> Details
+					<Text dimColor>Esc</Text> Cancel
 				</Text>
+			</Box>
+
+			{/* Separator */}
+			<Box>
+				<Text dimColor>Persistent:</Text>
 			</Box>
 
 			{/* Line 2: Always allow */}

@@ -66,6 +66,11 @@ export default function PermissionDialog({
 				return;
 			}
 
+			if (key.escape) {
+				onDecision('deny');
+				return;
+			}
+
 			// Toggle details with 'i' or '?'
 			if (input === 'i' || input === '?') {
 				setShowDetails(prev => !prev);
