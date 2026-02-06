@@ -92,6 +92,58 @@ describe('permissionPolicy', () => {
 		});
 	});
 
+	describe('MCP READ-tier tools', () => {
+		it('classifies READ-tier MCP actions as safe', () => {
+			expect(getToolCategory('mcp__agent-web-interface__take_screenshot')).toBe(
+				'safe',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__find_elements')).toBe(
+				'safe',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__scroll_page')).toBe(
+				'safe',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__list_pages')).toBe(
+				'safe',
+			);
+		});
+
+		it('still classifies MODERATE-tier MCP actions as dangerous', () => {
+			expect(getToolCategory('mcp__agent-web-interface__click')).toBe(
+				'dangerous',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__type')).toBe(
+				'dangerous',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__navigate')).toBe(
+				'dangerous',
+			);
+		});
+
+		it('does not require permission for READ-tier MCP actions', () => {
+			expect(
+				isPermissionRequired('mcp__agent-web-interface__take_screenshot', []),
+			).toBe(false);
+			expect(
+				isPermissionRequired('mcp__agent-web-interface__scroll_page', []),
+			).toBe(false);
+		});
+
+		it('still requires permission for MODERATE-tier MCP actions', () => {
+			expect(isPermissionRequired('mcp__agent-web-interface__click', [])).toBe(
+				true,
+			);
+		});
+
+		it('classifies READ-tier plugin MCP actions as safe', () => {
+			expect(
+				getToolCategory(
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__take_screenshot',
+				),
+			).toBe('safe');
+		});
+	});
+
 	describe('constants', () => {
 		it('DANGEROUS_TOOL_PATTERNS includes expected tools', () => {
 			expect(DANGEROUS_TOOL_PATTERNS).toContain('Bash');

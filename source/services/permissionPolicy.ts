@@ -1,4 +1,5 @@
 import {type HookRule, matchRule} from '../types/rules.js';
+import {getRiskTier} from './riskTier.js';
 
 export type ToolCategory = 'safe' | 'dangerous';
 
@@ -30,13 +31,20 @@ export const SAFE_TOOLS: readonly string[] = [
 
 /**
  * Classify a tool as safe or dangerous.
- * MCP tools (prefixed with mcp__) are always dangerous.
+ * MCP tools (prefixed with mcp__) consult risk tier: READ-tier auto-allows.
  * Unknown tools default to dangerous.
  */
 export function getToolCategory(toolName: string): ToolCategory {
 	if (SAFE_TOOLS.includes(toolName)) return 'safe';
 	if (DANGEROUS_TOOL_PATTERNS.includes(toolName)) return 'dangerous';
-	if (toolName.startsWith('mcp__')) return 'dangerous';
+
+	// MCP tools: auto-allow READ-tier actions
+	if (toolName.startsWith('mcp__')) {
+		const tier = getRiskTier(toolName);
+		if (tier === 'READ') return 'safe';
+		return 'dangerous';
+	}
+
 	// Unknown tools are dangerous by default
 	return 'dangerous';
 }
