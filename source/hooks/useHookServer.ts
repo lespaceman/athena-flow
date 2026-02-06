@@ -379,7 +379,11 @@ export function useHookServer(
 			if (
 				envelope.hook_event_name !== 'PreToolUse' ||
 				!isToolEvent(envelope.payload) ||
-				!isPermissionRequired(envelope.payload.tool_name, rulesRef.current)
+				!isPermissionRequired(
+					envelope.payload.tool_name,
+					rulesRef.current,
+					envelope.payload.tool_input,
+				)
 			) {
 				return false;
 			}
