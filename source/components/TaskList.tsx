@@ -69,6 +69,8 @@ export default function TaskList({tasks, collapsed = false, onToggle}: Props) {
 		{isActive: !!onToggle},
 	);
 
+	if (tasks.length === 0) return null;
+
 	const completedCount = tasks.filter(t => t.status === 'completed').length;
 	const totalCount = tasks.length;
 	const toggleIndicator = collapsed ? '\u25b6' : '\u25bc';
@@ -124,17 +126,13 @@ export default function TaskList({tasks, collapsed = false, onToggle}: Props) {
 				</Text>
 			</Box>
 			<Box flexDirection="column" paddingLeft={2}>
-				{tasks.length === 0 ? (
-					<Text dimColor>(no tasks)</Text>
-				) : (
-					tasks.map((task, i) => (
-						<TaskItem
-							key={`${i}-${task.content}`}
-							task={task}
-							spinnerFrame={spinnerFrame}
-						/>
-					))
-				)}
+				{tasks.map((task, i) => (
+					<TaskItem
+						key={`${i}-${task.content}`}
+						task={task}
+						spinnerFrame={spinnerFrame}
+					/>
+				))}
 			</Box>
 		</Box>
 	);

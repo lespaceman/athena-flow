@@ -109,13 +109,9 @@ describe('TaskList', () => {
 		expect(frame).toContain('Process records');
 	});
 
-	it('renders empty state with "(no tasks)" text', () => {
+	it('renders nothing when task list is empty', () => {
 		const {lastFrame} = render(<TaskList tasks={[]} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Tasks');
-		expect(frame).toContain('0/0');
-		expect(frame).toContain('(no tasks)');
+		expect(lastFrame()).toBe('');
 	});
 
 	it('handles single task', () => {
