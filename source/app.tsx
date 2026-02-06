@@ -162,6 +162,11 @@ function AppContent({
 		[currentQuestionRequest, resolveQuestion],
 	);
 
+	const handleQuestionSkip = useCallback(() => {
+		if (!currentQuestionRequest) return;
+		resolveQuestion(currentQuestionRequest.requestId, {});
+	}, [currentQuestionRequest, resolveQuestion]);
+
 	const {
 		stableItems,
 		dynamicItems,
@@ -241,11 +246,13 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{isClaudeRunning && !currentPermissionRequest && (
-				<Box>
-					<Spinner label="Agent is thinking..." />
-				</Box>
-			)}
+			{isClaudeRunning &&
+				!currentPermissionRequest &&
+				!currentQuestionRequest && (
+					<Box>
+						<Spinner label="Agent is thinking..." />
+					</Box>
+				)}
 
 			{isClaudeRunning && currentPermissionRequest && (
 				<Box>
@@ -272,6 +279,7 @@ function AppContent({
 					request={currentQuestionRequest}
 					queuedCount={questionQueueCount - 1}
 					onAnswer={handleQuestionAnswer}
+					onSkip={handleQuestionSkip}
 				/>
 			)}
 
@@ -283,7 +291,7 @@ function AppContent({
 				}
 				disabledMessage={
 					currentQuestionRequest && !currentPermissionRequest
-						? 'Answering question...'
+						? 'Waiting for your input...'
 						: undefined
 				}
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}

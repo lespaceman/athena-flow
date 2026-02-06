@@ -1,8 +1,13 @@
 import React, {useState, useCallback} from 'react';
-import {Box, Text} from 'ink';
-import {Select, MultiSelect, TextInput} from '@inkjs/ui';
+import {Box, Text, useInput} from 'ink';
+import {TextInput} from '@inkjs/ui';
 import {type HookEventDisplay} from '../types/hooks/display.js';
 import {isToolEvent} from '../types/hooks/events.js';
+import OptionList, {type OptionItem} from './OptionList.js';
+import MultiOptionList from './MultiOptionList.js';
+import QuestionKeybindingBar from './QuestionKeybindingBar.js';
+
+const MAX_WIDTH = 76;
 
 type QuestionOption = {
 	label: string;
@@ -20,17 +25,23 @@ type Props = {
 	request: HookEventDisplay;
 	queuedCount: number;
 	onAnswer: (answers: Record<string, string>) => void;
+	onSkip: () => void;
 };
 
 const OTHER_VALUE = '__other__';
 
-function buildSelectOptions(options: QuestionOption[]) {
+function buildOptions(options: QuestionOption[]): OptionItem[] {
 	return [
 		...options.map(o => ({
-			label: o.description ? `${o.label} - ${o.description}` : o.label,
+			label: o.label,
+			description: o.description,
 			value: o.label,
 		})),
-		{label: 'Other', value: OTHER_VALUE},
+		{
+			label: 'Other',
+			description: 'Enter a custom response',
+			value: OTHER_VALUE,
+		},
 	];
 }
 
@@ -77,12 +88,14 @@ function QuestionTabs({
 function SingleQuestion({
 	question,
 	onAnswer,
+	onSkip,
 }: {
 	question: Question;
 	onAnswer: (answer: string) => void;
+	onSkip: () => void;
 }) {
 	const [isOther, setIsOther] = useState(false);
-	const options = buildSelectOptions(question.options);
+	const options = buildOptions(question.options);
 
 	const handleSelect = useCallback(
 		(value: string) => {
@@ -104,31 +117,57 @@ function SingleQuestion({
 		[onAnswer],
 	);
 
+	useInput((_input, key) => {
+		if (key.escape) {
+			onSkip();
+		}
+	});
+
 	if (isOther) {
 		return (
-			<Box>
-				<Text color="yellow">{'> '}</Text>
-				<TextInput
-					placeholder="Type your answer..."
-					onSubmit={handleOtherSubmit}
-				/>
+			<Box flexDirection="column">
+				<Box>
+					<Text color="yellow">{'> '}</Text>
+					<TextInput
+						placeholder="Type your answer..."
+						onSubmit={handleOtherSubmit}
+					/>
+				</Box>
+				<Box marginTop={1}>
+					<QuestionKeybindingBar
+						multiSelect={false}
+						optionCount={options.length}
+					/>
+				</Box>
 			</Box>
 		);
 	}
 
-	return <Select options={options} onChange={handleSelect} />;
+	return (
+		<Box flexDirection="column">
+			<OptionList options={options} onSelect={handleSelect} />
+			<Box marginTop={1}>
+				<QuestionKeybindingBar
+					multiSelect={false}
+					optionCount={options.length}
+				/>
+			</Box>
+		</Box>
+	);
 }
 
 function MultiQuestion({
 	question,
 	onAnswer,
+	onSkip,
 }: {
 	question: Question;
 	onAnswer: (answer: string) => void;
+	onSkip: () => void;
 }) {
 	const [isOther, setIsOther] = useState(false);
 	const [selected, setSelected] = useState<string[]>([]);
-	const options = buildSelectOptions(question.options);
+	const options = buildOptions(question.options);
 
 	const handleSubmit = useCallback(
 		(values: string[]) => {
@@ -152,25 +191,50 @@ function MultiQuestion({
 		[onAnswer, selected],
 	);
 
+	useInput((_input, key) => {
+		if (key.escape) {
+			onSkip();
+		}
+	});
+
 	if (isOther) {
 		return (
-			<Box>
-				<Text color="yellow">{'> '}</Text>
-				<TextInput
-					placeholder="Type your answer..."
-					onSubmit={handleOtherSubmit}
-				/>
+			<Box flexDirection="column">
+				<Box>
+					<Text color="yellow">{'> '}</Text>
+					<TextInput
+						placeholder="Type your answer..."
+						onSubmit={handleOtherSubmit}
+					/>
+				</Box>
+				<Box marginTop={1}>
+					<QuestionKeybindingBar
+						multiSelect={true}
+						optionCount={options.length}
+					/>
+				</Box>
 			</Box>
 		);
 	}
 
-	return <MultiSelect options={options} onSubmit={handleSubmit} />;
+	return (
+		<Box flexDirection="column">
+			<MultiOptionList options={options} onSubmit={handleSubmit} />
+			<Box marginTop={1}>
+				<QuestionKeybindingBar
+					multiSelect={true}
+					optionCount={options.length}
+				/>
+			</Box>
+		</Box>
+	);
 }
 
 export default function QuestionDialog({
 	request,
 	queuedCount,
 	onAnswer,
+	onSkip,
 }: Props) {
 	const questions = extractQuestions(request);
 	const [currentIndex, setCurrentIndex] = useState(0);
@@ -200,6 +264,7 @@ export default function QuestionDialog({
 				borderStyle="round"
 				borderColor="cyan"
 				paddingX={1}
+				width={MAX_WIDTH}
 			>
 				<Text color="yellow">No questions found in AskUserQuestion input.</Text>
 			</Box>
@@ -214,6 +279,7 @@ export default function QuestionDialog({
 			borderStyle="round"
 			borderColor="cyan"
 			paddingX={1}
+			width={MAX_WIDTH}
 		>
 			<QuestionTabs
 				questions={questions}
@@ -233,12 +299,14 @@ export default function QuestionDialog({
 						key={currentIndex}
 						question={question}
 						onAnswer={handleQuestionAnswer}
+						onSkip={onSkip}
 					/>
 				) : (
 					<SingleQuestion
 						key={currentIndex}
 						question={question}
 						onAnswer={handleQuestionAnswer}
+						onSkip={onSkip}
 					/>
 				)}
 			</Box>
