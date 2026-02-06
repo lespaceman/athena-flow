@@ -7,7 +7,9 @@ import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import HookEvent from './components/HookEvent.js';
-import TodoWriteEvent from './components/TodoWriteEvent.js';
+import TaskList from './components/TaskList.js';
+import {isPreToolUseEvent} from './types/hooks/index.js';
+import {type TodoWriteInput} from './types/todo.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import Header from './components/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -45,6 +47,10 @@ function AppContent({
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
 	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
+	const [taskListCollapsed, setTaskListCollapsed] = useState(false);
+	const toggleTaskList = useCallback(() => {
+		setTaskListCollapsed(c => !c);
+	}, []);
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 	const hookServer = useHookContext();
@@ -240,7 +246,20 @@ function AppContent({
 			))}
 
 			{/* Active todo list - always dynamic, shows latest state */}
-			{activeTodoList && <TodoWriteEvent event={activeTodoList} />}
+			{activeTodoList &&
+				(() => {
+					const payload = activeTodoList.payload;
+					if (!isPreToolUseEvent(payload)) return null;
+					const input = payload.tool_input as TodoWriteInput;
+					const todos = Array.isArray(input.todos) ? input.todos : [];
+					return (
+						<TaskList
+							tasks={todos}
+							collapsed={taskListCollapsed}
+							onToggle={toggleTaskList}
+						/>
+					);
+				})()}
 
 			{verbose && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
