@@ -157,7 +157,6 @@ describe('useInputHistory', () => {
 		});
 		expect(value).toBe('same');
 
-		// Should have no more entries
 		act(() => {
 			value = result.current.back('same');
 		});
@@ -172,12 +171,10 @@ describe('useInputHistory', () => {
 			result.current.push('second');
 		});
 
-		// Navigate back
 		act(() => {
 			result.current.back('');
 		});
 
-		// Push a new entry — should reset cursor
 		act(() => {
 			result.current.push('third');
 		});
