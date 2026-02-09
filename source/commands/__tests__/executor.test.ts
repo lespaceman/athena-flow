@@ -10,6 +10,14 @@ import {
 function makeContext(
 	overrides?: Partial<ExecuteCommandContext>,
 ): ExecuteCommandContext {
+	const nullTokens = {
+		input: null,
+		output: null,
+		cacheRead: null,
+		cacheWrite: null,
+		total: null,
+		contextPercent: null,
+	};
 	return {
 		ui: {
 			args: {},
@@ -18,6 +26,20 @@ function makeContext(
 			addMessage: vi.fn(),
 			exit: vi.fn(),
 			clearScreen: vi.fn(),
+			sessionStats: {
+				metrics: {
+					modelName: null,
+					toolCallCount: 0,
+					totalToolCallCount: 0,
+					subagentCount: 0,
+					subagentMetrics: [],
+					permissions: {allowed: 0, denied: 0},
+					sessionStartTime: null,
+					tokens: nullTokens,
+				},
+				tokens: nullTokens,
+				elapsed: 0,
+			},
 		},
 		hook: {
 			args: {},

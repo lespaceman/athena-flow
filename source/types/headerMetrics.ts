@@ -26,11 +26,18 @@ export type PermissionMetrics = {
 export type SessionMetrics = {
 	modelName: string | null;
 	toolCallCount: number;
+	totalToolCallCount: number; // main + all subagents
 	subagentCount: number;
 	subagentMetrics: SubagentMetrics[];
 	permissions: PermissionMetrics;
 	sessionStartTime: Date | null;
 	tokens: TokenUsage;
+};
+
+export type SessionStatsSnapshot = {
+	metrics: SessionMetrics;
+	tokens: TokenUsage;
+	elapsed: number;
 };
 
 export type ClaudeState = 'idle' | 'working' | 'waiting' | 'error';

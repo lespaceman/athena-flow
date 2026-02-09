@@ -49,6 +49,7 @@ function AppContent({
 	inputHistory,
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
+	const [inputKey, setInputKey] = useState(0);
 	const [taskListCollapsed, setTaskListCollapsed] = useState(false);
 	const toggleTaskList = useCallback(() => {
 		setTaskListCollapsed(c => !c);
@@ -83,6 +84,9 @@ function AppContent({
 	);
 	const {exit} = useApp();
 
+	const metrics = useHeaderMetrics(events);
+	const elapsed = useDuration(metrics.sessionStartTime);
+
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
 			const newMessage: MessageType = {
@@ -108,6 +112,7 @@ function AppContent({
 		(value: string) => {
 			if (!value.trim()) return;
 
+			setInputKey(k => k + 1);
 			inputHistory.push(value);
 
 			const result = parseInput(value);
@@ -132,6 +137,11 @@ function AppContent({
 					addMessage: addMessageObj,
 					exit,
 					clearScreen,
+					sessionStats: {
+						metrics: {...metrics, tokens: tokenUsage},
+						tokens: tokenUsage,
+						elapsed,
+					},
 				},
 				hook: {
 					args: result.args,
@@ -151,6 +161,9 @@ function AppContent({
 			exit,
 			clearScreen,
 			inputHistory,
+			metrics,
+			tokenUsage,
+			elapsed,
 		],
 	);
 
@@ -193,8 +206,6 @@ function AppContent({
 	}
 	const spinnerFrame = useSpinner(claudeState === 'working');
 
-	const metrics = useHeaderMetrics(events);
-	const elapsed = useDuration(metrics.sessionStartTime);
 	const [statsExpanded, setStatsExpanded] = useState(false);
 	const {stdout} = useStdout();
 	const terminalWidth = stdout?.columns ?? 80;
@@ -328,6 +339,7 @@ function AppContent({
 			)}
 
 			<CommandInput
+				inputKey={inputKey}
 				onSubmit={handleSubmit}
 				disabled={
 					currentPermissionRequest !== null || currentQuestionRequest !== null
@@ -350,7 +362,7 @@ function AppContent({
 				verbose={verbose ?? false}
 				spinnerFrame={spinnerFrame}
 				modelName={metrics.modelName}
-				toolCallCount={metrics.toolCallCount}
+				toolCallCount={metrics.totalToolCallCount}
 				tokenTotal={tokenUsage.total}
 				projectDir={projectDir}
 			/>

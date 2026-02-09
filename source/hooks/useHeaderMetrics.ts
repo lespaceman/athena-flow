@@ -88,9 +88,15 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 			}),
 		);
 
+		const subagentToolTotal = subagentMetrics.reduce(
+			(sum, s) => sum + s.toolCallCount,
+			0,
+		);
+
 		return {
 			modelName,
 			toolCallCount,
+			totalToolCallCount: toolCallCount + subagentToolTotal,
 			subagentCount: subagentMap.size,
 			subagentMetrics,
 			permissions: {

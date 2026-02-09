@@ -3,6 +3,7 @@
  */
 
 import os from 'node:os';
+import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
 
 /**
  * Shorten a filesystem path by replacing the home directory with ~.
@@ -111,4 +112,45 @@ export function getContextBarColor(percent: number | null): string {
 	if (percent < 80) return 'yellow';
 	if (percent < 95) return '#FF8C00';
 	return 'red';
+}
+
+/**
+ * Format a SessionStatsSnapshot as multi-line plain text.
+ */
+export function formatStatsSnapshot(snapshot: SessionStatsSnapshot): string {
+	const {metrics, tokens, elapsed} = snapshot;
+	const lines: string[] = [];
+
+	lines.push('Session Statistics');
+	lines.push('──────────────────');
+
+	lines.push(`  Model:        ${formatModelName(metrics.modelName)}`);
+	lines.push(`  Duration:     ${formatDuration(elapsed)}`);
+	lines.push(
+		`  Tool calls:   ${metrics.totalToolCallCount} total (${metrics.toolCallCount} main, ${metrics.totalToolCallCount - metrics.toolCallCount} subagent)`,
+	);
+	lines.push(`  Sub-agents:   ${metrics.subagentCount}`);
+	lines.push(
+		`  Permissions:  ${metrics.permissions.allowed} allowed, ${metrics.permissions.denied} denied`,
+	);
+
+	lines.push('');
+	lines.push('Tokens');
+	lines.push('──────');
+	lines.push(`  Input:        ${formatTokens(tokens.input)}`);
+	lines.push(`  Output:       ${formatTokens(tokens.output)}`);
+	lines.push(`  Cache read:   ${formatTokens(tokens.cacheRead)}`);
+	lines.push(`  Cache write:  ${formatTokens(tokens.cacheWrite)}`);
+	lines.push(`  Total:        ${formatTokens(tokens.total)}`);
+
+	if (metrics.subagentMetrics.length > 0) {
+		lines.push('');
+		lines.push('Sub-agents');
+		lines.push('──────────');
+		for (const sub of metrics.subagentMetrics) {
+			lines.push(`  ${sub.agentType} — ${sub.toolCallCount} tools`);
+		}
+	}
+
+	return lines.join('\n');
 }
