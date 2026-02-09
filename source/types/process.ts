@@ -5,6 +5,7 @@
  */
 
 import {type IsolationConfig, type IsolationPreset} from './isolation.js';
+import type {TokenUsage} from './headerMetrics.js';
 
 /**
  * Options for spawning a Claude Code headless process.
@@ -56,4 +57,6 @@ export type UseClaudeProcessResult = {
 	sendInterrupt: () => void;
 	/** Accumulated assistant text from jq-filtered stdout (debug mode) */
 	streamingText: string;
+	/** Live token usage parsed from stream-json stdout */
+	tokenUsage: TokenUsage;
 };
