@@ -1,4 +1,5 @@
 import {type UICommand} from '../types.js';
+import {generateId} from '../../types/hooks/index.js';
 import * as registry from '../registry.js';
 
 export const helpCommand: UICommand = {
@@ -16,9 +17,10 @@ export const helpCommand: UICommand = {
 		});
 
 		ctx.addMessage({
-			id: `help-${Date.now()}`,
+			id: generateId(),
 			role: 'assistant',
 			content: `Available commands:\n${lines.join('\n')}`,
+			timestamp: new Date(),
 		});
 	},
 };

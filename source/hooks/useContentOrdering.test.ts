@@ -5,8 +5,12 @@ import {isStableContent, useContentOrdering} from './useContentOrdering.js';
 
 // ── Factories ────────────────────────────────────────────────────────
 
-function makeMessage(id: string, role: 'user' | 'assistant' = 'user'): Message {
-	return {id, role, content: `msg-${id}`};
+function makeMessage(
+	id: string,
+	role: 'user' | 'assistant' = 'user',
+	timestamp?: Date,
+): Message {
+	return {id, role, content: `msg-${id}`, timestamp: timestamp ?? new Date(0)};
 }
 
 function makeEvent(
@@ -228,7 +232,7 @@ describe('isStableContent', () => {
 
 describe('useContentOrdering', () => {
 	it('interleaves messages and events by timestamp', () => {
-		const messages = [makeMessage('1000-msg')];
+		const messages = [makeMessage('1000-msg', 'user', new Date(1000))];
 		const events = [
 			makeEvent({
 				id: 'e1',
@@ -250,6 +254,36 @@ describe('useContentOrdering', () => {
 		expect(stableItems[0]).toEqual({type: 'hook', data: events[0]});
 		expect(stableItems[1]).toEqual({type: 'message', data: messages[0]});
 		expect(stableItems[2]).toEqual({type: 'hook', data: events[1]});
+	});
+
+	it('sorts messages by timestamp field, not by ID string parsing', () => {
+		// Regression: stats command used id "stats-{ts}" — getItemTime parsed
+		// "stats" as NaN, breaking sort. Messages must sort by their timestamp.
+		const statsMsg = makeMessage('stats-abc', 'assistant', new Date(2000));
+		const sessionEndMsg: Message = {
+			id: 'session-end-se1',
+			role: 'assistant',
+			content: 'Claude last response',
+			timestamp: new Date(1000),
+		};
+
+		const {stableItems} = useContentOrdering({
+			messages: [statsMsg, sessionEndMsg],
+			events: [],
+		});
+
+		const assistantItems = stableItems.filter(
+			i => i.type === 'message' && i.data.role === 'assistant',
+		);
+		expect(assistantItems).toHaveLength(2);
+
+		// sessionEnd (t=1000) should sort before stats (t=2000)
+		expect(
+			assistantItems[0]!.type === 'message' && assistantItems[0]!.data.content,
+		).toBe('Claude last response');
+		expect(
+			assistantItems[1]!.type === 'message' && assistantItems[1]!.data.content,
+		).toContain('msg-stats-abc');
 	});
 
 	it('converts SessionEnd with transcript to synthetic assistant message', () => {

@@ -14,13 +14,4 @@ export const STATE_LABELS: Record<ClaudeState, string> = {
 	error: 'error',
 };
 
-export const LOGO_LINES = [
-	'░████            ░████',
-	'░██     ░██ ░██    ░██',
-	'░██    ░██   ░██   ░██',
-	'░██   ░██     ░██  ░██',
-	'░██    ░██   ░██   ░██',
-	'░██     ░██ ░██    ░██',
-	'░██                ░██',
-	'░████            ░████',
-];
+export const LOGO_LINES = [' ▄██████▄ ', ' █ ◂  ▸ █ ', ' ▀██████▀ '];

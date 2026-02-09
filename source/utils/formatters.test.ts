@@ -140,6 +140,12 @@ describe('formatModelName', () => {
 		expect(formatModelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
 	});
 
+	it('formats model aliases', () => {
+		expect(formatModelName('opus')).toBe('Opus');
+		expect(formatModelName('sonnet')).toBe('Sonnet');
+		expect(formatModelName('haiku')).toBe('Haiku');
+	});
+
 	it('returns unknown model strings as-is', () => {
 		expect(formatModelName('gpt-4o')).toBe('gpt-4o');
 	});
@@ -268,20 +274,6 @@ describe('formatStatsSnapshot', () => {
 		expect(output).toContain('--');
 		expect(output).toContain('0s');
 		expect(output).toContain('0 total (0 main, 0 subagent)');
-		// Sub-agents breakdown section should not appear
-		expect(output).not.toContain('Sub-agents\n──────────');
-	});
-
-	it('omits sub-agents section when none exist', () => {
-		const output = formatStatsSnapshot(
-			makeSnapshot({
-				metrics: {
-					...makeSnapshot().metrics,
-					subagentCount: 0,
-					subagentMetrics: [],
-				},
-			}),
-		);
 		expect(output).not.toContain('Sub-agents\n──────────');
 	});
 });

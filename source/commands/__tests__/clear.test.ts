@@ -16,7 +16,9 @@ function makeUIContext(
 ): UICommandContext {
 	return {
 		args: {},
-		messages: [{id: '1', role: 'user', content: 'hello'}],
+		messages: [
+			{id: '1', role: 'user', content: 'hello', timestamp: new Date()},
+		],
 		setMessages: vi.fn(),
 		addMessage: vi.fn(),
 		exit: vi.fn(),
