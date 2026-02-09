@@ -308,6 +308,29 @@ describe('useInput keyboard handler', () => {
 		expect(frame).toContain('[]');
 	});
 
+	it('backspace deletes character before cursor, not at cursor', async () => {
+		const onChange = vi.fn();
+		const {lastFrame, stdin} = render(
+			React.createElement(TextInputTestHarness, {onChange}),
+		);
+
+		// Type "abc" → cursor at 3
+		stdin.write('abc');
+		await delay(50);
+		expect(lastFrame()).toContain('[abc]');
+
+		// Move cursor left once → cursor at 2 (visually on 'c')
+		stdin.write('\x1b[D'); // left arrow
+		await delay(50);
+
+		// Press backspace → should delete 'b' (before cursor), NOT 'c' (at cursor)
+		stdin.write('\x7f'); // backspace
+		await delay(50);
+
+		// Result should be "ac" (b deleted), not "ab" (c deleted)
+		expect(lastFrame()).toContain('[ac]');
+	});
+
 	it('ignored keys do not modify value', async () => {
 		const {lastFrame, stdin} = render(
 			React.createElement(TextInputTestHarness),
