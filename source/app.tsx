@@ -1,7 +1,6 @@
 import process from 'node:process';
 import React, {useState, useCallback, useRef} from 'react';
 import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
-import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
@@ -20,7 +19,6 @@ import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
 import {useDuration} from './hooks/useDuration.js';
 import {useSpinner} from './hooks/useSpinner.js';
 import type {ClaudeState} from './types/headerMetrics.js';
-import {shortenPath} from './utils/formatters.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
@@ -249,7 +247,6 @@ function AppContent({
 										<Text bold>Athena</Text>
 										<Text dimColor> v{version}</Text>
 									</Text>
-									<Text dimColor>{shortenPath(projectDir)}</Text>
 								</Box>
 							</Box>
 						);
@@ -320,14 +317,6 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{isClaudeRunning &&
-				!currentPermissionRequest &&
-				!currentQuestionRequest && (
-					<Box>
-						<Spinner label="Agent is thinking..." />
-					</Box>
-				)}
-
 			{/* Permission dialog - shown when a dangerous tool needs approval */}
 			{currentPermissionRequest && (
 				<PermissionDialog
@@ -377,6 +366,7 @@ function AppContent({
 				modelName={metrics.modelName}
 				toolCallCount={metrics.toolCallCount}
 				tokenTotal={tokenUsage.total}
+				projectDir={projectDir}
 			/>
 		</Box>
 	);
