@@ -43,6 +43,10 @@ export default function CommandInput({
 }: Props) {
 	const [filterValue, setFilterValue] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	// When a value is recalled from history (Up/Down), suppress command
+	// mode so suggestions don't appear and trap arrow-key navigation.
+	// Cleared on any non-arrow keypress (typing, Escape, Tab, etc.).
+	const suppressSuggestionsRef = useRef(false);
 
 	const latest = useRef<LatestValues>({} as LatestValues);
 
@@ -62,9 +66,13 @@ export default function CommandInput({
 		isActive: !disabled,
 	});
 
-	// Determine if we're in command mode (input starts with / and no space yet)
+	// Determine if we're in command mode (input starts with / and no space yet).
+	// Suppressed when the value was recalled from history so suggestions
+	// don't trap arrow-key navigation.
 	const isCommandMode =
-		filterValue.startsWith('/') && !filterValue.includes(' ');
+		!suppressSuggestionsRef.current &&
+		filterValue.startsWith('/') &&
+		!filterValue.includes(' ');
 	const prefix = isCommandMode ? filterValue.slice(1) : '';
 
 	// Filter commands matching the typed prefix
@@ -133,6 +141,12 @@ export default function CommandInput({
 			const cur = latest.current;
 			if (cur.disabled) return;
 
+			// Any key other than Up/Down clears history-recall suppression
+			// so the user can re-enter command mode by typing.
+			if (!key.upArrow && !key.downArrow) {
+				suppressSuggestionsRef.current = false;
+			}
+
 			if (key.escape) {
 				if (cur.showSuggestions) {
 					cur.setValue('');
@@ -150,7 +164,10 @@ export default function CommandInput({
 					});
 				} else {
 					const result = cur.onArrowUp?.(cur.value);
-					if (result !== undefined) cur.setValue(result);
+					if (result !== undefined) {
+						suppressSuggestionsRef.current = true;
+						cur.setValue(result);
+					}
 				}
 				return;
 			}
@@ -163,7 +180,10 @@ export default function CommandInput({
 					});
 				} else {
 					const result = cur.onArrowDown?.();
-					if (result !== undefined) cur.setValue(result);
+					if (result !== undefined) {
+						suppressSuggestionsRef.current = true;
+						cur.setValue(result);
+					}
 				}
 				return;
 			}

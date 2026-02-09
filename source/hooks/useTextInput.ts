@@ -174,13 +174,11 @@ export function useTextInput(
 				return;
 			}
 
-			if (key.backspace) {
+			// Ink maps \x7f (Backspace on most terminals) to key.delete, not
+			// key.backspace.  Treat both as backspace so the physical Backspace
+			// key works everywhere.  Forward-delete is covered by Ctrl+D above.
+			if (key.backspace || key.delete) {
 				dispatch({type: 'backspace'});
-				return;
-			}
-
-			if (key.delete) {
-				dispatch({type: 'delete-forward'});
 				return;
 			}
 

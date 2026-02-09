@@ -290,4 +290,56 @@ describe('CommandInput', () => {
 		await typeAndWait(stdin, KEY.ESCAPE);
 		expect(frame(lastFrame)).not.toContain('/help');
 	});
+
+	it('does not show suggestions when slash command is recalled from history', async () => {
+		// Simulate: onArrowUp returns a slash command from history
+		const onArrowUp = vi.fn().mockReturnValue('/help');
+		const {lastFrame, stdin} = render(
+			<CommandInput onSubmit={noop} onArrowUp={onArrowUp} />,
+		);
+
+		// Press Up to recall "/help" from history
+		await typeAndWait(stdin, KEY.UP);
+
+		// The value should be "/help" but suggestions should NOT appear
+		const output = frame(lastFrame);
+		expect(output).toContain('/help');
+		expect(output).not.toContain('Show help'); // suggestion description
+	});
+
+	it('continues navigating history after recalling a slash command', async () => {
+		let callCount = 0;
+		const onArrowUp = vi.fn().mockImplementation(() => {
+			callCount++;
+			return callCount === 1 ? '/help' : 'older message';
+		});
+		const {lastFrame, stdin} = render(
+			<CommandInput onSubmit={noop} onArrowUp={onArrowUp} />,
+		);
+
+		// First Up → recalls "/help"
+		await typeAndWait(stdin, KEY.UP);
+		expect(frame(lastFrame)).toContain('/help');
+
+		// Second Up → should go further back in history, not cycle suggestions
+		await typeAndWait(stdin, KEY.UP);
+		expect(onArrowUp).toHaveBeenCalledTimes(2);
+		expect(frame(lastFrame)).toContain('older message');
+	});
+
+	it('shows suggestions again when user types after history recall', async () => {
+		const onArrowUp = vi.fn().mockReturnValue('/help');
+		const {lastFrame, stdin} = render(
+			<CommandInput onSubmit={noop} onArrowUp={onArrowUp} />,
+		);
+
+		// Recall "/help" from history — no suggestions
+		await typeAndWait(stdin, KEY.UP);
+		expect(frame(lastFrame)).not.toContain('Show help');
+
+		// Clear with Ctrl+U, then type "/" manually — suggestions should appear
+		await typeAndWait(stdin, '\x15'); // Ctrl+U = clear line
+		await typeAndWait(stdin, '/');
+		expect(frame(lastFrame)).toContain('Show help');
+	});
 });
