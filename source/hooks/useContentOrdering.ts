@@ -9,9 +9,18 @@
 import {type Message} from '../types/common.js';
 import {
 	type HookEventDisplay,
+	isPreToolUseEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
 } from '../types/hooks/index.js';
+import {
+	type TodoItem,
+	type TodoStatus,
+	type TodoWriteInput,
+	type TaskCreateInput,
+	type TaskUpdateInput,
+	TASK_TOOL_NAMES,
+} from '../types/todo.js';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -38,7 +47,8 @@ function getItemTime(item: ContentItem): number {
  * - Child events (with parentSubagentId): render inside their parent subagent box
  * - SubagentStart/SubagentStop: handled separately for unified rendering
  * - PostToolUse for Task: content already shown in subagent box
- * - PreToolUse for TodoWrite: rendered as sticky bottom widget
+ * - Task tool events (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet):
+ *   aggregated into the sticky bottom task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SessionEnd') return true;
@@ -47,9 +57,62 @@ function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SubagentStop') return true;
 	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
 		return true;
-	if (event.hookName === 'PreToolUse' && event.toolName === 'TodoWrite')
+	if (
+		(event.hookName === 'PreToolUse' || event.hookName === 'PostToolUse') &&
+		TASK_TOOL_NAMES.has(event.toolName ?? '')
+	)
 		return true;
 	return false;
+}
+
+/**
+ * Aggregate TaskCreate/TaskUpdate PreToolUse events into a TodoItem list.
+ *
+ * This implements event-sourcing: tasks are created sequentially (IDs assigned
+ * 1, 2, 3, ...) by TaskCreate, then mutated by TaskUpdate referencing those IDs.
+ * TaskUpdate with status "deleted" removes the task.
+ */
+function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
+	const tasks = new Map<string, TodoItem>();
+	let nextId = 1;
+
+	const taskEvents = events
+		.filter(
+			e =>
+				e.hookName === 'PreToolUse' &&
+				(e.toolName === 'TaskCreate' || e.toolName === 'TaskUpdate') &&
+				!e.parentSubagentId,
+		)
+		.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+	for (const event of taskEvents) {
+		if (!isPreToolUseEvent(event.payload)) continue;
+
+		if (event.payload.tool_name === 'TaskCreate') {
+			const input = event.payload.tool_input as unknown as TaskCreateInput;
+			const id = String(nextId++);
+			tasks.set(id, {
+				content: input.subject,
+				status: 'pending',
+				activeForm: input.activeForm,
+			});
+		} else if (event.payload.tool_name === 'TaskUpdate') {
+			const input = event.payload.tool_input as unknown as TaskUpdateInput;
+			const existing = tasks.get(input.taskId);
+			if (existing) {
+				if (input.status === 'deleted') {
+					tasks.delete(input.taskId);
+				} else {
+					if (input.status) existing.status = input.status as TodoStatus;
+					if (input.subject) existing.content = input.subject;
+					if (input.activeForm !== undefined)
+						existing.activeForm = input.activeForm;
+				}
+			}
+		}
+	}
+
+	return Array.from(tasks.values());
 }
 
 /**
@@ -96,7 +159,8 @@ type UseContentOrderingResult = {
 	dynamicItems: ContentItem[];
 	activeSubagents: HookEventDisplay[];
 	childEventsByAgent: Map<string, HookEventDisplay[]>;
-	activeTodoList: HookEventDisplay | null;
+	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
+	tasks: TodoItem[];
 };
 
 export function useContentOrdering({
@@ -147,7 +211,7 @@ export function useContentOrdering({
 		.filter(e => !shouldExcludeFromMainStream(e))
 		.map(e => ({type: 'hook' as const, data: e}));
 
-	// Extract the latest TodoWrite event for sticky bottom rendering.
+	// Extract the latest TodoWrite event for sticky bottom rendering (legacy).
 	const todoWriteEvents = events.filter(
 		e =>
 			e.hookName === 'PreToolUse' &&
@@ -155,6 +219,19 @@ export function useContentOrdering({
 			!e.parentSubagentId,
 	);
 	const activeTodoList = todoWriteEvents.at(-1) ?? null;
+
+	// Aggregate new-style TaskCreate/TaskUpdate events, or fall back to legacy TodoWrite.
+	const aggregatedTasks = aggregateTaskEvents(events);
+	let tasks: TodoItem[];
+	if (aggregatedTasks.length > 0) {
+		tasks = aggregatedTasks;
+	} else if (activeTodoList && isPreToolUseEvent(activeTodoList.payload)) {
+		const input = activeTodoList.payload
+			.tool_input as unknown as TodoWriteInput;
+		tasks = Array.isArray(input.todos) ? input.todos : [];
+	} else {
+		tasks = [];
+	}
 
 	// Running subagents: rendered in the dynamic section directly (never go through hookItems).
 	const activeSubagents: HookEventDisplay[] = events.filter(
@@ -199,6 +276,6 @@ export function useContentOrdering({
 		dynamicItems,
 		activeSubagents,
 		childEventsByAgent,
-		activeTodoList,
+		tasks,
 	};
 }

@@ -31,9 +31,16 @@ describe('riskTier', () => {
 			'WebSearch',
 			'TodoRead',
 			'AskUserQuestion',
-		])('classifies %s as READ', tool => {
+		])('classifies %s as READ (built-in)', tool => {
 			expect(getRiskTier(tool)).toBe('READ');
 		});
+
+		it.each(['TaskList', 'TaskGet'])(
+			'classifies %s as READ (task tools)',
+			tool => {
+				expect(getRiskTier(tool)).toBe('READ');
+			},
+		);
 
 		// READ tier MCP actions - browser inspection
 		it.each([
@@ -55,12 +62,16 @@ describe('riskTier', () => {
 		});
 
 		// MODERATE tier - network, task spawning, reversible actions
-		it.each(['Task', 'WebFetch', 'Skill', 'TodoWrite'])(
-			'classifies %s as MODERATE',
-			tool => {
-				expect(getRiskTier(tool)).toBe('MODERATE');
-			},
-		);
+		it.each([
+			'Task',
+			'WebFetch',
+			'Skill',
+			'TodoWrite',
+			'TaskCreate',
+			'TaskUpdate',
+		])('classifies %s as MODERATE', tool => {
+			expect(getRiskTier(tool)).toBe('MODERATE');
+		});
 
 		// MODERATE tier MCP actions - browser interaction
 		it.each(['click', 'type', 'press', 'select', 'hover', 'navigate'])(
