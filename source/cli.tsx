@@ -113,9 +113,9 @@ const isolationConfig: IsolationConfig = {
 };
 
 const modelName =
-	isolationConfig.model ??
-	process.env['ANTHROPIC_MODEL'] ??
-	readClaudeSettingsModel(cli.flags.projectDir) ??
+	isolationConfig.model ||
+	process.env['ANTHROPIC_MODEL'] ||
+	readClaudeSettingsModel(cli.flags.projectDir) ||
 	null;
 
 const instanceId = process.pid;
