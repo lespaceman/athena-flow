@@ -26,6 +26,10 @@ export const SAFE_TOOLS: readonly string[] = [
 	'Task',
 	'TodoRead',
 	'TodoWrite',
+	'TaskCreate',
+	'TaskUpdate',
+	'TaskList',
+	'TaskGet',
 	'AskUserQuestion',
 ];
 

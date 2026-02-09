@@ -7,8 +7,6 @@ import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import HookEvent from './components/HookEvent.js';
 import TaskList from './components/TaskList.js';
-import {isPreToolUseEvent} from './types/hooks/index.js';
-import {type TodoWriteInput} from './types/todo.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import StatusLine from './components/Header/StatusLine.js';
 import StatsPanel from './components/Header/StatsPanel.js';
@@ -50,7 +48,6 @@ function AppContent({
 	onClear,
 	inputHistory,
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
-	const [inputKey, setInputKey] = useState(0);
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const [taskListCollapsed, setTaskListCollapsed] = useState(false);
 	const toggleTaskList = useCallback(() => {
@@ -112,7 +109,6 @@ function AppContent({
 			if (!value.trim()) return;
 
 			inputHistory.push(value);
-			setInputKey(k => k + 1); // Reset input by changing key
 
 			const result = parseInput(value);
 
@@ -184,7 +180,7 @@ function AppContent({
 		dynamicItems,
 		activeSubagents,
 		childEventsByAgent,
-		activeTodoList,
+		tasks,
 	} = useContentOrdering({
 		messages,
 		events,
@@ -297,21 +293,12 @@ function AppContent({
 				/>
 			))}
 
-			{/* Active todo list - always dynamic, shows latest state */}
-			{activeTodoList &&
-				(() => {
-					const payload = activeTodoList.payload;
-					if (!isPreToolUseEvent(payload)) return null;
-					const input = payload.tool_input as TodoWriteInput;
-					const todos = Array.isArray(input.todos) ? input.todos : [];
-					return (
-						<TaskList
-							tasks={todos}
-							collapsed={taskListCollapsed}
-							onToggle={toggleTaskList}
-						/>
-					);
-				})()}
+			{/* Active task list - always dynamic, shows latest state */}
+			<TaskList
+				tasks={tasks}
+				collapsed={taskListCollapsed}
+				onToggle={toggleTaskList}
+			/>
 
 			{verbose && streamingText && (
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
@@ -341,7 +328,6 @@ function AppContent({
 			)}
 
 			<CommandInput
-				inputKey={inputKey}
 				onSubmit={handleSubmit}
 				disabled={
 					currentPermissionRequest !== null || currentQuestionRequest !== null
@@ -381,7 +367,7 @@ export default function App({
 	pluginMcpConfig,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
-	const inputHistory = useInputHistory();
+	const inputHistory = useInputHistory(projectDir);
 
 	return (
 		<HookProvider projectDir={projectDir} instanceId={instanceId}>

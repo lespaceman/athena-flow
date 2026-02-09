@@ -54,6 +54,8 @@ const READ_TOOLS: readonly string[] = [
 	'Grep',
 	'WebSearch',
 	'TodoRead',
+	'TaskList',
+	'TaskGet',
 	'AskUserQuestion',
 ];
 
@@ -86,6 +88,8 @@ const MODERATE_TOOLS: readonly string[] = [
 	'WebFetch',
 	'Skill',
 	'TodoWrite',
+	'TaskCreate',
+	'TaskUpdate',
 ];
 
 /**

@@ -65,6 +65,13 @@ describe('permissionPolicy', () => {
 			expect(getToolCategory('Task')).toBe('safe');
 		});
 
+		it('classifies task management tools as safe', () => {
+			expect(getToolCategory('TaskCreate')).toBe('safe');
+			expect(getToolCategory('TaskUpdate')).toBe('safe');
+			expect(getToolCategory('TaskList')).toBe('safe');
+			expect(getToolCategory('TaskGet')).toBe('safe');
+		});
+
 		it('classifies AskUserQuestion as safe', () => {
 			expect(getToolCategory('AskUserQuestion')).toBe('safe');
 		});

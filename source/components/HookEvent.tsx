@@ -10,8 +10,7 @@ import {
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
-import TaskList from './TaskList.js';
-import {type TodoWriteInput} from '../types/todo.js';
+import {TASK_TOOL_NAMES} from '../types/todo.js';
 import ToolCallEvent from './ToolCallEvent.js';
 import ToolResultEvent from './ToolResultEvent.js';
 import SubagentEvent from './SubagentEvent.js';
@@ -39,13 +38,12 @@ export default function HookEvent({
 		return <AskUserQuestionEvent event={event} />;
 	}
 
-	// TodoWrite events are excluded from the main timeline (useContentOrdering
-	// renders the latest one as a sticky widget). This branch is reached when
-	// a TodoWrite appears as a child event inside a subagent box.
-	if (isPreToolUseEvent(payload) && payload.tool_name === 'TodoWrite') {
-		const input = payload.tool_input as TodoWriteInput;
-		const todos = Array.isArray(input.todos) ? input.todos : [];
-		return <TaskList tasks={todos} />;
+	// Task management tools (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet)
+	// are excluded from the main timeline and aggregated into the sticky bottom
+	// widget. When they appear as child events inside a subagent box, skip them
+	// since they're internal state management.
+	if (isPreToolUseEvent(payload) && TASK_TOOL_NAMES.has(payload.tool_name)) {
+		return null;
 	}
 
 	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {

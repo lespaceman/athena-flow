@@ -722,8 +722,325 @@ describe('useContentOrdering', () => {
 		});
 	});
 
-	describe('TodoWrite (activeTodoList)', () => {
-		it('returns the latest TodoWrite event as activeTodoList', () => {
+	describe('TaskCreate/TaskUpdate aggregation (tasks)', () => {
+		it('excludes TaskCreate events from stableItems and dynamicItems', () => {
+			const events = [
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {
+							subject: 'Fix auth bug',
+							description: 'Fix it',
+							activeForm: 'Fixing auth bug',
+						},
+					},
+				}),
+				makeEvent({
+					id: 'notif-1',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allContentIds = [
+				...stableItems.map(i => i.data.id),
+				...dynamicItems.map(i => i.data.id),
+			];
+
+			expect(allContentIds).not.toContain('tc-1');
+			expect(allContentIds).toContain('notif-1');
+		});
+
+		it('excludes TaskUpdate events from stableItems and dynamicItems', () => {
+			const events = [
+				makeEvent({
+					id: 'tu-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskUpdate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskUpdate',
+						tool_input: {taskId: '1', status: 'in_progress'},
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allContentIds = [
+				...stableItems.map(i => i.data.id),
+				...dynamicItems.map(i => i.data.id),
+			];
+
+			expect(allContentIds).not.toContain('tu-1');
+		});
+
+		it('excludes TaskList and TaskGet events from main stream', () => {
+			const events = [
+				makeEvent({
+					id: 'tl-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskList',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+				makeEvent({
+					id: 'tg-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskGet',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+				}),
+			];
+
+			const {stableItems, dynamicItems} = useContentOrdering({
+				messages: [],
+				events,
+			});
+
+			const allContentIds = [
+				...stableItems.map(i => i.data.id),
+				...dynamicItems.map(i => i.data.id),
+			];
+
+			expect(allContentIds).not.toContain('tl-1');
+			expect(allContentIds).not.toContain('tg-1');
+		});
+
+		it('aggregates TaskCreate events into tasks array', () => {
+			const events = [
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {
+							subject: 'Fix auth bug',
+							description: 'Fix the auth bug',
+							activeForm: 'Fixing auth bug',
+						},
+					},
+				}),
+				makeEvent({
+					id: 'tc-2',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {
+							subject: 'Add tests',
+							description: 'Add unit tests',
+						},
+					},
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(2);
+			expect(tasks[0]!.content).toBe('Fix auth bug');
+			expect(tasks[0]!.status).toBe('pending');
+			expect(tasks[0]!.activeForm).toBe('Fixing auth bug');
+			expect(tasks[1]!.content).toBe('Add tests');
+			expect(tasks[1]!.status).toBe('pending');
+		});
+
+		it('applies TaskUpdate status changes to aggregated tasks', () => {
+			const events = [
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {subject: 'Task A', description: 'Do A'},
+					},
+				}),
+				makeEvent({
+					id: 'tc-2',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {subject: 'Task B', description: 'Do B'},
+					},
+				}),
+				makeEvent({
+					id: 'tu-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskUpdate',
+					status: 'passthrough',
+					timestamp: new Date(3000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskUpdate',
+						tool_input: {
+							taskId: '1',
+							status: 'in_progress',
+							activeForm: 'Working on A',
+						},
+					},
+				}),
+				makeEvent({
+					id: 'tu-2',
+					hookName: 'PreToolUse',
+					toolName: 'TaskUpdate',
+					status: 'passthrough',
+					timestamp: new Date(4000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskUpdate',
+						tool_input: {taskId: '1', status: 'completed'},
+					},
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(2);
+			expect(tasks[0]!.content).toBe('Task A');
+			expect(tasks[0]!.status).toBe('completed');
+			expect(tasks[1]!.content).toBe('Task B');
+			expect(tasks[1]!.status).toBe('pending');
+		});
+
+		it('removes tasks with deleted status from TaskUpdate', () => {
+			const events = [
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {
+							subject: 'Task to delete',
+							description: 'Will be removed',
+						},
+					},
+				}),
+				makeEvent({
+					id: 'tu-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskUpdate',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskUpdate',
+						tool_input: {taskId: '1', status: 'deleted'},
+					},
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(0);
+		});
+
+		it('excludes child TaskCreate events (parentSubagentId) from tasks', () => {
+			const events = [
+				makeEvent({
+					id: 'tc-child',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					parentSubagentId: 'agent-1',
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {subject: 'Subagent task', description: 'Sub work'},
+					},
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(0);
+		});
+
+		it('returns empty tasks when no task events exist', () => {
+			const events = [
+				makeEvent({
+					id: 'notif-1',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(0);
+		});
+
+		it('falls back to TodoWrite when no new-style task events exist', () => {
 			const events = [
 				makeEvent({
 					id: 'todo-1',
@@ -737,15 +1054,27 @@ describe('useContentOrdering', () => {
 						cwd: '/project',
 						hook_event_name: 'PreToolUse',
 						tool_name: 'TodoWrite',
-						tool_input: {todos: [{content: 'Task 1', status: 'pending'}]},
+						tool_input: {
+							todos: [{content: 'Legacy task', status: 'completed'}],
+						},
 					},
 				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0]!.content).toBe('Legacy task');
+			expect(tasks[0]!.status).toBe('completed');
+		});
+		it('prefers new-style TaskCreate over legacy TodoWrite when both exist', () => {
+			const events = [
 				makeEvent({
-					id: 'todo-2',
+					id: 'todo-1',
 					hookName: 'PreToolUse',
 					toolName: 'TodoWrite',
 					status: 'passthrough',
-					timestamp: new Date(2000),
+					timestamp: new Date(1000),
 					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
@@ -753,21 +1082,59 @@ describe('useContentOrdering', () => {
 						hook_event_name: 'PreToolUse',
 						tool_name: 'TodoWrite',
 						tool_input: {
-							todos: [
-								{content: 'Task 1', status: 'completed'},
-								{content: 'Task 2', status: 'in_progress'},
-							],
+							todos: [{content: 'Legacy task', status: 'completed'}],
 						},
+					},
+				}),
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {subject: 'New-style task', description: 'Desc'},
 					},
 				}),
 			];
 
-			const {activeTodoList} = useContentOrdering({messages: [], events});
+			const {tasks} = useContentOrdering({messages: [], events});
 
-			expect(activeTodoList).not.toBeNull();
-			expect(activeTodoList!.id).toBe('todo-2');
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0]!.content).toBe('New-style task');
 		});
 
+		it('silently ignores TaskUpdate with nonexistent taskId', () => {
+			const events = [
+				makeEvent({
+					id: 'tu-orphan',
+					hookName: 'PreToolUse',
+					toolName: 'TaskUpdate',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskUpdate',
+						tool_input: {taskId: '999', status: 'completed'},
+					},
+				}),
+			];
+
+			const {tasks} = useContentOrdering({messages: [], events});
+
+			expect(tasks).toHaveLength(0);
+		});
+	});
+
+	describe('TodoWrite stream exclusion', () => {
 		it('excludes TodoWrite events from stableItems and dynamicItems', () => {
 			const events = [
 				makeEvent({
@@ -807,22 +1174,7 @@ describe('useContentOrdering', () => {
 			expect(allContentIds).toContain('notif-1');
 		});
 
-		it('returns null activeTodoList when no TodoWrite events exist', () => {
-			const events = [
-				makeEvent({
-					id: 'notif-1',
-					hookName: 'Notification',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {activeTodoList} = useContentOrdering({messages: [], events});
-
-			expect(activeTodoList).toBeNull();
-		});
-
-		it('excludes child TodoWrite events (with parentSubagentId) from activeTodoList', () => {
+		it('excludes child TodoWrite events from legacy tasks fallback', () => {
 			const events = [
 				makeEvent({
 					id: 'todo-child',
@@ -844,9 +1196,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {activeTodoList} = useContentOrdering({messages: [], events});
+			const {tasks} = useContentOrdering({messages: [], events});
 
-			expect(activeTodoList).toBeNull();
+			expect(tasks).toHaveLength(0);
 		});
 	});
 });
