@@ -1,13 +1,7 @@
-/**
- * Pure formatting utilities for the Header component.
- */
-
 import os from 'node:os';
 import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
 
-/**
- * Shorten a filesystem path by replacing the home directory with ~.
- */
+/** Replace the home directory prefix with ~. */
 export function shortenPath(fullPath: string): string {
 	const home = os.homedir();
 	if (fullPath.startsWith(home)) {
@@ -16,14 +10,7 @@ export function shortenPath(fullPath: string): string {
 	return fullPath;
 }
 
-/**
- * Format a token count for compact display.
- * - null → "--"
- * - 0 → "0"
- * - < 1000 → as-is (e.g. "842")
- * - >= 1000 → "X.Xk" (e.g. 53300 → "53.3k")
- * - >= 1000000 → "X.Xm" (e.g. 1500000 → "1.5m")
- */
+/** Format a token count for compact display (e.g. 53300 -> "53.3k"). */
 export function formatTokens(n: number | null): string {
 	if (n === null) return '--';
 	if (n < 1000) return String(n);
@@ -37,13 +24,7 @@ export function formatTokens(n: number | null): string {
 	return m % 1 === 0 ? `${m}m` : `${m.toFixed(1)}m`;
 }
 
-/**
- * Format elapsed seconds into a human-readable duration.
- * - 0 → "0s"
- * - 45 → "45s"
- * - 272 → "4m32s"
- * - 3661 → "1h1m1s"
- */
+/** Format elapsed seconds as a compact duration (e.g. 272 -> "4m32s"). */
 export function formatDuration(seconds: number): string {
 	if (seconds < 0) return '0s';
 	const s = Math.floor(seconds);
@@ -61,11 +42,7 @@ export function formatDuration(seconds: number): string {
 const FILL_CHAR = '\u2588'; // █
 const EMPTY_CHAR = '\u2591'; // ░
 
-/**
- * Render a text-based progress bar.
- * - null → "--"
- * - 42, 12 → "█████░░░░░░░"
- */
+/** Render a text-based progress bar. */
 export function formatProgressBar(
 	percent: number | null,
 	width: number = 12,
@@ -76,18 +53,12 @@ export function formatProgressBar(
 	return FILL_CHAR.repeat(filled) + EMPTY_CHAR.repeat(width - filled);
 }
 
-/**
- * Map a model ID string to a short display name.
- * - "claude-opus-4-6" → "Opus 4.6"
- * - "claude-sonnet-4-5-20250929" → "Sonnet 4.5"
- * - "claude-haiku-4-5-20251001" → "Haiku 4.5"
- * - null → "--"
- * - Unknown formats → returned as-is
- */
+const MODEL_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
+
+/** Map a model ID to a short display name (e.g. "claude-opus-4-6" -> "Opus 4.6"). */
 export function formatModelName(modelId: string | null): string {
 	if (modelId === null) return '--';
 
-	// Match patterns like claude-opus-4-6, claude-sonnet-4-5-20250929
 	const match = modelId.match(/^claude-(\w+)-(\d+)-(\d+)(?:-\d{8})?$/);
 	if (match) {
 		const [, family, major, minor] = match;
@@ -95,17 +66,14 @@ export function formatModelName(modelId: string | null): string {
 		return `${name} ${major}.${minor}`;
 	}
 
+	if (MODEL_ALIASES.has(modelId.toLowerCase())) {
+		return modelId.charAt(0).toUpperCase() + modelId.slice(1).toLowerCase();
+	}
+
 	return modelId;
 }
 
-/**
- * Return a color name based on context window utilization.
- * - null → "gray"
- * - < 60% → "green"
- * - 60-80% → "yellow"
- * - 80-95% → "#FF8C00" (orange)
- * - > 95% → "red"
- */
+/** Return a color based on context window utilization percentage. */
 export function getContextBarColor(percent: number | null): string {
 	if (percent === null) return 'gray';
 	if (percent < 60) return 'green';
@@ -114,9 +82,7 @@ export function getContextBarColor(percent: number | null): string {
 	return 'red';
 }
 
-/**
- * Format a SessionStatsSnapshot as multi-line plain text.
- */
+/** Format a SessionStatsSnapshot as multi-line plain text. */
 export function formatStatsSnapshot(snapshot: SessionStatsSnapshot): string {
 	const {metrics, tokens, elapsed} = snapshot;
 	const lines: string[] = [];

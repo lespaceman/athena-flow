@@ -28,15 +28,10 @@ export type ContentItem =
 	| {type: 'message'; data: Message}
 	| {type: 'hook'; data: HookEventDisplay};
 
-/** @deprecated Use ContentItem directly — this alias exists for backwards compat. */
-export type DisplayItem = ContentItem;
-
 // ── Pure helpers ─────────────────────────────────────────────────────
 
 function getItemTime(item: ContentItem): number {
-	return item.type === 'message'
-		? Number.parseInt(item.data.id.split('-')[0] ?? '0', 10)
-		: item.data.timestamp.getTime();
+	return item.data.timestamp.getTime();
 }
 
 /**
@@ -155,7 +150,7 @@ type UseContentOrderingOptions = {
 };
 
 type UseContentOrderingResult = {
-	stableItems: DisplayItem[];
+	stableItems: ContentItem[];
 	dynamicItems: ContentItem[];
 	activeSubagents: HookEventDisplay[];
 	childEventsByAgent: Map<string, HookEventDisplay[]>;
@@ -176,9 +171,10 @@ export function useContentOrdering({
 		.map(e => ({
 			type: 'message' as const,
 			data: {
-				id: `${e.timestamp.getTime()}-session-end-${e.id}`,
+				id: `session-end-${e.id}`,
 				role: 'assistant' as const,
 				content: e.transcriptSummary!.lastAssistantText!,
+				timestamp: e.timestamp,
 			},
 		}));
 
@@ -268,7 +264,7 @@ export function useContentOrdering({
 	// Separate stable items (for Static) from items that may update (rendered dynamically).
 	const isStable = (item: ContentItem) =>
 		isStableContent(item, stoppedAgentIds);
-	const stableItems: DisplayItem[] = contentItems.filter(isStable);
+	const stableItems: ContentItem[] = contentItems.filter(isStable);
 	const dynamicItems = contentItems.filter(item => !isStable(item));
 
 	return {

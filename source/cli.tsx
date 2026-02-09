@@ -12,6 +12,7 @@ import {
 	readConfig,
 	readGlobalConfig,
 } from './plugins/index.js';
+import {readClaudeSettingsModel} from './utils/resolveModel.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -111,6 +112,12 @@ const isolationConfig: IsolationConfig = {
 	debug: cli.flags.verbose, // Pass --debug to Claude when --verbose is set
 };
 
+const modelName =
+	isolationConfig.model ??
+	process.env['ANTHROPIC_MODEL'] ??
+	readClaudeSettingsModel(cli.flags.projectDir) ??
+	null;
+
 const instanceId = process.pid;
 render(
 	<App
@@ -120,5 +127,6 @@ render(
 		verbose={cli.flags.verbose}
 		version={version}
 		pluginMcpConfig={pluginMcpConfig}
+		modelName={modelName}
 	/>,
 );

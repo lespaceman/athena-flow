@@ -11,6 +11,7 @@ import StreamingResponse from './components/StreamingResponse.js';
 import StatusLine from './components/Header/StatusLine.js';
 import StatsPanel from './components/Header/StatsPanel.js';
 import {LOGO_LINES} from './components/Header/constants.js';
+import {formatModelName, shortenPath} from './utils/formatters.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
@@ -36,6 +37,7 @@ type Props = {
 	verbose?: boolean;
 	version: string;
 	pluginMcpConfig?: string;
+	modelName: string | null;
 };
 
 function AppContent({
@@ -45,6 +47,7 @@ function AppContent({
 	verbose,
 	version,
 	pluginMcpConfig,
+	modelName,
 	onClear,
 	inputHistory,
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
@@ -92,6 +95,7 @@ function AppContent({
 				id: generateId(),
 				role,
 				content,
+				timestamp: new Date(),
 			};
 			setMessages(prev => [...prev, newMessage]);
 			return newMessage;
@@ -247,11 +251,13 @@ function AppContent({
 										))}
 									</Box>
 								)}
-								<Box flexDirection="column" paddingTop={showLogo ? 2 : 0}>
+								<Box flexDirection="column">
 									<Text>
-										<Text bold>Athena</Text>
+										<Text bold>Athena CLI</Text>
 										<Text dimColor> v{version}</Text>
 									</Text>
+									<Text color="gray">{formatModelName(modelName)}</Text>
+									<Text color="gray">{shortenPath(projectDir)}</Text>
 								</Box>
 							</Box>
 						);
@@ -374,6 +380,7 @@ export default function App({
 	verbose,
 	version,
 	pluginMcpConfig,
+	modelName,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
@@ -388,6 +395,7 @@ export default function App({
 				verbose={verbose}
 				version={version}
 				pluginMcpConfig={pluginMcpConfig}
+				modelName={modelName}
 				onClear={() => setClearCount(c => c + 1)}
 				inputHistory={inputHistory}
 			/>
