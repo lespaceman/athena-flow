@@ -13,66 +13,56 @@ const defaultProps = {
 	modelName: null as string | null,
 	toolCallCount: 0,
 	tokenTotal: null as number | null,
+	projectDir: '/tmp/project',
 };
 
 describe('StatusLine', () => {
-	it('shows server running status', () => {
-		const {lastFrame} = render(<StatusLine {...defaultProps} />);
-		const frame = lastFrame() ?? '';
+	it('renders server status, Claude state, and verbose socket path', () => {
+		// Server running + Claude idle (defaults)
+		const running = render(<StatusLine {...defaultProps} />);
+		const runningFrame = running.lastFrame() ?? '';
+		expect(runningFrame).toContain('Hook server: running');
+		expect(runningFrame).toContain('Athena: idle');
+		expect(runningFrame).not.toContain('/tmp/ink.sock');
+		running.unmount();
 
-		expect(frame).toContain('Hook server: running');
-	});
-
-	it('shows server stopped status', () => {
-		const {lastFrame} = render(
+		// Server stopped
+		const stopped = render(
 			<StatusLine {...defaultProps} isServerRunning={false} />,
 		);
-		const frame = lastFrame() ?? '';
+		expect(stopped.lastFrame() ?? '').toContain('Hook server: stopped');
+		stopped.unmount();
 
-		expect(frame).toContain('Hook server: stopped');
-	});
-
-	it('shows Claude idle state', () => {
-		const {lastFrame} = render(<StatusLine {...defaultProps} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Claude: idle');
-	});
-
-	it('shows Claude working state', () => {
-		const {lastFrame} = render(
+		// Claude working with spinner
+		const working = render(
 			<StatusLine {...defaultProps} claudeState="working" spinnerFrame="⠋" />,
 		);
-		const frame = lastFrame() ?? '';
+		expect(working.lastFrame() ?? '').toContain('Athena: working');
+		working.unmount();
 
-		expect(frame).toContain('Claude: working');
-	});
-
-	it('shows Claude waiting state', () => {
-		const {lastFrame} = render(
+		// Claude waiting
+		const waiting = render(
 			<StatusLine {...defaultProps} claudeState="waiting" />,
 		);
-		const frame = lastFrame() ?? '';
+		expect(waiting.lastFrame() ?? '').toContain('Athena: waiting for input');
+		waiting.unmount();
 
-		expect(frame).toContain('Claude: waiting for input');
+		// Verbose mode shows socket path
+		const verbose = render(<StatusLine {...defaultProps} verbose={true} />);
+		expect(verbose.lastFrame() ?? '').toContain('/tmp/ink.sock');
+		verbose.unmount();
 	});
 
-	it('does not show socket path when not verbose', () => {
-		const {lastFrame} = render(<StatusLine {...defaultProps} />);
-		const frame = lastFrame() ?? '';
+	it('renders model name, tool count, and token metrics', () => {
+		// Null/default values show placeholders
+		const defaults = render(<StatusLine {...defaultProps} />);
+		const defaultFrame = defaults.lastFrame() ?? '';
+		expect(defaultFrame).toContain('--');
+		expect(defaultFrame).toContain('Tools: 0');
+		defaults.unmount();
 
-		expect(frame).not.toContain('/tmp/ink.sock');
-	});
-
-	it('shows socket path when verbose', () => {
-		const {lastFrame} = render(<StatusLine {...defaultProps} verbose={true} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('/tmp/ink.sock');
-	});
-
-	it('shows model name, tool count, and tokens', () => {
-		const {lastFrame} = render(
+		// Populated values show formatted output
+		const populated = render(
 			<StatusLine
 				{...defaultProps}
 				modelName="claude-opus-4-6"
@@ -80,18 +70,18 @@ describe('StatusLine', () => {
 				tokenTotal={53300}
 			/>,
 		);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Opus 4.6');
-		expect(frame).toContain('Tools: 12');
-		expect(frame).toContain('Tokens: 53.3k');
+		const populatedFrame = populated.lastFrame() ?? '';
+		expect(populatedFrame).toContain('Opus 4.6');
+		expect(populatedFrame).toContain('Tools: 12');
+		expect(populatedFrame).toContain('Tokens: 53.3k');
+		populated.unmount();
 	});
 
-	it('shows -- for null model and tokens', () => {
-		const {lastFrame} = render(<StatusLine {...defaultProps} />);
-		const frame = lastFrame() ?? '';
+	it('shows project directory path', () => {
+		const {lastFrame} = render(
+			<StatusLine {...defaultProps} projectDir="/home/user/my-project" />,
+		);
 
-		expect(frame).toContain('--');
-		expect(frame).toContain('Tools: 0');
+		expect(lastFrame() ?? '').toContain('my-project');
 	});
 });
