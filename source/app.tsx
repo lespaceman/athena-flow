@@ -1,6 +1,6 @@
 import process from 'node:process';
 import React, {useState, useCallback, useRef} from 'react';
-import {Box, Static, Text, useApp} from 'ink';
+import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
 import {Spinner} from '@inkjs/ui';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
@@ -11,9 +11,16 @@ import TaskList from './components/TaskList.js';
 import {isPreToolUseEvent} from './types/hooks/index.js';
 import {type TodoWriteInput} from './types/todo.js';
 import StreamingResponse from './components/StreamingResponse.js';
-import Header from './components/Header.js';
+import StatusLine from './components/Header/StatusLine.js';
+import StatsPanel from './components/Header/StatsPanel.js';
+import {LOGO_LINES} from './components/Header/constants.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
+import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
+import {useDuration} from './hooks/useDuration.js';
+import {useSpinner} from './hooks/useSpinner.js';
+import type {ClaudeState} from './types/headerMetrics.js';
+import {shortenPath} from './utils/formatters.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
@@ -71,6 +78,7 @@ function AppContent({
 		isRunning: isClaudeRunning,
 		sendInterrupt,
 		streamingText,
+		tokenUsage,
 	} = useClaudeProcess(
 		projectDir,
 		instanceId,
@@ -184,28 +192,66 @@ function AppContent({
 		events,
 	});
 
+	const dialogActive = !!currentPermissionRequest || !!currentQuestionRequest;
+	let claudeState: ClaudeState = 'idle';
+	if (isClaudeRunning) {
+		claudeState = dialogActive ? 'waiting' : 'working';
+	}
+	const spinnerFrame = useSpinner(claudeState === 'working');
+
+	const metrics = useHeaderMetrics(events);
+	const elapsed = useDuration(metrics.sessionStartTime);
+	const [statsExpanded, setStatsExpanded] = useState(false);
+	const {stdout} = useStdout();
+	const terminalWidth = stdout?.columns ?? 80;
+
+	useInput(
+		(_input, key) => {
+			if (key.ctrl && _input === 's') {
+				setStatsExpanded(prev => !prev);
+			}
+		},
+		{isActive: !dialogActive},
+	);
+
+	type StaticItem = {type: 'header'; id: string} | (typeof stableItems)[number];
+	const allStaticItems: StaticItem[] = [
+		{type: 'header', id: 'header'},
+		...stableItems,
+	];
+
 	return (
 		<Box flexDirection="column">
-			{/* Server status (verbose only) */}
-			{verbose && (
-				<Box marginBottom={1}>
-					<Text color={isServerRunning ? 'green' : 'red'}>
-						Hook server: {isServerRunning ? 'running' : 'stopped'}
-					</Text>
-					{socketPath && <Text dimColor> ({socketPath})</Text>}
-					<Text> | </Text>
-					<Text color={isClaudeRunning ? 'yellow' : 'gray'}>
-						Claude: {isClaudeRunning ? 'running' : 'idle'}
-					</Text>
-				</Box>
-			)}
-
-			{/* Stable items - rendered once at top, never update */}
-			<Static items={stableItems}>
+			{/* Static items — header identity + stable events/messages */}
+			<Static items={allStaticItems}>
 				{item => {
 					if (item.type === 'header') {
+						const showLogo = terminalWidth >= 80;
 						return (
-							<Header key="header" version={version} projectDir={projectDir} />
+							<Box
+								key="header"
+								flexDirection="row"
+								marginTop={1}
+								marginBottom={1}
+								gap={2}
+							>
+								{showLogo && (
+									<Box flexDirection="column">
+										{LOGO_LINES.map((line, i) => (
+											<Text key={i} color="cyan">
+												{line}
+											</Text>
+										))}
+									</Box>
+								)}
+								<Box flexDirection="column" paddingTop={showLogo ? 2 : 0}>
+									<Text>
+										<Text bold>Athena</Text>
+										<Text dimColor> v{version}</Text>
+									</Text>
+									<Text dimColor>{shortenPath(projectDir)}</Text>
+								</Box>
+							</Box>
 						);
 					}
 					return item.type === 'message' ? (
@@ -220,6 +266,15 @@ function AppContent({
 					);
 				}}
 			</Static>
+
+			{/* Stats panel — toggled with Ctrl+s, shows detailed metrics */}
+			{statsExpanded && (
+				<StatsPanel
+					metrics={{...metrics, tokens: tokenUsage}}
+					elapsed={elapsed}
+					terminalWidth={terminalWidth}
+				/>
+			)}
 
 			{/* Dynamic items - can re-render when state changes */}
 			{dynamicItems.map(item =>
@@ -310,6 +365,18 @@ function AppContent({
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
 				onArrowDown={inputHistory.forward}
+			/>
+
+			{/* Status line — always visible at bottom */}
+			<StatusLine
+				isServerRunning={isServerRunning}
+				socketPath={socketPath ?? null}
+				claudeState={claudeState}
+				verbose={verbose ?? false}
+				spinnerFrame={spinnerFrame}
+				modelName={metrics.modelName}
+				toolCallCount={metrics.toolCallCount}
+				tokenTotal={tokenUsage.total}
 			/>
 		</Box>
 	);

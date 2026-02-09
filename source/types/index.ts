@@ -44,6 +44,9 @@ export {
 	type PermissionDecision,
 } from './server.js';
 
+// Header metrics types
+export * from './headerMetrics.js';
+
 // Context types
 export {type HookContextValue, type HookProviderProps} from './context.js';
 

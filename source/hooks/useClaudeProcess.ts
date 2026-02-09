@@ -7,6 +7,8 @@ import {
 	type IsolationPreset,
 	resolveIsolationConfig,
 } from '../types/isolation.js';
+import type {TokenUsage} from '../types/headerMetrics.js';
+import {createTokenAccumulator} from '../utils/parseStreamJson.js';
 
 // Re-export type for backwards compatibility
 export type {UseClaudeProcessResult};
@@ -34,6 +36,15 @@ const MAX_OUTPUT = 1000;
 // Timeout for waiting for process to exit during kill
 const KILL_TIMEOUT_MS = 3000;
 
+const NULL_TOKENS: TokenUsage = {
+	input: null,
+	output: null,
+	cacheRead: null,
+	cacheWrite: null,
+	total: null,
+	contextPercent: null,
+};
+
 /**
  * React hook to manage Claude headless process lifecycle.
  *
@@ -56,9 +67,11 @@ export function useClaudeProcess(
 	const processRef = useRef<ChildProcess | null>(null);
 	const isMountedRef = useRef(true);
 	const exitResolverRef = useRef<(() => void) | null>(null);
+	const tokenAccRef = useRef(createTokenAccumulator());
 	const [isRunning, setIsRunning] = useState(false);
 	const [output, setOutput] = useState<string[]>([]);
 	const [streamingText, setStreamingText] = useState('');
+	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(NULL_TOKENS);
 
 	const sendInterrupt = useCallback((): void => {
 		if (!processRef.current) return;
@@ -109,6 +122,8 @@ export function useClaudeProcess(
 			setOutput([]);
 			setStreamingText('');
 			setIsRunning(true);
+			tokenAccRef.current.reset();
+			setTokenUsage(NULL_TOKENS);
 
 			const child = spawnClaude({
 				prompt,
@@ -131,6 +146,10 @@ export function useClaudeProcess(
 					: {}),
 				onStdout: (data: string) => {
 					if (!isMountedRef.current) return;
+					// Parse stream-json for token usage
+					tokenAccRef.current.feed(data);
+					setTokenUsage(tokenAccRef.current.getUsage());
+
 					setOutput(prev => {
 						const updated = [...prev, data];
 						// Limit output size to prevent memory issues
@@ -151,6 +170,12 @@ export function useClaudeProcess(
 					});
 				},
 				onExit: (code: number | null) => {
+					// Flush any remaining buffered data for final token count
+					tokenAccRef.current.flush();
+					if (isMountedRef.current) {
+						setTokenUsage(tokenAccRef.current.getUsage());
+					}
+
 					// Resolve any pending kill promise
 					if (exitResolverRef.current) {
 						exitResolverRef.current();
@@ -201,5 +226,6 @@ export function useClaudeProcess(
 		kill,
 		sendInterrupt,
 		streamingText,
+		tokenUsage,
 	};
 }

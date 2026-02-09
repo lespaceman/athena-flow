@@ -246,11 +246,10 @@ describe('useContentOrdering', () => {
 
 		const {stableItems} = useContentOrdering({messages, events});
 
-		// Header first, then ordered by time: e1 (500) → msg (1000) → e2 (1500)
-		expect(stableItems[0]!.type).toBe('header');
-		expect(stableItems[1]).toEqual({type: 'hook', data: events[0]});
-		expect(stableItems[2]).toEqual({type: 'message', data: messages[0]});
-		expect(stableItems[3]).toEqual({type: 'hook', data: events[1]});
+		// Ordered by time: e1 (500) → msg (1000) → e2 (1500)
+		expect(stableItems[0]).toEqual({type: 'hook', data: events[0]});
+		expect(stableItems[1]).toEqual({type: 'message', data: messages[0]});
+		expect(stableItems[2]).toEqual({type: 'hook', data: events[1]});
 	});
 
 	it('converts SessionEnd with transcript to synthetic assistant message', () => {
@@ -307,23 +306,22 @@ describe('useContentOrdering', () => {
 			events,
 		});
 
-		// Stable: header + notification
-		expect(stableItems).toHaveLength(2);
-		expect(stableItems[1]).toEqual({type: 'hook', data: events[0]});
+		// Stable: notification only
+		expect(stableItems).toHaveLength(1);
+		expect(stableItems[0]).toEqual({type: 'hook', data: events[0]});
 
 		// Dynamic: pending PreToolUse
 		expect(dynamicItems).toHaveLength(1);
 		expect(dynamicItems[0]).toEqual({type: 'hook', data: events[1]});
 	});
 
-	it('returns header as first stable item even with no content', () => {
+	it('returns empty stableItems when no content', () => {
 		const {stableItems, dynamicItems} = useContentOrdering({
 			messages: [],
 			events: [],
 		});
 
-		expect(stableItems).toHaveLength(1);
-		expect(stableItems[0]).toEqual({type: 'header', id: 'header'});
+		expect(stableItems).toHaveLength(0);
 		expect(dynamicItems).toHaveLength(0);
 	});
 
@@ -642,9 +640,7 @@ describe('useContentOrdering', () => {
 			});
 
 			const allContentIds = [
-				...stableItems
-					.filter(i => i.type !== 'header')
-					.map(i => (i as {data: {id: string}}).data.id),
+				...stableItems.map(i => i.data.id),
 				...dynamicItems.map(i => i.data.id),
 			];
 
@@ -803,9 +799,7 @@ describe('useContentOrdering', () => {
 			});
 
 			const allContentIds = [
-				...stableItems
-					.filter(i => i.type !== 'header')
-					.map(i => (i as {data: {id: string}}).data.id),
+				...stableItems.map(i => i.data.id),
 				...dynamicItems.map(i => i.data.id),
 			];
 

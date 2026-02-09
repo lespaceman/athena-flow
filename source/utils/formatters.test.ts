@@ -1,0 +1,170 @@
+import {describe, it, expect, vi} from 'vitest';
+import {
+	shortenPath,
+	formatTokens,
+	formatDuration,
+	formatProgressBar,
+	formatModelName,
+	getContextBarColor,
+} from './formatters.js';
+
+vi.mock('node:os', () => ({
+	default: {homedir: () => '/home/testuser'},
+}));
+
+describe('shortenPath', () => {
+	it('replaces home directory with ~', () => {
+		expect(shortenPath('/home/testuser/Documents')).toBe('~/Documents');
+	});
+
+	it('leaves paths outside home unchanged', () => {
+		expect(shortenPath('/tmp/project')).toBe('/tmp/project');
+	});
+
+	it('handles exact home directory', () => {
+		expect(shortenPath('/home/testuser')).toBe('~');
+	});
+});
+
+describe('formatTokens', () => {
+	it('returns -- for null', () => {
+		expect(formatTokens(null)).toBe('--');
+	});
+
+	it('returns "0" for zero', () => {
+		expect(formatTokens(0)).toBe('0');
+	});
+
+	it('returns raw number below 1000', () => {
+		expect(formatTokens(842)).toBe('842');
+	});
+
+	it('formats thousands with k suffix', () => {
+		expect(formatTokens(53300)).toBe('53.3k');
+	});
+
+	it('drops decimal for even thousands', () => {
+		expect(formatTokens(5000)).toBe('5k');
+	});
+
+	it('promotes to m when rounding crosses 1000k boundary', () => {
+		expect(formatTokens(999950)).toBe('1m');
+	});
+
+	it('formats millions with m suffix', () => {
+		expect(formatTokens(1500000)).toBe('1.5m');
+	});
+
+	it('drops decimal for even millions', () => {
+		expect(formatTokens(2000000)).toBe('2m');
+	});
+});
+
+describe('formatDuration', () => {
+	it('formats zero seconds', () => {
+		expect(formatDuration(0)).toBe('0s');
+	});
+
+	it('formats seconds only', () => {
+		expect(formatDuration(45)).toBe('45s');
+	});
+
+	it('formats minutes and seconds', () => {
+		expect(formatDuration(272)).toBe('4m32s');
+	});
+
+	it('formats exact minutes', () => {
+		expect(formatDuration(120)).toBe('2m');
+	});
+
+	it('formats hours, minutes, and seconds', () => {
+		expect(formatDuration(3661)).toBe('1h1m1s');
+	});
+
+	it('formats exact hours', () => {
+		expect(formatDuration(3600)).toBe('1h');
+	});
+
+	it('handles negative values as 0s', () => {
+		expect(formatDuration(-5)).toBe('0s');
+	});
+});
+
+describe('formatProgressBar', () => {
+	it('returns -- for null', () => {
+		expect(formatProgressBar(null)).toBe('--');
+	});
+
+	it('renders empty bar at 0%', () => {
+		const bar = formatProgressBar(0, 10);
+		expect(bar).toBe('\u2591'.repeat(10));
+	});
+
+	it('renders full bar at 100%', () => {
+		const bar = formatProgressBar(100, 10);
+		expect(bar).toBe('\u2588'.repeat(10));
+	});
+
+	it('renders partial fill at 50%', () => {
+		const bar = formatProgressBar(50, 10);
+		expect(bar).toBe('\u2588'.repeat(5) + '\u2591'.repeat(5));
+	});
+
+	it('clamps values above 100', () => {
+		const bar = formatProgressBar(150, 10);
+		expect(bar).toBe('\u2588'.repeat(10));
+	});
+
+	it('clamps values below 0', () => {
+		const bar = formatProgressBar(-10, 10);
+		expect(bar).toBe('\u2591'.repeat(10));
+	});
+});
+
+describe('formatModelName', () => {
+	it('returns -- for null', () => {
+		expect(formatModelName(null)).toBe('--');
+	});
+
+	it('formats claude-opus-4-6', () => {
+		expect(formatModelName('claude-opus-4-6')).toBe('Opus 4.6');
+	});
+
+	it('formats claude-sonnet-4-5-20250929', () => {
+		expect(formatModelName('claude-sonnet-4-5-20250929')).toBe('Sonnet 4.5');
+	});
+
+	it('formats claude-haiku-4-5-20251001', () => {
+		expect(formatModelName('claude-haiku-4-5-20251001')).toBe('Haiku 4.5');
+	});
+
+	it('returns unknown model strings as-is', () => {
+		expect(formatModelName('gpt-4o')).toBe('gpt-4o');
+	});
+});
+
+describe('getContextBarColor', () => {
+	it('returns gray for null', () => {
+		expect(getContextBarColor(null)).toBe('gray');
+	});
+
+	it('returns green below 60%', () => {
+		expect(getContextBarColor(30)).toBe('green');
+		expect(getContextBarColor(59)).toBe('green');
+	});
+
+	it('returns yellow at 60-79%', () => {
+		expect(getContextBarColor(60)).toBe('yellow');
+		expect(getContextBarColor(79)).toBe('yellow');
+	});
+
+	it('returns orange at 80-94%', () => {
+		expect(getContextBarColor(80)).toBe('#FF8C00');
+		expect(getContextBarColor(94)).toBe('#FF8C00');
+	});
+
+	it('returns red at 95%+', () => {
+		expect(getContextBarColor(95)).toBe('red');
+		expect(getContextBarColor(100)).toBe('red');
+	});
+});

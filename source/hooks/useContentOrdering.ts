@@ -19,7 +19,8 @@ export type ContentItem =
 	| {type: 'message'; data: Message}
 	| {type: 'hook'; data: HookEventDisplay};
 
-export type DisplayItem = {type: 'header'; id: string} | ContentItem;
+/** @deprecated Use ContentItem directly — this alias exists for backwards compat. */
+export type DisplayItem = ContentItem;
 
 // ── Pure helpers ─────────────────────────────────────────────────────
 
@@ -190,10 +191,7 @@ export function useContentOrdering({
 	// Separate stable items (for Static) from items that may update (rendered dynamically).
 	const isStable = (item: ContentItem) =>
 		isStableContent(item, stoppedAgentIds);
-	const stableItems: DisplayItem[] = [
-		{type: 'header', id: 'header'},
-		...contentItems.filter(isStable),
-	];
+	const stableItems: DisplayItem[] = contentItems.filter(isStable);
 	const dynamicItems = contentItems.filter(item => !isStable(item));
 
 	return {
