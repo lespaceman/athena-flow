@@ -8,6 +8,7 @@
 import {type Message} from '../types/common.js';
 import {type IsolationConfig} from '../types/isolation.js';
 import {type UseHookServerResult} from '../types/server.js';
+import {type SessionStatsSnapshot} from '../types/headerMetrics.js';
 
 // ---------------------------------------------------------------------------
 // Core command types
@@ -60,6 +61,7 @@ export type UICommandContext = {
 	addMessage: (msg: Message) => void;
 	exit: () => void;
 	clearScreen: () => void;
+	sessionStats: SessionStatsSnapshot;
 };
 
 export type HookCommandContext = {

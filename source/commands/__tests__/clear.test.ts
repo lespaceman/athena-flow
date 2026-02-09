@@ -2,6 +2,15 @@ import {describe, it, expect, vi} from 'vitest';
 import {clearCommand} from '../builtins/clear.js';
 import {type UICommandContext} from '../types.js';
 
+const NULL_TOKENS = {
+	input: null,
+	output: null,
+	cacheRead: null,
+	cacheWrite: null,
+	total: null,
+	contextPercent: null,
+};
+
 function makeUIContext(
 	overrides?: Partial<UICommandContext>,
 ): UICommandContext {
@@ -12,6 +21,20 @@ function makeUIContext(
 		addMessage: vi.fn(),
 		exit: vi.fn(),
 		clearScreen: vi.fn(),
+		sessionStats: {
+			metrics: {
+				modelName: null,
+				toolCallCount: 0,
+				totalToolCallCount: 0,
+				subagentCount: 0,
+				subagentMetrics: [],
+				permissions: {allowed: 0, denied: 0},
+				sessionStartTime: null,
+				tokens: NULL_TOKENS,
+			},
+			tokens: NULL_TOKENS,
+			elapsed: 0,
+		},
 		...overrides,
 	};
 }

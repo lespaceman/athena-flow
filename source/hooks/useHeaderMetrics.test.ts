@@ -32,6 +32,7 @@ describe('useHeaderMetrics', () => {
 		expect(result.current).toEqual({
 			modelName: null,
 			toolCallCount: 0,
+			totalToolCallCount: 0,
 			subagentCount: 0,
 			subagentMetrics: [],
 			permissions: {allowed: 0, denied: 0},
@@ -84,6 +85,9 @@ describe('useHeaderMetrics', () => {
 		const {result} = renderHook(() => useHeaderMetrics(events));
 		// Only top-level (t1, t2) — t3 is a child
 		expect(result.current.toolCallCount).toBe(2);
+		// agent-1 isn't tracked via SubagentStart, so totalToolCallCount
+		// only includes tracked subagent tools
+		expect(result.current.totalToolCallCount).toBe(2);
 	});
 
 	it('tracks subagent metrics', () => {
@@ -119,6 +123,8 @@ describe('useHeaderMetrics', () => {
 		expect(result.current.subagentMetrics).toEqual([
 			{agentId: 'a1', agentType: 'Explore', toolCallCount: 2, tokenCount: null},
 		]);
+		// 0 main + 2 subagent = 2 total
+		expect(result.current.totalToolCallCount).toBe(2);
 	});
 
 	it('counts permission outcomes', () => {

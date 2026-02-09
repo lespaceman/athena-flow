@@ -6,7 +6,9 @@ import {
 	formatProgressBar,
 	formatModelName,
 	getContextBarColor,
+	formatStatsSnapshot,
 } from './formatters.js';
+import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
 
 vi.mock('node:os', () => ({
 	default: {homedir: () => '/home/testuser'},
@@ -166,5 +168,120 @@ describe('getContextBarColor', () => {
 	it('returns red at 95%+', () => {
 		expect(getContextBarColor(95)).toBe('red');
 		expect(getContextBarColor(100)).toBe('red');
+	});
+});
+
+function makeSnapshot(
+	overrides?: Partial<SessionStatsSnapshot>,
+): SessionStatsSnapshot {
+	return {
+		metrics: {
+			modelName: 'claude-opus-4-6',
+			toolCallCount: 5,
+			totalToolCallCount: 12,
+			subagentCount: 2,
+			subagentMetrics: [
+				{
+					agentId: 'a1',
+					agentType: 'Explore',
+					toolCallCount: 4,
+					tokenCount: null,
+				},
+				{
+					agentId: 'a2',
+					agentType: 'Plan',
+					toolCallCount: 3,
+					tokenCount: null,
+				},
+			],
+			permissions: {allowed: 8, denied: 1},
+			sessionStartTime: new Date('2024-01-15T10:00:00Z'),
+			tokens: {
+				input: null,
+				output: null,
+				cacheRead: null,
+				cacheWrite: null,
+				total: null,
+				contextPercent: null,
+			},
+		},
+		tokens: {
+			input: 53300,
+			output: 12000,
+			cacheRead: 100000,
+			cacheWrite: 5000,
+			total: 170300,
+			contextPercent: 42,
+		},
+		elapsed: 272,
+		...overrides,
+	};
+}
+
+describe('formatStatsSnapshot', () => {
+	it('formats populated snapshot with subagents', () => {
+		const output = formatStatsSnapshot(makeSnapshot());
+		expect(output).toContain('Session Statistics');
+		expect(output).toContain('Opus 4.6');
+		expect(output).toContain('4m32s');
+		expect(output).toContain('12 total (5 main, 7 subagent)');
+		expect(output).toContain('8 allowed, 1 denied');
+		expect(output).toContain('53.3k');
+		expect(output).toContain('12k');
+		expect(output).toContain('170.3k');
+		expect(output).toContain('Sub-agents\n──────────');
+		expect(output).toContain('Explore');
+		expect(output).toContain('Plan');
+	});
+
+	it('formats snapshot with null/empty data', () => {
+		const output = formatStatsSnapshot(
+			makeSnapshot({
+				metrics: {
+					modelName: null,
+					toolCallCount: 0,
+					totalToolCallCount: 0,
+					subagentCount: 0,
+					subagentMetrics: [],
+					permissions: {allowed: 0, denied: 0},
+					sessionStartTime: null,
+					tokens: {
+						input: null,
+						output: null,
+						cacheRead: null,
+						cacheWrite: null,
+						total: null,
+						contextPercent: null,
+					},
+				},
+				tokens: {
+					input: null,
+					output: null,
+					cacheRead: null,
+					cacheWrite: null,
+					total: null,
+					contextPercent: null,
+				},
+				elapsed: 0,
+			}),
+		);
+		expect(output).toContain('--');
+		expect(output).toContain('0s');
+		expect(output).toContain('0 total (0 main, 0 subagent)');
+		// Sub-agents breakdown section should not appear
+		expect(output).not.toContain('Sub-agents\n──────────');
+	});
+
+	it('omits sub-agents section when none exist', () => {
+		const output = formatStatsSnapshot(
+			makeSnapshot({
+				metrics: {
+					...makeSnapshot().metrics,
+					subagentCount: 0,
+					subagentMetrics: [],
+				},
+			}),
+		);
+		expect(output).not.toContain('Sub-agents\n──────────');
 	});
 });
