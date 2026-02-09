@@ -15,6 +15,8 @@ export type AthenaConfig = {
 	plugins: string[];
 	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
 	additionalDirectories: string[];
+	/** Model to use (alias like "sonnet"/"opus" or full model ID) */
+	model?: string;
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -48,6 +50,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 	const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
 		plugins?: string[];
 		additionalDirectories?: string[];
+		model?: string;
 	};
 
 	const plugins = (raw.plugins ?? []).map(p => {
@@ -62,5 +65,5 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
-	return {plugins, additionalDirectories};
+	return {plugins, additionalDirectories, model: raw.model};
 }

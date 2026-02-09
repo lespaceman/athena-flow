@@ -104,12 +104,16 @@ const additionalDirectories = [
 	...projectConfig.additionalDirectories,
 ];
 
+// Resolve model: project config > global config > env var > Claude settings
+const configModel = projectConfig.model || globalConfig.model;
+
 // Build isolation config with preset, additional directories, and plugin dirs
 const isolationConfig: IsolationConfig = {
 	preset: isolationPreset,
 	additionalDirectories,
 	pluginDirs: pluginDirs.length > 0 ? pluginDirs : undefined,
 	debug: cli.flags.verbose, // Pass --debug to Claude when --verbose is set
+	model: configModel,
 };
 
 const modelName =

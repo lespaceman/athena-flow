@@ -140,7 +140,11 @@ function AppContent({
 					exit,
 					clearScreen,
 					sessionStats: {
-						metrics: {...metrics, tokens: tokenUsage},
+						metrics: {
+							...metrics,
+							modelName: metrics.modelName || modelName,
+							tokens: tokenUsage,
+						},
 						tokens: tokenUsage,
 						elapsed,
 					},
@@ -164,6 +168,7 @@ function AppContent({
 			clearScreen,
 			inputHistory,
 			metrics,
+			modelName,
 			tokenUsage,
 			elapsed,
 		],
@@ -364,7 +369,7 @@ function AppContent({
 				claudeState={claudeState}
 				verbose={verbose ?? false}
 				spinnerFrame={spinnerFrame}
-				modelName={metrics.modelName}
+				modelName={metrics.modelName || modelName}
 				toolCallCount={metrics.totalToolCallCount}
 				tokenTotal={tokenUsage.total}
 				projectDir={projectDir}

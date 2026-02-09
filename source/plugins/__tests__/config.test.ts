@@ -100,6 +100,32 @@ describe('readConfig', () => {
 	});
 });
 
+describe('model field', () => {
+	it('reads model from project config', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			model: 'claude-opus-4-6',
+		});
+
+		expect(readConfig('/project').model).toBe('claude-opus-4-6');
+	});
+
+	it('reads model from global config', () => {
+		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
+			model: 'sonnet',
+		});
+
+		expect(readGlobalConfig().model).toBe('sonnet');
+	});
+
+	it('returns undefined model when not set', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+		});
+
+		expect(readConfig('/project').model).toBeUndefined();
+	});
+});
+
 describe('readGlobalConfig', () => {
 	it('returns empty plugins when global config does not exist', () => {
 		expect(readGlobalConfig()).toEqual({
