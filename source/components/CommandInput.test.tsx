@@ -4,20 +4,57 @@ import {render} from 'ink-testing-library';
 import CommandInput from './CommandInput.js';
 import * as registryModule from '../commands/registry.js';
 
-// Register test commands before each test
+// ANSI escape sequences for special keys
+const KEY = {
+	UP: '\x1b[A',
+	DOWN: '\x1b[B',
+	ESCAPE: '\x1b',
+	TAB: '\t',
+	ENTER: '\r',
+} as const;
+
+const noop = () => {};
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** Write to stdin and wait for React to process the update. */
+async function typeAndWait(
+	stdin: {write: (data: string) => void},
+	text: string,
+	ms = 50,
+): Promise<void> {
+	stdin.write(text);
+	await delay(ms);
+}
+
+/** Get the current frame, defaulting to empty string if null. */
+function frame(lastFrame: () => string | undefined): string {
+	return lastFrame() ?? '';
+}
+
+/** Find the line containing `text` and assert it includes `marker`. */
+function expectLineContaining(
+	output: string,
+	text: string,
+	marker: string,
+): void {
+	const line = output.split('\n').find(l => l.includes(text));
+	expect(line).toContain(marker);
+}
+
 beforeEach(() => {
 	registryModule.clear();
 	registryModule.register({
 		name: 'help',
 		description: 'Show help',
 		category: 'ui',
-		execute: () => {},
+		execute: noop,
 	});
 	registryModule.register({
 		name: 'clear',
 		description: 'Clear screen',
 		category: 'ui',
-		execute: () => {},
+		execute: noop,
 	});
 	registryModule.register({
 		name: 'commit',
@@ -32,179 +69,113 @@ afterEach(() => {
 	registryModule.clear();
 });
 
-// Delay helper to let React process state updates
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 describe('CommandInput', () => {
 	it('renders placeholder text', () => {
-		const {lastFrame} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('Type a message or /command...');
+		const {lastFrame} = render(<CommandInput onSubmit={noop} />);
+		expect(frame(lastFrame)).toContain('Type a message or /command...');
 	});
 
 	it('does not show suggestions when input is empty', () => {
-		const {lastFrame} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
-		const frame = lastFrame() ?? '';
-		// Should not contain command suggestion indicators
-		expect(frame).not.toContain('/help');
-		expect(frame).not.toContain('/clear');
+		const {lastFrame} = render(<CommandInput onSubmit={noop} />);
+		const output = frame(lastFrame);
+		expect(output).not.toContain('/help');
+		expect(output).not.toContain('/clear');
 	});
 
 	it('shows suggestions when / is typed', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
 
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('/help');
-		expect(frame).toContain('/clear');
-		expect(frame).toContain('/commit');
+		const output = frame(lastFrame);
+		expect(output).toContain('/help');
+		expect(output).toContain('/clear');
+		expect(output).toContain('/commit');
 	});
 
 	it('filters suggestions by prefix', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/c');
-		await delay(50);
+		await typeAndWait(stdin, '/c');
 
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('/clear');
-		expect(frame).toContain('/commit');
-		expect(frame).not.toContain('/help');
+		const output = frame(lastFrame);
+		expect(output).toContain('/clear');
+		expect(output).toContain('/commit');
+		expect(output).not.toContain('/help');
 	});
 
 	it('hides suggestions after space is typed', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/help ');
-		await delay(50);
+		await typeAndWait(stdin, '/help ');
 
-		const frame = lastFrame() ?? '';
-		// Suggestions should be hidden once space is entered
-		expect(frame).not.toContain('Show help');
+		expect(frame(lastFrame)).not.toContain('Show help');
 	});
 
 	it('navigates suggestions with down arrow', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		// Enter command mode
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
+		expectLineContaining(frame(lastFrame), '/help', '>');
 
-		// First item should be selected initially (> indicator)
-		let frame = lastFrame() ?? '';
-		const lines = frame.split('\n');
-		const firstCmdLine = lines.find(l => l.includes('/help'));
-		expect(firstCmdLine).toContain('>');
-
-		// Press down arrow
-		stdin.write('\x1b[B');
-		await delay(50);
-
-		// Second item should now be selected
-		frame = lastFrame() ?? '';
-		const updatedLines = frame.split('\n');
-		const secondCmdLine = updatedLines.find(l => l.includes('/clear'));
-		expect(secondCmdLine).toContain('>');
+		await typeAndWait(stdin, KEY.DOWN);
+		expectLineContaining(frame(lastFrame), '/clear', '>');
 	});
 
 	it('wraps around when navigating past last suggestion', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
 
 		// Press down 3 times (3 commands total) to wrap back to first
-		stdin.write('\x1b[B');
-		await delay(20);
-		stdin.write('\x1b[B');
-		await delay(20);
-		stdin.write('\x1b[B');
-		await delay(50);
+		await typeAndWait(stdin, KEY.DOWN, 20);
+		await typeAndWait(stdin, KEY.DOWN, 20);
+		await typeAndWait(stdin, KEY.DOWN);
 
-		const frame = lastFrame() ?? '';
-		const lines = frame.split('\n');
-		const helpLine = lines.find(l => l.includes('/help'));
-		expect(helpLine).toContain('>');
+		expectLineContaining(frame(lastFrame), '/help', '>');
 	});
 
 	it('completes selected command on tab', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		// Enter command mode and navigate to second item
-		stdin.write('/');
-		await delay(50);
-		stdin.write('\x1b[B');
-		await delay(50);
+		await typeAndWait(stdin, '/');
+		await typeAndWait(stdin, KEY.DOWN);
+		await typeAndWait(stdin, KEY.TAB);
 
-		// Press tab to complete
-		stdin.write('\t');
-		await delay(50);
-
-		const frame = lastFrame() ?? '';
-		// After tab completion, the input should contain the completed command
-		// and suggestions should be hidden (space added after command name)
-		expect(frame).toContain('/clear');
+		expect(frame(lastFrame)).toContain('/clear');
 	});
 
 	it('calls onSubmit when Enter is pressed', async () => {
 		const onSubmit = vi.fn();
-		const {stdin} = render(<CommandInput inputKey={0} onSubmit={onSubmit} />);
+		const {stdin} = render(<CommandInput onSubmit={onSubmit} />);
 
-		stdin.write('hello world');
-		await delay(50);
-		stdin.write('\r');
-		await delay(50);
+		await typeAndWait(stdin, 'hello world');
+		await typeAndWait(stdin, KEY.ENTER);
 
 		expect(onSubmit).toHaveBeenCalledWith('hello world');
 	});
 
-	it('clears input after submit via rerender with new inputKey', async () => {
+	it('clears input after submit', async () => {
 		const onSubmit = vi.fn();
-		const {lastFrame, stdin, rerender} = render(
-			<CommandInput inputKey={0} onSubmit={onSubmit} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={onSubmit} />);
 
-		stdin.write('hello');
-		await delay(50);
-		stdin.write('\r');
-		await delay(50);
+		await typeAndWait(stdin, 'hello');
+		await typeAndWait(stdin, KEY.ENTER);
 
-		// Parent would bump inputKey after submit
-		rerender(<CommandInput inputKey={1} onSubmit={onSubmit} />);
-		await delay(50);
+		expect(onSubmit).toHaveBeenCalledWith('hello');
 
-		const frame = lastFrame() ?? '';
-		// Input should show placeholder, not the old value
-		expect(frame).toContain('Type a message or /command...');
-		expect(frame).not.toContain('hello');
+		const output = frame(lastFrame);
+		expect(output).toContain('Type a message or /command...');
+		expect(output).not.toContain('hello');
 	});
 
 	it('shows all commands including plugin commands when / is typed', async () => {
-		// Register extra commands to exceed the old MAX_SUGGESTIONS of 6
 		for (let i = 0; i < 8; i++) {
 			registryModule.register({
 				name: `builtin-${i}`,
 				description: `Builtin ${i}`,
 				category: 'ui',
-				execute: () => {},
+				execute: noop,
 			});
 		}
 		registryModule.register({
@@ -215,38 +186,26 @@ describe('CommandInput', () => {
 			buildPrompt: () => 'explore',
 		});
 
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
 
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('/explore-website');
+		expect(frame(lastFrame)).toContain('/explore-website');
 	});
 
 	it('shows disabled placeholder when disabled', () => {
-		const {lastFrame} = render(
-			<CommandInput inputKey={0} onSubmit={vi.fn()} disabled />,
-		);
-
+		const {lastFrame} = render(<CommandInput onSubmit={noop} disabled />);
 		expect(lastFrame()).toContain('Waiting for permission decision');
 	});
 
 	it('calls onEscape when Escape is pressed without suggestions', async () => {
 		const onEscape = vi.fn();
 		const {stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} onEscape={onEscape} />,
+			<CommandInput onSubmit={noop} onEscape={onEscape} />,
 		);
 
-		// Type something that doesn't trigger suggestions
-		stdin.write('hello');
-		await delay(50);
-
-		// Press Escape
-		stdin.write('\x1b');
-		await delay(50);
+		await typeAndWait(stdin, 'hello');
+		await typeAndWait(stdin, KEY.ESCAPE);
 
 		expect(onEscape).toHaveBeenCalledTimes(1);
 	});
@@ -254,60 +213,41 @@ describe('CommandInput', () => {
 	it('does not call onEscape when Escape dismisses suggestions', async () => {
 		const onEscape = vi.fn();
 		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} onEscape={onEscape} />,
+			<CommandInput onSubmit={noop} onEscape={onEscape} />,
 		);
 
-		// Enter command mode to show suggestions
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
+		expect(frame(lastFrame)).toContain('/help');
 
-		let frame = lastFrame() ?? '';
-		expect(frame).toContain('/help');
-
-		// Press Escape — should dismiss suggestions, not call onEscape
-		stdin.write('\x1b');
-		await delay(50);
+		await typeAndWait(stdin, KEY.ESCAPE);
 
 		expect(onEscape).not.toHaveBeenCalled();
-		frame = lastFrame() ?? '';
-		expect(frame).not.toContain('/help');
+		expect(frame(lastFrame)).not.toContain('/help');
 	});
 
 	it('calls onArrowUp with current value when no suggestions', async () => {
 		const onArrowUp = vi.fn().mockReturnValue('previous');
 		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} onArrowUp={onArrowUp} />,
+			<CommandInput onSubmit={noop} onArrowUp={onArrowUp} />,
 		);
 
-		stdin.write('current');
-		await delay(50);
-
-		// Press up arrow
-		stdin.write('\x1b[A');
-		await delay(50);
+		await typeAndWait(stdin, 'current');
+		await typeAndWait(stdin, KEY.UP);
 
 		expect(onArrowUp).toHaveBeenCalledWith('current');
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('previous');
+		expect(frame(lastFrame)).toContain('previous');
 	});
 
 	it('calls onArrowDown when no suggestions', async () => {
 		const onArrowDown = vi.fn().mockReturnValue('next');
 		const {lastFrame, stdin} = render(
-			<CommandInput
-				inputKey={0}
-				onSubmit={() => {}}
-				onArrowDown={onArrowDown}
-			/>,
+			<CommandInput onSubmit={noop} onArrowDown={onArrowDown} />,
 		);
 
-		// Press down arrow
-		stdin.write('\x1b[B');
-		await delay(50);
+		await typeAndWait(stdin, KEY.DOWN);
 
 		expect(onArrowDown).toHaveBeenCalledTimes(1);
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('next');
+		expect(frame(lastFrame)).toContain('next');
 	});
 
 	it('navigates suggestions with arrows when suggestions showing (not history)', async () => {
@@ -315,44 +255,39 @@ describe('CommandInput', () => {
 		const onArrowDown = vi.fn();
 		const {lastFrame, stdin} = render(
 			<CommandInput
-				inputKey={0}
-				onSubmit={() => {}}
+				onSubmit={noop}
 				onArrowUp={onArrowUp}
 				onArrowDown={onArrowDown}
 			/>,
 		);
 
-		// Enter command mode to show suggestions
-		stdin.write('/');
-		await delay(50);
-
-		// Press down arrow — should navigate suggestions, not call history
-		stdin.write('\x1b[B');
-		await delay(50);
+		await typeAndWait(stdin, '/');
+		await typeAndWait(stdin, KEY.DOWN);
 
 		expect(onArrowDown).not.toHaveBeenCalled();
-		const frame = lastFrame() ?? '';
-		const lines = frame.split('\n');
-		const clearLine = lines.find(l => l.includes('/clear'));
-		expect(clearLine).toContain('>');
+		expectLineContaining(frame(lastFrame), '/clear', '>');
+	});
+
+	it('does not accept input when disabled', async () => {
+		const onSubmit = vi.fn();
+		const {lastFrame, stdin} = render(
+			<CommandInput onSubmit={onSubmit} disabled />,
+		);
+
+		await typeAndWait(stdin, 'hello');
+		await typeAndWait(stdin, KEY.ENTER);
+
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(lastFrame()).toContain('Waiting for permission decision');
 	});
 
 	it('dismisses suggestions on Escape', async () => {
-		const {lastFrame, stdin} = render(
-			<CommandInput inputKey={0} onSubmit={() => {}} />,
-		);
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
 
-		stdin.write('/');
-		await delay(50);
+		await typeAndWait(stdin, '/');
+		expect(frame(lastFrame)).toContain('/help');
 
-		let frame = lastFrame() ?? '';
-		expect(frame).toContain('/help');
-
-		// Press Escape
-		stdin.write('\x1b');
-		await delay(50);
-
-		frame = lastFrame() ?? '';
-		expect(frame).not.toContain('/help');
+		await typeAndWait(stdin, KEY.ESCAPE);
+		expect(frame(lastFrame)).not.toContain('/help');
 	});
 });

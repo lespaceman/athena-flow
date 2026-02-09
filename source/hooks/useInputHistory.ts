@@ -1,4 +1,5 @@
 import {useCallback, useRef} from 'react';
+import {loadHistory, saveHistory} from '../utils/historyStore.js';
 
 const MAX_HISTORY = 200;
 
@@ -11,30 +12,42 @@ export type InputHistory = {
 /**
  * Shell-like input history with up/down arrow navigation.
  *
- * Uses refs internally so history changes don't trigger re-renders.
+ * Uses refs so history mutations don't trigger re-renders.
+ * When projectDir is provided, history is loaded from and persisted to disk.
  */
-export function useInputHistory(): InputHistory {
-	const historyRef = useRef<string[]>([]);
-	// -1 means "not navigating" (at the draft position)
-	const cursorRef = useRef(-1);
+export function useInputHistory(projectDir?: string): InputHistory {
+	const projectDirRef = useRef(projectDir);
+	projectDirRef.current = projectDir;
+
+	// Lazy init — loadHistory runs only on first render
+	const historyRef = useRef<string[] | null>(null);
+	if (historyRef.current === null) {
+		historyRef.current = projectDir ? loadHistory(projectDir) : [];
+	}
+
+	const cursorRef = useRef(-1); // -1 = not navigating (at draft position)
 	const draftRef = useRef('');
 
 	const push = useCallback((value: string): void => {
-		const h = historyRef.current;
-		// Skip consecutive duplicates
+		const h = historyRef.current!;
+
 		if (h.length > 0 && h[h.length - 1] === value) return;
+
 		h.push(value);
-		// Cap at max
 		if (h.length > MAX_HISTORY) {
 			historyRef.current = h.slice(-MAX_HISTORY);
 		}
-		// Reset navigation state
+
 		cursorRef.current = -1;
 		draftRef.current = '';
+
+		if (projectDirRef.current) {
+			void saveHistory(projectDirRef.current, historyRef.current!);
+		}
 	}, []);
 
 	const back = useCallback((currentValue: string): string | undefined => {
-		const h = historyRef.current;
+		const h = historyRef.current!;
 		if (h.length === 0) return undefined;
 
 		// On first back press, save the current input as draft
@@ -52,7 +65,7 @@ export function useInputHistory(): InputHistory {
 	}, []);
 
 	const forward = useCallback((): string | undefined => {
-		const h = historyRef.current;
+		const h = historyRef.current!;
 		if (cursorRef.current === -1) return undefined;
 
 		cursorRef.current++;

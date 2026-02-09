@@ -49,7 +49,6 @@ function AppContent({
 	inputHistory,
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const [inputKey, setInputKey] = useState(0);
 	const [taskListCollapsed, setTaskListCollapsed] = useState(false);
 	const toggleTaskList = useCallback(() => {
 		setTaskListCollapsed(c => !c);
@@ -112,7 +111,6 @@ function AppContent({
 		(value: string) => {
 			if (!value.trim()) return;
 
-			setInputKey(k => k + 1);
 			inputHistory.push(value);
 
 			const result = parseInput(value);
@@ -339,7 +337,6 @@ function AppContent({
 			)}
 
 			<CommandInput
-				inputKey={inputKey}
 				onSubmit={handleSubmit}
 				disabled={
 					currentPermissionRequest !== null || currentQuestionRequest !== null

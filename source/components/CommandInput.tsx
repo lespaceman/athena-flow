@@ -1,13 +1,14 @@
 import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {TextInput} from '@inkjs/ui';
+import {useTextInput} from '../hooks/useTextInput.js';
 import * as registry from '../commands/registry.js';
+import {type Command} from '../commands/types.js';
 import CommandSuggestions from './CommandSuggestions.js';
 
-const MAX_SUGGESTIONS = 6;
+const MAX_FILTERED_SUGGESTIONS = 6;
+const PLACEHOLDER = 'Type a message or /command...';
 
 type Props = {
-	inputKey: number;
 	onSubmit: (value: string) => void;
 	disabled?: boolean;
 	disabledMessage?: string;
@@ -16,8 +17,23 @@ type Props = {
 	onArrowDown?: () => string | undefined;
 };
 
+/**
+ * Holds mutable "latest" values so that stable useCallback/useInput handlers
+ * can read current state without re-registering on every render.
+ */
+type LatestValues = {
+	showSuggestions: boolean;
+	filteredCommands: Command[];
+	safeIndex: number;
+	disabled: boolean | undefined;
+	value: string;
+	onEscape: Props['onEscape'];
+	onArrowUp: Props['onArrowUp'];
+	onArrowDown: Props['onArrowDown'];
+	setValue: (v: string) => void;
+};
+
 export default function CommandInput({
-	inputKey,
 	onSubmit,
 	disabled,
 	disabledMessage,
@@ -25,22 +41,31 @@ export default function CommandInput({
 	onArrowUp,
 	onArrowDown,
 }: Props) {
-	const [value, setValue] = useState('');
+	const [filterValue, setFilterValue] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
-	// Bump completionKey to remount TextInput with a new defaultValue after tab completion
-	const [completionKey, setCompletionKey] = useState(0);
-	const [defaultValue, setDefaultValue] = useState('');
 
-	// Reset all internal state when parent resets the input (after submit)
-	useEffect(() => {
-		setValue('');
-		setDefaultValue('');
-		setSelectedIndex(0);
-	}, [inputKey]);
+	const latest = useRef<LatestValues>({} as LatestValues);
+
+	const handleSubmit = useCallback(
+		(val: string) => {
+			if (disabled) return;
+			if (!val.trim()) return;
+			onSubmit(val);
+			latest.current.setValue('');
+		},
+		[onSubmit, disabled],
+	);
+
+	const {value, cursorOffset, setValue} = useTextInput({
+		onChange: setFilterValue,
+		onSubmit: handleSubmit,
+		isActive: !disabled,
+	});
 
 	// Determine if we're in command mode (input starts with / and no space yet)
-	const isCommandMode = value.startsWith('/') && !value.includes(' ');
-	const prefix = isCommandMode ? value.slice(1) : '';
+	const isCommandMode =
+		filterValue.startsWith('/') && !filterValue.includes(' ');
+	const prefix = isCommandMode ? filterValue.slice(1) : '';
 
 	// Filter commands matching the typed prefix
 	const filteredCommands = useMemo(() => {
@@ -53,53 +78,48 @@ export default function CommandInput({
 				const names = [cmd.name, ...(cmd.aliases ?? [])];
 				return names.some(n => n.startsWith(prefix));
 			})
-			.slice(0, MAX_SUGGESTIONS);
+			.slice(0, MAX_FILTERED_SUGGESTIONS);
 	}, [isCommandMode, prefix]);
 
 	const showSuggestions = filteredCommands.length > 0;
 
-	// Clamp selectedIndex to valid range synchronously (avoids out-of-bounds between render and effect)
+	// Clamp selectedIndex to valid range synchronously
 	const safeIndex = showSuggestions
 		? Math.min(selectedIndex, filteredCommands.length - 1)
 		: 0;
 
 	// Reset selectedIndex when the filtered list changes
+	const filteredKey = filteredCommands.map(c => c.name).join(',');
 	useEffect(() => {
 		setSelectedIndex(0);
-	}, [filteredCommands.length]);
+	}, [filteredKey]);
 
-	// Use refs for values accessed in the useInput handler to keep it stable
-	const showSuggestionsRef = useRef(showSuggestions);
-	showSuggestionsRef.current = showSuggestions;
-	const filteredCommandsRef = useRef(filteredCommands);
-	filteredCommandsRef.current = filteredCommands;
-	const safeIndexRef = useRef(safeIndex);
-	safeIndexRef.current = safeIndex;
-	const disabledRef = useRef(disabled);
-	disabledRef.current = disabled;
-	const onEscapeRef = useRef(onEscape);
-	onEscapeRef.current = onEscape;
-	const onArrowUpRef = useRef(onArrowUp);
-	onArrowUpRef.current = onArrowUp;
-	const onArrowDownRef = useRef(onArrowDown);
-	onArrowDownRef.current = onArrowDown;
-	const valueRef = useRef(value);
-	valueRef.current = value;
+	// Sync all latest values into a single ref for stable callbacks
+	latest.current = {
+		showSuggestions,
+		filteredCommands,
+		safeIndex,
+		disabled,
+		value,
+		onEscape,
+		onArrowUp,
+		onArrowDown,
+		setValue,
+	};
 
 	// Tab completion: insert selected command name into input
 	const completeSelected = useCallback(() => {
-		const cmd = filteredCommandsRef.current[safeIndexRef.current];
+		const {
+			filteredCommands: cmds,
+			safeIndex: idx,
+			setValue: set,
+		} = latest.current;
+		const cmd = cmds[idx];
 		if (!cmd) return;
-		const completed = `/${cmd.name} `;
-		setDefaultValue(completed);
-		setCompletionKey(k => k + 1);
-		setValue(completed);
+		set(`/${cmd.name} `);
 	}, []);
 
-	// Keyboard handler — always active to avoid rawMode toggling issues.
-	// Ink's useInput calls setRawMode(false) when isActive flips to false,
-	// which disables rawMode globally and breaks TextInput.
-	// Instead, guard logic internally.
+	// Meta-key handler (up/down/tab/escape) -- zero overlap with useTextInput
 	const handleKeyInput = useCallback(
 		(
 			_input: string,
@@ -110,76 +130,54 @@ export default function CommandInput({
 				escape: boolean;
 			},
 		) => {
-			if (disabledRef.current) return;
+			const cur = latest.current;
+			if (cur.disabled) return;
 
-			// ESC: dismiss suggestions if showing, otherwise delegate to parent
 			if (key.escape) {
-				if (showSuggestionsRef.current) {
-					setDefaultValue('');
-					setCompletionKey(k => k + 1);
-					setValue('');
-				} else if (onEscapeRef.current) {
-					onEscapeRef.current();
+				if (cur.showSuggestions) {
+					cur.setValue('');
+				} else {
+					cur.onEscape?.();
 				}
 				return;
 			}
 
-			// Arrow keys: navigate suggestions when showing, otherwise delegate to parent for history
 			if (key.upArrow) {
-				if (showSuggestionsRef.current) {
+				if (cur.showSuggestions) {
 					setSelectedIndex(i => {
-						const len = filteredCommandsRef.current.length;
+						const len = cur.filteredCommands.length;
 						return i <= 0 ? len - 1 : i - 1;
 					});
-				} else if (onArrowUpRef.current) {
-					const result = onArrowUpRef.current(valueRef.current);
-					if (result !== undefined) {
-						setDefaultValue(result);
-						setCompletionKey(k => k + 1);
-						setValue(result);
-					}
+				} else {
+					const result = cur.onArrowUp?.(cur.value);
+					if (result !== undefined) cur.setValue(result);
 				}
 				return;
 			}
 
 			if (key.downArrow) {
-				if (showSuggestionsRef.current) {
+				if (cur.showSuggestions) {
 					setSelectedIndex(i => {
-						const len = filteredCommandsRef.current.length;
+						const len = cur.filteredCommands.length;
 						return i >= len - 1 ? 0 : i + 1;
 					});
-				} else if (onArrowDownRef.current) {
-					const result = onArrowDownRef.current();
-					if (result !== undefined) {
-						setDefaultValue(result);
-						setCompletionKey(k => k + 1);
-						setValue(result);
-					}
+				} else {
+					const result = cur.onArrowDown?.();
+					if (result !== undefined) cur.setValue(result);
 				}
 				return;
 			}
 
-			if (!showSuggestionsRef.current) return;
-
-			if (key.tab) {
+			if (key.tab && cur.showSuggestions) {
 				completeSelected();
 			}
 		},
 		[completeSelected],
 	);
 
-	useInput(handleKeyInput);
+	useInput(handleKeyInput, {isActive: !disabled});
 
-	// Wrap onSubmit to clear state before parent processes
-	const handleSubmit = useCallback(
-		(val: string) => {
-			setDefaultValue('');
-			setValue('');
-			setSelectedIndex(0);
-			onSubmit(val);
-		},
-		[onSubmit],
-	);
+	const promptColor = isCommandMode ? 'cyan' : 'gray';
 
 	return (
 		<Box flexDirection="column">
@@ -198,21 +196,48 @@ export default function CommandInput({
 				borderRight={false}
 				paddingX={1}
 			>
-				<Text color="gray">{'>'} </Text>
-				{disabled ? (
-					<Text dimColor>
-						{disabledMessage ?? 'Waiting for permission decision...'}
-					</Text>
-				) : (
-					<TextInput
-						key={`${inputKey}-${completionKey}`}
-						defaultValue={defaultValue}
-						onChange={setValue}
-						onSubmit={handleSubmit}
-						placeholder="Type a message or /command..."
-					/>
-				)}
+				<Text color={promptColor}>{'>'} </Text>
+				{renderInputContent(disabled, disabledMessage, value, cursorOffset)}
 			</Box>
 		</Box>
+	);
+}
+
+function renderInputContent(
+	disabled: boolean | undefined,
+	disabledMessage: string | undefined,
+	value: string,
+	cursorOffset: number,
+): React.ReactNode {
+	if (disabled) {
+		return (
+			<Text dimColor>
+				{disabledMessage ?? 'Waiting for permission decision...'}
+			</Text>
+		);
+	}
+
+	if (value.length === 0) {
+		return (
+			<>
+				<Text dimColor inverse>
+					{PLACEHOLDER[0]}
+				</Text>
+				<Text dimColor>{PLACEHOLDER.slice(1)}</Text>
+			</>
+		);
+	}
+
+	const beforeCursor = value.slice(0, cursorOffset);
+	const cursorChar = cursorOffset < value.length ? value[cursorOffset] : ' ';
+	const afterCursor =
+		cursorOffset < value.length ? value.slice(cursorOffset + 1) : '';
+
+	return (
+		<>
+			<Text>{beforeCursor}</Text>
+			<Text inverse>{cursorChar}</Text>
+			<Text>{afterCursor}</Text>
+		</>
 	);
 }
