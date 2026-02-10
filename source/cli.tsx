@@ -13,6 +13,7 @@ import {
 	readGlobalConfig,
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
+import {detectClaudeVersion} from './utils/detectClaudeVersion.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -122,6 +123,8 @@ const modelName =
 	readClaudeSettingsModel(cli.flags.projectDir) ||
 	null;
 
+const claudeCodeVersion = detectClaudeVersion();
+
 const instanceId = process.pid;
 render(
 	<App
@@ -132,5 +135,6 @@ render(
 		version={version}
 		pluginMcpConfig={pluginMcpConfig}
 		modelName={modelName}
+		claudeCodeVersion={claudeCodeVersion}
 	/>,
 );
