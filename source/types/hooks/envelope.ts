@@ -35,7 +35,12 @@ export type HookResultEnvelope = {
 };
 
 /**
- * Valid hook event names for validation.
+ * Known hook event names (documentation reference).
+ *
+ * NOTE: Validation no longer rejects unknown event names for forward
+ * compatibility. Unknown events are auto-passthroughed by the server.
+ * This set is kept for documentation and for handlers that want to
+ * check if an event is one they explicitly support.
  *
  * Complete list of Claude Code hooks:
  * - SessionStart: Session begins or resumes
@@ -82,14 +87,14 @@ export function isValidHookEventEnvelope(
 
 	return (
 		typeof envelope['v'] === 'number' &&
-		envelope['v'] === PROTOCOL_VERSION && // Validate version matches
+		envelope['v'] >= 1 && // Accept current and future protocol versions
 		envelope['kind'] === 'hook_event' &&
 		typeof envelope['request_id'] === 'string' &&
 		envelope['request_id'].length > 0 &&
 		typeof envelope['ts'] === 'number' &&
 		typeof envelope['session_id'] === 'string' &&
 		typeof envelope['hook_event_name'] === 'string' &&
-		VALID_HOOK_EVENT_NAMES.has(envelope['hook_event_name']) &&
+		envelope['hook_event_name'].length > 0 && // Accept unknown event names for forward compatibility
 		typeof envelope['payload'] === 'object' &&
 		envelope['payload'] !== null
 	);

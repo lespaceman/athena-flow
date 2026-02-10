@@ -137,4 +137,28 @@ describe('registerPlugins', () => {
 		// Commands should still be registered
 		expect(get('cmd-a')).toBeDefined();
 	});
+
+	it('throws when multiple plugins define the same MCP server name', () => {
+		addPlugin('/plugins/a', {
+			mcpServers: {database: {command: 'pg-server'}},
+		});
+		addPlugin('/plugins/b', {
+			mcpServers: {database: {command: 'mysql-server'}},
+		});
+
+		expect(() => registerPlugins(['/plugins/a', '/plugins/b'])).toThrow(
+			/MCP server name collision.*"database"/,
+		);
+	});
+
+	it('allows different MCP server names across plugins', () => {
+		addPlugin('/plugins/a', {
+			mcpServers: {serverA: {command: 'a'}},
+		});
+		addPlugin('/plugins/b', {
+			mcpServers: {serverB: {command: 'b'}},
+		});
+
+		expect(() => registerPlugins(['/plugins/a', '/plugins/b'])).not.toThrow();
+	});
 });

@@ -2,6 +2,7 @@ import {describe, it, expect} from 'vitest';
 import {
 	isValidHookEventEnvelope,
 	generateId,
+	PROTOCOL_VERSION,
 	createPassthroughResult,
 	createBlockResult,
 	createJsonOutputResult,
@@ -88,7 +89,10 @@ describe('hooks types', () => {
 			expect(isValidHookEventEnvelope({...validEnvelope, v: undefined})).toBe(
 				false,
 			);
-			expect(isValidHookEventEnvelope({...validEnvelope, v: 999})).toBe(false);
+			expect(isValidHookEventEnvelope({...validEnvelope, v: 'wrong'})).toBe(
+				false,
+			);
+			expect(isValidHookEventEnvelope({...validEnvelope, v: 0})).toBe(false);
 		});
 
 		it('should return false for wrong kind', () => {
@@ -106,11 +110,20 @@ describe('hooks types', () => {
 			);
 		});
 
-		it('should return false for invalid hook_event_name', () => {
+		it('should accept unknown hook_event_name for forward compatibility', () => {
 			expect(
 				isValidHookEventEnvelope({
 					...validEnvelope,
 					hook_event_name: 'InvalidEvent',
+				}),
+			).toBe(true);
+		});
+
+		it('should reject empty hook_event_name', () => {
+			expect(
+				isValidHookEventEnvelope({
+					...validEnvelope,
+					hook_event_name: '',
 				}),
 			).toBe(false);
 		});
@@ -128,6 +141,25 @@ describe('hooks types', () => {
 			expect(
 				isValidHookEventEnvelope({...validEnvelope, session_id: undefined}),
 			).toBe(false);
+		});
+
+		it('should accept envelopes with version >= PROTOCOL_VERSION (forward compat)', () => {
+			expect(
+				isValidHookEventEnvelope({...validEnvelope, v: PROTOCOL_VERSION + 1}),
+			).toBe(true);
+		});
+
+		it('should reject envelopes with version < 1 (no backwards compat below v1)', () => {
+			expect(isValidHookEventEnvelope({...validEnvelope, v: 0})).toBe(false);
+		});
+
+		it('should accept unknown hook event names for forward compatibility', () => {
+			expect(
+				isValidHookEventEnvelope({
+					...validEnvelope,
+					hook_event_name: 'FutureEvent',
+				}),
+			).toBe(true);
 		});
 
 		it('should accept all valid hook event names', () => {

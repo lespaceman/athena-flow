@@ -30,6 +30,16 @@ export function registerPlugins(pluginDirs: string[]): string | undefined {
 			const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8')) as {
 				mcpServers?: Record<string, unknown>;
 			};
+
+			for (const serverName of Object.keys(config.mcpServers ?? {})) {
+				if (serverName in mergedServers) {
+					throw new Error(
+						`MCP server name collision: "${serverName}" is defined by multiple plugins. ` +
+							'Each MCP server must have a unique name across all plugins.',
+					);
+				}
+			}
+
 			Object.assign(mergedServers, config.mcpServers ?? {});
 		}
 	}
