@@ -41,3 +41,26 @@ export type SessionStatsSnapshot = {
 };
 
 export type ClaudeState = 'idle' | 'working' | 'waiting' | 'error';
+
+/**
+ * Explicit app mode — replaces scattered boolean checks.
+ * Priority order: permission > question > working > idle.
+ */
+export type AppMode =
+	| {type: 'idle'}
+	| {type: 'working'}
+	| {type: 'permission'}
+	| {type: 'question'};
+
+/** Map AppMode to ClaudeState for backward compat with StatusLine/constants. */
+export function appModeToClaudeState(mode: AppMode): ClaudeState {
+	switch (mode.type) {
+		case 'permission':
+		case 'question':
+			return 'waiting';
+		case 'working':
+			return 'working';
+		case 'idle':
+			return 'idle';
+	}
+}

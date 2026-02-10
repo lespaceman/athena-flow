@@ -5,6 +5,7 @@ import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
+import ErrorBoundary from './components/ErrorBoundary.js';
 import HookEvent from './components/HookEvent.js';
 import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
@@ -17,7 +18,8 @@ import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
 import {useDuration} from './hooks/useDuration.js';
 import {useSpinner} from './hooks/useSpinner.js';
-import type {ClaudeState} from './types/headerMetrics.js';
+import {appModeToClaudeState} from './types/headerMetrics.js';
+import {useAppMode} from './hooks/useAppMode.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
@@ -38,7 +40,32 @@ type Props = {
 	version: string;
 	pluginMcpConfig?: string;
 	modelName: string | null;
+	claudeCodeVersion: string | null;
 };
+
+/** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
+function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
+	useInput((_input, key) => {
+		if (key.escape) onDeny();
+	});
+	return (
+		<Text color="red">
+			[Permission dialog error — press Escape to deny and continue]
+		</Text>
+	);
+}
+
+/** Fallback for crashed QuestionDialog — lets user press Escape to skip. */
+function QuestionErrorFallback({onSkip}: {onSkip: () => void}) {
+	useInput((_input, key) => {
+		if (key.escape) onSkip();
+	});
+	return (
+		<Text color="red">
+			[Question dialog error — press Escape to skip and continue]
+		</Text>
+	);
+}
 
 function AppContent({
 	projectDir,
@@ -48,6 +75,7 @@ function AppContent({
 	version,
 	pluginMcpConfig,
 	modelName,
+	claudeCodeVersion,
 	onClear,
 	inputHistory,
 }: Props & {onClear: () => void; inputHistory: InputHistory}) {
@@ -206,11 +234,14 @@ function AppContent({
 		events,
 	});
 
-	const dialogActive = !!currentPermissionRequest || !!currentQuestionRequest;
-	let claudeState: ClaudeState = 'idle';
-	if (isClaudeRunning) {
-		claudeState = dialogActive ? 'waiting' : 'working';
-	}
+	const appMode = useAppMode(
+		isClaudeRunning,
+		currentPermissionRequest,
+		currentQuestionRequest,
+	);
+	const claudeState = appModeToClaudeState(appMode);
+	const dialogActive =
+		appMode.type === 'permission' || appMode.type === 'question';
 	const spinnerFrame = useSpinner(claudeState === 'working');
 
 	const [statsExpanded, setStatsExpanded] = useState(false);
@@ -261,7 +292,15 @@ function AppContent({
 										<Text bold>Athena CLI</Text>
 										<Text dimColor> v{version}</Text>
 									</Text>
-									<Text color="gray">{formatModelName(modelName)}</Text>
+									<Text color="gray">
+										{formatModelName(modelName)}
+										{claudeCodeVersion && (
+											<Text color="gray">
+												{' · Claude Code v'}
+												{claudeCodeVersion}
+											</Text>
+										)}
+									</Text>
 									<Text color="gray">{shortenPath(projectDir)}</Text>
 								</Box>
 							</Box>
@@ -270,12 +309,16 @@ function AppContent({
 					return item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
 					) : (
-						<HookEvent
+						<ErrorBoundary
 							key={item.data.id}
-							event={item.data}
-							verbose={verbose}
-							childEventsByAgent={childEventsByAgent}
-						/>
+							fallback={<Text color="red">[Error rendering event]</Text>}
+						>
+							<HookEvent
+								event={item.data}
+								verbose={verbose}
+								childEventsByAgent={childEventsByAgent}
+							/>
+						</ErrorBoundary>
 					);
 				}}
 			</Static>
@@ -294,23 +337,31 @@ function AppContent({
 				item.type === 'message' ? (
 					<Message key={item.data.id} message={item.data} />
 				) : (
-					<HookEvent
+					<ErrorBoundary
 						key={item.data.id}
-						event={item.data}
-						verbose={verbose}
-						childEventsByAgent={childEventsByAgent}
-					/>
+						fallback={<Text color="red">[Error rendering event]</Text>}
+					>
+						<HookEvent
+							event={item.data}
+							verbose={verbose}
+							childEventsByAgent={childEventsByAgent}
+						/>
+					</ErrorBoundary>
 				),
 			)}
 
 			{/* Active subagents - always dynamic, updates with child events */}
 			{activeSubagents.map(event => (
-				<HookEvent
+				<ErrorBoundary
 					key={event.id}
-					event={event}
-					verbose={verbose}
-					childEventsByAgent={childEventsByAgent}
-				/>
+					fallback={<Text color="red">[Error rendering event]</Text>}
+				>
+					<HookEvent
+						event={event}
+						verbose={verbose}
+						childEventsByAgent={childEventsByAgent}
+					/>
+				</ErrorBoundary>
 			))}
 
 			{/* Active task list - always dynamic, shows latest state */}
@@ -325,37 +376,45 @@ function AppContent({
 			)}
 
 			{/* Permission dialog - shown when a dangerous tool needs approval */}
-			{currentPermissionRequest && (
-				<PermissionDialog
-					request={currentPermissionRequest}
-					queuedCount={permissionQueueCount - 1}
-					onDecision={handlePermissionDecision}
-					agentChain={getAgentChain(
-						events,
-						currentPermissionRequest.parentSubagentId,
-					)}
-				/>
+			{appMode.type === 'permission' && currentPermissionRequest && (
+				<ErrorBoundary
+					fallback={
+						<PermissionErrorFallback
+							onDeny={() => handlePermissionDecision('deny')}
+						/>
+					}
+				>
+					<PermissionDialog
+						request={currentPermissionRequest}
+						queuedCount={permissionQueueCount - 1}
+						onDecision={handlePermissionDecision}
+						agentChain={getAgentChain(
+							events,
+							currentPermissionRequest.parentSubagentId,
+						)}
+					/>
+				</ErrorBoundary>
 			)}
 
 			{/* Question dialog - shown when AskUserQuestion needs answers */}
-			{currentQuestionRequest && !currentPermissionRequest && (
-				<QuestionDialog
-					request={currentQuestionRequest}
-					queuedCount={questionQueueCount - 1}
-					onAnswer={handleQuestionAnswer}
-					onSkip={handleQuestionSkip}
-				/>
+			{appMode.type === 'question' && currentQuestionRequest && (
+				<ErrorBoundary
+					fallback={<QuestionErrorFallback onSkip={handleQuestionSkip} />}
+				>
+					<QuestionDialog
+						request={currentQuestionRequest}
+						queuedCount={questionQueueCount - 1}
+						onAnswer={handleQuestionAnswer}
+						onSkip={handleQuestionSkip}
+					/>
+				</ErrorBoundary>
 			)}
 
 			<CommandInput
 				onSubmit={handleSubmit}
-				disabled={
-					currentPermissionRequest !== null || currentQuestionRequest !== null
-				}
+				disabled={dialogActive}
 				disabledMessage={
-					currentQuestionRequest && !currentPermissionRequest
-						? 'Waiting for your input...'
-						: undefined
+					appMode.type === 'question' ? 'Waiting for your input...' : undefined
 				}
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
@@ -386,6 +445,7 @@ export default function App({
 	version,
 	pluginMcpConfig,
 	modelName,
+	claudeCodeVersion,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
@@ -401,6 +461,7 @@ export default function App({
 				version={version}
 				pluginMcpConfig={pluginMcpConfig}
 				modelName={modelName}
+				claudeCodeVersion={claudeCodeVersion}
 				onClear={() => setClearCount(c => c + 1)}
 				inputHistory={inputHistory}
 			/>
