@@ -13,13 +13,9 @@ import {
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
-	createPermissionRequestAllowResult,
-	createBlockResult,
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
-	isSubagentStartEvent,
-	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
 	type PendingRequest,
@@ -27,14 +23,20 @@ import {
 	type PermissionDecision,
 } from '../types/server.js';
 import {type HookRule, matchRule} from '../types/rules.js';
-import {isPermissionRequired} from '../services/permissionPolicy.js';
-import {parseTranscriptFile} from '../utils/transcriptParser.js';
 import {
 	initHookLogger,
 	logHookReceived,
 	logHookResponded,
 	closeHookLogger,
 } from '../utils/hookLogger.js';
+import {usePermissionQueue} from './usePermissionQueue.js';
+import {useQuestionQueue} from './useQuestionQueue.js';
+import {
+	dispatchEvent,
+	tagSubagentEvents,
+	type HandlerCallbacks,
+	type HandlerContext,
+} from './eventHandlers.js';
 
 // Re-export for backwards compatibility
 export type {UseHookServerResult};
@@ -61,11 +63,21 @@ export function useHookServer(
 	// Keep ref in sync so the socket handler sees current rules
 	rulesRef.current = rules;
 
-	// Permission queue -- requestIds waiting for user decision
-	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
-
-	// Question queue -- requestIds for AskUserQuestion events waiting for answers
-	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
+	// --- Extracted queues ---
+	const {
+		currentPermissionRequest,
+		permissionQueueCount,
+		enqueue: enqueuePermission,
+		dequeue: dequeuePermission,
+		removeAll: removeAllPermissions,
+	} = usePermissionQueue(events);
+	const {
+		currentQuestionRequest,
+		questionQueueCount,
+		enqueue: enqueueQuestion,
+		dequeue: dequeueQuestion,
+		removeAll: removeAllQuestions,
+	} = useQuestionQueue(events);
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -161,9 +173,9 @@ export function useHookServer(
 				: createPreToolUseDenyResult('Denied by user via permission dialog');
 
 			respond(requestId, result);
-			setPermissionQueue(prev => prev.filter(id => id !== requestId));
+			dequeuePermission(requestId);
 		},
-		[respond, addRule],
+		[respond, addRule, dequeuePermission],
 	);
 
 	// Resolve an AskUserQuestion request with the user's answers
@@ -171,9 +183,9 @@ export function useHookServer(
 		(requestId: string, answers: Record<string, string>) => {
 			const result = createAskUserQuestionResult(answers);
 			respond(requestId, result);
-			setQuestionQueue(prev => prev.filter(id => id !== requestId));
+			dequeueQuestion(requestId);
 		},
-		[respond],
+		[respond, dequeueQuestion],
 	);
 
 	// Get pending events
@@ -203,14 +215,6 @@ export function useHookServer(
 		// Initialize hook logger
 		initHookLogger(projectDir);
 
-		/** Shared context passed to each handler in the dispatch chain. */
-		type HandlerContext = {
-			envelope: HookEventEnvelope;
-			displayEvent: HookEventDisplay;
-			socket: net.Socket;
-			receiveTimestamp: number;
-		};
-
 		// Append a display event and prune to MAX_EVENTS
 		function addEvent(event: HookEventDisplay): void {
 			setEvents(prev => {
@@ -238,204 +242,52 @@ export function useHookServer(
 			});
 		}
 
-		/** Store pending with auto-passthrough timeout. */
-		function storeWithAutoPassthrough(ctx: HandlerContext): void {
-			const timeoutId = setTimeout(() => {
-				respond(ctx.envelope.request_id, createPassthroughResult());
-			}, AUTO_PASSTHROUGH_MS);
-			storePending(
-				ctx.envelope.request_id,
-				ctx.socket,
-				ctx.displayEvent,
-				ctx.receiveTimestamp,
-				timeoutId,
-			);
-		}
-
-		/** Store pending without auto-passthrough (requires user input). */
-		function storeWithoutPassthrough(ctx: HandlerContext): void {
-			storePending(
-				ctx.envelope.request_id,
-				ctx.socket,
-				ctx.displayEvent,
-				ctx.receiveTimestamp,
-				undefined as unknown as ReturnType<typeof setTimeout>,
-			);
-		}
-
-		// ── Event handler functions ─────────────────────────────────────
-		// Each returns true if it handled the event (caller should return).
-
-		/** Handle SubagentStop: add as first-class event and parse transcript. */
-		function handleSubagentStop(ctx: HandlerContext): boolean {
-			const {envelope, displayEvent} = ctx;
-			if (!isSubagentStopEvent(envelope.payload)) return false;
-
-			storeWithAutoPassthrough(ctx);
-			addEvent(displayEvent);
-
-			// Parse subagent transcript to extract response text
-			const stopPayload = envelope.payload;
-			const transcriptPath = stopPayload.agent_transcript_path;
-			if (transcriptPath) {
-				parseTranscriptFile(transcriptPath)
-					.then(summary => {
-						if (isMountedRef.current) {
-							setEvents(prev =>
-								prev.map(e =>
-									e.id === displayEvent.id
-										? {...e, transcriptSummary: summary}
-										: e,
-								),
-							);
-						}
-					})
-					.catch(err => {
-						console.error('[SubagentStop] Failed to parse transcript:', err);
-					});
-			}
-
-			return true;
-		}
-
-		/** Auto-allow PermissionRequest events (deny rules still apply). */
-		function handlePermissionRequest(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (envelope.hook_event_name !== 'PermissionRequest') return false;
-			if (!isToolEvent(envelope.payload)) return false;
-
-			// Deny rules still take effect at the PermissionRequest stage
-			const matchedRule = matchRule(
-				rulesRef.current,
-				envelope.payload.tool_name,
-			);
-			if (matchedRule?.action === 'deny') {
-				storeWithoutPassthrough(ctx);
-				addEvent(ctx.displayEvent);
-				respond(
-					envelope.request_id,
-					createBlockResult(`Blocked by rule: ${matchedRule.addedBy}`),
-				);
-				return true;
-			}
-
-			// Auto-allow everything else — don't addEvent() since PermissionRequest
-			// duplicates the PreToolUse event that follows and would create UI noise.
-			storeWithoutPassthrough(ctx);
-			respond(envelope.request_id, createPermissionRequestAllowResult());
-			return true;
-		}
-
-		/** Route AskUserQuestion events to the question queue. */
-		function handleAskUserQuestion(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (
-				envelope.hook_event_name !== 'PreToolUse' ||
-				!isToolEvent(envelope.payload) ||
-				envelope.payload.tool_name !== 'AskUserQuestion'
-			) {
-				return false;
-			}
-
-			storeWithoutPassthrough(ctx);
-			addEvent(ctx.displayEvent);
-			setQuestionQueue(prev => [...prev, envelope.request_id]);
-			return true;
-		}
-
-		/** Apply matching rules to PreToolUse events. */
-		function handlePreToolUseRules(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (
-				envelope.hook_event_name !== 'PreToolUse' ||
-				!isToolEvent(envelope.payload)
-			) {
-				return false;
-			}
-
-			const matchedRule = matchRule(
-				rulesRef.current,
-				envelope.payload.tool_name,
-			);
-			if (!matchedRule) return false;
-
-			const result =
-				matchedRule.action === 'deny'
-					? createPreToolUseDenyResult(
-							`Blocked by rule: ${matchedRule.addedBy}`,
-						)
-					: createPreToolUseAllowResult();
-
-			// Store briefly so respond() can find it, then respond immediately
-			storeWithoutPassthrough(ctx);
-			addEvent(ctx.displayEvent);
-			respond(envelope.request_id, result);
-			return true;
-		}
-
-		/** Route permission-required PreToolUse events to the permission queue. */
-		function handlePermissionCheck(ctx: HandlerContext): boolean {
-			const {envelope} = ctx;
-			if (
-				envelope.hook_event_name !== 'PreToolUse' ||
-				!isToolEvent(envelope.payload) ||
-				!isPermissionRequired(
-					envelope.payload.tool_name,
-					rulesRef.current,
-					envelope.payload.tool_input,
-				)
-			) {
-				return false;
-			}
-
-			storeWithoutPassthrough(ctx);
-			addEvent(ctx.displayEvent);
-			setPermissionQueue(prev => [...prev, envelope.request_id]);
-			return true;
-		}
-
-		/** Capture session ID and enrich SessionEnd with transcript data. */
-		function handleSessionTracking(ctx: HandlerContext): void {
-			const {envelope, displayEvent} = ctx;
-
-			if (envelope.hook_event_name === 'SessionStart') {
-				setCurrentSessionId(envelope.session_id);
-			}
-
-			if (envelope.hook_event_name !== 'SessionEnd') return;
-
-			const updateTranscript = (
-				summary: HookEventDisplay['transcriptSummary'],
-			) =>
-				setEvents(prev =>
-					prev.map(e =>
-						e.id === displayEvent.id ? {...e, transcriptSummary: summary} : e,
-					),
-				);
-
-			const transcriptPath = envelope.payload.transcript_path;
-			if (transcriptPath) {
-				parseTranscriptFile(transcriptPath)
-					.then(summary => {
-						if (isMountedRef.current) updateTranscript(summary);
-					})
-					.catch(err => {
-						console.error('[SessionEnd] Failed to parse transcript:', err);
-					});
-			} else {
-				updateTranscript({
-					lastAssistantText: null,
-					lastAssistantTimestamp: null,
-					messageCount: 0,
-					toolCallCount: 0,
-					error: 'No transcript path provided',
-				});
-			}
-		}
-
 		// ── Server creation ─────────────────────────────────────────────
 
 		const server = net.createServer((socket: net.Socket) => {
+			// Build per-socket callbacks that close over the socket
+			const callbacks: HandlerCallbacks = {
+				getRules: () => rulesRef.current,
+				storeWithAutoPassthrough: (ctx: HandlerContext) => {
+					const timeoutId = setTimeout(() => {
+						respond(ctx.envelope.request_id, createPassthroughResult());
+					}, AUTO_PASSTHROUGH_MS);
+					storePending(
+						ctx.envelope.request_id,
+						socket,
+						ctx.displayEvent,
+						ctx.receiveTimestamp,
+						timeoutId,
+					);
+				},
+				storeWithoutPassthrough: (ctx: HandlerContext) => {
+					storePending(
+						ctx.envelope.request_id,
+						socket,
+						ctx.displayEvent,
+						ctx.receiveTimestamp,
+						undefined as unknown as ReturnType<typeof setTimeout>,
+					);
+				},
+				addEvent,
+				respond,
+				enqueuePermission,
+				enqueueQuestion,
+				setCurrentSessionId,
+				onTranscriptParsed: (
+					eventId: string,
+					summary: HookEventDisplay['transcriptSummary'],
+				) => {
+					if (isMountedRef.current) {
+						setEvents(prev =>
+							prev.map(e =>
+								e.id === eventId ? {...e, transcriptSummary: summary} : e,
+							),
+						);
+					}
+				},
+			};
+
 			let data = '';
 
 			socket.on('data', (chunk: Buffer) => {
@@ -462,7 +314,7 @@ export function useHookServer(
 
 					logHookReceived(envelope);
 
-					// Build shared context for the handler chain
+					// Build handler context
 					const ctx: HandlerContext = {
 						envelope,
 						displayEvent: {
@@ -475,41 +327,18 @@ export function useHookServer(
 							payload,
 							status: 'pending',
 						},
-						socket,
 						receiveTimestamp: Date.now(),
 					};
 
 					// Track active subagents and tag child events
-					if (isSubagentStartEvent(envelope.payload)) {
-						activeSubagentStackRef.current.push(envelope.payload.agent_id);
-					} else if (isSubagentStopEvent(envelope.payload)) {
-						const agentId = envelope.payload.agent_id;
-						activeSubagentStackRef.current =
-							activeSubagentStackRef.current.filter(id => id !== agentId);
-					} else if (activeSubagentStackRef.current.length > 0) {
-						// Tag non-subagent events with the innermost active subagent
-						ctx.displayEvent.parentSubagentId =
-							activeSubagentStackRef.current[
-								activeSubagentStackRef.current.length - 1
-							];
-					}
+					activeSubagentStackRef.current = tagSubagentEvents(
+						envelope,
+						ctx.displayEvent,
+						activeSubagentStackRef.current,
+					);
 
-					// Dispatch to handlers (first match wins)
-					const handled =
-						handleSubagentStop(ctx) ||
-						handlePermissionRequest(ctx) ||
-						handleAskUserQuestion(ctx) ||
-						handlePreToolUseRules(ctx) ||
-						handlePermissionCheck(ctx);
-
-					if (!handled) {
-						// Default: auto-passthrough after timeout
-						storeWithAutoPassthrough(ctx);
-						addEvent(ctx.displayEvent);
-					}
-
-					// Session-specific tracking (runs regardless of handler)
-					handleSessionTracking(ctx);
+					// Dispatch to handler chain
+					dispatchEvent(ctx, callbacks);
 				} catch (err) {
 					console.error('[hook-server] Error processing event:', err);
 					socket.end();
@@ -534,12 +363,8 @@ export function useHookServer(
 				// Remove closed requests from the permission/question queues so the
 				// dialogs do not get stuck showing a dead request.
 				if (closedRequestIds.length > 0 && isMountedRef.current) {
-					setPermissionQueue(prev =>
-						prev.filter(id => !closedRequestIds.includes(id)),
-					);
-					setQuestionQueue(prev =>
-						prev.filter(id => !closedRequestIds.includes(id)),
-					);
+					removeAllPermissions(closedRequestIds);
+					removeAllQuestions(closedRequestIds);
 				}
 			});
 		});
@@ -596,17 +421,15 @@ export function useHookServer(
 			// Close hook logger
 			closeHookLogger();
 		};
-	}, [projectDir, instanceId, respond]);
-
-	const currentPermissionRequest =
-		permissionQueue.length > 0
-			? (events.find(e => e.requestId === permissionQueue[0]) ?? null)
-			: null;
-
-	const currentQuestionRequest =
-		questionQueue.length > 0
-			? (events.find(e => e.requestId === questionQueue[0]) ?? null)
-			: null;
+	}, [
+		projectDir,
+		instanceId,
+		respond,
+		enqueuePermission,
+		removeAllPermissions,
+		enqueueQuestion,
+		removeAllQuestions,
+	]);
 
 	return {
 		events,
@@ -622,10 +445,10 @@ export function useHookServer(
 		clearRules,
 		clearEvents,
 		currentPermissionRequest,
-		permissionQueueCount: permissionQueue.length,
+		permissionQueueCount,
 		resolvePermission,
 		currentQuestionRequest,
-		questionQueueCount: questionQueue.length,
+		questionQueueCount,
 		resolveQuestion,
 	};
 }
