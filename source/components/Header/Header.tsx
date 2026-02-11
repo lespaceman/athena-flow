@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {LOGO_LINES, TIPS} from './constants.js';
 import {formatModelName, shortenPath} from '../../utils/formatters.js';
+import {useTheme} from '../../theme/index.js';
 
 type Props = {
 	version: string;
@@ -18,11 +19,12 @@ export default function Header({
 	terminalWidth,
 }: Props) {
 	const isWide = terminalWidth >= NARROW_THRESHOLD;
+	const theme = useTheme();
 
 	return (
 		<Box
 			borderStyle="round"
-			borderColor="cyan"
+			borderColor={theme.border}
 			paddingX={2}
 			paddingY={1}
 			flexDirection="row"
@@ -36,13 +38,13 @@ export default function Header({
 			>
 				<Box flexDirection="column" flexShrink={0} marginRight={2}>
 					{LOGO_LINES.map((line, i) => (
-						<Text key={i} color="cyan">
+						<Text key={i} color={theme.accent}>
 							{line}
 						</Text>
 					))}
 				</Box>
 				<Box flexDirection="column">
-					<Text bold color="cyan">
+					<Text bold color={theme.accent}>
 						Welcome back!
 					</Text>
 					<Text wrap="truncate">
@@ -65,7 +67,7 @@ export default function Header({
 						borderRight={false}
 						borderTop={false}
 						borderBottom={false}
-						borderColor="gray"
+						borderColor={theme.textMuted}
 						marginX={1}
 						height="100%"
 					/>
