@@ -175,10 +175,9 @@ export function handleSafeToolAutoAllow(
 			envelope.payload.tool_input,
 		)
 	) {
-		return false; // Not safe — let handlePermissionCheck deal with it
+		return false;
 	}
 
-	// Safe tool: explicitly allow
 	cb.storeWithoutPassthrough(ctx);
 	cb.addEvent(ctx.displayEvent);
 	cb.respond(envelope.request_id, createPreToolUseAllowResult());

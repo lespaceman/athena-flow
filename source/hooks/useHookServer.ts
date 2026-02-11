@@ -153,17 +153,20 @@ export function useHookServer(
 		(requestId: string, decision: PermissionDecision) => {
 			const toolName =
 				pendingRequestsRef.current.get(requestId)?.event.toolName;
-			const isAllow =
-				decision === 'allow' ||
-				decision === 'always-allow' ||
-				decision === 'always-allow-server';
+			const isAllow = decision !== 'deny' && decision !== 'always-deny';
 
 			// Persist "always" decisions as rules for future requests
 			if (toolName) {
-				if (decision === 'always-allow' || decision === 'always-deny') {
+				if (decision === 'always-allow') {
 					addRule({
 						toolName,
-						action: isAllow ? 'approve' : 'deny',
+						action: 'approve',
+						addedBy: 'permission-dialog',
+					});
+				} else if (decision === 'always-deny') {
+					addRule({
+						toolName,
+						action: 'deny',
 						addedBy: 'permission-dialog',
 					});
 				} else if (decision === 'always-allow-server') {
