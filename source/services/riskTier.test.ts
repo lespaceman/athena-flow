@@ -9,7 +9,7 @@ describe('riskTier', () => {
 				const config = RISK_TIER_CONFIG[tier];
 				expect(config.label).toBe(tier);
 				expect(typeof config.icon).toBe('string');
-				expect(typeof config.color).toBe('string');
+				expect(typeof config.color).toBe('function');
 			}
 		});
 
