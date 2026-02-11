@@ -17,6 +17,8 @@ export type AthenaConfig = {
 	additionalDirectories: string[];
 	/** Model to use (alias like "sonnet"/"opus" or full model ID) */
 	model?: string;
+	/** Color theme: 'dark' or 'light' */
+	theme?: string;
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -51,6 +53,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		plugins?: string[];
 		additionalDirectories?: string[];
 		model?: string;
+		theme?: string;
 	};
 
 	const plugins = (raw.plugins ?? []).map(p => {
@@ -65,5 +68,5 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
-	return {plugins, additionalDirectories, model: raw.model};
+	return {plugins, additionalDirectories, model: raw.model, theme: raw.theme};
 }

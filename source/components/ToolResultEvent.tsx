@@ -14,12 +14,13 @@ import {
 } from '../types/hooks/index.js';
 import {parseToolName} from '../utils/toolNameParser.js';
 import {
-	STATUS_COLORS,
+	getStatusColors,
 	STATUS_SYMBOLS,
 	getPostToolText,
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -30,7 +31,9 @@ export default function ToolResultEvent({
 	event,
 	verbose,
 }: Props): React.ReactNode {
-	const color = STATUS_COLORS[event.status];
+	const theme = useTheme();
+	const statusColors = getStatusColors(theme);
+	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 	const payload = event.payload;
 

@@ -1,5 +1,6 @@
 import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput} from 'ink';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	confirmText: string;
@@ -59,17 +60,19 @@ export default function TypeToConfirm({
 
 	useInput(handleInput);
 
+	const theme = useTheme();
+
 	return (
 		<Box flexDirection="column" paddingX={1}>
 			{/* Prompt line */}
-			<Text bold color="red">
+			<Text bold color={theme.status.error}>
 				{'\u26d4'} Type "{confirmText}" or "yes" to allow:
 			</Text>
 
 			{/* Input line with cursor */}
 			<Box>
 				<Text>&gt; </Text>
-				<Text color={isMatch ? 'green' : undefined}>{input}</Text>
+				<Text color={isMatch ? theme.status.success : undefined}>{input}</Text>
 				<Text>{'\u258c'}</Text>
 			</Box>
 

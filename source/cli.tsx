@@ -14,6 +14,7 @@ import {
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {detectClaudeVersion} from './utils/detectClaudeVersion.js';
+import {resolveTheme} from './theme/index.js';
 import {getMostRecentSession} from './utils/sessionIndex.js';
 
 const require = createRequire(import.meta.url);
@@ -35,6 +36,7 @@ const cli = meow(
 		                  minimal - Full isolation, allow project MCP servers
 		                  permissive - Full isolation, allow project MCP servers
 		--verbose       Show additional rendering detail and streaming display
+		--theme         Color theme: dark (default) or light
 		--continue      Resume the most recent session (or specify a session ID)
 		--sessions      Launch interactive session picker before main UI
 
@@ -77,6 +79,9 @@ const cli = meow(
 			verbose: {
 				type: 'boolean',
 				default: false,
+			},
+			theme: {
+				type: 'string',
 			},
 			continue: {
 				type: 'string',
@@ -136,6 +141,11 @@ const modelName =
 	readClaudeSettingsModel(cli.flags.projectDir) ||
 	null;
 
+// Resolve theme: CLI flag > project config > global config > default
+const themeName =
+	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
+const theme = resolveTheme(themeName);
+
 const claudeCodeVersion = detectClaudeVersion();
 
 // Resolve --continue flag: with value = specific session ID, without value = most recent
@@ -168,6 +178,7 @@ render(
 		pluginMcpConfig={pluginMcpConfig}
 		modelName={modelName}
 		claudeCodeVersion={claudeCodeVersion}
+		theme={theme}
 		initialSessionId={initialSessionId}
 		showSessionPicker={showSessionPicker}
 	/>,

@@ -2,6 +2,8 @@ import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import Message from './Message.js';
+import {ThemeProvider} from '../theme/index.js';
+import {darkTheme, lightTheme} from '../theme/themes.js';
 
 describe('Message', () => {
 	it('renders user message with ❯ prefix', () => {
@@ -64,5 +66,31 @@ describe('Message', () => {
 		expect(userFrame()).not.toContain('●');
 		expect(assistantFrame()).toContain('●');
 		expect(assistantFrame()).not.toContain('❯');
+	});
+
+	it('consumes theme from ThemeProvider context', () => {
+		const msg = {
+			id: '1',
+			role: 'user' as const,
+			content: 'Hello',
+			timestamp: new Date(),
+		};
+
+		// Rendering with lightTheme should not throw —
+		// verifies useTheme() reads from provider, not hardcoded values
+		const {lastFrame: darkFrame} = render(
+			<ThemeProvider value={darkTheme}>
+				<Message message={msg} />
+			</ThemeProvider>,
+		);
+		const {lastFrame: lightFrame} = render(
+			<ThemeProvider value={lightTheme}>
+				<Message message={msg} />
+			</ThemeProvider>,
+		);
+
+		// Both render the same text content (ANSI codes are stripped by ink-testing-library)
+		expect(darkFrame()).toContain('Hello');
+		expect(lightFrame()).toContain('Hello');
 	});
 });

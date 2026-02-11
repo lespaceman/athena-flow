@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {formatTokens, formatDuration} from '../../utils/formatters.js';
 import type {SessionMetrics} from '../../types/headerMetrics.js';
+import {useTheme} from '../../theme/index.js';
 
 type Props = {
 	metrics: SessionMetrics;
@@ -39,6 +40,7 @@ function TokenStats({metrics}: {metrics: SessionMetrics}) {
 }
 
 function SubagentTable({metrics}: {metrics: SessionMetrics}) {
+	const theme = useTheme();
 	if (metrics.subagentCount === 0) return null;
 
 	return (
@@ -49,7 +51,7 @@ function SubagentTable({metrics}: {metrics: SessionMetrics}) {
 			{metrics.subagentMetrics.map(sub => (
 				<Text key={sub.agentId}>
 					<Text dimColor>{'  '}</Text>
-					<Text color="cyan">{sub.agentType}</Text>
+					<Text color={theme.accent}>{sub.agentType}</Text>
 					<Text dimColor> tools: </Text>
 					<Text>{sub.toolCallCount}</Text>
 				</Text>
@@ -59,13 +61,14 @@ function SubagentTable({metrics}: {metrics: SessionMetrics}) {
 }
 
 export default function StatsPanel({metrics, elapsed, terminalWidth}: Props) {
+	const theme = useTheme();
 	const useColumns = terminalWidth >= 80;
 
 	return (
 		<Box
 			flexDirection="column"
 			borderStyle="round"
-			borderColor="gray"
+			borderColor={theme.textMuted}
 			paddingX={1}
 		>
 			<Box

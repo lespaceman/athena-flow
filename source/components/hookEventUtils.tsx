@@ -11,15 +11,18 @@ import {
 	type PostToolUseFailureEvent,
 	isPostToolUseFailureEvent,
 } from '../types/hooks/index.js';
+import {type Theme} from '../theme/index.js';
 
 // ── Status constants ────────────────────────────────────────────────
 
-export const STATUS_COLORS = {
-	pending: 'yellow',
-	passthrough: 'green',
-	blocked: 'red',
-	json_output: 'blue',
-} as const;
+export function getStatusColors(theme: Theme) {
+	return {
+		pending: theme.status.warning,
+		passthrough: theme.status.success,
+		blocked: theme.status.error,
+		json_output: theme.status.info,
+	} as const;
+}
 
 export const STATUS_SYMBOLS = {
 	pending: '\u25cb', // ○
@@ -27,8 +30,6 @@ export const STATUS_SYMBOLS = {
 	blocked: '\u2717', // ✗
 	json_output: '\u2192', // →
 } as const;
-
-export const SUBAGENT_COLOR = 'magenta';
 
 export const SUBAGENT_SYMBOLS = {
 	pending: '\u25c7', // ◇ (open diamond)

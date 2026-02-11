@@ -8,6 +8,7 @@ import {
 	getContextBarColor,
 	formatStatsSnapshot,
 } from './formatters.js';
+import {darkTheme} from '../theme/index.js';
 import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
 
 vi.mock('node:os', () => ({
@@ -153,27 +154,27 @@ describe('formatModelName', () => {
 
 describe('getContextBarColor', () => {
 	it('returns gray for null', () => {
-		expect(getContextBarColor(null)).toBe('gray');
+		expect(getContextBarColor(null, darkTheme)).toBe('gray');
 	});
 
 	it('returns green below 60%', () => {
-		expect(getContextBarColor(30)).toBe('green');
-		expect(getContextBarColor(59)).toBe('green');
+		expect(getContextBarColor(30, darkTheme)).toBe('green');
+		expect(getContextBarColor(59, darkTheme)).toBe('green');
 	});
 
 	it('returns yellow at 60-79%', () => {
-		expect(getContextBarColor(60)).toBe('yellow');
-		expect(getContextBarColor(79)).toBe('yellow');
+		expect(getContextBarColor(60, darkTheme)).toBe('yellow');
+		expect(getContextBarColor(79, darkTheme)).toBe('yellow');
 	});
 
 	it('returns orange at 80-94%', () => {
-		expect(getContextBarColor(80)).toBe('#FF8C00');
-		expect(getContextBarColor(94)).toBe('#FF8C00');
+		expect(getContextBarColor(80, darkTheme)).toBe('#FF8C00');
+		expect(getContextBarColor(94, darkTheme)).toBe('#FF8C00');
 	});
 
 	it('returns red at 95%+', () => {
-		expect(getContextBarColor(95)).toBe('red');
-		expect(getContextBarColor(100)).toBe('red');
+		expect(getContextBarColor(95, darkTheme)).toBe('red');
+		expect(getContextBarColor(100, darkTheme)).toBe('red');
 	});
 });
 

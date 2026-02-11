@@ -30,6 +30,7 @@ import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 import {getAgentChain} from './utils/agentChain.js';
+import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
 
@@ -42,6 +43,7 @@ type Props = {
 	pluginMcpConfig?: string;
 	modelName: string | null;
 	claudeCodeVersion: string | null;
+	theme: Theme;
 	initialSessionId?: string;
 	showSessionPicker?: boolean;
 };
@@ -52,11 +54,12 @@ type AppPhase =
 
 /** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
+	const theme = useTheme();
 	useInput((_input, key) => {
 		if (key.escape) onDeny();
 	});
 	return (
-		<Text color="red">
+		<Text color={theme.status.error}>
 			[Permission dialog error — press Escape to deny and continue]
 		</Text>
 	);
@@ -64,11 +67,12 @@ function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
 
 /** Fallback for crashed QuestionDialog — lets user press Escape to skip. */
 function QuestionErrorFallback({onSkip}: {onSkip: () => void}) {
+	const theme = useTheme();
 	useInput((_input, key) => {
 		if (key.escape) onSkip();
 	});
 	return (
-		<Text color="red">
+		<Text color={theme.status.error}>
 			[Question dialog error — press Escape to skip and continue]
 		</Text>
 	);
@@ -443,6 +447,7 @@ export default function App({
 	pluginMcpConfig,
 	modelName,
 	claudeCodeVersion,
+	theme,
 	initialSessionId,
 	showSessionPicker,
 }: Props) {
@@ -478,23 +483,26 @@ export default function App({
 	}
 
 	return (
-		<HookProvider projectDir={projectDir} instanceId={instanceId}>
-			<AppContent
-				key={clearCount}
-				projectDir={projectDir}
-				instanceId={instanceId}
-				isolation={isolation}
-				verbose={verbose}
-				version={version}
-				pluginMcpConfig={pluginMcpConfig}
-				modelName={modelName}
-				claudeCodeVersion={claudeCodeVersion}
-				initialSessionId={phase.initialSessionId}
-				showSessionPicker={showSessionPicker}
-				onClear={() => setClearCount(c => c + 1)}
-				onShowSessions={handleShowSessions}
-				inputHistory={inputHistory}
-			/>
-		</HookProvider>
+		<ThemeProvider value={theme}>
+			<HookProvider projectDir={projectDir} instanceId={instanceId}>
+				<AppContent
+					key={clearCount}
+					projectDir={projectDir}
+					instanceId={instanceId}
+					isolation={isolation}
+					verbose={verbose}
+					version={version}
+					pluginMcpConfig={pluginMcpConfig}
+					modelName={modelName}
+					claudeCodeVersion={claudeCodeVersion}
+					theme={theme}
+					initialSessionId={phase.initialSessionId}
+					showSessionPicker={showSessionPicker}
+					onClear={() => setClearCount(c => c + 1)}
+					onShowSessions={handleShowSessions}
+					inputHistory={inputHistory}
+				/>
+			</HookProvider>
+		</ThemeProvider>
 	);
 }

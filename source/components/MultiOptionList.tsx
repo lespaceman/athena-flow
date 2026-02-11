@@ -1,6 +1,7 @@
 import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type OptionItem} from './OptionList.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	options: OptionItem[];
@@ -8,6 +9,7 @@ type Props = {
 };
 
 export default function MultiOptionList({options, onSubmit}: Props) {
+	const theme = useTheme();
 	const [focusIndex, setFocusIndex] = useState(0);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -56,7 +58,7 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 					<Box key={option.value} flexDirection="column">
 						<Box>
 							<Text
-								color={isFocused ? 'cyan' : undefined}
+								color={isFocused ? theme.accent : undefined}
 								bold={isFocused}
 								inverse={isFocused}
 								dimColor={!isFocused}

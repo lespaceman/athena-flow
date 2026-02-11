@@ -16,7 +16,12 @@ import {
 	isPermissionRequestEvent,
 } from '../types/hooks/index.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
-import {STATUS_COLORS, STATUS_SYMBOLS, StderrBlock} from './hookEventUtils.js';
+import {
+	getStatusColors,
+	STATUS_SYMBOLS,
+	StderrBlock,
+} from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -27,7 +32,9 @@ export default function ToolCallEvent({
 	event,
 	verbose,
 }: Props): React.ReactNode {
-	const color = STATUS_COLORS[event.status];
+	const theme = useTheme();
+	const statusColors = getStatusColors(theme);
+	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 	const payload = event.payload;
 

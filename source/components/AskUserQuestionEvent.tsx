@@ -13,17 +13,20 @@ import {
 	isPreToolUseEvent,
 } from '../types/hooks/index.js';
 import {
-	STATUS_COLORS,
+	getStatusColors,
 	STATUS_SYMBOLS,
 	RESPONSE_PREFIX,
 } from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
 };
 
 export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
-	const color = STATUS_COLORS[event.status];
+	const theme = useTheme();
+	const statusColors = getStatusColors(theme);
+	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 	const payload = event.payload;
 
@@ -47,7 +50,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 		return (
 			<Box marginBottom={1}>
 				<Text color={color}>{symbol} </Text>
-				<Text color="cyan" bold>
+				<Text color={theme.accent} bold>
 					Question
 				</Text>
 				{questions && questions.length > 0 && (
@@ -65,7 +68,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 		<Box flexDirection="column" marginBottom={1}>
 			<Box>
 				<Text color={color}>{symbol} </Text>
-				<Text color="cyan" bold>
+				<Text color={theme.accent} bold>
 					Question
 				</Text>
 			</Box>
@@ -75,7 +78,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 						<Text bold>[{q.header}]</Text> {q.question}
 					</Text>
 					{answers?.[q.question] && (
-						<Text color="green">
+						<Text color={theme.status.success}>
 							{RESPONSE_PREFIX}
 							{answers[q.question]}
 						</Text>

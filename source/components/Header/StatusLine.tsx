@@ -6,7 +6,8 @@ import {
 	shortenPath,
 } from '../../utils/formatters.js';
 import type {ClaudeState} from '../../types/headerMetrics.js';
-import {STATE_COLORS, STATE_LABELS} from './constants.js';
+import {getStateColors, STATE_LABELS} from './constants.js';
+import {useTheme} from '../../theme/index.js';
 
 type Props = {
 	isServerRunning: boolean;
@@ -31,18 +32,25 @@ export default function StatusLine({
 	tokenTotal,
 	projectDir,
 }: Props) {
+	const theme = useTheme();
+	const stateColors = getStateColors(theme);
+
 	return (
 		<Box justifyContent="space-between" width="100%" marginTop={1} paddingX={1}>
 			<Box>
 				{verbose && (
 					<>
-						<Text color={isServerRunning ? 'green' : 'red'}>
+						<Text
+							color={
+								isServerRunning ? theme.status.success : theme.status.error
+							}
+						>
 							Hook server: {isServerRunning ? 'running' : 'stopped'}
 						</Text>
 						<Text dimColor> | </Text>
 					</>
 				)}
-				<Text color={STATE_COLORS[claudeState]}>
+				<Text color={stateColors[claudeState]}>
 					{spinnerFrame ? `${spinnerFrame} ` : ''}
 					Athena: {STATE_LABELS[claudeState]}
 				</Text>

@@ -1,5 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	toolName: string;
@@ -7,6 +8,7 @@ type Props = {
 };
 
 export default function KeybindingBar({toolName, serverLabel}: Props) {
+	const theme = useTheme();
 	// Build the scope suffix for "always" actions
 	const scopeSuffix = serverLabel ? ` on ${serverLabel}` : '';
 
@@ -15,13 +17,13 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 			{/* Line 1: Basic actions */}
 			<Box gap={2}>
 				<Text>
-					<Text color="green" bold>
+					<Text color={theme.status.success} bold>
 						a
 					</Text>{' '}
 					Allow
 				</Text>
 				<Text>
-					<Text color="red" bold>
+					<Text color={theme.status.error} bold>
 						d
 					</Text>{' '}
 					Deny <Text dimColor>(default)</Text>
@@ -39,7 +41,7 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 			{/* Line 2: Always allow */}
 			<Box>
 				<Text>
-					<Text color="green" bold>
+					<Text color={theme.status.success} bold>
 						A
 					</Text>{' '}
 					Always allow &quot;{toolName}&quot;{scopeSuffix}
@@ -49,7 +51,7 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 			{/* Line 3: Always deny */}
 			<Box>
 				<Text>
-					<Text color="red" bold>
+					<Text color={theme.status.error} bold>
 						D
 					</Text>{' '}
 					Always deny &quot;{toolName}&quot;{scopeSuffix}
@@ -60,7 +62,7 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 			{serverLabel && (
 				<Box>
 					<Text>
-						<Text color="blue" bold>
+						<Text color={theme.status.info} bold>
 							S
 						</Text>{' '}
 						Always allow all from {serverLabel}

@@ -1,11 +1,14 @@
 import type {ClaudeState} from '../../types/headerMetrics.js';
+import {type Theme} from '../../theme/index.js';
 
-export const STATE_COLORS: Record<ClaudeState, string> = {
-	idle: 'gray',
-	working: 'cyan',
-	waiting: 'yellow',
-	error: 'red',
-};
+export function getStateColors(theme: Theme): Record<ClaudeState, string> {
+	return {
+		idle: theme.status.neutral,
+		working: theme.status.info,
+		waiting: theme.status.warning,
+		error: theme.status.error,
+	};
+}
 
 export const STATE_LABELS: Record<ClaudeState, string> = {
 	idle: 'idle',
