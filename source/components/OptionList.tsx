@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
+import {useTheme} from '../theme/index.js';
 
 export type OptionItem = {
 	label: string;
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function OptionList({options, onSelect}: Props) {
+	const theme = useTheme();
 	const [focusIndex, setFocusIndex] = useState(0);
 
 	useInput((input, key) => {
@@ -44,7 +46,7 @@ export default function OptionList({options, onSelect}: Props) {
 					<Box key={option.value} flexDirection="column">
 						<Box>
 							<Text
-								color={isFocused ? 'cyan' : undefined}
+								color={isFocused ? theme.accent : undefined}
 								bold={isFocused}
 								inverse={isFocused}
 								dimColor={!isFocused}

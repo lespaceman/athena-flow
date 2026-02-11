@@ -30,7 +30,7 @@ import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 import {getAgentChain} from './utils/agentChain.js';
-import {ThemeProvider, type Theme} from './theme/index.js';
+import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 
 type Props = {
 	projectDir: string;
@@ -46,11 +46,12 @@ type Props = {
 
 /** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
+	const theme = useTheme();
 	useInput((_input, key) => {
 		if (key.escape) onDeny();
 	});
 	return (
-		<Text color="red">
+		<Text color={theme.status.error}>
 			[Permission dialog error — press Escape to deny and continue]
 		</Text>
 	);
@@ -58,11 +59,12 @@ function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
 
 /** Fallback for crashed QuestionDialog — lets user press Escape to skip. */
 function QuestionErrorFallback({onSkip}: {onSkip: () => void}) {
+	const theme = useTheme();
 	useInput((_input, key) => {
 		if (key.escape) onSkip();
 	});
 	return (
-		<Text color="red">
+		<Text color={theme.status.error}>
 			[Question dialog error — press Escape to skip and continue]
 		</Text>
 	);

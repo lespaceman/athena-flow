@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useSpinner} from '../hooks/useSpinner.js';
 import {type TodoItem} from '../types/todo.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	tasks: TodoItem[];
@@ -19,13 +20,6 @@ const STATE_SYMBOLS = {
 	failed: '\u2717',
 } as const;
 
-const STATE_COLORS = {
-	completed: 'green',
-	in_progress: 'cyan',
-	pending: 'gray',
-	failed: 'red',
-} as const;
-
 // -- Sub-components -----------------------------------------------------------
 
 function TaskItem({
@@ -35,7 +29,14 @@ function TaskItem({
 	task: TodoItem;
 	spinnerFrame: string;
 }) {
-	const color = STATE_COLORS[task.status];
+	const theme = useTheme();
+	const stateColors = {
+		completed: theme.status.success,
+		in_progress: theme.status.info,
+		pending: theme.status.neutral,
+		failed: theme.status.error,
+	};
+	const color = stateColors[task.status];
 	const symbol =
 		task.status === 'in_progress' ? spinnerFrame : STATE_SYMBOLS[task.status];
 	const isDim = task.status === 'pending';
@@ -44,10 +45,10 @@ function TaskItem({
 	return (
 		<Box>
 			<Text color={color}>{symbol} </Text>
-			<Text dimColor={isDim} color={isFailed ? 'red' : undefined}>
+			<Text dimColor={isDim} color={isFailed ? theme.status.error : undefined}>
 				{task.content}
 			</Text>
-			{isFailed && <Text color="red"> — failed</Text>}
+			{isFailed && <Text color={theme.status.error}> — failed</Text>}
 			{task.status === 'in_progress' && task.activeForm && (
 				<Text dimColor> {task.activeForm}</Text>
 			)}
@@ -63,6 +64,7 @@ export default function TaskList({
 	onToggle,
 	dialogActive,
 }: Props) {
+	const theme = useTheme();
 	const hasInProgress = tasks.some(t => t.status === 'in_progress');
 	const spinnerFrame = useSpinner(hasInProgress);
 
@@ -91,15 +93,15 @@ export default function TaskList({
 		let statusText: React.ReactNode;
 		if (failedTask) {
 			statusText = (
-				<Text color="red">
+				<Text color={theme.status.error}>
 					{'\u2717'} Failed: {failedTask.content}
 				</Text>
 			);
 		} else if (allDone) {
-			statusText = <Text color="green">{'\u2713'} Done</Text>;
+			statusText = <Text color={theme.status.success}>{'\u2713'} Done</Text>;
 		} else if (inProgressTask) {
 			statusText = (
-				<Text color="cyan">
+				<Text color={theme.status.info}>
 					{spinnerFrame} {inProgressTask.activeForm ?? inProgressTask.content}
 				</Text>
 			);

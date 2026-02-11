@@ -2,6 +2,7 @@ import process from 'node:process';
 import React from 'react';
 import {Box, Text} from 'ink';
 import {type Command} from '../commands/types.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	commands: Command[];
@@ -15,6 +16,7 @@ function truncate(text: string, maxLen: number): string {
 }
 
 export default function CommandSuggestions({commands, selectedIndex}: Props) {
+	const theme = useTheme();
 	if (commands.length === 0) return null;
 
 	// Column widths for alignment across all rows
@@ -37,8 +39,8 @@ export default function CommandSuggestions({commands, selectedIndex}: Props) {
 
 				return (
 					<Box key={cmd.name}>
-						<Text color="cyan">{isSelected ? '> ' : '  '}</Text>
-						<Text color={isSelected ? 'cyan' : 'white'} bold={isSelected}>
+						<Text color={theme.accent}>{isSelected ? '> ' : '  '}</Text>
+						<Text color={isSelected ? theme.accent : theme.text} bold={isSelected}>
 							{name}
 						</Text>
 						<Text dimColor>{desc}</Text>

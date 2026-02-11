@@ -4,6 +4,7 @@ import {useTextInput} from '../hooks/useTextInput.js';
 import * as registry from '../commands/registry.js';
 import {type Command} from '../commands/types.js';
 import CommandSuggestions from './CommandSuggestions.js';
+import {useTheme} from '../theme/index.js';
 
 const MAX_FILTERED_SUGGESTIONS = 6;
 const PLACEHOLDER = 'Type a message or /command...';
@@ -197,7 +198,8 @@ export default function CommandInput({
 
 	useInput(handleKeyInput, {isActive: !disabled});
 
-	const promptColor = isCommandMode ? 'cyan' : 'gray';
+	const theme = useTheme();
+	const promptColor = isCommandMode ? theme.accent : theme.textMuted;
 
 	return (
 		<Box flexDirection="column">
@@ -209,7 +211,7 @@ export default function CommandInput({
 			)}
 			<Box
 				borderStyle="single"
-				borderColor="gray"
+				borderColor={theme.textMuted}
 				borderTop
 				borderBottom={false}
 				borderLeft={false}
