@@ -8,3 +8,9 @@ dist
 
 # Git worktrees
 .worktrees/
+
+# Test cases (local only)
+.test-cases/
+
+# Claude Code input history
+.claude/input-history.json
