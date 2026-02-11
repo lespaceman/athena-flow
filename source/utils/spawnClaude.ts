@@ -57,7 +57,8 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	// Authentication still works (stored in ~/.claude.json, not settings)
 	args.push('--setting-sources', '');
 
-	// Validate and warn about conflicting flags
+	// Validate and warn about conflicting flags (non-fatal: conflicts are
+	// logged to stderr but both flags are still passed to Claude's CLI parser)
 	const conflicts = validateConflicts(isolationConfig);
 	for (const warning of conflicts) {
 		console.error(`[athena] ${warning}`);

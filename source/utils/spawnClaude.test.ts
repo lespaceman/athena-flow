@@ -249,7 +249,7 @@ describe('spawnClaude', () => {
 			});
 
 			expect(stderrSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Conflicting flags'),
+				expect.stringContaining('[athena] Conflicting flags'),
 			);
 			stderrSpy.mockRestore();
 		});
