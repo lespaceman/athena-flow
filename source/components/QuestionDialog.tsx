@@ -76,7 +76,13 @@ function QuestionTabs({
 					<Text
 						key={`${i}-${q.header}`}
 						bold={active}
-						color={active ? theme.accent : answered ? theme.status.success : theme.textMuted}
+						color={
+							active
+								? theme.accent
+								: answered
+									? theme.status.success
+									: theme.textMuted
+						}
 						dimColor={!active && !answered}
 					>
 						{active ? `[${label}]` : ` ${label} `}
@@ -272,7 +278,9 @@ export default function QuestionDialog({
 				paddingX={1}
 				width={MAX_WIDTH}
 			>
-				<Text color={theme.status.warning}>No questions found in AskUserQuestion input.</Text>
+				<Text color={theme.status.warning}>
+					No questions found in AskUserQuestion input.
+				</Text>
 			</Box>
 		);
 	}

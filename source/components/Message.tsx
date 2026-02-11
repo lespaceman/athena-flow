@@ -14,7 +14,11 @@ export default function Message({message}: Props) {
 	if (isUser) {
 		return (
 			<Box flexDirection="column" marginBottom={1}>
-				<Text wrap="wrap" color={theme.userMessage.text} backgroundColor={theme.userMessage.background}>
+				<Text
+					wrap="wrap"
+					color={theme.userMessage.text}
+					backgroundColor={theme.userMessage.background}
+				>
 					{'❯ '}
 					{message.content}
 				</Text>

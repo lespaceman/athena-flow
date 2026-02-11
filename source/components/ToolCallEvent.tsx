@@ -16,7 +16,11 @@ import {
 	isPermissionRequestEvent,
 } from '../types/hooks/index.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
-import {getStatusColors, STATUS_SYMBOLS, StderrBlock} from './hookEventUtils.js';
+import {
+	getStatusColors,
+	STATUS_SYMBOLS,
+	StderrBlock,
+} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {

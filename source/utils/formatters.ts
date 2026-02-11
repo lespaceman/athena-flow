@@ -75,7 +75,10 @@ export function formatModelName(modelId: string | null): string {
 }
 
 /** Return a color based on context window utilization percentage. */
-export function getContextBarColor(percent: number | null, theme: Theme): string {
+export function getContextBarColor(
+	percent: number | null,
+	theme: Theme,
+): string {
 	if (percent === null) return theme.status.neutral;
 	if (percent < 60) return theme.contextBar.low;
 	if (percent < 80) return theme.status.warning;

@@ -40,7 +40,10 @@ export default function CommandSuggestions({commands, selectedIndex}: Props) {
 				return (
 					<Box key={cmd.name}>
 						<Text color={theme.accent}>{isSelected ? '> ' : '  '}</Text>
-						<Text color={isSelected ? theme.accent : theme.text} bold={isSelected}>
+						<Text
+							color={isSelected ? theme.accent : theme.text}
+							bold={isSelected}
+						>
 							{name}
 						</Text>
 						<Text dimColor>{desc}</Text>

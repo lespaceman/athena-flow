@@ -40,7 +40,11 @@ export default function StatusLine({
 			<Box>
 				{verbose && (
 					<>
-						<Text color={isServerRunning ? theme.status.success : theme.status.error}>
+						<Text
+							color={
+								isServerRunning ? theme.status.success : theme.status.error
+							}
+						>
 							Hook server: {isServerRunning ? 'running' : 'stopped'}
 						</Text>
 						<Text dimColor> | </Text>
