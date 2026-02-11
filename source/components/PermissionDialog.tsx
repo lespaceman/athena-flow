@@ -9,6 +9,7 @@ import PermissionHeader from './PermissionHeader.js';
 import KeybindingBar from './KeybindingBar.js';
 import RawPayloadDetails from './RawPayloadDetails.js';
 import TypeToConfirm from './TypeToConfirm.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	request: HookEventDisplay;
@@ -24,6 +25,7 @@ export default function PermissionDialog({
 	agentChain,
 }: Props) {
 	const [showDetails, setShowDetails] = useState(false);
+	const theme = useTheme();
 
 	// Get the raw tool name
 	const rawToolName = request.toolName ?? 'Unknown';
@@ -111,7 +113,7 @@ export default function PermissionDialog({
 		<Box
 			flexDirection="column"
 			borderStyle="round"
-			borderColor={tierConfig.color}
+			borderColor={tierConfig.color(theme)}
 			paddingX={1}
 		>
 			{/* Header with risk tier badge */}
@@ -143,7 +145,7 @@ export default function PermissionDialog({
 				{agentChain && agentChain.length > 0 && (
 					<Box>
 						<Text dimColor>Context: </Text>
-						<Text color="magenta">{agentChain.join(' → ')}</Text>
+						<Text color={theme.accentSecondary}>{agentChain.join(' → ')}</Text>
 					</Box>
 				)}
 			</Box>

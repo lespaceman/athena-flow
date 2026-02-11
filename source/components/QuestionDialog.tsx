@@ -6,6 +6,7 @@ import {isToolEvent} from '../types/hooks/events.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 import MultiOptionList from './MultiOptionList.js';
 import QuestionKeybindingBar from './QuestionKeybindingBar.js';
+import {useTheme} from '../theme/index.js';
 
 const MAX_WIDTH = 76;
 
@@ -60,6 +61,7 @@ function QuestionTabs({
 	currentIndex: number;
 	answers: Record<string, string>;
 }) {
+	const theme = useTheme();
 	if (questions.length <= 1) return null;
 
 	return (
@@ -74,7 +76,7 @@ function QuestionTabs({
 					<Text
 						key={`${i}-${q.header}`}
 						bold={active}
-						color={active ? 'cyan' : answered ? 'green' : 'gray'}
+						color={active ? theme.accent : answered ? theme.status.success : theme.textMuted}
 						dimColor={!active && !answered}
 					>
 						{active ? `[${label}]` : ` ${label} `}
@@ -94,6 +96,7 @@ function SingleQuestion({
 	onAnswer: (answer: string) => void;
 	onSkip: () => void;
 }) {
+	const theme = useTheme();
 	const [isOther, setIsOther] = useState(false);
 	const options = buildOptions(question.options);
 
@@ -127,7 +130,7 @@ function SingleQuestion({
 		return (
 			<Box flexDirection="column">
 				<Box>
-					<Text color="yellow">{'> '}</Text>
+					<Text color={theme.status.warning}>{'> '}</Text>
 					<TextInput
 						placeholder="Type your answer..."
 						onSubmit={handleOtherSubmit}
@@ -165,6 +168,7 @@ function MultiQuestion({
 	onAnswer: (answer: string) => void;
 	onSkip: () => void;
 }) {
+	const theme = useTheme();
 	const [isOther, setIsOther] = useState(false);
 	const [selected, setSelected] = useState<string[]>([]);
 	const options = buildOptions(question.options);
@@ -201,7 +205,7 @@ function MultiQuestion({
 		return (
 			<Box flexDirection="column">
 				<Box>
-					<Text color="yellow">{'> '}</Text>
+					<Text color={theme.status.warning}>{'> '}</Text>
 					<TextInput
 						placeholder="Type your answer..."
 						onSubmit={handleOtherSubmit}
@@ -257,16 +261,18 @@ export default function QuestionDialog({
 		[answers, currentIndex, questions, onAnswer],
 	);
 
+	const theme = useTheme();
+
 	if (questions.length === 0) {
 		return (
 			<Box
 				flexDirection="column"
 				borderStyle="round"
-				borderColor="cyan"
+				borderColor={theme.border}
 				paddingX={1}
 				width={MAX_WIDTH}
 			>
-				<Text color="yellow">No questions found in AskUserQuestion input.</Text>
+				<Text color={theme.status.warning}>No questions found in AskUserQuestion input.</Text>
 			</Box>
 		);
 	}
@@ -277,7 +283,7 @@ export default function QuestionDialog({
 		<Box
 			flexDirection="column"
 			borderStyle="round"
-			borderColor="cyan"
+			borderColor={theme.border}
 			paddingX={1}
 			width={MAX_WIDTH}
 		>
@@ -287,7 +293,7 @@ export default function QuestionDialog({
 				answers={answers}
 			/>
 			<Box marginTop={questions.length > 1 ? 1 : 0}>
-				<Text bold color="cyan">
+				<Text bold color={theme.accent}>
 					[{question.header}]
 				</Text>
 				<Text> {question.question}</Text>
