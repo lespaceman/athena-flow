@@ -13,7 +13,8 @@ export type PermissionDecision =
 	| 'allow'
 	| 'deny'
 	| 'always-allow'
-	| 'always-deny';
+	| 'always-deny'
+	| 'always-allow-server';
 
 /**
  * A pending request waiting for a response.

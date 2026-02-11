@@ -55,6 +55,18 @@ export default function KeybindingBar({toolName, serverLabel}: Props) {
 					Always deny &quot;{toolName}&quot;{scopeSuffix}
 				</Text>
 			</Box>
+
+			{/* Line 4: Always allow server (MCP only) */}
+			{serverLabel && (
+				<Box>
+					<Text>
+						<Text color="blue" bold>
+							S
+						</Text>{' '}
+						Always allow all from {serverLabel}
+					</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }

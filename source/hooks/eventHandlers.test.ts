@@ -214,6 +214,67 @@ describe('handlePreToolUseRules', () => {
 	});
 });
 
+describe('handlePreToolUseRules with server-wide prefix rules', () => {
+	it('auto-approves MCP tools when server-wide rule exists', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__agent-web-interface__navigate',
+			tool_input: {url: 'https://example.com'},
+		});
+		const cb = makeCallbacks();
+		cb._rules = [
+			{
+				id: '1',
+				toolName: 'mcp__agent-web-interface__*',
+				action: 'approve',
+				addedBy: 'permission-dialog',
+			},
+		];
+
+		expect(handlePreToolUseRules(ctx, cb)).toBe(true);
+		expect(cb.respond).toHaveBeenCalled();
+	});
+
+	it('auto-denies MCP tools when server-wide deny rule exists', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__agent-web-interface__click',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+		cb._rules = [
+			{
+				id: '1',
+				toolName: 'mcp__agent-web-interface__*',
+				action: 'deny',
+				addedBy: 'permission-dialog',
+			},
+		];
+
+		expect(handlePreToolUseRules(ctx, cb)).toBe(true);
+		expect(cb.respond).toHaveBeenCalled();
+	});
+
+	it('does not match server-wide rule for different server', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__other-server__action',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+		cb._rules = [
+			{
+				id: '1',
+				toolName: 'mcp__agent-web-interface__*',
+				action: 'approve',
+				addedBy: 'permission-dialog',
+			},
+		];
+
+		expect(handlePreToolUseRules(ctx, cb)).toBe(false);
+	});
+});
+
 describe('handlePermissionCheck', () => {
 	it('returns false for non-PreToolUse events', () => {
 		const ctx = makeCtx('Notification', {
