@@ -247,6 +247,7 @@ export function useHookServer(
 		const server = net.createServer((socket: net.Socket) => {
 			// Build per-socket callbacks that close over the socket
 			const callbacks: HandlerCallbacks = {
+				signal: abortRef.current.signal,
 				getRules: () => rulesRef.current,
 				storeWithAutoPassthrough: (ctx: HandlerContext) => {
 					const timeoutId = setTimeout(() => {

@@ -43,9 +43,21 @@ export function countToolCalls(content: string | TranscriptContent[]): number {
  */
 export async function parseTranscriptFile(
 	filePath: string,
+	signal?: AbortSignal,
 ): Promise<ParsedTranscriptSummary> {
+	// Early abort check before I/O
+	if (signal?.aborted) {
+		return {
+			lastAssistantText: null,
+			lastAssistantTimestamp: null,
+			messageCount: 0,
+			toolCallCount: 0,
+			error: 'Aborted',
+		};
+	}
+
 	try {
-		const content = await fs.readFile(filePath, 'utf-8');
+		const content = await fs.readFile(filePath, {encoding: 'utf-8', signal});
 		const lines = content.trim().split('\n').filter(Boolean);
 
 		if (lines.length === 0) {
@@ -93,6 +105,17 @@ export async function parseTranscriptFile(
 			toolCallCount,
 		};
 	} catch (err) {
+		// Handle abort
+		if (err instanceof Error && err.name === 'AbortError') {
+			return {
+				lastAssistantText: null,
+				lastAssistantTimestamp: null,
+				messageCount: 0,
+				toolCallCount: 0,
+				error: 'Aborted',
+			};
+		}
+
 		const errorMessage =
 			err instanceof Error ? err.message : 'Unknown error reading transcript';
 

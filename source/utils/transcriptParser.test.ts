@@ -242,6 +242,15 @@ describe('parseTranscriptFile', () => {
 		expect(result.messageCount).toBe(1);
 	});
 
+	it('returns early when signal is already aborted', async () => {
+		const controller = new AbortController();
+		controller.abort();
+
+		const result = await parseTranscriptFile('/any/path', controller.signal);
+		expect(result.error).toBe('Aborted');
+		expect(result.messageCount).toBe(0);
+	});
+
 	it('preserves last text when followed by tool-only messages', async () => {
 		const transcriptContent = [
 			JSON.stringify({
