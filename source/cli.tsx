@@ -14,6 +14,7 @@ import {
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {detectClaudeVersion} from './utils/detectClaudeVersion.js';
+import {resolveTheme} from './theme/index.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -34,6 +35,7 @@ const cli = meow(
 		                  minimal - Full isolation, allow project MCP servers
 		                  permissive - Full isolation, allow project MCP servers
 		--verbose       Show additional rendering detail and streaming display
+		--theme         Color theme: dark (default) or light
 
 	Note: All isolation modes use --setting-sources "" to completely isolate
 	      from Claude Code's settings. athena-cli is fully self-contained.
@@ -71,6 +73,10 @@ const cli = meow(
 			verbose: {
 				type: 'boolean',
 				default: false,
+			},
+			theme: {
+				type: 'string',
+				default: 'dark',
 			},
 		},
 	},
@@ -123,6 +129,13 @@ const modelName =
 	readClaudeSettingsModel(cli.flags.projectDir) ||
 	null;
 
+// Resolve theme: CLI flag overrides config
+const themeName =
+	cli.flags.theme !== 'dark'
+		? cli.flags.theme
+		: projectConfig.theme || globalConfig.theme || 'dark';
+const theme = resolveTheme(themeName);
+
 const claudeCodeVersion = detectClaudeVersion();
 
 const instanceId = process.pid;
@@ -136,5 +149,6 @@ render(
 		pluginMcpConfig={pluginMcpConfig}
 		modelName={modelName}
 		claudeCodeVersion={claudeCodeVersion}
+		theme={theme}
 	/>,
 );

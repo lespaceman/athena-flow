@@ -30,6 +30,7 @@ import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 import {getAgentChain} from './utils/agentChain.js';
+import {ThemeProvider, type Theme} from './theme/index.js';
 
 type Props = {
 	projectDir: string;
@@ -40,6 +41,7 @@ type Props = {
 	pluginMcpConfig?: string;
 	modelName: string | null;
 	claudeCodeVersion: string | null;
+	theme: Theme;
 };
 
 /** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
@@ -419,25 +421,29 @@ export default function App({
 	pluginMcpConfig,
 	modelName,
 	claudeCodeVersion,
+	theme,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
 
 	return (
-		<HookProvider projectDir={projectDir} instanceId={instanceId}>
-			<AppContent
-				key={clearCount}
-				projectDir={projectDir}
-				instanceId={instanceId}
-				isolation={isolation}
-				verbose={verbose}
-				version={version}
-				pluginMcpConfig={pluginMcpConfig}
-				modelName={modelName}
-				claudeCodeVersion={claudeCodeVersion}
-				onClear={() => setClearCount(c => c + 1)}
-				inputHistory={inputHistory}
-			/>
-		</HookProvider>
+		<ThemeProvider value={theme}>
+			<HookProvider projectDir={projectDir} instanceId={instanceId}>
+				<AppContent
+					key={clearCount}
+					projectDir={projectDir}
+					instanceId={instanceId}
+					isolation={isolation}
+					verbose={verbose}
+					version={version}
+					pluginMcpConfig={pluginMcpConfig}
+					modelName={modelName}
+					claudeCodeVersion={claudeCodeVersion}
+					theme={theme}
+					onClear={() => setClearCount(c => c + 1)}
+					inputHistory={inputHistory}
+				/>
+			</HookProvider>
+		</ThemeProvider>
 	);
 }
