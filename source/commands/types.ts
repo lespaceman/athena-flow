@@ -61,6 +61,7 @@ export type UICommandContext = {
 	addMessage: (msg: Message) => void;
 	exit: () => void;
 	clearScreen: () => void;
+	showSessions: () => void;
 	sessionStats: SessionStatsSnapshot;
 };
 

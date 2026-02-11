@@ -11,8 +11,15 @@ import {helpCommand} from './help.js';
 import {clearCommand} from './clear.js';
 import {quitCommand} from './quit.js';
 import {statsCommand} from './stats.js';
+import {sessionsCommand} from './sessions.js';
 
-const builtins = [helpCommand, clearCommand, quitCommand, statsCommand];
+const builtins = [
+	helpCommand,
+	clearCommand,
+	quitCommand,
+	statsCommand,
+	sessionsCommand,
+];
 
 let registered = false;
 
