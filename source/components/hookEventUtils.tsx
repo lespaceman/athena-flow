@@ -31,8 +31,6 @@ export const STATUS_SYMBOLS = {
 	json_output: '\u2192', // →
 } as const;
 
-export const SUBAGENT_COLOR = 'magenta';
-
 export const SUBAGENT_SYMBOLS = {
 	pending: '\u25c7', // ◇ (open diamond)
 	passthrough: '\u25c6', // ◆ (filled diamond)
