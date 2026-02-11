@@ -6,6 +6,7 @@ import {
 	generateHookSettings,
 	registerCleanupOnExit,
 } from './generateHookSettings.js';
+import {buildIsolationArgs, validateConflicts} from './flagRegistry.js';
 
 // Re-export type for backwards compatibility
 export type {SpawnClaudeOptions};
@@ -56,159 +57,21 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	// Authentication still works (stored in ~/.claude.json, not settings)
 	args.push('--setting-sources', '');
 
-	// === MCP Configuration ===
-	// --mcp-config takes precedence over --strict-mcp-config
-	if (isolationConfig.mcpConfig) {
-		args.push('--mcp-config', isolationConfig.mcpConfig);
-	} else if (isolationConfig.strictMcpConfig) {
-		args.push('--strict-mcp-config');
+	// Validate and warn about conflicting flags
+	const conflicts = validateConflicts(isolationConfig);
+	for (const warning of conflicts) {
+		console.error(`[athena] ${warning}`);
 	}
 
-	// === Tool Access ===
-	// Allowed tools (whitelist)
-	if (isolationConfig.allowedTools?.length) {
-		for (const tool of isolationConfig.allowedTools) {
-			args.push('--allowedTools', tool);
-		}
-	}
+	// Build isolation flags from declarative registry
+	args.push(...buildIsolationArgs(isolationConfig));
 
-	// Disallowed tools (blacklist)
-	if (isolationConfig.disallowedTools?.length) {
-		for (const tool of isolationConfig.disallowedTools) {
-			args.push('--disallowedTools', tool);
-		}
-	}
-
-	// Restrict available tools
-	if (isolationConfig.tools !== undefined) {
-		args.push('--tools', isolationConfig.tools);
-	}
-
-	// === Permission & Security ===
-	if (isolationConfig.permissionMode) {
-		args.push('--permission-mode', isolationConfig.permissionMode);
-	}
-
-	if (isolationConfig.dangerouslySkipPermissions) {
-		args.push('--dangerously-skip-permissions');
-	}
-
-	if (isolationConfig.allowDangerouslySkipPermissions) {
-		args.push('--allow-dangerously-skip-permissions');
-	}
-
-	// === Directories ===
-	if (isolationConfig.additionalDirectories?.length) {
-		for (const dir of isolationConfig.additionalDirectories) {
-			args.push('--add-dir', dir);
-		}
-	}
-
-	// === Model & Agent ===
-	if (isolationConfig.model) {
-		args.push('--model', isolationConfig.model);
-	}
-
-	if (isolationConfig.fallbackModel) {
-		args.push('--fallback-model', isolationConfig.fallbackModel);
-	}
-
-	if (isolationConfig.agent) {
-		args.push('--agent', isolationConfig.agent);
-	}
-
-	if (isolationConfig.agents) {
-		args.push('--agents', JSON.stringify(isolationConfig.agents));
-	}
-
-	// === System Prompt ===
-	if (isolationConfig.systemPrompt) {
-		args.push('--system-prompt', isolationConfig.systemPrompt);
-	}
-
-	if (isolationConfig.systemPromptFile) {
-		args.push('--system-prompt-file', isolationConfig.systemPromptFile);
-	}
-
-	if (isolationConfig.appendSystemPrompt) {
-		args.push('--append-system-prompt', isolationConfig.appendSystemPrompt);
-	}
-
-	if (isolationConfig.appendSystemPromptFile) {
-		args.push(
-			'--append-system-prompt-file',
-			isolationConfig.appendSystemPromptFile,
-		);
-	}
-
-	// === Session Management ===
+	// Session management: sessionId takes precedence over continueSession
+	// (handled outside registry since sessionId is from SpawnClaudeOptions, not IsolationConfig)
 	if (sessionId) {
 		args.push('--resume', sessionId);
 	} else if (isolationConfig.continueSession) {
 		args.push('--continue');
-	}
-
-	if (isolationConfig.forkSession) {
-		args.push('--fork-session');
-	}
-
-	if (isolationConfig.noSessionPersistence) {
-		args.push('--no-session-persistence');
-	}
-
-	// === Output & Debugging ===
-	if (isolationConfig.verbose) {
-		args.push('--verbose');
-	}
-
-	if (isolationConfig.debug) {
-		if (typeof isolationConfig.debug === 'string') {
-			args.push('--debug', isolationConfig.debug);
-		} else {
-			args.push('--debug');
-		}
-	}
-
-	// === Limits ===
-	if (isolationConfig.maxTurns !== undefined) {
-		args.push('--max-turns', String(isolationConfig.maxTurns));
-	}
-
-	if (isolationConfig.maxBudgetUsd !== undefined) {
-		args.push('--max-budget-usd', String(isolationConfig.maxBudgetUsd));
-	}
-
-	// === Plugins ===
-	if (isolationConfig.pluginDirs?.length) {
-		for (const dir of isolationConfig.pluginDirs) {
-			args.push('--plugin-dir', dir);
-		}
-	}
-
-	// === Features ===
-	if (isolationConfig.disableSlashCommands) {
-		args.push('--disable-slash-commands');
-	}
-
-	if (isolationConfig.chrome) {
-		args.push('--chrome');
-	}
-
-	if (isolationConfig.noChrome) {
-		args.push('--no-chrome');
-	}
-
-	// === Structured Output ===
-	if (isolationConfig.jsonSchema) {
-		const schema =
-			typeof isolationConfig.jsonSchema === 'string'
-				? isolationConfig.jsonSchema
-				: JSON.stringify(isolationConfig.jsonSchema);
-		args.push('--json-schema', schema);
-	}
-
-	if (isolationConfig.includePartialMessages) {
-		args.push('--include-partial-messages');
 	}
 
 	// Debug logging
