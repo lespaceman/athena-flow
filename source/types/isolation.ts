@@ -129,7 +129,7 @@ export type IsolationConfig = {
  * Preset configurations for common isolation use cases.
  *
  * All presets use `--setting-sources ""` for full isolation from Claude's
- * settings. The presets differ only in MCP server access.
+ * settings. The presets differ in MCP server access and allowed tools.
  */
 export const ISOLATION_PRESETS: Record<
 	IsolationPreset,
@@ -139,28 +139,58 @@ export const ISOLATION_PRESETS: Record<
 	 * Strict isolation (default):
 	 * - No Claude settings loaded (full isolation)
 	 * - Block all MCP servers
-	 * - All config comes from athena's settings file
+	 * - Allow core code tools (read, edit, search, bash)
+	 * - No network or MCP tools
 	 */
 	strict: {
 		strictMcpConfig: true,
+		allowedTools: ['Read', 'Edit', 'Glob', 'Grep', 'Bash', 'Write'],
 	},
 
 	/**
 	 * Minimal isolation:
 	 * - No Claude settings loaded (full isolation)
-	 * - Allow project MCP servers (for tools that need external services)
+	 * - Allow project MCP servers
+	 * - Allow core tools + web access + subagents
 	 */
 	minimal: {
 		strictMcpConfig: false,
+		allowedTools: [
+			'Read',
+			'Edit',
+			'Write',
+			'Glob',
+			'Grep',
+			'Bash',
+			'WebSearch',
+			'WebFetch',
+			'Task',
+			'Skill',
+		],
 	},
 
 	/**
 	 * Permissive:
 	 * - No Claude settings loaded (full isolation)
 	 * - Allow project MCP servers
+	 * - Allow all tools including MCP wildcard
 	 */
 	permissive: {
 		strictMcpConfig: false,
+		allowedTools: [
+			'Read',
+			'Edit',
+			'Write',
+			'Glob',
+			'Grep',
+			'Bash',
+			'WebSearch',
+			'WebFetch',
+			'Task',
+			'Skill',
+			'NotebookEdit',
+			'mcp__*',
+		],
 	},
 };
 
