@@ -1,5 +1,5 @@
 import process from 'node:process';
-import React, {useState, useCallback, useRef} from 'react';
+import React, {useState, useCallback, useRef, useEffect} from 'react';
 import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
@@ -30,6 +30,8 @@ import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 import {getAgentChain} from './utils/agentChain.js';
+import SessionPicker from './components/SessionPicker.js';
+import {readSessionIndex} from './utils/sessionIndex.js';
 
 type Props = {
 	projectDir: string;
@@ -40,7 +42,13 @@ type Props = {
 	pluginMcpConfig?: string;
 	modelName: string | null;
 	claudeCodeVersion: string | null;
+	initialSessionId?: string;
+	showSessionPicker?: boolean;
 };
+
+type AppPhase =
+	| {type: 'session-select'}
+	| {type: 'main'; initialSessionId?: string};
 
 /** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
@@ -75,9 +83,15 @@ function AppContent({
 	pluginMcpConfig,
 	modelName,
 	claudeCodeVersion,
+	initialSessionId,
 	onClear,
+	onShowSessions,
 	inputHistory,
-}: Props & {onClear: () => void; inputHistory: InputHistory}) {
+}: Props & {
+	onClear: () => void;
+	onShowSessions: () => void;
+	inputHistory: InputHistory;
+}) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const [taskListCollapsed, setTaskListCollapsed] = useState(false);
 	const toggleTaskList = useCallback(() => {
@@ -112,6 +126,15 @@ function AppContent({
 		verbose,
 	);
 	const {exit} = useApp();
+
+	// Auto-spawn Claude when resuming a session
+	const autoSpawnedRef = useRef(false);
+	useEffect(() => {
+		if (initialSessionId && !autoSpawnedRef.current) {
+			autoSpawnedRef.current = true;
+			spawnClaude('', initialSessionId);
+		}
+	}, [initialSessionId, spawnClaude]);
 
 	const metrics = useHeaderMetrics(events);
 	const elapsed = useDuration(metrics.sessionStartTime);
@@ -166,6 +189,7 @@ function AppContent({
 					addMessage: addMessageObj,
 					exit,
 					clearScreen,
+					showSessions: onShowSessions,
 					sessionStats: {
 						metrics: {
 							...metrics,
@@ -419,9 +443,39 @@ export default function App({
 	pluginMcpConfig,
 	modelName,
 	claudeCodeVersion,
+	initialSessionId,
+	showSessionPicker,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
+
+	const initialPhase: AppPhase = showSessionPicker
+		? {type: 'session-select'}
+		: {type: 'main', initialSessionId};
+	const [phase, setPhase] = useState<AppPhase>(initialPhase);
+
+	const handleSessionSelect = useCallback((sessionId: string) => {
+		setPhase({type: 'main', initialSessionId: sessionId});
+	}, []);
+
+	const handleSessionCancel = useCallback(() => {
+		setPhase({type: 'main'});
+	}, []);
+
+	const handleShowSessions = useCallback(() => {
+		setPhase({type: 'session-select'});
+	}, []);
+
+	if (phase.type === 'session-select') {
+		const sessions = readSessionIndex(projectDir);
+		return (
+			<SessionPicker
+				sessions={sessions}
+				onSelect={handleSessionSelect}
+				onCancel={handleSessionCancel}
+			/>
+		);
+	}
 
 	return (
 		<HookProvider projectDir={projectDir} instanceId={instanceId}>
@@ -435,7 +489,10 @@ export default function App({
 				pluginMcpConfig={pluginMcpConfig}
 				modelName={modelName}
 				claudeCodeVersion={claudeCodeVersion}
+				initialSessionId={phase.initialSessionId}
+				showSessionPicker={showSessionPicker}
 				onClear={() => setClearCount(c => c + 1)}
+				onShowSessions={handleShowSessions}
 				inputHistory={inputHistory}
 			/>
 		</HookProvider>

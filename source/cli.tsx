@@ -14,6 +14,7 @@ import {
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {detectClaudeVersion} from './utils/detectClaudeVersion.js';
+import {getMostRecentSession} from './utils/sessionIndex.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -34,6 +35,8 @@ const cli = meow(
 		                  minimal - Full isolation, allow project MCP servers
 		                  permissive - Full isolation, allow project MCP servers
 		--verbose       Show additional rendering detail and streaming display
+		--continue      Resume the most recent session (or specify a session ID)
+		--sessions      Launch interactive session picker before main UI
 
 	Note: All isolation modes use --setting-sources "" to completely isolate
 	      from Claude Code's settings. athena-cli is fully self-contained.
@@ -52,6 +55,9 @@ const cli = meow(
 	  $ athena-cli --plugin=/path/to/my-plugin
 	  $ athena-cli --isolation=minimal
 	  $ athena-cli --verbose
+	  $ athena-cli --continue
+	  $ athena-cli --continue=<sessionId>
+	  $ athena-cli --sessions
 `,
 	{
 		importMeta: import.meta,
@@ -69,6 +75,13 @@ const cli = meow(
 				default: 'strict',
 			},
 			verbose: {
+				type: 'boolean',
+				default: false,
+			},
+			continue: {
+				type: 'string',
+			},
+			sessions: {
 				type: 'boolean',
 				default: false,
 			},
@@ -125,6 +138,25 @@ const modelName =
 
 const claudeCodeVersion = detectClaudeVersion();
 
+// Resolve --continue flag: with value = specific session ID, without value = most recent
+// meow parses --continue (no value) as undefined for type: 'string', so check process.argv
+const hasContinueFlag = process.argv.includes('--continue');
+let initialSessionId: string | undefined;
+let showSessionPicker = cli.flags.sessions;
+
+if (cli.flags.continue) {
+	// --continue=<sessionId>
+	initialSessionId = cli.flags.continue;
+} else if (hasContinueFlag) {
+	// --continue (no value) — resume most recent
+	const recent = getMostRecentSession(cli.flags.projectDir);
+	if (recent) {
+		initialSessionId = recent.sessionId;
+	} else {
+		console.error('No previous sessions found. Starting new session.');
+	}
+}
+
 const instanceId = process.pid;
 render(
 	<App
@@ -136,5 +168,7 @@ render(
 		pluginMcpConfig={pluginMcpConfig}
 		modelName={modelName}
 		claudeCodeVersion={claudeCodeVersion}
+		initialSessionId={initialSessionId}
+		showSessionPicker={showSessionPicker}
 	/>,
 );
