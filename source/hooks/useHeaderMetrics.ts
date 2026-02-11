@@ -36,14 +36,18 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 		>();
 
 		for (const event of events) {
-			// Extract model from first SessionStart event
+			// Extract session start time from first SessionStart event
+			if (sessionStartTime === null && isSessionStartEvent(event.payload)) {
+				sessionStartTime = event.timestamp;
+			}
+
+			// Extract model from first SessionStart event with model field
 			if (
 				modelName === null &&
 				isSessionStartEvent(event.payload) &&
 				event.payload.model
 			) {
 				modelName = event.payload.model;
-				sessionStartTime = event.timestamp;
 			}
 
 			// Count top-level tool uses (PreToolUse, not child events)

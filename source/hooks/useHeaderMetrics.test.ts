@@ -181,6 +181,28 @@ describe('useHeaderMetrics', () => {
 		expect(result.current.subagentCount).toBe(0);
 	});
 
+	it('sets sessionStartTime even when SessionStart has no model field', () => {
+		const ts = new Date('2024-01-15T10:00:00Z');
+		const events = [
+			makeEvent({
+				hookName: 'SessionStart',
+				timestamp: ts,
+				payload: {
+					session_id: 's1',
+					transcript_path: '/tmp/t.jsonl',
+					cwd: '/project',
+					hook_event_name: 'SessionStart',
+					source: 'startup',
+					// no model field
+				},
+			}),
+		];
+
+		const {result} = renderHook(() => useHeaderMetrics(events));
+		expect(result.current.sessionStartTime).toEqual(ts);
+		expect(result.current.modelName).toBeNull();
+	});
+
 	it('all token fields are null (data not yet available)', () => {
 		const events = [makeEvent({hookName: 'PreToolUse', toolName: 'Bash'})];
 
