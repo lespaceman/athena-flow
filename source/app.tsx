@@ -11,8 +11,7 @@ import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
 import StatusLine from './components/Header/StatusLine.js';
 import StatsPanel from './components/Header/StatsPanel.js';
-import {LOGO_LINES} from './components/Header/constants.js';
-import {formatModelName, shortenPath} from './utils/formatters.js';
+import Header from './components/Header/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
@@ -269,41 +268,14 @@ function AppContent({
 			<Static items={allStaticItems}>
 				{item => {
 					if (item.type === 'header') {
-						const showLogo = terminalWidth >= 80;
 						return (
-							<Box
+							<Header
 								key="header"
-								flexDirection="row"
-								marginTop={1}
-								marginBottom={1}
-								gap={2}
-							>
-								{showLogo && (
-									<Box flexDirection="column">
-										{LOGO_LINES.map((line, i) => (
-											<Text key={i} color="cyan">
-												{line}
-											</Text>
-										))}
-									</Box>
-								)}
-								<Box flexDirection="column">
-									<Text>
-										<Text bold>Athena CLI</Text>
-										<Text dimColor> v{version}</Text>
-									</Text>
-									<Text color="gray">
-										{formatModelName(modelName)}
-										{claudeCodeVersion && (
-											<Text color="gray">
-												{' · Claude Code v'}
-												{claudeCodeVersion}
-											</Text>
-										)}
-									</Text>
-									<Text color="gray">{shortenPath(projectDir)}</Text>
-								</Box>
-							</Box>
+								version={version}
+								modelName={modelName}
+								projectDir={projectDir}
+								terminalWidth={terminalWidth}
+							/>
 						);
 					}
 					return item.type === 'message' ? (
@@ -369,6 +341,7 @@ function AppContent({
 				tasks={tasks}
 				collapsed={taskListCollapsed}
 				onToggle={toggleTaskList}
+				dialogActive={dialogActive}
 			/>
 
 			{verbose && streamingText && (

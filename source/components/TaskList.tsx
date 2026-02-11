@@ -7,6 +7,7 @@ type Props = {
 	tasks: TodoItem[];
 	collapsed?: boolean;
 	onToggle?: () => void;
+	dialogActive?: boolean;
 };
 
 // -- State rendering constants ------------------------------------------------
@@ -56,7 +57,12 @@ function TaskItem({
 
 // -- Main component -----------------------------------------------------------
 
-export default function TaskList({tasks, collapsed = false, onToggle}: Props) {
+export default function TaskList({
+	tasks,
+	collapsed = false,
+	onToggle,
+	dialogActive,
+}: Props) {
 	const hasInProgress = tasks.some(t => t.status === 'in_progress');
 	const spinnerFrame = useSpinner(hasInProgress);
 
@@ -66,7 +72,7 @@ export default function TaskList({tasks, collapsed = false, onToggle}: Props) {
 				onToggle();
 			}
 		},
-		{isActive: !!onToggle},
+		{isActive: !!onToggle && !dialogActive},
 	);
 
 	if (tasks.length === 0) return null;
