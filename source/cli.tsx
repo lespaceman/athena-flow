@@ -76,7 +76,6 @@ const cli = meow(
 			},
 			theme: {
 				type: 'string',
-				default: 'dark',
 			},
 		},
 	},
@@ -129,11 +128,9 @@ const modelName =
 	readClaudeSettingsModel(cli.flags.projectDir) ||
 	null;
 
-// Resolve theme: CLI flag overrides config
+// Resolve theme: CLI flag > project config > global config > default
 const themeName =
-	cli.flags.theme !== 'dark'
-		? cli.flags.theme
-		: projectConfig.theme || globalConfig.theme || 'dark';
+	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
 const theme = resolveTheme(themeName);
 
 const claudeCodeVersion = detectClaudeVersion();
