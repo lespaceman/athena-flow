@@ -1,6 +1,7 @@
 import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type SessionEntry} from '../utils/sessionIndex.js';
+import {formatRelativeTime} from '../utils/formatters.js';
 
 type Props = {
 	sessions: SessionEntry[];
@@ -9,18 +10,6 @@ type Props = {
 };
 
 const VISIBLE_COUNT = 15;
-
-function formatRelativeTime(isoDate: string): string {
-	const diff = Date.now() - new Date(isoDate).getTime();
-	const minutes = Math.floor(diff / 60_000);
-	if (minutes < 1) return 'just now';
-	if (minutes < 60) return `${minutes}m ago`;
-	const hours = Math.floor(minutes / 60);
-	if (hours < 24) return `${hours}h ago`;
-	const days = Math.floor(hours / 24);
-	if (days < 30) return `${days}d ago`;
-	return `${Math.floor(days / 30)}mo ago`;
-}
 
 export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 	const [focusIndex, setFocusIndex] = useState(0);
@@ -93,5 +82,3 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 		</Box>
 	);
 }
-
-export {formatRelativeTime};

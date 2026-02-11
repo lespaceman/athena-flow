@@ -1,5 +1,5 @@
 import process from 'node:process';
-import React, {useState, useCallback, useRef, useEffect} from 'react';
+import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
 import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
@@ -86,12 +86,12 @@ function AppContent({
 	version,
 	pluginMcpConfig,
 	modelName,
-	claudeCodeVersion,
 	initialSessionId,
 	onClear,
 	onShowSessions,
 	inputHistory,
-}: Props & {
+}: Omit<Props, 'claudeCodeVersion' | 'showSessionPicker' | 'theme'> & {
+	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;
 	inputHistory: InputHistory;
@@ -221,6 +221,7 @@ function AppContent({
 			hookServer,
 			exit,
 			clearScreen,
+			onShowSessions,
 			inputHistory,
 			metrics,
 			modelName,
@@ -446,7 +447,6 @@ export default function App({
 	version,
 	pluginMcpConfig,
 	modelName,
-	claudeCodeVersion,
 	theme,
 	initialSessionId,
 	showSessionPicker,
@@ -471,14 +471,24 @@ export default function App({
 		setPhase({type: 'session-select'});
 	}, []);
 
+	const sessions = useMemo(
+		() => (phase.type === 'session-select' ? readSessionIndex(projectDir) : []),
+		[projectDir, phase],
+	);
+
 	if (phase.type === 'session-select') {
-		const sessions = readSessionIndex(projectDir);
 		return (
-			<SessionPicker
-				sessions={sessions}
-				onSelect={handleSessionSelect}
-				onCancel={handleSessionCancel}
-			/>
+			<ErrorBoundary
+				fallback={
+					<Text color="red">[Session picker error — starting new session]</Text>
+				}
+			>
+				<SessionPicker
+					sessions={sessions}
+					onSelect={handleSessionSelect}
+					onCancel={handleSessionCancel}
+				/>
+			</ErrorBoundary>
 		);
 	}
 
@@ -494,10 +504,7 @@ export default function App({
 					version={version}
 					pluginMcpConfig={pluginMcpConfig}
 					modelName={modelName}
-					claudeCodeVersion={claudeCodeVersion}
-					theme={theme}
 					initialSessionId={phase.initialSessionId}
-					showSessionPicker={showSessionPicker}
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
 					inputHistory={inputHistory}

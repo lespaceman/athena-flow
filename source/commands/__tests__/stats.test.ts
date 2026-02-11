@@ -53,6 +53,7 @@ function makeUIContext(
 		addMessage: vi.fn(),
 		exit: vi.fn(),
 		clearScreen: vi.fn(),
+		showSessions: vi.fn(),
 		sessionStats: makeSessionStats(),
 		...overrides,
 	};
