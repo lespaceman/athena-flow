@@ -143,6 +143,24 @@ describe('permissionPolicy', () => {
 			);
 		});
 
+		it('classifies close_page and close_session as safe (cleanup actions)', () => {
+			expect(getToolCategory('mcp__agent-web-interface__close_page')).toBe(
+				'safe',
+			);
+			expect(getToolCategory('mcp__agent-web-interface__close_session')).toBe(
+				'safe',
+			);
+		});
+
+		it('does not require permission for close_page and close_session', () => {
+			expect(
+				isPermissionRequired('mcp__agent-web-interface__close_page', []),
+			).toBe(false);
+			expect(
+				isPermissionRequired('mcp__agent-web-interface__close_session', []),
+			).toBe(false);
+		});
+
 		it('still classifies MODERATE-tier MCP actions as dangerous', () => {
 			expect(getToolCategory('mcp__agent-web-interface__click')).toBe(
 				'dangerous',

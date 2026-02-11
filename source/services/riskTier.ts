@@ -77,6 +77,8 @@ const READ_MCP_ACTIONS: readonly string[] = [
 	'ping',
 	'get_form_understanding',
 	'get_field_context',
+	'close_page',
+	'close_session',
 ];
 
 /**
