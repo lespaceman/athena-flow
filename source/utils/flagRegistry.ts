@@ -169,8 +169,11 @@ export function buildIsolationArgs(config: IsolationConfig): string[] {
 			}
 
 			case 'value': {
-				// For value kind, we emit even for empty string (tools: "")
-				// but skip for falsy non-zero/non-empty-string (shouldn't happen with proper types)
+				// Emits for ALL defined values including empty string and 0.
+				// Note: this is a minor behavioral delta from the old procedural code,
+				// which used `if (config.field)` and would skip empty strings and 0.
+				// The new behavior is more correct: if a caller explicitly sets
+				// tools: "" or maxTurns: 0, the flag should be emitted.
 				args.push(def.flag, String(value));
 				break;
 			}

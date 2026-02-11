@@ -251,6 +251,17 @@ describe('parseTranscriptFile', () => {
 		expect(result.messageCount).toBe(0);
 	});
 
+	it('handles AbortError thrown by fs.readFile during I/O', async () => {
+		const abortError = new Error('The operation was aborted');
+		abortError.name = 'AbortError';
+		mockedFs.readFile.mockRejectedValue(abortError);
+
+		const result = await parseTranscriptFile('/path/to/transcript.jsonl');
+		expect(result.error).toBe('Aborted');
+		expect(result.lastAssistantText).toBeNull();
+		expect(result.messageCount).toBe(0);
+	});
+
 	it('preserves last text when followed by tool-only messages', async () => {
 		const transcriptContent = [
 			JSON.stringify({
