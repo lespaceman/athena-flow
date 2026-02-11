@@ -8,13 +8,14 @@
 
 import {parseToolName} from '../utils/toolNameParser.js';
 import {classifyBashCommand} from './bashClassifier.js';
+import {type Theme} from '../theme/index.js';
 
 export type RiskTier = 'READ' | 'MODERATE' | 'WRITE' | 'DESTRUCTIVE';
 
 export type RiskTierConfig = {
 	label: string;
 	icon: string;
-	color: string;
+	color: (theme: Theme) => string;
 	autoAllow?: boolean;
 	requiresConfirmation?: boolean;
 };
@@ -23,23 +24,23 @@ export const RISK_TIER_CONFIG: Record<RiskTier, RiskTierConfig> = {
 	READ: {
 		label: 'READ',
 		icon: 'ℹ',
-		color: 'cyan',
+		color: t => t.status.info,
 		autoAllow: true,
 	},
 	MODERATE: {
 		label: 'MODERATE',
 		icon: '⚠',
-		color: 'yellow',
+		color: t => t.status.warning,
 	},
 	WRITE: {
 		label: 'WRITE',
 		icon: '⚠',
-		color: 'yellow',
+		color: t => t.status.warning,
 	},
 	DESTRUCTIVE: {
 		label: 'DESTRUCTIVE',
 		icon: '⛔',
-		color: 'red',
+		color: t => t.status.error,
 		requiresConfirmation: true,
 	},
 };

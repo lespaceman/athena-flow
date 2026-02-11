@@ -1,5 +1,6 @@
 import os from 'node:os';
 import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
+import {type Theme} from '../theme/index.js';
 
 /** Replace the home directory prefix with ~. */
 export function shortenPath(fullPath: string): string {
@@ -74,12 +75,12 @@ export function formatModelName(modelId: string | null): string {
 }
 
 /** Return a color based on context window utilization percentage. */
-export function getContextBarColor(percent: number | null): string {
-	if (percent === null) return 'gray';
-	if (percent < 60) return 'green';
-	if (percent < 80) return 'yellow';
-	if (percent < 95) return '#FF8C00';
-	return 'red';
+export function getContextBarColor(percent: number | null, theme: Theme): string {
+	if (percent === null) return theme.status.neutral;
+	if (percent < 60) return theme.contextBar.low;
+	if (percent < 80) return theme.status.warning;
+	if (percent < 95) return theme.contextBar.medium;
+	return theme.contextBar.high;
 }
 
 /** Format a SessionStatsSnapshot as multi-line plain text. */
