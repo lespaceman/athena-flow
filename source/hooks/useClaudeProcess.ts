@@ -65,7 +65,7 @@ export function useClaudeProcess(
 	verbose?: boolean,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
-	const isMountedRef = useRef(true);
+	const abortRef = useRef<AbortController>(new AbortController());
 	const exitResolverRef = useRef<(() => void) | null>(null);
 	const tokenAccRef = useRef(createTokenAccumulator());
 	const [isRunning, setIsRunning] = useState(false);
@@ -105,7 +105,7 @@ export function useClaudeProcess(
 		// Clean up
 		exitResolverRef.current = null;
 		processRef.current = null;
-		if (isMountedRef.current) {
+		if (!abortRef.current.signal.aborted) {
 			setIsRunning(false);
 		}
 	}, []);
@@ -135,17 +135,17 @@ export function useClaudeProcess(
 					? {
 							jqFilter: JQ_ASSISTANT_TEXT_FILTER,
 							onFilteredStdout: (data: string) => {
-								if (!isMountedRef.current) return;
+								if (abortRef.current.signal.aborted) return;
 								setStreamingText(prev => prev + data);
 							},
 							onJqStderr: (data: string) => {
-								if (!isMountedRef.current) return;
+								if (abortRef.current.signal.aborted) return;
 								setOutput(prev => [...prev, `[jq] ${data}`]);
 							},
 						}
 					: {}),
 				onStdout: (data: string) => {
-					if (!isMountedRef.current) return;
+					if (abortRef.current.signal.aborted) return;
 					// Parse stream-json for token usage
 					tokenAccRef.current.feed(data);
 					setTokenUsage(tokenAccRef.current.getUsage());
@@ -160,7 +160,7 @@ export function useClaudeProcess(
 					});
 				},
 				onStderr: (data: string) => {
-					if (!isMountedRef.current) return;
+					if (abortRef.current.signal.aborted) return;
 					setOutput(prev => {
 						const updated = [...prev, `[stderr] ${data}`];
 						if (updated.length > MAX_OUTPUT) {
@@ -172,7 +172,7 @@ export function useClaudeProcess(
 				onExit: (code: number | null) => {
 					// Flush any remaining buffered data for final token count
 					tokenAccRef.current.flush();
-					if (isMountedRef.current) {
+					if (!abortRef.current.signal.aborted) {
 						setTokenUsage(tokenAccRef.current.getUsage());
 					}
 
@@ -181,7 +181,7 @@ export function useClaudeProcess(
 						exitResolverRef.current();
 						exitResolverRef.current = null;
 					}
-					if (!isMountedRef.current) return;
+					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 					setIsRunning(false);
 					if (code !== 0 && code !== null) {
@@ -194,7 +194,7 @@ export function useClaudeProcess(
 						exitResolverRef.current();
 						exitResolverRef.current = null;
 					}
-					if (!isMountedRef.current) return;
+					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 					setIsRunning(false);
 					setOutput(prev => [...prev, `[error] ${error.message}`]);
@@ -208,10 +208,10 @@ export function useClaudeProcess(
 
 	// Cleanup on unmount - kill any running process
 	useEffect(() => {
-		isMountedRef.current = true;
+		abortRef.current = new AbortController();
 
 		return () => {
-			isMountedRef.current = false;
+			abortRef.current.abort();
 			if (processRef.current) {
 				processRef.current.kill();
 				processRef.current = null;
