@@ -28,6 +28,14 @@ export default function HookEvent({
 	verbose,
 	childEventsByAgent,
 }: Props): React.ReactNode {
+	// Skip noise events in non-verbose mode
+	if (
+		!verbose &&
+		(event.hookName === 'SessionStart' || event.hookName === 'UserPromptSubmit')
+	) {
+		return null;
+	}
+
 	if (event.hookName === 'SessionEnd') {
 		return <SessionEndEvent event={event} />;
 	}

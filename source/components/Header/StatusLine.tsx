@@ -34,11 +34,14 @@ export default function StatusLine({
 	return (
 		<Box justifyContent="space-between" width="100%" marginTop={1} paddingX={1}>
 			<Box>
-				<Text color={isServerRunning ? 'green' : 'red'}>
-					Hook server: {isServerRunning ? 'running' : 'stopped'}
-				</Text>
-				{verbose && socketPath && <Text dimColor> ({socketPath})</Text>}
-				<Text dimColor> | </Text>
+				{verbose && (
+					<>
+						<Text color={isServerRunning ? 'green' : 'red'}>
+							Hook server: {isServerRunning ? 'running' : 'stopped'}
+						</Text>
+						<Text dimColor> | </Text>
+					</>
+				)}
 				<Text color={STATE_COLORS[claudeState]}>
 					{spinnerFrame ? `${spinnerFrame} ` : ''}
 					Athena: {STATE_LABELS[claudeState]}

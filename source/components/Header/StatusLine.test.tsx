@@ -18,20 +18,13 @@ const defaultProps = {
 
 describe('StatusLine', () => {
 	it('renders server status, Claude state, and verbose socket path', () => {
-		// Server running + Claude idle (defaults)
+		// Non-verbose: hook server status hidden, Claude state visible
 		const running = render(<StatusLine {...defaultProps} />);
 		const runningFrame = running.lastFrame() ?? '';
-		expect(runningFrame).toContain('Hook server: running');
+		expect(runningFrame).not.toContain('Hook server');
 		expect(runningFrame).toContain('Athena: idle');
 		expect(runningFrame).not.toContain('/tmp/ink.sock');
 		running.unmount();
-
-		// Server stopped
-		const stopped = render(
-			<StatusLine {...defaultProps} isServerRunning={false} />,
-		);
-		expect(stopped.lastFrame() ?? '').toContain('Hook server: stopped');
-		stopped.unmount();
 
 		// Claude working with spinner
 		const working = render(
@@ -47,9 +40,11 @@ describe('StatusLine', () => {
 		expect(waiting.lastFrame() ?? '').toContain('Athena: waiting for input');
 		waiting.unmount();
 
-		// Verbose mode shows socket path
+		// Verbose mode shows hook server status but not socket path
 		const verbose = render(<StatusLine {...defaultProps} verbose={true} />);
-		expect(verbose.lastFrame() ?? '').toContain('/tmp/ink.sock');
+		const verboseFrame = verbose.lastFrame() ?? '';
+		expect(verboseFrame).toContain('Hook server: running');
+		expect(verboseFrame).not.toContain('/tmp/ink.sock');
 		verbose.unmount();
 	});
 
