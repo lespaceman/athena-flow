@@ -1,7 +1,19 @@
+/** @vitest-environment jsdom */
 import {describe, it, expect} from 'vitest';
+import {renderHook} from '@testing-library/react';
 import type {HookEventDisplay} from '../types/hooks/index.js';
 import type {Message} from '../types/common.js';
 import {isStableContent, useContentOrdering} from './useContentOrdering.js';
+
+/**
+ * Helper: wraps useContentOrdering in renderHook and returns the result.
+ * Since useContentOrdering now uses useRef internally, it must run inside
+ * a React component context.
+ */
+function callHook(opts: {messages: Message[]; events: HookEventDisplay[]}) {
+	const {result} = renderHook(() => useContentOrdering(opts));
+	return result.current;
+}
 
 // ── Factories ────────────────────────────────────────────────────────
 
@@ -248,7 +260,7 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {stableItems} = useContentOrdering({messages, events});
+		const {stableItems} = callHook({messages, events});
 
 		// Ordered by time: e1 (500) → msg (1000) → e2 (1500)
 		expect(stableItems[0]).toEqual({type: 'hook', data: events[0]});
@@ -267,7 +279,7 @@ describe('useContentOrdering', () => {
 			timestamp: new Date(1000),
 		};
 
-		const {stableItems} = useContentOrdering({
+		const {stableItems} = callHook({
 			messages: [statsMsg, sessionEndMsg],
 			events: [],
 		});
@@ -302,7 +314,7 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {stableItems} = useContentOrdering({messages: [], events});
+		const {stableItems} = callHook({messages: [], events});
 
 		// Should NOT include SessionEnd as hook item (excluded from timeline)
 		const hookItems = stableItems.filter(
@@ -335,7 +347,7 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {stableItems, dynamicItems} = useContentOrdering({
+		const {stableItems, dynamicItems} = callHook({
 			messages: [],
 			events,
 		});
@@ -350,7 +362,7 @@ describe('useContentOrdering', () => {
 	});
 
 	it('returns empty stableItems when no content', () => {
-		const {stableItems, dynamicItems} = useContentOrdering({
+		const {stableItems, dynamicItems} = callHook({
 			messages: [],
 			events: [],
 		});
@@ -378,7 +390,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {dynamicItems} = useContentOrdering({messages: [], events});
+			const {dynamicItems} = callHook({messages: [], events});
 
 			// SubagentStart should NOT appear in dynamicItems (handled via activeSubagents)
 			const subagentInDynamic = dynamicItems.filter(
@@ -405,7 +417,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {activeSubagents} = useContentOrdering({messages: [], events});
+			const {activeSubagents} = callHook({messages: [], events});
 
 			expect(activeSubagents).toHaveLength(1);
 			expect(activeSubagents[0]!.id).toBe('sub-running');
@@ -444,7 +456,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {activeSubagents} = useContentOrdering({messages: [], events});
+			const {activeSubagents} = callHook({messages: [], events});
 
 			expect(activeSubagents).toHaveLength(0);
 		});
@@ -482,7 +494,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems} = useContentOrdering({messages: [], events});
+			const {stableItems} = callHook({messages: [], events});
 
 			const subagentInStable = stableItems.filter(
 				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
@@ -529,7 +541,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems} = useContentOrdering({messages: [], events});
+			const {stableItems} = callHook({messages: [], events});
 
 			const completedSubagent = stableItems.find(
 				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
@@ -578,7 +590,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -601,7 +613,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -635,7 +647,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {activeSubagents} = useContentOrdering({messages: [], events});
+			const {activeSubagents} = callHook({messages: [], events});
 
 			expect(activeSubagents).toHaveLength(0);
 		});
@@ -668,7 +680,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems, activeSubagents} = useContentOrdering({
+			const {stableItems, dynamicItems, activeSubagents} = callHook({
 				messages: [],
 				events,
 			});
@@ -713,7 +725,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {childEventsByAgent} = useContentOrdering({
+			const {childEventsByAgent} = callHook({
 				messages: [],
 				events,
 			});
@@ -735,7 +747,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, childEventsByAgent} = useContentOrdering({
+			const {stableItems, childEventsByAgent} = callHook({
 				messages: [],
 				events,
 			});
@@ -747,7 +759,7 @@ describe('useContentOrdering', () => {
 		});
 
 		it('returns empty map when no child events exist', () => {
-			const {childEventsByAgent} = useContentOrdering({
+			const {childEventsByAgent} = callHook({
 				messages: [],
 				events: [],
 			});
@@ -786,7 +798,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -819,7 +831,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -850,7 +862,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -905,7 +917,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(2);
 			expect(tasks[0]!.content).toBe('Fix auth bug');
@@ -983,7 +995,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(2);
 			expect(tasks[0]!.content).toBe('Task A');
@@ -1029,7 +1041,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
 		});
@@ -1054,7 +1066,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
 		});
@@ -1069,7 +1081,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
 		});
@@ -1095,7 +1107,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(1);
 			expect(tasks[0]!.content).toBe('Legacy task');
@@ -1137,7 +1149,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(1);
 			expect(tasks[0]!.content).toBe('New-style task');
@@ -1162,7 +1174,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
 		});
@@ -1194,7 +1206,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems} = useContentOrdering({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -1230,9 +1242,49 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {tasks} = useContentOrdering({messages: [], events});
+			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
+		});
+	});
+
+	describe('append-only stableItems', () => {
+		it('new stable items are appended at end, never inserted into middle', () => {
+			const events = [
+				makeEvent({
+					id: 'e1',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+				makeEvent({
+					id: 'e3',
+					hookName: 'Notification',
+					status: 'passthrough',
+					timestamp: new Date(3000),
+				}),
+			];
+
+			const {result, rerender} = renderHook(
+				(props: {messages: Message[]; events: HookEventDisplay[]}) =>
+					useContentOrdering(props),
+				{initialProps: {messages: [], events}},
+			);
+
+			expect(result.current.stableItems).toHaveLength(2);
+			expect(result.current.stableItems[0]!.data.id).toBe('e1');
+			expect(result.current.stableItems[1]!.data.id).toBe('e3');
+
+			// Add a message at t=2000 (between e1 and e3)
+			const midMessage = makeMessage('mid', 'assistant', new Date(2000));
+			rerender({messages: [midMessage], events});
+
+			expect(result.current.stableItems).toHaveLength(3);
+			// Original items keep their positions
+			expect(result.current.stableItems[0]!.data.id).toBe('e1');
+			expect(result.current.stableItems[1]!.data.id).toBe('e3');
+			// New item appended at end
+			expect(result.current.stableItems[2]!.data.id).toBe('mid');
 		});
 	});
 });

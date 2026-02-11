@@ -33,19 +33,30 @@ npx vitest run source/types/hooks.test.ts
 1. **dist/cli.js** (`athena-cli`) - Main Ink terminal UI
    - Parses CLI args with meow (`source/cli.tsx`)
    - Renders React app with Ink (`source/app.tsx`)
-   - Starts UDS server to receive hook events (`source/hooks/useHookServer.ts`)
+   - Starts UDS server to receive hook events (hook server architecture below)
 
 2. **dist/hook-forwarder.js** (`athena-hook-forwarder`) - Standalone script invoked by Claude Code hooks
    - Reads hook input JSON from stdin
-   - Connects to Ink CLI via Unix Domain Socket at `{projectDir}/.claude/run/ink.sock`
-   - Forwards events using NDJSON protocol (`source/types/hooks.ts`)
+   - Connects to Ink CLI via Unix Domain Socket at `{projectDir}/.claude/run/ink-{instanceId}.sock`
+   - Forwards events using NDJSON protocol (`source/types/hooks/`)
    - Returns results via stdout/exit code
+   - **Fail-safe**: always exits 0 on error to never block Claude Code
 
 ### Hook Flow
 
 ```
 Claude Code → hook-forwarder (stdin JSON) → UDS → Ink CLI → UDS → hook-forwarder (stdout/exit code) → Claude Code
 ```
+
+### Hook Server Architecture
+
+The hook server is split into focused modules:
+
+- **source/hooks/useHookServer.ts**: UDS server lifecycle, socket handling, pending request management
+- **source/hooks/eventHandlers.ts**: Pure event dispatch chain (first-match-wins) with `HandlerCallbacks` interface
+- **source/hooks/usePermissionQueue.ts**: Permission request queue state
+- **source/hooks/useQuestionQueue.ts**: AskUserQuestion queue state
+- Auto-passthrough timeout: 4000ms (before forwarder's 5000ms timeout)
 
 ### Plugin Loading Flow
 
@@ -57,12 +68,19 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 
 ### Key Files
 
-- **source/hooks/useHookServer.ts**: React hook managing the UDS server; handles auto-passthrough timeout (250ms)
+- **source/hooks/useHookServer.ts**: UDS server lifecycle and socket handling
+- **source/hooks/eventHandlers.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
+- **source/hooks/usePermissionQueue.ts** / **useQuestionQueue.ts**: Extracted queue hooks
 - **source/context/HookContext.tsx**: React context providing hook server state to components
-- **source/types/hooks.ts**: Protocol types, validation, and helper functions for hook communication
+- **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
+- **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
 - **source/types/isolation.ts**: IsolationConfig type and presets for spawning Claude processes
-- **source/utils/spawnClaude.ts**: Spawns headless Claude process with isolation config → CLI flags
+- **source/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
+- **source/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
+- **source/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
+- **source/hooks/useContentOrdering.ts**: Pure transformation: events → stable/dynamic content split for Ink `<Static>`
+- **source/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
 
 ## Tech Stack
 
@@ -77,9 +95,25 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - ESM modules (`"type": "module"`)
 - Prettier formatting via @vdemedes/prettier-config
 - React function components with hooks
+- Use `AbortController` (not `isMountedRef`) for preventing state updates after unmount
+- Thread `AbortSignal` through async I/O (e.g., `parseTranscriptFile(path, signal)`)
+- Prefer discriminated unions for state modeling (see `AppMode`, `Command`, `ContentItem`)
+- Event handlers extracted as pure functions taking `(ctx, callbacks)` — not closures inside hooks
+- New CLI flag mappings go in `FLAG_REGISTRY` array in `flagRegistry.ts`, not procedural code in `spawnClaude.ts`
 
 ## Testing Patterns
 
 - Prefer one comprehensive test over many repetitive flag tests
 - For CLI arg mapping, test multiple options in a single test instead of one test per flag
 - Focus tests on behavior (callbacks, cleanup, error handling) not trivial pass-through logic
+- Event handler tests: test each handler in isolation with mock `HandlerCallbacks`
+- Flag registry tests: test `buildIsolationArgs()` and `validateConflicts()` declaratively
+- AbortController tests: verify that aborted signals produce graceful early returns (e.g., `error: 'Aborted'`)
+
+## Architectural Patterns
+
+- **Protocol forward compatibility**: Unknown hook event names are auto-passthroughed, version check is `>= 1` (not exact match)
+- **MCP collision detection**: `registerPlugins()` throws if two plugins define the same MCP server name
+- **Flag registry**: Adding a new Claude CLI flag = add one `FlagDef` entry to `FLAG_REGISTRY`, no other changes needed
+- **Error boundaries**: Every `<HookEvent>` and dialog is wrapped in `<ErrorBoundary>` with recoverable fallbacks (Escape key)
+- **Settings isolation**: Always passes `--setting-sources ""` to Claude — athena fully controls what Claude sees
