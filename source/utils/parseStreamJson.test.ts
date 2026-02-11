@@ -33,7 +33,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(50);
 		expect(usage.cacheRead).toBe(10);
 		expect(usage.cacheWrite).toBe(5);
-		expect(usage.total).toBe(165);
+		expect(usage.total).toBe(150); // input + output only (excludes cache)
 
 		// Second API turn — should accumulate
 		acc.feed(
@@ -54,7 +54,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(130);
 		expect(usage.cacheRead).toBe(10);
 		expect(usage.cacheWrite).toBe(5);
-		expect(usage.total).toBe(445);
+		expect(usage.total).toBe(430); // 300 + 130
 	});
 
 	it('replaces totals from result objects (cumulative)', () => {
@@ -86,7 +86,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(200);
 		expect(usage.cacheRead).toBe(30);
 		expect(usage.cacheWrite).toBe(10);
-		expect(usage.total).toBe(740);
+		expect(usage.total).toBe(700); // 500 + 200
 	});
 
 	it('handles partial lines across chunks', () => {

@@ -88,7 +88,7 @@ export function createTokenAccumulator() {
 
 		/** Current accumulated token usage, or null fields if nothing received yet. */
 		getUsage(): TokenUsage {
-			const total = inputTokens + outputTokens + cacheRead + cacheWrite;
+			const total = inputTokens + outputTokens;
 			if (total === 0) {
 				return {
 					input: null,
