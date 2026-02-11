@@ -142,7 +142,7 @@ export const FLAG_REGISTRY: FlagDef[] = [
  * - hybrid:       true → [flag]; string → [flag, value]
  * - jsonOrString: string → [flag, value]; object → [flag, JSON.stringify(value)]
  *
- * Respects suppressedBy: if the suppressing field is set, the flag is skipped.
+ * Respects suppressedBy: if the suppressing field is truthy, the flag is skipped.
  */
 export function buildIsolationArgs(config: IsolationConfig): string[] {
 	const args: string[] = [];
@@ -153,8 +153,10 @@ export function buildIsolationArgs(config: IsolationConfig): string[] {
 		// Skip undefined values
 		if (value === undefined) continue;
 
-		// Check suppressedBy: skip if the suppressing field has a value
-		if (def.suppressedBy && config[def.suppressedBy] !== undefined) {
+		// Check suppressedBy: skip if the suppressing field is truthy.
+		// Uses truthiness (not !== undefined) to match the existing spawnClaude
+		// behavior where `if (isolationConfig.mcpConfig)` skips empty strings.
+		if (def.suppressedBy && config[def.suppressedBy]) {
 			continue;
 		}
 

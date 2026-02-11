@@ -93,6 +93,11 @@ describe('buildIsolationArgs', () => {
 			expect(args).toEqual(['--max-budget-usd', '5.5']);
 		});
 
+		it('should handle zero as a valid numeric value', () => {
+			const args = buildIsolationArgs({maxTurns: 0});
+			expect(args).toEqual(['--max-turns', '0']);
+		});
+
 		it('should skip value flags when undefined', () => {
 			const args = buildIsolationArgs({model: undefined});
 			expect(args).toEqual([]);
