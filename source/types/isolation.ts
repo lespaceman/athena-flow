@@ -166,6 +166,7 @@ export const ISOLATION_PRESETS: Record<
 			'WebFetch',
 			'Task',
 			'Skill',
+			'mcp__*',
 		],
 	},
 

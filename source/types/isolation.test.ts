@@ -15,7 +15,7 @@ describe('ISOLATION_PRESETS', () => {
 		expect(preset.allowedTools).not.toContain('WebFetch');
 	});
 
-	it('minimal preset should allow core tools plus web and subagents', () => {
+	it('minimal preset should allow core tools plus web, subagents, and MCP wildcard', () => {
 		const preset = ISOLATION_PRESETS.minimal;
 		expect(preset.allowedTools).toBeDefined();
 		// Core tools
@@ -27,6 +27,8 @@ describe('ISOLATION_PRESETS', () => {
 		expect(preset.allowedTools).toContain('WebSearch');
 		expect(preset.allowedTools).toContain('WebFetch');
 		expect(preset.allowedTools).toContain('Task');
+		// MCP wildcard — minimal allows project MCP servers, so must allow MCP tools
+		expect(preset.allowedTools).toContain('mcp__*');
 	});
 
 	it('permissive preset should allow all tools including MCP wildcard', () => {
