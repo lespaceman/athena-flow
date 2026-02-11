@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest';
-import {clearCommand} from '../builtins/clear.js';
+import {sessionsCommand} from '../builtins/sessions.js';
 import {type UICommandContext} from '../types.js';
 
 const NULL_TOKENS = {
@@ -16,9 +16,7 @@ function makeUIContext(
 ): UICommandContext {
 	return {
 		args: {},
-		messages: [
-			{id: '1', role: 'user', content: 'hello', timestamp: new Date()},
-		],
+		messages: [],
 		setMessages: vi.fn(),
 		addMessage: vi.fn(),
 		exit: vi.fn(),
@@ -42,16 +40,10 @@ function makeUIContext(
 	};
 }
 
-describe('clearCommand', () => {
-	it('clears messages', () => {
+describe('sessionsCommand', () => {
+	it('calls showSessions on execute', () => {
 		const ctx = makeUIContext();
-		clearCommand.execute(ctx);
-		expect(ctx.setMessages).toHaveBeenCalledWith([]);
-	});
-
-	it('calls clearScreen to wipe the terminal', () => {
-		const ctx = makeUIContext();
-		clearCommand.execute(ctx);
-		expect(ctx.clearScreen).toHaveBeenCalled();
+		sessionsCommand.execute(ctx);
+		expect(ctx.showSessions).toHaveBeenCalled();
 	});
 });

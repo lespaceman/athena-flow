@@ -152,7 +152,7 @@ const claudeCodeVersion = detectClaudeVersion();
 // meow parses --continue (no value) as undefined for type: 'string', so check process.argv
 const hasContinueFlag = process.argv.includes('--continue');
 let initialSessionId: string | undefined;
-let showSessionPicker = cli.flags.sessions;
+const showSessionPicker = cli.flags.sessions;
 
 if (cli.flags.continue) {
 	// --continue=<sessionId>

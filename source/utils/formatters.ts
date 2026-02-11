@@ -40,6 +40,19 @@ export function formatDuration(seconds: number): string {
 	return `${h}h${remainM}m${remainS}s`;
 }
 
+/** Format an ISO date as a relative time string (e.g. "3h ago"). */
+export function formatRelativeTime(isoDate: string): string {
+	const diff = Date.now() - new Date(isoDate).getTime();
+	const minutes = Math.floor(diff / 60_000);
+	if (minutes < 1) return 'just now';
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	if (days < 30) return `${days}d ago`;
+	return `${Math.floor(days / 30)}mo ago`;
+}
+
 const FILL_CHAR = '\u2588'; // █
 const EMPTY_CHAR = '\u2591'; // ░
 
