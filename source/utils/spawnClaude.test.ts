@@ -237,6 +237,22 @@ describe('spawnClaude', () => {
 			expect(args).toContain('--allowedTools'); // custom override
 			expect(args).toContain('Read');
 		});
+
+		it('logs warning to stderr for conflicting flags', () => {
+			const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+			spawnClaude({
+				prompt: 'Test',
+				projectDir: '/test',
+				instanceId: 1,
+				isolation: {chrome: true, noChrome: true},
+			});
+
+			expect(stderrSpy).toHaveBeenCalledWith(
+				expect.stringContaining('[athena] Conflicting flags'),
+			);
+			stderrSpy.mockRestore();
+		});
 	});
 
 	describe('cleanup', () => {

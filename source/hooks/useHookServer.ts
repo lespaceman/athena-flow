@@ -52,7 +52,7 @@ export function useHookServer(
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const activeSubagentStackRef = useRef<string[]>([]);
-	const isMountedRef = useRef(true); // Track if component is mounted
+	const abortRef = useRef<AbortController>(new AbortController());
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
 	const [socketPath, setSocketPath] = useState<string | null>(null);
@@ -135,7 +135,7 @@ export function useHookServer(
 			pendingRequestsRef.current.delete(requestId);
 
 			// Only update React state if component is still mounted
-			if (!isMountedRef.current) return;
+			if (abortRef.current.signal.aborted) return;
 
 			// Update event status
 			const status: HookEventDisplay['status'] =
@@ -192,8 +192,8 @@ export function useHookServer(
 	const pendingEvents = events.filter(e => e.status === 'pending');
 
 	useEffect(() => {
-		// Mark as mounted
-		isMountedRef.current = true;
+		// Fresh AbortController for this effect cycle
+		abortRef.current = new AbortController();
 
 		// Create socket directory with instance-specific socket name
 		const socketDir = path.join(projectDir, '.claude', 'run');
@@ -247,6 +247,7 @@ export function useHookServer(
 		const server = net.createServer((socket: net.Socket) => {
 			// Build per-socket callbacks that close over the socket
 			const callbacks: HandlerCallbacks = {
+				signal: abortRef.current.signal,
 				getRules: () => rulesRef.current,
 				storeWithAutoPassthrough: (ctx: HandlerContext) => {
 					const timeoutId = setTimeout(() => {
@@ -278,7 +279,7 @@ export function useHookServer(
 					eventId: string,
 					summary: HookEventDisplay['transcriptSummary'],
 				) => {
-					if (isMountedRef.current) {
+					if (!abortRef.current.signal.aborted) {
 						setEvents(prev =>
 							prev.map(e =>
 								e.id === eventId ? {...e, transcriptSummary: summary} : e,
@@ -362,7 +363,7 @@ export function useHookServer(
 
 				// Remove closed requests from the permission/question queues so the
 				// dialogs do not get stuck showing a dead request.
-				if (closedRequestIds.length > 0 && isMountedRef.current) {
+				if (closedRequestIds.length > 0 && !abortRef.current.signal.aborted) {
 					removeAllPermissions(closedRequestIds);
 					removeAllQuestions(closedRequestIds);
 				}
@@ -394,8 +395,8 @@ export function useHookServer(
 
 		// Cleanup
 		return () => {
-			// Mark as unmounted to prevent state updates
-			isMountedRef.current = false;
+			// Signal abort to prevent state updates
+			abortRef.current.abort();
 
 			// Clear active subagent tracking
 			activeSubagentStackRef.current = [];

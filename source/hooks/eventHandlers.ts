@@ -45,6 +45,7 @@ export type HandlerCallbacks = {
 		eventId: string,
 		summary: HookEventDisplay['transcriptSummary'],
 	) => void;
+	signal?: AbortSignal;
 };
 
 /** Handle SubagentStop: add as first-class event and parse transcript. */
@@ -60,7 +61,7 @@ export function handleSubagentStop(
 
 	const transcriptPath = envelope.payload.agent_transcript_path;
 	if (transcriptPath) {
-		parseTranscriptFile(transcriptPath)
+		parseTranscriptFile(transcriptPath, cb.signal)
 			.then(summary => cb.onTranscriptParsed(displayEvent.id, summary))
 			.catch(err => {
 				console.error('[SubagentStop] Failed to parse transcript:', err);
@@ -185,7 +186,7 @@ export function handleSessionTracking(
 
 	const transcriptPath = envelope.payload.transcript_path;
 	if (transcriptPath) {
-		parseTranscriptFile(transcriptPath)
+		parseTranscriptFile(transcriptPath, cb.signal)
 			.then(summary => cb.onTranscriptParsed(displayEvent.id, summary))
 			.catch(err => {
 				console.error('[SessionEnd] Failed to parse transcript:', err);
