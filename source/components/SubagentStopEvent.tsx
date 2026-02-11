@@ -12,11 +12,11 @@ import {
 	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
-	SUBAGENT_COLOR,
 	SUBAGENT_SYMBOLS,
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -27,6 +27,7 @@ export default function SubagentStopEvent({
 	event,
 	verbose,
 }: Props): React.ReactNode {
+	const theme = useTheme();
 	const payload = event.payload;
 	if (!isSubagentStopEvent(payload)) return null;
 
@@ -38,12 +39,12 @@ export default function SubagentStopEvent({
 		<Box flexDirection="column" marginBottom={1}>
 			<Box
 				borderStyle="round"
-				borderColor={SUBAGENT_COLOR}
+				borderColor={theme.accentSecondary}
 				flexDirection="column"
 			>
 				<Box>
-					<Text color={SUBAGENT_COLOR}>{subSymbol} </Text>
-					<Text color={SUBAGENT_COLOR} bold>
+					<Text color={theme.accentSecondary}>{subSymbol} </Text>
+					<Text color={theme.accentSecondary} bold>
 						Task({payload.agent_type})
 					</Text>
 					<Text dimColor> {payload.agent_id} (completed)</Text>

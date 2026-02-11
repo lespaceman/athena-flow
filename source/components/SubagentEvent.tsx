@@ -18,14 +18,14 @@ import {
 } from '../types/hooks/index.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {
-	STATUS_COLORS,
+	getStatusColors,
 	STATUS_SYMBOLS,
-	SUBAGENT_COLOR,
 	SUBAGENT_SYMBOLS,
 	getPostToolText,
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -36,7 +36,9 @@ type Props = {
  * Compact renderer for a child event inside a subagent box.
  */
 function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
-	const color = STATUS_COLORS[event.status];
+	const theme = useTheme();
+	const statusColors = getStatusColors(theme);
+	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 	const payload = event.payload;
 
@@ -89,6 +91,7 @@ export default function SubagentEvent({
 	event,
 	childEventsByAgent,
 }: Props): React.ReactNode {
+	const theme = useTheme();
 	if (!isSubagentStartEvent(event.payload)) return null;
 
 	// TypeScript narrows payload to SubagentStartEvent after the guard
@@ -105,12 +108,12 @@ export default function SubagentEvent({
 		<Box flexDirection="column" marginBottom={1}>
 			<Box
 				borderStyle="round"
-				borderColor={SUBAGENT_COLOR}
+				borderColor={theme.accentSecondary}
 				flexDirection="column"
 			>
 				<Box>
-					<Text color={SUBAGENT_COLOR}>{subSymbol} </Text>
-					<Text color={SUBAGENT_COLOR} bold>
+					<Text color={theme.accentSecondary}>{subSymbol} </Text>
+					<Text color={theme.accentSecondary} bold>
 						Task({payload.agent_type})
 					</Text>
 					<Text dimColor>

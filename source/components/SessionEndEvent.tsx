@@ -4,7 +4,8 @@ import {
 	type HookEventDisplay,
 	isSessionEndEvent,
 } from '../types/hooks/index.js';
-import {STATUS_COLORS} from './hookEventUtils.js';
+import {getStatusColors} from './hookEventUtils.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -19,7 +20,9 @@ const STATUS_SYMBOLS = {
 } as const;
 
 export default function SessionEndEvent({event}: Props) {
-	const color = STATUS_COLORS[event.status];
+	const theme = useTheme();
+	const statusColors = getStatusColors(theme);
+	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
 
 	// Format timestamp
@@ -48,20 +51,20 @@ export default function SessionEndEvent({event}: Props) {
 					{symbol} [{time}] SessionEnd
 				</Text>
 				{event.status !== 'pending' && (
-					<Text color="gray"> ({event.status})</Text>
+					<Text color={theme.textMuted}> ({event.status})</Text>
 				)}
 			</Box>
 
 			{/* Session end reason */}
 			<Box marginTop={0}>
-				<Text color="gray">Reason: </Text>
+				<Text color={theme.textMuted}>Reason: </Text>
 				<Text>{reason}</Text>
 			</Box>
 
 			{/* Stats row */}
 			{summary && !summary.error && (
 				<Box>
-					<Text color="gray">
+					<Text color={theme.textMuted}>
 						Messages: {summary.messageCount} | Tool calls:{' '}
 						{summary.toolCallCount}
 					</Text>
@@ -71,14 +74,14 @@ export default function SessionEndEvent({event}: Props) {
 			{/* Error message if transcript unavailable */}
 			{summary?.error && (
 				<Box marginTop={0}>
-					<Text color="yellow">{summary.error}</Text>
+					<Text color={theme.status.warning}>{summary.error}</Text>
 				</Box>
 			)}
 
 			{/* Claude's last response - full text with word wrap */}
 			{summary?.lastAssistantText && (
 				<Box flexDirection="column" marginTop={1}>
-					<Text color="cyan" bold>
+					<Text color={theme.accent} bold>
 						Claude's last response:
 					</Text>
 					<Box marginTop={0}>
