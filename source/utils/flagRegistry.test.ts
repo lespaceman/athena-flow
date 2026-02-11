@@ -5,7 +5,7 @@ import {
 	FLAG_REGISTRY,
 	type FlagDef,
 } from './flagRegistry.js';
-import {type IsolationConfig} from '../types/isolation.js';
+import {type IsolationConfig, resolveIsolationConfig} from '../types/isolation.js';
 
 describe('FLAG_REGISTRY', () => {
 	it('should contain exactly 29 flag definitions', () => {
@@ -141,6 +141,16 @@ describe('buildIsolationArgs', () => {
 				'--plugin-dir',
 				'/plugins/a',
 			]);
+		});
+
+		it('should emit allowedTools from resolved strict preset', () => {
+			const config = resolveIsolationConfig('strict');
+			const args = buildIsolationArgs(config);
+			// strict preset has 6 allowed tools
+			expect(args.filter(a => a === '--allowedTools')).toHaveLength(6);
+			expect(args).toContain('Read');
+			expect(args).toContain('Edit');
+			expect(args).toContain('Bash');
 		});
 	});
 

@@ -75,7 +75,10 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
 - **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
-- **source/types/isolation.ts**: IsolationConfig type and presets for spawning Claude processes
+- **source/types/isolation.ts**: IsolationConfig type, presets (strict/minimal/permissive), and resolver
+  - `strict`: core tools only (Read, Edit, Write, Glob, Grep, Bash), no MCP
+  - `minimal`: adds WebSearch, WebFetch, Task, Skill; allows project MCP
+  - `permissive`: adds NotebookEdit, `mcp__*` wildcard; allows project MCP
 - **source/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
 - **source/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
 - **source/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
