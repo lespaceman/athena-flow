@@ -6,6 +6,7 @@
  * ordering and to make the stability rules independently testable.
  */
 
+import {useRef} from 'react';
 import {type Message} from '../types/common.js';
 import {
 	type HookEventDisplay,
@@ -162,6 +163,9 @@ export function useContentOrdering({
 	messages,
 	events,
 }: UseContentOrderingOptions): UseContentOrderingResult {
+	// Track IDs that have been emitted as stable, in order.
+	// Once an item enters this list, its position is fixed.
+	const stableOrderRef = useRef<string[]>([]);
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
 	const sessionEndMessages: ContentItem[] = events
 		.filter(
@@ -261,10 +265,40 @@ export function useContentOrdering({
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	// Separate stable items (for Static) from items that may update (rendered dynamically).
+	// Build a lookup map from item ID → ContentItem for O(1) access
+	const itemById = new Map<string, ContentItem>();
+	for (const item of contentItems) {
+		itemById.set(item.data.id, item);
+	}
+
 	const isStable = (item: ContentItem) =>
 		isStableContent(item, stoppedAgentIds);
-	const stableItems: ContentItem[] = contentItems.filter(isStable);
+
+	// Build append-only stableItems:
+	// 1. Keep existing stable items in their original order (skip removed ones)
+	// 2. Append new stable items that weren't in the previous list
+	const prevStableIds = new Set(stableOrderRef.current);
+	const stableItems: ContentItem[] = [];
+
+	// Retain existing order for previously-stable items
+	for (const id of stableOrderRef.current) {
+		const item = itemById.get(id);
+		if (item && isStable(item)) {
+			stableItems.push(item);
+		}
+	}
+
+	// Append newly-stable items (in timestamp order among themselves)
+	for (const item of contentItems) {
+		if (isStable(item) && !prevStableIds.has(item.data.id)) {
+			stableItems.push(item);
+		}
+	}
+
+	// Update the ref with the current stable ID order
+	stableOrderRef.current = stableItems.map(i => i.data.id);
+
+	// Dynamic items: everything that's not stable
 	const dynamicItems = contentItems.filter(item => !isStable(item));
 
 	return {
