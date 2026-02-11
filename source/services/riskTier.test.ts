@@ -57,6 +57,8 @@ describe('riskTier', () => {
 			'ping',
 			'get_form_understanding',
 			'get_field_context',
+			'close_page',
+			'close_session',
 		])('classifies MCP action %s as READ', action => {
 			expect(getRiskTier(`mcp__agent-web-interface__${action}`)).toBe('READ');
 		});

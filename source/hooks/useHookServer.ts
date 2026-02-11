@@ -153,18 +153,33 @@ export function useHookServer(
 		(requestId: string, decision: PermissionDecision) => {
 			const toolName =
 				pendingRequestsRef.current.get(requestId)?.event.toolName;
-			const isAllow = decision === 'allow' || decision === 'always-allow';
+			const isAllow = decision !== 'deny' && decision !== 'always-deny';
 
 			// Persist "always" decisions as rules for future requests
-			if (
-				toolName &&
-				(decision === 'always-allow' || decision === 'always-deny')
-			) {
-				addRule({
-					toolName,
-					action: isAllow ? 'approve' : 'deny',
-					addedBy: 'permission-dialog',
-				});
+			if (toolName) {
+				if (decision === 'always-allow') {
+					addRule({
+						toolName,
+						action: 'approve',
+						addedBy: 'permission-dialog',
+					});
+				} else if (decision === 'always-deny') {
+					addRule({
+						toolName,
+						action: 'deny',
+						addedBy: 'permission-dialog',
+					});
+				} else if (decision === 'always-allow-server') {
+					// Extract MCP server prefix and create a wildcard rule
+					const serverMatch = /^(mcp__[^_]+(?:_[^_]+)*__)/.exec(toolName);
+					if (serverMatch) {
+						addRule({
+							toolName: serverMatch[1] + '*',
+							action: 'approve',
+							addedBy: 'permission-dialog',
+						});
+					}
+				}
 			}
 
 			// Send explicit allow/deny so Claude Code skips its own permission prompt

@@ -97,6 +97,12 @@ export default function PermissionDialog({
 				onDecision('always-deny');
 				return;
 			}
+
+			// "S" = always allow all tools from this MCP server
+			if (input === 'S' && parsed.isMcp) {
+				onDecision('always-allow-server');
+				return;
+			}
 		},
 		{isActive: !requiresConfirmation},
 	);
