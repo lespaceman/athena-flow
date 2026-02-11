@@ -147,6 +147,44 @@ export function handlePreToolUseRules(
 	return true;
 }
 
+/**
+ * Explicitly allow safe PreToolUse events instead of passthrough.
+ *
+ * Without this, safe tools (especially READ-tier MCP actions) fall through
+ * to the default auto-passthrough handler. A passthrough tells Claude Code
+ * "I don't care, decide yourself", which causes Claude to block MCP tools
+ * that aren't in its own safe list. By explicitly allowing, we ensure
+ * athena's permission policy is authoritative.
+ */
+export function handleSafeToolAutoAllow(
+	ctx: HandlerContext,
+	cb: HandlerCallbacks,
+): boolean {
+	const {envelope} = ctx;
+	if (
+		envelope.hook_event_name !== 'PreToolUse' ||
+		!isToolEvent(envelope.payload)
+	) {
+		return false;
+	}
+
+	if (
+		isPermissionRequired(
+			envelope.payload.tool_name,
+			cb.getRules(),
+			envelope.payload.tool_input,
+		)
+	) {
+		return false; // Not safe — let handlePermissionCheck deal with it
+	}
+
+	// Safe tool: explicitly allow
+	cb.storeWithoutPassthrough(ctx);
+	cb.addEvent(ctx.displayEvent);
+	cb.respond(envelope.request_id, createPreToolUseAllowResult());
+	return true;
+}
+
 /** Route permission-required PreToolUse events to the permission queue. */
 export function handlePermissionCheck(
 	ctx: HandlerContext,
@@ -229,6 +267,7 @@ export function dispatchEvent(ctx: HandlerContext, cb: HandlerCallbacks): void {
 		handlePermissionRequest(ctx, cb) ||
 		handleAskUserQuestion(ctx, cb) ||
 		handlePreToolUseRules(ctx, cb) ||
+		handleSafeToolAutoAllow(ctx, cb) ||
 		handlePermissionCheck(ctx, cb);
 
 	if (!handled) {

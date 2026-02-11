@@ -5,6 +5,7 @@ import {
 	handleAskUserQuestion,
 	handlePreToolUseRules,
 	handlePermissionCheck,
+	handleSafeToolAutoAllow,
 	dispatchEvent,
 	type HandlerContext,
 	type HandlerCallbacks,
@@ -214,6 +215,67 @@ describe('handlePreToolUseRules', () => {
 	});
 });
 
+describe('handleSafeToolAutoAllow', () => {
+	it('returns false for non-PreToolUse events', () => {
+		const ctx = makeCtx('Notification', {
+			hook_event_name: 'Notification',
+			message: 'test',
+		});
+		const cb = makeCallbacks();
+		expect(handleSafeToolAutoAllow(ctx, cb)).toBe(false);
+	});
+
+	it('explicitly allows READ-tier MCP tools instead of passthrough', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__agent-web-interface__take_screenshot',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+
+		expect(handleSafeToolAutoAllow(ctx, cb)).toBe(true);
+		expect(cb.respond).toHaveBeenCalled();
+		expect(cb.addEvent).toHaveBeenCalled();
+	});
+
+	it('explicitly allows safe built-in tools', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'Read',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+
+		expect(handleSafeToolAutoAllow(ctx, cb)).toBe(true);
+		expect(cb.respond).toHaveBeenCalled();
+	});
+
+	it('returns false for dangerous tools (lets permission check handle them)', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__agent-web-interface__click',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+
+		expect(handleSafeToolAutoAllow(ctx, cb)).toBe(false);
+	});
+
+	it('explicitly allows close_page and close_session', () => {
+		for (const action of ['close_page', 'close_session']) {
+			const ctx = makeCtx('PreToolUse', {
+				hook_event_name: 'PreToolUse',
+				tool_name: `mcp__agent-web-interface__${action}`,
+				tool_input: {},
+			});
+			const cb = makeCallbacks();
+
+			expect(handleSafeToolAutoAllow(ctx, cb)).toBe(true);
+			expect(cb.respond).toHaveBeenCalled();
+		}
+	});
+});
+
 describe('handlePreToolUseRules with server-wide prefix rules', () => {
 	it('auto-approves MCP tools when server-wide rule exists', () => {
 		const ctx = makeCtx('PreToolUse', {
@@ -352,6 +414,21 @@ describe('dispatchEvent', () => {
 		dispatchEvent(ctx, cb);
 
 		// PermissionRequest handler responds directly, not via auto-passthrough
+		expect(cb.respond).toHaveBeenCalled();
+		expect(cb.storeWithAutoPassthrough).not.toHaveBeenCalled();
+	});
+
+	it('explicitly allows READ-tier MCP tools (not passthrough)', () => {
+		const ctx = makeCtx('PreToolUse', {
+			hook_event_name: 'PreToolUse',
+			tool_name: 'mcp__agent-web-interface__take_screenshot',
+			tool_input: {},
+		});
+		const cb = makeCallbacks();
+
+		dispatchEvent(ctx, cb);
+
+		// Should explicitly allow, not passthrough
 		expect(cb.respond).toHaveBeenCalled();
 		expect(cb.storeWithAutoPassthrough).not.toHaveBeenCalled();
 	});
