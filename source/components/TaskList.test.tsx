@@ -132,6 +132,16 @@ describe('TaskList', () => {
 		expect(onToggle).toHaveBeenCalled();
 	});
 
+	it('does not call onToggle when dialogActive is true', () => {
+		const onToggle = vi.fn();
+		const {stdin} = render(
+			<TaskList tasks={baseTasks} onToggle={onToggle} dialogActive />,
+		);
+
+		stdin.write('\x14'); // Ctrl+t
+		expect(onToggle).not.toHaveBeenCalled();
+	});
+
 	it('does not toggle on plain "t" keypress', () => {
 		const onToggle = vi.fn();
 		const {stdin} = render(<TaskList tasks={baseTasks} onToggle={onToggle} />);
