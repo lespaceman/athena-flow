@@ -46,24 +46,14 @@ export default function PermissionDialog({
 	// Build options for the select menu
 	const options: OptionItem[] = useMemo(() => {
 		const items: OptionItem[] = [
-			{label: 'Allow', description: 'Allow this tool call', value: 'allow'},
-			{label: 'Deny', description: 'Deny this tool call', value: 'deny'},
-			{
-				label: `Always allow "${displayName}"`,
-				description: 'Remember this choice for this tool',
-				value: 'always-allow',
-			},
-			{
-				label: `Always deny "${displayName}"`,
-				description: 'Always block this tool',
-				value: 'always-deny',
-			},
+			{label: 'Allow', value: 'allow'},
+			{label: 'Deny', value: 'deny'},
+			{label: `Always allow "${displayName}"`, value: 'always-allow'},
 		];
 
 		if (parsed.isMcp && serverLabel) {
 			items.push({
 				label: `Always allow all from ${serverLabel}`,
-				description: 'Trust all tools from this server',
 				value: 'always-allow-server',
 			});
 		}

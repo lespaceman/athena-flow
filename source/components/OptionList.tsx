@@ -4,7 +4,7 @@ import {useTheme} from '../theme/index.js';
 
 export type OptionItem = {
 	label: string;
-	description: string;
+	description?: string;
 	value: string;
 };
 

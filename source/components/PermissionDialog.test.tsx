@@ -59,7 +59,7 @@ describe('PermissionDialog', () => {
 	});
 
 	describe('option list rendering', () => {
-		it('shows Allow, Deny, Always allow, Always deny for built-in tools', () => {
+		it('shows Allow, Deny, Always allow for built-in tools', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -73,7 +73,7 @@ describe('PermissionDialog', () => {
 			expect(frame).toContain('Allow');
 			expect(frame).toContain('Deny');
 			expect(frame).toContain('Always allow "Edit"');
-			expect(frame).toContain('Always deny "Edit"');
+			expect(frame).not.toContain('Always deny');
 		});
 
 		it('shows "Always allow all from server" option for MCP tools', () => {
@@ -233,19 +233,17 @@ describe('PermissionDialog', () => {
 			expect(onDecision).toHaveBeenCalledWith('always-allow');
 		});
 
-		it('calls onDecision with "always-deny" via number key', () => {
-			const onDecision = vi.fn();
+		it('does not show option descriptions', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {stdin} = render(
+			const {lastFrame} = render(
 				<PermissionDialog
 					request={event}
 					queuedCount={0}
-					onDecision={onDecision}
+					onDecision={vi.fn()}
 				/>,
 			);
 
-			stdin.write('4');
-			expect(onDecision).toHaveBeenCalledWith('always-deny');
+			expect(lastFrame()).not.toContain('Allow this tool call');
 		});
 	});
 });
