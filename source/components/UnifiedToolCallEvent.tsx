@@ -76,10 +76,15 @@ export default function UnifiedToolCallEvent({
 	const isStandalonePost =
 		!isPreToolUseEvent(payload) && !isPermissionRequestEvent(payload);
 
-	// Pending when awaiting a post-tool result (not blocked, not standalone)
+	// Pending when awaiting a post-tool result.
+	// Only show "Running…" if this event has a toolUseId (pairing is possible).
+	// Without toolUseId, we can't pair with PostToolUse so fall back to status-based rendering.
 	const isPending =
 		event.status === 'pending' ||
-		(event.status !== 'blocked' && !event.postToolEvent && !isStandalonePost);
+		(event.status !== 'blocked' &&
+			!event.postToolEvent &&
+			!isStandalonePost &&
+			!!event.toolUseId);
 
 	const [pulse, setPulse] = useState(true);
 	useEffect(() => {
@@ -112,13 +117,17 @@ export default function UnifiedToolCallEvent({
 			isFailed,
 			statusColors.blocked,
 		);
-	} else {
+	} else if (isPending) {
+		// Actively waiting for PostToolUse result
 		bulletColor = statusColors.pending;
 		responseNode = (
 			<Box paddingLeft={2}>
 				<Text dimColor>{'\u2514 Running\u2026'}</Text>
 			</Box>
 		);
+	} else {
+		// Completed but no paired result (no toolUseId, or pairing unavailable)
+		bulletColor = statusColors.passthrough;
 	}
 
 	return (
