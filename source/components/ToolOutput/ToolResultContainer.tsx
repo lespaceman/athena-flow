@@ -45,7 +45,7 @@ export default function ToolResultContainer({
 					{GUTTER_CHAR}{' '}
 				</Text>
 			</Box>
-			<Box flexDirection="column" flexGrow={1} flexShrink={1}>
+			<Box flexDirection="column" width={availableWidth}>
 				{content}
 			</Box>
 		</Box>
