@@ -153,28 +153,28 @@ describe('formatModelName', () => {
 });
 
 describe('getContextBarColor', () => {
-	it('returns gray for null', () => {
-		expect(getContextBarColor(null, darkTheme)).toBe('gray');
+	it('returns neutral for null', () => {
+		expect(getContextBarColor(null, darkTheme)).toBe(darkTheme.status.neutral);
 	});
 
-	it('returns green below 60%', () => {
-		expect(getContextBarColor(30, darkTheme)).toBe('green');
-		expect(getContextBarColor(59, darkTheme)).toBe('green');
+	it('returns low below 60%', () => {
+		expect(getContextBarColor(30, darkTheme)).toBe(darkTheme.contextBar.low);
+		expect(getContextBarColor(59, darkTheme)).toBe(darkTheme.contextBar.low);
 	});
 
-	it('returns yellow at 60-79%', () => {
-		expect(getContextBarColor(60, darkTheme)).toBe('yellow');
-		expect(getContextBarColor(79, darkTheme)).toBe('yellow');
+	it('returns warning at 60-79%', () => {
+		expect(getContextBarColor(60, darkTheme)).toBe(darkTheme.status.warning);
+		expect(getContextBarColor(79, darkTheme)).toBe(darkTheme.status.warning);
 	});
 
-	it('returns orange at 80-94%', () => {
-		expect(getContextBarColor(80, darkTheme)).toBe('#FF8C00');
-		expect(getContextBarColor(94, darkTheme)).toBe('#FF8C00');
+	it('returns medium at 80-94%', () => {
+		expect(getContextBarColor(80, darkTheme)).toBe(darkTheme.contextBar.medium);
+		expect(getContextBarColor(94, darkTheme)).toBe(darkTheme.contextBar.medium);
 	});
 
-	it('returns red at 95%+', () => {
-		expect(getContextBarColor(95, darkTheme)).toBe('red');
-		expect(getContextBarColor(100, darkTheme)).toBe('red');
+	it('returns high at 95%+', () => {
+		expect(getContextBarColor(95, darkTheme)).toBe(darkTheme.contextBar.high);
+		expect(getContextBarColor(100, darkTheme)).toBe(darkTheme.contextBar.high);
 	});
 });
 

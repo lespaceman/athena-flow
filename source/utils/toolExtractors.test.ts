@@ -234,7 +234,7 @@ describe('extractToolOutput', () => {
 	});
 
 	describe('WebSearch', () => {
-		it('extracts titles and URLs from PostToolUse nested content array', () => {
+		it('extracts titles and URLs as markdown links from PostToolUse nested content array', () => {
 			// Actual PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
 			const result = extractToolOutput(
 				'WebSearch',
@@ -253,13 +253,11 @@ describe('extractToolOutput', () => {
 					durationSeconds: 5,
 				},
 			);
-			expect(result.type).toBe('list');
-			if (result.type === 'list') {
-				expect(result.items).toHaveLength(2);
-				expect(result.items[0]).toEqual({
-					primary: 'Result 1',
-					secondary: 'https://example.com/1',
-				});
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe(
+					'- [Result 1](https://example.com/1)\n- [Result 2](https://example.com/2)',
+				);
 			}
 		});
 
@@ -271,12 +269,9 @@ describe('extractToolOutput', () => {
 					results: [{title: 'Result 1', url: 'https://example.com/1'}],
 				},
 			);
-			expect(result.type).toBe('list');
-			if (result.type === 'list') {
-				expect(result.items[0]).toEqual({
-					primary: 'Result 1',
-					secondary: 'https://example.com/1',
-				});
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('- [Result 1](https://example.com/1)');
 			}
 		});
 

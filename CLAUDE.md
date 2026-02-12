@@ -24,6 +24,9 @@ npm run format         # Auto-format with prettier
 
 # Run single test
 npx vitest run source/types/hooks.test.ts
+
+# Debug hook events
+tail -f .claude/logs/hooks.jsonl     # Real-time NDJSON hook event log
 ```
 
 ## Architecture
@@ -103,6 +106,7 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - Prefer discriminated unions for state modeling (see `AppMode`, `Command`, `ContentItem`)
 - Event handlers extracted as pure functions taking `(ctx, callbacks)` — not closures inside hooks
 - New CLI flag mappings go in `FLAG_REGISTRY` array in `flagRegistry.ts`, not procedural code in `spawnClaude.ts`
+- Feature branches use git worktrees in `.worktrees/` (gitignored)
 
 ## Testing Patterns
 
@@ -125,3 +129,6 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **Flag registry**: Adding a new Claude CLI flag = add one `FlagDef` entry to `FLAG_REGISTRY`, no other changes needed
 - **Error boundaries**: Every `<HookEvent>` and dialog is wrapped in `<ErrorBoundary>` with recoverable fallbacks (Escape key)
 - **Settings isolation**: Always passes `--setting-sources ""` to Claude — athena fully controls what Claude sees
+- **Ink `<Static>` is write-once**: Items promoted to `stableItems` render once and never update — any state change (e.g., PostToolUse pairing) must happen BEFORE an item becomes stable
+- **Session lifecycle is per-message**: Each `spawnClaude()` creates a new session (SessionStart→Stop→SessionEnd). State flags like `sessionEnded` must reset on new `SessionStart` or they affect future sessions
+- **PreToolUse ↔ PostToolUse pairing**: `useContentOrdering` pairs by `toolUseId`; Claude Code may omit `tool_use_id` on PostToolUse (bug #13241), so temporal fallback pairing by tool_name exists
