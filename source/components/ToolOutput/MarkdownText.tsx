@@ -89,19 +89,6 @@ function createMarked(width: number): Marked {
 			hr: chalk.dim,
 			listitem: chalk.reset,
 			table: chalk.reset,
-
-			// ── Tables — baseline options (colWidths added by override below) ──
-			tableOptions: {
-				wordWrap: true,
-				wrapOnWordBoundary: true,
-				style: {
-					head: [],
-					border: [],
-					'padding-left': 1,
-					'padding-right': 1,
-				},
-				chars: TABLE_CHARS,
-			},
 		}) as Parameters<typeof m.use>[0],
 	);
 
