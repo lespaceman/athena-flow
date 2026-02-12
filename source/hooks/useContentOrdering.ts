@@ -214,9 +214,17 @@ export function useContentOrdering({
 		children.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 	}
 
-	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure by toolUseId
+	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure.
+	// Primary: pair by toolUseId (exact match).
+	// Fallback: when PostToolUse lacks toolUseId (Claude Code bug — see
+	// https://github.com/anthropics/claude-code/issues/13241), pair by tool_name
+	// in temporal order: each unmatched PostToolUse pairs with the earliest
+	// unmatched PreToolUse of the same tool_name that precedes it in time.
 	const preToolUseIds = new Set<string>();
 	const postToolByUseId = new Map<string, HookEventDisplay>();
+	const pairedPreIds = new Set<string>();
+
+	// Pass 1: exact toolUseId pairing
 	for (const e of events) {
 		if (
 			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
@@ -230,8 +238,42 @@ export function useContentOrdering({
 			preToolUseIds.has(e.toolUseId)
 		) {
 			postToolByUseId.set(e.toolUseId, e);
+			pairedPreIds.add(e.toolUseId);
 		}
 	}
+
+	// Pass 2: temporal fallback for PostToolUse events missing toolUseId
+	const unmatchedPres = events.filter(
+		e =>
+			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+			e.toolUseId &&
+			!pairedPreIds.has(e.toolUseId),
+	);
+	const unmatchedPosts = events.filter(
+		e =>
+			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+			!e.toolUseId,
+	);
+	// Track which indices in unmatchedPres have been consumed
+	const consumedPreIdx = new Set<number>();
+	for (const post of unmatchedPosts) {
+		for (let i = 0; i < unmatchedPres.length; i++) {
+			if (consumedPreIdx.has(i)) continue;
+			const pre = unmatchedPres[i]!;
+			if (
+				pre.toolName === post.toolName &&
+				pre.timestamp.getTime() <= post.timestamp.getTime()
+			) {
+				postToolByUseId.set(pre.toolUseId!, post);
+				pairedPreIds.add(pre.toolUseId!);
+				consumedPreIdx.add(i);
+				break;
+			}
+		}
+	}
+
+	// Build set of paired PostToolUse event IDs for filtering
+	const pairedPostIds = new Set([...postToolByUseId.values()].map(e => e.id));
 
 	// Interleave messages and hook events by timestamp.
 	// See shouldExcludeFromMainStream for the list of excluded event types.
@@ -241,8 +283,8 @@ export function useContentOrdering({
 			if (shouldExcludeFromMainStream(e)) return false;
 			if (
 				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-				e.toolUseId &&
-				preToolUseIds.has(e.toolUseId)
+				(pairedPostIds.has(e.id) ||
+					(e.toolUseId && preToolUseIds.has(e.toolUseId)))
 			)
 				return false;
 			return true;

@@ -1386,6 +1386,148 @@ describe('useContentOrdering', () => {
 			);
 		});
 
+		it('pairs PostToolUse without toolUseId to PreToolUse by tool_name (temporal fallback)', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-no-id',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-abc',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_use_id: 'tu-abc',
+					},
+				}),
+				makeEvent({
+					id: 'post-no-id',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					// No toolUseId — simulates Claude Code bug
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_response: 'hi',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			// PostToolUse should NOT appear as its own item (it was paired)
+			expect(allItems.filter(i => i.data.id === 'post-no-id')).toHaveLength(0);
+
+			// PreToolUse should have postToolEvent merged
+			const preItem = allItems.find(i => i.data.id === 'pre-no-id');
+			expect(preItem).toBeDefined();
+			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
+				'post-no-id',
+			);
+		});
+
+		it('temporal pairing matches PostToolUse to correct PreToolUse when multiple exist', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-first',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-1',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo first'},
+						tool_use_id: 'tu-1',
+					},
+				}),
+				makeEvent({
+					id: 'post-first',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					// No toolUseId
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo first'},
+						tool_response: 'first',
+					},
+				}),
+				makeEvent({
+					id: 'pre-second',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-2',
+					status: 'passthrough',
+					timestamp: new Date(3000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo second'},
+						tool_use_id: 'tu-2',
+					},
+				}),
+				makeEvent({
+					id: 'post-second',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					// No toolUseId
+					status: 'passthrough',
+					timestamp: new Date(4000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo second'},
+						tool_response: 'second',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			// Both PostToolUse events should be hidden (paired)
+			expect(allItems.filter(i => i.data.id === 'post-first')).toHaveLength(0);
+			expect(allItems.filter(i => i.data.id === 'post-second')).toHaveLength(0);
+
+			// Each PreToolUse should have its correct postToolEvent
+			const pre1 = allItems.find(i => i.data.id === 'pre-first');
+			const pre2 = allItems.find(i => i.data.id === 'pre-second');
+			expect(pre1?.type === 'hook' && pre1.data.postToolEvent?.id).toBe(
+				'post-first',
+			);
+			expect(pre2?.type === 'hook' && pre2.data.postToolEvent?.id).toBe(
+				'post-second',
+			);
+		});
+
 		it('renders PostToolUse standalone when no matching PreToolUse', () => {
 			const events = [
 				makeEvent({
