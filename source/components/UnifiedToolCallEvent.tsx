@@ -25,6 +25,7 @@ import {
 	formatResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
+import {ToolOutputRenderer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -112,11 +113,30 @@ export default function UnifiedToolCallEvent({
 	} else if (resolvedPost) {
 		const isFailed = isPostToolUseFailureEvent(resolvedPost);
 		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
-		responseNode = renderResponse(
-			getPostToolText(resolvedPost),
-			isFailed,
-			statusColors.blocked,
-		);
+		if (isFailed) {
+			const errorText = getPostToolText(resolvedPost) || 'Unknown error';
+			responseNode = (
+				<Box paddingLeft={2}>
+					<Text color={statusColors.blocked}>
+						{formatResponseBlock(errorText)}
+					</Text>
+				</Box>
+			);
+		} else {
+			responseNode = (
+				<Box paddingLeft={2}>
+					<ToolOutputRenderer
+						toolName={toolName}
+						toolInput={toolInput}
+						toolResponse={
+							isPostToolUseEvent(resolvedPost)
+								? resolvedPost.tool_response
+								: undefined
+						}
+					/>
+				</Box>
+			);
+		}
 	} else if (isPending) {
 		// Actively waiting for PostToolUse result
 		bulletColor = statusColors.pending;
@@ -156,22 +176,6 @@ export default function UnifiedToolCallEvent({
 			{event.postToolEvent && (
 				<StderrBlock result={event.postToolEvent.result} />
 			)}
-		</Box>
-	);
-}
-
-function renderResponse(
-	responseText: string,
-	isFailed: boolean,
-	errorColor: string,
-): React.ReactNode {
-	const displayText =
-		responseText || (isFailed ? 'Unknown error' : '(no output)');
-	return (
-		<Box paddingLeft={2}>
-			<Text color={isFailed ? errorColor : undefined} dimColor={!isFailed}>
-				{formatResponseBlock(displayText)}
-			</Text>
 		</Box>
 	);
 }

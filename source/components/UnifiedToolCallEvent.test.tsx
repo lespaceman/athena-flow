@@ -105,7 +105,7 @@ describe('UnifiedToolCallEvent', () => {
 
 		expect(frame).toContain('\u25cf'); // ● bullet
 		expect(frame).toContain('Bash');
-		expect(frame).toContain('\u23bf'); // ⎿ response prefix
+		// Rich rendering: CodeBlock renders content directly (no ⎿ prefix)
 		expect(frame).toContain('hello world');
 	});
 
@@ -129,13 +129,14 @@ describe('UnifiedToolCallEvent', () => {
 		expect(frame).toContain('User rejected');
 	});
 
-	it('shows (no output) for empty response', () => {
+	it('renders empty response without crashing', () => {
 		const post = makePostToolPayload('');
 		const event = makePreToolEvent({postToolEvent: post.display});
 		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('(no output)');
+		// Rich rendering: empty content renders nothing (no output indicator)
+		expect(frame).toContain('Bash');
 	});
 
 	it('renders standalone PostToolUse (orphaned)', () => {

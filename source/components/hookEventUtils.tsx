@@ -134,7 +134,9 @@ type BashToolResponse = {
 	noOutputExpected: boolean;
 };
 
-function isBashToolResponse(response: unknown): response is BashToolResponse {
+export function isBashToolResponse(
+	response: unknown,
+): response is BashToolResponse {
 	return (
 		typeof response === 'object' &&
 		response !== null &&

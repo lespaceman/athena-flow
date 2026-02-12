@@ -124,10 +124,10 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} verbose={true} />);
 		const frame = lastFrame() ?? '';
 
-		// First line has ⎿ prefix, continuation lines have matching indentation
-		expect(frame).toContain('\u23bf  line1');
-		expect(frame).toContain('   line2');
-		expect(frame).toContain('   line3');
+		// Rich rendering: CodeBlock renders all lines (no ⎿ prefix)
+		expect(frame).toContain('line1');
+		expect(frame).toContain('line2');
+		expect(frame).toContain('line3');
 	});
 
 	it('renders non-tool events borderless', () => {
