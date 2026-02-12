@@ -31,7 +31,7 @@ export default function ToolResultContainer({
 	if (content == null) return null;
 
 	return (
-		<Box paddingLeft={LEFT_MARGIN} marginTop={1}>
+		<Box paddingLeft={LEFT_MARGIN}>
 			<Box width={GUTTER_WIDTH} flexShrink={0}>
 				<Text dimColor={dimGutter} color={gutterColor}>
 					{'\u23bf'}{' '}
