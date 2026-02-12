@@ -205,11 +205,51 @@ export function useContentOrdering({
 		children.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 	}
 
+	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure by toolUseId
+	const preToolByUseId = new Map<string, number>();
+	const postToolByUseId = new Map<string, HookEventDisplay>();
+	for (const e of events) {
+		if (
+			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+			e.toolUseId
+		) {
+			// Store index placeholder — will be resolved after hookItems is built
+			preToolByUseId.set(e.toolUseId, 0);
+		}
+		if (
+			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+			e.toolUseId &&
+			preToolByUseId.has(e.toolUseId)
+		) {
+			postToolByUseId.set(e.toolUseId, e);
+		}
+	}
+
 	// Interleave messages and hook events by timestamp.
 	// See shouldExcludeFromMainStream for the list of excluded event types.
+	// Also exclude PostToolUse/PostToolUseFailure when paired with a PreToolUse.
 	const hookItems: ContentItem[] = events
-		.filter(e => !shouldExcludeFromMainStream(e))
+		.filter(e => {
+			if (shouldExcludeFromMainStream(e)) return false;
+			if (
+				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+				e.toolUseId &&
+				preToolByUseId.has(e.toolUseId)
+			)
+				return false;
+			return true;
+		})
 		.map(e => ({type: 'hook' as const, data: e}));
+
+	// Merge postToolEvent onto matching PreToolUse/PermissionRequest items
+	for (const item of hookItems) {
+		if (item.type === 'hook' && item.data.toolUseId) {
+			const postEvent = postToolByUseId.get(item.data.toolUseId);
+			if (postEvent) {
+				item.data = {...item.data, postToolEvent: postEvent};
+			}
+		}
+	}
 
 	// Extract the latest TodoWrite event for sticky bottom rendering (legacy).
 	const todoWriteEvents = events.filter(

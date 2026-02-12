@@ -45,6 +45,7 @@ function makeEvent(
 		status: overrides.status ?? 'pending',
 		transcriptSummary: overrides.transcriptSummary,
 		parentSubagentId: overrides.parentSubagentId,
+		toolUseId: overrides.toolUseId,
 	};
 }
 
@@ -1245,6 +1246,135 @@ describe('useContentOrdering', () => {
 			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
+		});
+	});
+
+	describe('tool event pairing', () => {
+		it('merges PostToolUse onto matching PreToolUse by toolUseId', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-1',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-123',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+					},
+				}),
+				makeEvent({
+					id: 'post-1',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-123',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_response: 'hi',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			// PostToolUse should NOT appear as its own item
+			expect(allItems.filter(i => i.data.id === 'post-1')).toHaveLength(0);
+
+			// PreToolUse should have postToolEvent merged
+			const preItem = allItems.find(i => i.data.id === 'pre-1');
+			expect(preItem).toBeDefined();
+			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
+				'post-1',
+			);
+		});
+
+		it('merges PostToolUseFailure onto matching PreToolUse by toolUseId', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-2',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-456',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'bad-cmd'},
+					},
+				}),
+				makeEvent({
+					id: 'post-2',
+					hookName: 'PostToolUseFailure',
+					toolName: 'Bash',
+					toolUseId: 'tu-456',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUseFailure',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'bad-cmd'},
+						error: 'command not found',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			expect(allItems.filter(i => i.data.id === 'post-2')).toHaveLength(0);
+
+			const preItem = allItems.find(i => i.data.id === 'pre-2');
+			expect(preItem).toBeDefined();
+			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
+				'post-2',
+			);
+		});
+
+		it('renders PostToolUse standalone when no matching PreToolUse', () => {
+			const events = [
+				makeEvent({
+					id: 'orphan-post',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-orphan',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_response: 'hi',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			expect(allItems.filter(i => i.data.id === 'orphan-post')).toHaveLength(1);
 		});
 	});
 
