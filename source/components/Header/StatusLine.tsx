@@ -17,7 +17,7 @@ type Props = {
 	spinnerFrame: string;
 	modelName: string | null;
 	toolCallCount: number;
-	tokenTotal: number | null;
+	contextSize: number | null;
 	projectDir: string;
 };
 
@@ -29,7 +29,7 @@ export default function StatusLine({
 	spinnerFrame,
 	modelName,
 	toolCallCount,
-	tokenTotal,
+	contextSize,
 	projectDir,
 }: Props) {
 	const theme = useTheme();
@@ -61,8 +61,8 @@ export default function StatusLine({
 				<Text>{formatModelName(modelName)}</Text>
 				<Text dimColor> | Tools: </Text>
 				<Text>{toolCallCount}</Text>
-				<Text dimColor> | Tokens: </Text>
-				<Text>{formatTokens(tokenTotal)}</Text>
+				<Text dimColor> | Context: </Text>
+				<Text>{formatTokens(contextSize)}</Text>
 			</Box>
 		</Box>
 	);

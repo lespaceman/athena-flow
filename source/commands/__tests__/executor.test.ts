@@ -16,7 +16,7 @@ function makeContext(
 		cacheRead: null,
 		cacheWrite: null,
 		total: null,
-		contextPercent: null,
+		contextSize: null,
 	};
 	return {
 		ui: {

@@ -12,12 +12,14 @@ import {clearCommand} from './clear.js';
 import {quitCommand} from './quit.js';
 import {statsCommand} from './stats.js';
 import {sessionsCommand} from './sessions.js';
+import {contextCommand} from './context.js';
 
 const builtins = [
 	helpCommand,
 	clearCommand,
 	quitCommand,
 	statsCommand,
+	contextCommand,
 	sessionsCommand,
 ];
 

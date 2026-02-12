@@ -33,7 +33,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(50);
 		expect(usage.cacheRead).toBe(10);
 		expect(usage.cacheWrite).toBe(5);
-		expect(usage.total).toBe(150); // input + output only (excludes cache)
+		expect(usage.total).toBe(165); // input + output + cacheRead + cacheWrite
 
 		// Second API turn — should accumulate
 		acc.feed(
@@ -54,7 +54,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(130);
 		expect(usage.cacheRead).toBe(10);
 		expect(usage.cacheWrite).toBe(5);
-		expect(usage.total).toBe(430); // 300 + 130
+		expect(usage.total).toBe(445); // 300 + 130 + 10 + 5
 	});
 
 	it('replaces totals from result objects (cumulative)', () => {
@@ -86,7 +86,7 @@ describe('createTokenAccumulator', () => {
 		expect(usage.output).toBe(200);
 		expect(usage.cacheRead).toBe(30);
 		expect(usage.cacheWrite).toBe(10);
-		expect(usage.total).toBe(700); // 500 + 200
+		expect(usage.total).toBe(740); // 500 + 200 + 30 + 10
 	});
 
 	it('handles partial lines across chunks', () => {
@@ -175,7 +175,54 @@ describe('createTokenAccumulator', () => {
 		expect(acc.getUsage().total).toBeNull();
 	});
 
-	it('contextPercent is always null', () => {
+	it('tracks contextSize from latest message turn', () => {
+		const acc = createTokenAccumulator();
+
+		// First turn
+		acc.feed(
+			JSON.stringify({
+				type: 'message',
+				usage: {
+					input_tokens: 100,
+					output_tokens: 50,
+					cache_read_input_tokens: 500,
+					cache_creation_input_tokens: 20,
+				},
+			}) + '\n',
+		);
+		// contextSize = input + cache_read + cache_write for latest turn
+		expect(acc.getUsage().contextSize).toBe(620);
+
+		// Second turn — contextSize updates to latest
+		acc.feed(
+			JSON.stringify({
+				type: 'message',
+				usage: {
+					input_tokens: 200,
+					output_tokens: 80,
+					cache_read_input_tokens: 1000,
+					cache_creation_input_tokens: 0,
+				},
+			}) + '\n',
+		);
+		expect(acc.getUsage().contextSize).toBe(1200);
+
+		// Result does NOT update contextSize
+		acc.feed(
+			JSON.stringify({
+				type: 'result',
+				usage: {
+					input_tokens: 300,
+					output_tokens: 130,
+					cache_read_input_tokens: 1500,
+					cache_creation_input_tokens: 20,
+				},
+			}) + '\n',
+		);
+		expect(acc.getUsage().contextSize).toBe(1200);
+	});
+
+	it('contextSize includes input_tokens even without cache tokens', () => {
 		const acc = createTokenAccumulator();
 		acc.feed(
 			JSON.stringify({
@@ -183,6 +230,7 @@ describe('createTokenAccumulator', () => {
 				usage: {input_tokens: 100, output_tokens: 50},
 			}) + '\n',
 		);
-		expect(acc.getUsage().contextPercent).toBeNull();
+		// input_tokens=100, no cache → contextSize=100
+		expect(acc.getUsage().contextSize).toBe(100);
 	});
 });

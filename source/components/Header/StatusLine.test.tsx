@@ -12,7 +12,7 @@ const defaultProps = {
 	spinnerFrame: '',
 	modelName: null as string | null,
 	toolCallCount: 0,
-	tokenTotal: null as number | null,
+	contextSize: null as number | null,
 	projectDir: '/tmp/project',
 };
 
@@ -62,13 +62,13 @@ describe('StatusLine', () => {
 				{...defaultProps}
 				modelName="claude-opus-4-6"
 				toolCallCount={12}
-				tokenTotal={53300}
+				contextSize={53300}
 			/>,
 		);
 		const populatedFrame = populated.lastFrame() ?? '';
 		expect(populatedFrame).toContain('Opus 4.6');
 		expect(populatedFrame).toContain('Tools: 12');
-		expect(populatedFrame).toContain('Tokens: 53.3k');
+		expect(populatedFrame).toContain('Context: 53.3k');
 		populated.unmount();
 	});
 
