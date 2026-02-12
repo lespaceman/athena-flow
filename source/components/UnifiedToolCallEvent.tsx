@@ -20,12 +20,10 @@ import {
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {
 	getStatusColors,
-	RESPONSE_PREFIX,
 	getPostToolText,
-	formatResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
-import {ToolOutputRenderer} from './ToolOutput/index.js';
+import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -106,9 +104,9 @@ export default function UnifiedToolCallEvent({
 	if (event.status === 'blocked') {
 		bulletColor = statusColors.blocked;
 		responseNode = (
-			<Box paddingLeft={2}>
-				<Text color={statusColors.blocked}>{RESPONSE_PREFIX}User rejected</Text>
-			</Box>
+			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+				<Text color={statusColors.blocked}>User rejected</Text>
+			</ToolResultContainer>
 		);
 	} else if (resolvedPost) {
 		const isFailed = isPostToolUseFailureEvent(resolvedPost);
@@ -116,17 +114,14 @@ export default function UnifiedToolCallEvent({
 		if (isFailed) {
 			const errorText = getPostToolText(resolvedPost) || 'Unknown error';
 			responseNode = (
-				<Box paddingLeft={2}>
-					<Text color={statusColors.blocked}>
-						{formatResponseBlock(errorText)}
-					</Text>
-				</Box>
+				<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+					<Text color={statusColors.blocked}>{errorText}</Text>
+				</ToolResultContainer>
 			);
 		} else {
 			responseNode = (
-				<Box paddingLeft={2}>
-					<Text dimColor>{RESPONSE_PREFIX}</Text>
-					<Box flexDirection="column" flexShrink={1}>
+				<ToolResultContainer>
+					{(availableWidth) => (
 						<ToolOutputRenderer
 							toolName={toolName}
 							toolInput={toolInput}
@@ -135,18 +130,19 @@ export default function UnifiedToolCallEvent({
 									? resolvedPost.tool_response
 									: undefined
 							}
+							availableWidth={availableWidth}
 						/>
-					</Box>
-				</Box>
+					)}
+				</ToolResultContainer>
 			);
 		}
 	} else if (isPending) {
 		// Actively waiting for PostToolUse result
 		bulletColor = statusColors.pending;
 		responseNode = (
-			<Box paddingLeft={2}>
-				<Text dimColor>{'\u2514 Running\u2026'}</Text>
-			</Box>
+			<ToolResultContainer>
+				<Text dimColor>Running…</Text>
+			</ToolResultContainer>
 		);
 	} else {
 		// Completed but no paired result (no toolUseId, or pairing unavailable)
