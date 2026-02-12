@@ -29,7 +29,6 @@ import {useContentOrdering} from './hooks/useContentOrdering.js';
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
-import {getAgentChain} from './utils/agentChain.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
@@ -377,8 +376,7 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{/* Permission dialog - shown when a dangerous tool needs approval */}
-			{appMode.type === 'permission' && currentPermissionRequest && (
+			{appMode.type === 'permission' && currentPermissionRequest ? (
 				<ErrorBoundary
 					fallback={
 						<PermissionErrorFallback
@@ -390,16 +388,9 @@ function AppContent({
 						request={currentPermissionRequest}
 						queuedCount={permissionQueueCount - 1}
 						onDecision={handlePermissionDecision}
-						agentChain={getAgentChain(
-							events,
-							currentPermissionRequest.parentSubagentId,
-						)}
 					/>
 				</ErrorBoundary>
-			)}
-
-			{/* Question dialog - shown when AskUserQuestion needs answers */}
-			{appMode.type === 'question' && currentQuestionRequest && (
+			) : appMode.type === 'question' && currentQuestionRequest ? (
 				<ErrorBoundary
 					fallback={<QuestionErrorFallback onSkip={handleQuestionSkip} />}
 				>
@@ -410,31 +401,34 @@ function AppContent({
 						onSkip={handleQuestionSkip}
 					/>
 				</ErrorBoundary>
+			) : (
+				<>
+					<CommandInput
+						onSubmit={handleSubmit}
+						disabled={dialogActive}
+						disabledMessage={
+							appMode.type === 'question'
+								? 'Waiting for your input...'
+								: undefined
+						}
+						onEscape={isClaudeRunning ? sendInterrupt : undefined}
+						onArrowUp={inputHistory.back}
+						onArrowDown={inputHistory.forward}
+					/>
+
+					<StatusLine
+						isServerRunning={isServerRunning}
+						socketPath={socketPath ?? null}
+						claudeState={claudeState}
+						verbose={verbose ?? false}
+						spinnerFrame={spinnerFrame}
+						modelName={metrics.modelName || modelName}
+						toolCallCount={metrics.totalToolCallCount}
+						contextSize={tokenUsage.contextSize}
+						projectDir={projectDir}
+					/>
+				</>
 			)}
-
-			<CommandInput
-				onSubmit={handleSubmit}
-				disabled={dialogActive}
-				disabledMessage={
-					appMode.type === 'question' ? 'Waiting for your input...' : undefined
-				}
-				onEscape={isClaudeRunning ? sendInterrupt : undefined}
-				onArrowUp={inputHistory.back}
-				onArrowDown={inputHistory.forward}
-			/>
-
-			{/* Status line — always visible at bottom */}
-			<StatusLine
-				isServerRunning={isServerRunning}
-				socketPath={socketPath ?? null}
-				claudeState={claudeState}
-				verbose={verbose ?? false}
-				spinnerFrame={spinnerFrame}
-				modelName={metrics.modelName || modelName}
-				toolCallCount={metrics.totalToolCallCount}
-				contextSize={tokenUsage.contextSize}
-				projectDir={projectDir}
-			/>
 		</Box>
 	);
 }

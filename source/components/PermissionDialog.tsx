@@ -1,56 +1,52 @@
-import React, {useState, useCallback} from 'react';
-import {Box, Text, useInput} from 'ink';
+import React, {useCallback, useMemo} from 'react';
+import {Box, Text, useInput, useStdout} from 'ink';
 import {type HookEventDisplay} from '../types/hooks/display.js';
 import {isToolEvent} from '../types/hooks/events.js';
 import {type PermissionDecision} from '../types/server.js';
-import {parseToolName, formatArgs} from '../utils/toolNameParser.js';
+import {parseToolName} from '../utils/toolNameParser.js';
 import {getRiskTier, RISK_TIER_CONFIG} from '../services/riskTier.js';
-import PermissionHeader from './PermissionHeader.js';
-import KeybindingBar from './KeybindingBar.js';
-import RawPayloadDetails from './RawPayloadDetails.js';
+import OptionList, {type OptionItem} from './OptionList.js';
 import TypeToConfirm from './TypeToConfirm.js';
-import {useTheme} from '../theme/index.js';
 
 type Props = {
 	request: HookEventDisplay;
 	queuedCount: number;
 	onDecision: (decision: PermissionDecision) => void;
-	agentChain?: string[];
 };
 
 export default function PermissionDialog({
 	request,
 	queuedCount,
 	onDecision,
-	agentChain,
 }: Props) {
-	const [showDetails, setShowDetails] = useState(false);
-	const theme = useTheme();
-
-	// Get the raw tool name
 	const rawToolName = request.toolName ?? 'Unknown';
+	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
 
-	// Parse tool name for display
-	const parsed = parseToolName(rawToolName);
-	const {displayName, serverLabel} = parsed;
+	const toolInput = isToolEvent(request.payload)
+		? request.payload.tool_input
+		: undefined;
 
-	// Extract tool input from payload if it's a tool event
-	let toolInput: Record<string, unknown> | undefined;
-	if (isToolEvent(request.payload)) {
-		toolInput = request.payload.tool_input;
-	}
-
-	// Get risk tier (pass toolInput for Bash command-level classification)
 	const tier = getRiskTier(rawToolName, toolInput);
-	const tierConfig = RISK_TIER_CONFIG[tier];
+	const requiresConfirmation =
+		RISK_TIER_CONFIG[tier].requiresConfirmation === true;
 
-	// Format args for display
-	const formattedArgs = formatArgs(toolInput);
+	const options: OptionItem[] = useMemo(() => {
+		const items: OptionItem[] = [
+			{label: 'Allow', value: 'allow'},
+			{label: 'Deny', value: 'deny'},
+			{label: `Always allow "${displayName}"`, value: 'always-allow'},
+		];
 
-	// Check if type-to-confirm is required
-	const requiresConfirmation = tierConfig.requiresConfirmation === true;
+		if (isMcp && serverLabel) {
+			items.push({
+				label: `Always allow all from ${serverLabel}`,
+				value: 'always-allow-server',
+			});
+		}
 
-	// Handle type-to-confirm callbacks
+		return items;
+	}, [displayName, serverLabel, isMcp]);
+
 	const handleConfirm = useCallback(() => {
 		onDecision('allow');
 	}, [onDecision]);
@@ -59,116 +55,66 @@ export default function PermissionDialog({
 		onDecision('deny');
 	}, [onDecision]);
 
-	// Keyboard handling with useInput
-	useInput(
-		(input, key) => {
-			// If tier requires confirmation, don't process keyboard shortcuts
-			// (TypeToConfirm handles its own input)
-			if (requiresConfirmation) {
-				return;
-			}
+	const handleSelect = useCallback(
+		(value: string) => {
+			onDecision(value as PermissionDecision);
+		},
+		[onDecision],
+	);
 
+	useInput(
+		(_input, key) => {
 			if (key.escape) {
 				onDecision('deny');
-				return;
-			}
-
-			// Toggle details with 'i' or '?'
-			if (input === 'i' || input === '?') {
-				setShowDetails(prev => !prev);
-				return;
-			}
-
-			// Permission decisions
-			if (input === 'a') {
-				onDecision('allow');
-				return;
-			}
-
-			if (input === 'd' || key.return) {
-				onDecision('deny');
-				return;
-			}
-
-			if (input === 'A') {
-				onDecision('always-allow');
-				return;
-			}
-
-			if (input === 'D') {
-				onDecision('always-deny');
-				return;
-			}
-
-			// "S" = always allow all tools from this MCP server
-			if (input === 'S' && parsed.isMcp) {
-				onDecision('always-allow-server');
-				return;
 			}
 		},
 		{isActive: !requiresConfirmation},
 	);
 
+	const title = serverLabel
+		? `Allow "${displayName}" (${serverLabel})?`
+		: `Allow "${displayName}"?`;
+
+	const {stdout} = useStdout();
+	const columns = stdout?.columns ?? 80;
+
 	return (
-		<Box
-			flexDirection="column"
-			borderStyle="round"
-			borderColor={tierConfig.color(theme)}
-			paddingX={1}
-		>
-			{/* Header with risk tier badge */}
-			<PermissionHeader tier={tier} queuedCount={queuedCount} />
+		<Box flexDirection="column">
+			<Text dimColor>{'╌'.repeat(columns)}</Text>
 
-			{/* Context block */}
-			<Box marginTop={1} flexDirection="column">
-				{/* Tool name */}
-				<Box>
-					<Text>Tool: </Text>
-					<Text bold>{displayName}</Text>
+			<Box flexDirection="column" paddingX={1}>
+				<Box justifyContent="space-between">
+					<Text bold>{title}</Text>
+					{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
 				</Box>
 
-				{/* Server label (if MCP) */}
-				{serverLabel && (
-					<Box>
-						<Text>Server: </Text>
-						<Text dimColor>{serverLabel}</Text>
-					</Box>
-				)}
-
-				{/* Args */}
-				<Box>
-					<Text>Args: </Text>
-					<Text dimColor>{formattedArgs}</Text>
+				<Box marginTop={1}>
+					{requiresConfirmation ? (
+						<TypeToConfirm
+							confirmText={displayName}
+							onConfirm={handleConfirm}
+							onCancel={handleCancel}
+						/>
+					) : (
+						<OptionList options={options} onSelect={handleSelect} />
+					)}
 				</Box>
 
-				{/* Agent chain context */}
-				{agentChain && agentChain.length > 0 && (
-					<Box>
-						<Text dimColor>Context: </Text>
-						<Text color={theme.accentSecondary}>{agentChain.join(' → ')}</Text>
+				{!requiresConfirmation && (
+					<Box marginTop={1} gap={2}>
+						<Text>
+							<Text dimColor>↑/↓</Text> Navigate
+						</Text>
+						<Text>
+							<Text dimColor>1-{options.length}</Text> Jump
+						</Text>
+						<Text>
+							<Text dimColor>Enter</Text> Select
+						</Text>
+						<Text>
+							<Text dimColor>Esc</Text> Cancel
+						</Text>
 					</Box>
-				)}
-			</Box>
-
-			{/* Raw payload details (collapsible) */}
-			<Box marginTop={1}>
-				<RawPayloadDetails
-					rawToolName={rawToolName}
-					payload={toolInput ?? {}}
-					isExpanded={showDetails}
-				/>
-			</Box>
-
-			{/* Action area */}
-			<Box marginTop={1}>
-				{requiresConfirmation ? (
-					<TypeToConfirm
-						confirmText={displayName}
-						onConfirm={handleConfirm}
-						onCancel={handleCancel}
-					/>
-				) : (
-					<KeybindingBar toolName={displayName} serverLabel={serverLabel} />
 				)}
 			</Box>
 		</Box>

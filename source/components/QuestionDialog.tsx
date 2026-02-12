@@ -1,5 +1,5 @@
 import React, {useState, useCallback} from 'react';
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
 import {type HookEventDisplay} from '../types/hooks/display.js';
 import {isToolEvent} from '../types/hooks/events.js';
@@ -7,8 +7,6 @@ import OptionList, {type OptionItem} from './OptionList.js';
 import MultiOptionList from './MultiOptionList.js';
 import QuestionKeybindingBar from './QuestionKeybindingBar.js';
 import {useTheme} from '../theme/index.js';
-
-const MAX_WIDTH = 76;
 
 type QuestionOption = {
 	label: string;
@@ -269,18 +267,18 @@ export default function QuestionDialog({
 
 	const theme = useTheme();
 
+	const {stdout} = useStdout();
+	const columns = stdout?.columns ?? 80;
+
 	if (questions.length === 0) {
 		return (
-			<Box
-				flexDirection="column"
-				borderStyle="round"
-				borderColor={theme.border}
-				paddingX={1}
-				width={MAX_WIDTH}
-			>
-				<Text color={theme.status.warning}>
-					No questions found in AskUserQuestion input.
-				</Text>
+			<Box flexDirection="column">
+				<Text dimColor>{'╌'.repeat(columns)}</Text>
+				<Box paddingX={1}>
+					<Text color={theme.status.warning}>
+						No questions found in AskUserQuestion input.
+					</Text>
+				</Box>
 			</Box>
 		);
 	}
@@ -288,41 +286,41 @@ export default function QuestionDialog({
 	const question = questions[currentIndex]!;
 
 	return (
-		<Box
-			flexDirection="column"
-			borderStyle="round"
-			borderColor={theme.border}
-			paddingX={1}
-			width={MAX_WIDTH}
-		>
-			<QuestionTabs
-				questions={questions}
-				currentIndex={currentIndex}
-				answers={answers}
-			/>
-			<Box marginTop={questions.length > 1 ? 1 : 0}>
-				<Text bold color={theme.accent}>
-					[{question.header}]
-				</Text>
-				<Text> {question.question}</Text>
-				{queuedCount > 0 && <Text dimColor> ({queuedCount} more queued)</Text>}
-			</Box>
-			<Box marginTop={1}>
-				{question.multiSelect ? (
-					<MultiQuestion
-						key={currentIndex}
-						question={question}
-						onAnswer={handleQuestionAnswer}
-						onSkip={onSkip}
-					/>
-				) : (
-					<SingleQuestion
-						key={currentIndex}
-						question={question}
-						onAnswer={handleQuestionAnswer}
-						onSkip={onSkip}
-					/>
-				)}
+		<Box flexDirection="column">
+			<Text dimColor>{'╌'.repeat(columns)}</Text>
+
+			<Box flexDirection="column" paddingX={1}>
+				<QuestionTabs
+					questions={questions}
+					currentIndex={currentIndex}
+					answers={answers}
+				/>
+				<Box marginTop={questions.length > 1 ? 1 : 0}>
+					<Text bold color={theme.accent}>
+						[{question.header}]
+					</Text>
+					<Text> {question.question}</Text>
+					{queuedCount > 0 && (
+						<Text dimColor> ({queuedCount} more queued)</Text>
+					)}
+				</Box>
+				<Box marginTop={1}>
+					{question.multiSelect ? (
+						<MultiQuestion
+							key={currentIndex}
+							question={question}
+							onAnswer={handleQuestionAnswer}
+							onSkip={onSkip}
+						/>
+					) : (
+						<SingleQuestion
+							key={currentIndex}
+							question={question}
+							onAnswer={handleQuestionAnswer}
+							onSkip={onSkip}
+						/>
+					)}
+				</Box>
 			</Box>
 		</Box>
 	);

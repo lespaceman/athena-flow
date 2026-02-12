@@ -27,9 +27,9 @@ function makePermissionEvent(
 }
 
 describe('PermissionDialog', () => {
-	describe('risk tier badge', () => {
-		it('shows DESTRUCTIVE badge for Bash tool with destructive command', () => {
-			const event = makePermissionEvent('Bash', {command: 'rm -rf /tmp'});
+	describe('title', () => {
+		it('shows "Allow "{tool}"?" for built-in tools', () => {
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog
 					request={event}
@@ -38,55 +38,10 @@ describe('PermissionDialog', () => {
 				/>,
 			);
 
-			expect(lastFrame()).toContain('[DESTRUCTIVE]');
+			expect(lastFrame()).toContain('Allow "Edit"?');
 		});
 
-		it('shows READ badge for Bash tool with read-only command', () => {
-			const event = makePermissionEvent('Bash', {command: 'ls -la'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('[READ]');
-		});
-
-		it('shows WRITE badge for Edit tool', () => {
-			const event = makePermissionEvent('Edit', {
-				file_path: '/test.ts',
-				old_string: 'foo',
-				new_string: 'bar',
-			});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('[WRITE]');
-		});
-
-		it('shows READ badge for Grep tool', () => {
-			const event = makePermissionEvent('Grep', {pattern: 'test'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('[READ]');
-		});
-	});
-
-	describe('tool name parsing', () => {
-		it('shows parsed tool name for MCP tools', () => {
+		it('shows "Allow "{tool}" ({server})?" for MCP tools', () => {
 			const event = makePermissionEvent('mcp__agent-web-interface__click', {
 				eid: 'btn-1',
 			});
@@ -99,62 +54,12 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			// Should show the action name "click" not the full raw name
-			expect(frame).toContain('click');
-			// Should show server label
-			expect(frame).toContain('agent-web-interface (MCP)');
-		});
-
-		it('shows built-in tool name directly', () => {
-			const event = makePermissionEvent('Bash', {command: 'ls'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('Bash');
+			expect(frame).toContain('Allow "click" (agent-web-interface (MCP))?');
 		});
 	});
 
-	describe('args formatting', () => {
-		it('shows "(none)" for empty args', () => {
-			const event = makePermissionEvent('Bash', {});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('(none)');
-		});
-
-		it('shows formatted args', () => {
-			const event = makePermissionEvent('Edit', {
-				file_path: '/test.ts',
-				old_string: 'foo',
-				new_string: 'bar',
-			});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			const frame = lastFrame() ?? '';
-			expect(frame).toContain('file_path: "/test.ts"');
-			expect(frame).toContain('old_string: "foo"');
-		});
-	});
-
-	describe('keybinding hints', () => {
-		it('shows keybinding hints for non-destructive tools', () => {
+	describe('option list rendering', () => {
+		it('shows Allow, Deny, Always allow for built-in tools', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -165,11 +70,36 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			// Should show keybinding hints
-			expect(frame).toContain('a');
 			expect(frame).toContain('Allow');
-			expect(frame).toContain('d');
 			expect(frame).toContain('Deny');
+			expect(frame).toContain('Always allow "Edit"');
+			expect(frame).not.toContain('Always deny');
+		});
+
+		it('shows "Always allow all from server" option for MCP tools', () => {
+			const event = makePermissionEvent('mcp__my-server__action', {});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).toContain('Always allow all from my-server (MCP)');
+		});
+
+		it('does not show server option for built-in tools', () => {
+			const event = makePermissionEvent('Bash', {command: 'ls'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).not.toContain('Always allow all from');
 		});
 
 		it('shows type-to-confirm for DESTRUCTIVE tier', () => {
@@ -183,15 +113,43 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			// Should show type-to-confirm prompt for destructive operations
 			expect(frame).toContain('Type');
 			expect(frame).toContain('yes');
+		});
+
+		it('shows footer hint for non-destructive tools', () => {
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).toContain('Navigate');
+			expect(lastFrame()).toContain('Jump');
+			expect(lastFrame()).toContain('Select');
+			expect(lastFrame()).toContain('Cancel');
+		});
+
+		it('does not show "Show details" option', () => {
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).not.toContain('Show details');
 		});
 	});
 
 	describe('queue count', () => {
-		it('shows queue count when > 0', () => {
-			const event = makePermissionEvent('Bash', {});
+		it('shows +N when queue > 0', () => {
+			const event = makePermissionEvent('Bash', {command: 'ls'});
 			const {lastFrame} = render(
 				<PermissionDialog
 					request={event}
@@ -200,58 +158,10 @@ describe('PermissionDialog', () => {
 				/>,
 			);
 
-			expect(lastFrame()).toContain('2 more');
+			expect(lastFrame()).toContain('+2');
 		});
 
 		it('does not show queue count when 0', () => {
-			const event = makePermissionEvent('Bash', {});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).not.toContain('more');
-		});
-	});
-
-	describe('raw payload details', () => {
-		it('shows collapsed payload hint by default', () => {
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			const frame = lastFrame() ?? '';
-			// Should show the collapsed state indicator
-			expect(frame).toContain('Show raw payload');
-		});
-	});
-
-	describe('agent chain context', () => {
-		it('shows agent chain when provided with items', () => {
-			const event = makePermissionEvent('Bash', {command: 'ls'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-					agentChain={['main', 'web-explorer']}
-				/>,
-			);
-
-			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Context:');
-			expect(frame).toContain('main → web-explorer');
-		});
-
-		it('does not show agent chain section when prop not provided', () => {
 			const event = makePermissionEvent('Bash', {command: 'ls'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -261,60 +171,12 @@ describe('PermissionDialog', () => {
 				/>,
 			);
 
-			const frame = lastFrame() ?? '';
-			// Should not contain the Context label for agent chain
-			// (Note: "Context block" is a comment in the code, not rendered text)
-			expect(frame).not.toMatch(/Context:\s*\w/);
-		});
-
-		it('does not show agent chain section when array is empty', () => {
-			const event = makePermissionEvent('Bash', {command: 'ls'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-					agentChain={[]}
-				/>,
-			);
-
-			const frame = lastFrame() ?? '';
-			expect(frame).not.toMatch(/Context:\s*\w/);
+			expect(lastFrame()).not.toContain('+');
 		});
 	});
 
 	describe('keyboard interaction', () => {
-		it('calls onDecision with "allow" when "a" is pressed', () => {
-			const onDecision = vi.fn();
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {stdin} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={onDecision}
-				/>,
-			);
-
-			stdin.write('a');
-			expect(onDecision).toHaveBeenCalledWith('allow');
-		});
-
-		it('calls onDecision with "deny" when "d" is pressed', () => {
-			const onDecision = vi.fn();
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {stdin} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={onDecision}
-				/>,
-			);
-
-			stdin.write('d');
-			expect(onDecision).toHaveBeenCalledWith('deny');
-		});
-
-		it('calls onDecision with "deny" when Enter is pressed', () => {
+		it('calls onDecision with "allow" when Enter is pressed on focused Allow option', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -326,37 +188,22 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('\r');
+			expect(onDecision).toHaveBeenCalledWith('allow');
+		});
+
+		it('calls onDecision with "deny" via number key', () => {
+			const onDecision = vi.fn();
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {stdin} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={onDecision}
+				/>,
+			);
+
+			stdin.write('2');
 			expect(onDecision).toHaveBeenCalledWith('deny');
-		});
-
-		it('calls onDecision with "always-allow" when "A" is pressed', () => {
-			const onDecision = vi.fn();
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {stdin} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={onDecision}
-				/>,
-			);
-
-			stdin.write('A');
-			expect(onDecision).toHaveBeenCalledWith('always-allow');
-		});
-
-		it('calls onDecision with "always-deny" when "D" is pressed', () => {
-			const onDecision = vi.fn();
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {stdin} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={onDecision}
-				/>,
-			);
-
-			stdin.write('D');
-			expect(onDecision).toHaveBeenCalledWith('always-deny');
 		});
 
 		it('calls onDecision with "deny" when Escape is pressed', () => {
@@ -371,6 +218,34 @@ describe('PermissionDialog', () => {
 			);
 			stdin.write('\x1B');
 			expect(onDecision).toHaveBeenCalledWith('deny');
+		});
+
+		it('calls onDecision with "always-allow" via number key', () => {
+			const onDecision = vi.fn();
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {stdin} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={onDecision}
+				/>,
+			);
+
+			stdin.write('3');
+			expect(onDecision).toHaveBeenCalledWith('always-allow');
+		});
+
+		it('does not show option descriptions', () => {
+			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).not.toContain('Allow this tool call');
 		});
 	});
 });

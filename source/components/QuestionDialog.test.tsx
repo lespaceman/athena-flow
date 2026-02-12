@@ -287,7 +287,7 @@ describe('QuestionDialog', () => {
 		expect(frame).toContain('No questions found');
 	});
 
-	it('renders with round border in cyan', () => {
+	it('renders with dashed separator instead of border', () => {
 		const request = makeRequest([
 			{
 				question: 'Question?',
@@ -306,11 +306,10 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		// Round border corners
-		expect(frame).toContain('\u256d'); // ╭
-		expect(frame).toContain('\u256e'); // ╮
-		expect(frame).toContain('\u2570'); // ╰
-		expect(frame).toContain('\u256f'); // ╯
+		// Dashed separator at top, no border box
+		expect(frame).toContain('╌');
+		expect(frame).not.toContain('\u256d'); // no ╭
+		expect(frame).not.toContain('\u256f'); // no ╯
 	});
 
 	it('calls onSkip when Esc is pressed', () => {
