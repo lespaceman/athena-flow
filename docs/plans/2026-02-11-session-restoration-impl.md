@@ -15,6 +15,7 @@
 ### Task 1: Session Index Reader
 
 **Files:**
+
 - Create: `source/utils/sessionIndex.ts`
 - Create: `source/utils/sessionIndex.test.ts`
 
@@ -24,97 +25,101 @@ Create `source/utils/sessionIndex.test.ts`:
 
 ```typescript
 import {describe, it, expect, vi, beforeEach} from 'vitest';
-import {readSessionIndex, getMostRecentSession, encodeProjectPath} from './sessionIndex.js';
+import {
+	readSessionIndex,
+	getMostRecentSession,
+	encodeProjectPath,
+} from './sessionIndex.js';
 import fs from 'node:fs';
 
 vi.mock('node:fs');
 
 const MOCK_INDEX = {
-  version: 1,
-  entries: [
-    {
-      sessionId: 'aaa-111',
-      summary: 'Older session',
-      firstPrompt: 'hello',
-      messageCount: 5,
-      created: '2026-01-01T00:00:00.000Z',
-      modified: '2026-01-01T01:00:00.000Z',
-      gitBranch: 'main',
-      projectPath: '/home/user/project',
-      isSidechain: false,
-    },
-    {
-      sessionId: 'bbb-222',
-      summary: 'Newer session',
-      firstPrompt: 'fix bug',
-      messageCount: 20,
-      created: '2026-02-01T00:00:00.000Z',
-      modified: '2026-02-01T02:00:00.000Z',
-      gitBranch: 'feat/thing',
-      projectPath: '/home/user/project',
-      isSidechain: false,
-    },
-  ],
+	version: 1,
+	entries: [
+		{
+			sessionId: 'aaa-111',
+			summary: 'Older session',
+			firstPrompt: 'hello',
+			messageCount: 5,
+			created: '2026-01-01T00:00:00.000Z',
+			modified: '2026-01-01T01:00:00.000Z',
+			gitBranch: 'main',
+			projectPath: '/home/user/project',
+			isSidechain: false,
+		},
+		{
+			sessionId: 'bbb-222',
+			summary: 'Newer session',
+			firstPrompt: 'fix bug',
+			messageCount: 20,
+			created: '2026-02-01T00:00:00.000Z',
+			modified: '2026-02-01T02:00:00.000Z',
+			gitBranch: 'feat/thing',
+			projectPath: '/home/user/project',
+			isSidechain: false,
+		},
+	],
 };
 
 describe('encodeProjectPath', () => {
-  it('encodes absolute path to Claude project dir name', () => {
-    expect(encodeProjectPath('/home/user/project')).toBe('-home-user-project');
-  });
+	it('encodes absolute path to Claude project dir name', () => {
+		expect(encodeProjectPath('/home/user/project')).toBe('-home-user-project');
+	});
 });
 
 describe('readSessionIndex', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
 
-  it('returns entries sorted by modified desc (most recent first)', () => {
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(MOCK_INDEX));
-    const entries = readSessionIndex('/home/user/project');
-    expect(entries).toHaveLength(2);
-    expect(entries[0]!.sessionId).toBe('bbb-222');
-    expect(entries[1]!.sessionId).toBe('aaa-111');
-  });
+	it('returns entries sorted by modified desc (most recent first)', () => {
+		vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(MOCK_INDEX));
+		const entries = readSessionIndex('/home/user/project');
+		expect(entries).toHaveLength(2);
+		expect(entries[0]!.sessionId).toBe('bbb-222');
+		expect(entries[1]!.sessionId).toBe('aaa-111');
+	});
 
-  it('returns empty array when file does not exist', () => {
-    vi.mocked(fs.readFileSync).mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
-    expect(readSessionIndex('/home/user/project')).toEqual([]);
-  });
+	it('returns empty array when file does not exist', () => {
+		vi.mocked(fs.readFileSync).mockImplementation(() => {
+			throw new Error('ENOENT');
+		});
+		expect(readSessionIndex('/home/user/project')).toEqual([]);
+	});
 
-  it('filters out sidechain sessions', () => {
-    const withSidechain = {
-      ...MOCK_INDEX,
-      entries: [
-        ...MOCK_INDEX.entries,
-        { ...MOCK_INDEX.entries[0]!, sessionId: 'ccc-333', isSidechain: true },
-      ],
-    };
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(withSidechain));
-    const entries = readSessionIndex('/home/user/project');
-    expect(entries).toHaveLength(2);
-    expect(entries.find(e => e.sessionId === 'ccc-333')).toBeUndefined();
-  });
+	it('filters out sidechain sessions', () => {
+		const withSidechain = {
+			...MOCK_INDEX,
+			entries: [
+				...MOCK_INDEX.entries,
+				{...MOCK_INDEX.entries[0]!, sessionId: 'ccc-333', isSidechain: true},
+			],
+		};
+		vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(withSidechain));
+		const entries = readSessionIndex('/home/user/project');
+		expect(entries).toHaveLength(2);
+		expect(entries.find(e => e.sessionId === 'ccc-333')).toBeUndefined();
+	});
 });
 
 describe('getMostRecentSession', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
 
-  it('returns the most recently modified session', () => {
-    vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(MOCK_INDEX));
-    const session = getMostRecentSession('/home/user/project');
-    expect(session?.sessionId).toBe('bbb-222');
-  });
+	it('returns the most recently modified session', () => {
+		vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(MOCK_INDEX));
+		const session = getMostRecentSession('/home/user/project');
+		expect(session?.sessionId).toBe('bbb-222');
+	});
 
-  it('returns null when no sessions exist', () => {
-    vi.mocked(fs.readFileSync).mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
-    expect(getMostRecentSession('/home/user/project')).toBeNull();
-  });
+	it('returns null when no sessions exist', () => {
+		vi.mocked(fs.readFileSync).mockImplementation(() => {
+			throw new Error('ENOENT');
+		});
+		expect(getMostRecentSession('/home/user/project')).toBeNull();
+	});
 });
 ```
 
@@ -133,25 +138,25 @@ import path from 'node:path';
 import os from 'node:os';
 
 export type SessionEntry = {
-  sessionId: string;
-  summary: string;
-  firstPrompt: string;
-  modified: string;
-  created: string;
-  gitBranch: string;
-  messageCount: number;
+	sessionId: string;
+	summary: string;
+	firstPrompt: string;
+	modified: string;
+	created: string;
+	gitBranch: string;
+	messageCount: number;
 };
 
 type RawEntry = SessionEntry & {
-  isSidechain: boolean;
-  projectPath: string;
-  fullPath: string;
-  fileMtime: number;
+	isSidechain: boolean;
+	projectPath: string;
+	fullPath: string;
+	fileMtime: number;
 };
 
 type SessionIndex = {
-  version: number;
-  entries: RawEntry[];
+	version: number;
+	entries: RawEntry[];
 };
 
 /**
@@ -159,7 +164,7 @@ type SessionIndex = {
  * e.g. /home/user/project → -home-user-project
  */
 export function encodeProjectPath(projectDir: string): string {
-  return projectDir.replace(/\//g, '-');
+	return projectDir.replace(/\//g, '-');
 }
 
 /**
@@ -168,41 +173,54 @@ export function encodeProjectPath(projectDir: string): string {
  * Filters out sidechain sessions.
  */
 export function readSessionIndex(projectDir: string): SessionEntry[] {
-  const encoded = encodeProjectPath(projectDir);
-  const indexPath = path.join(
-    os.homedir(),
-    '.claude',
-    'projects',
-    encoded,
-    'sessions-index.json',
-  );
+	const encoded = encodeProjectPath(projectDir);
+	const indexPath = path.join(
+		os.homedir(),
+		'.claude',
+		'projects',
+		encoded,
+		'sessions-index.json',
+	);
 
-  try {
-    const raw = fs.readFileSync(indexPath, 'utf-8');
-    const index: SessionIndex = JSON.parse(raw);
-    return index.entries
-      .filter(e => !e.isSidechain)
-      .map(({sessionId, summary, firstPrompt, modified, created, gitBranch, messageCount}) => ({
-        sessionId,
-        summary,
-        firstPrompt,
-        modified,
-        created,
-        gitBranch,
-        messageCount,
-      }))
-      .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
-  } catch {
-    return [];
-  }
+	try {
+		const raw = fs.readFileSync(indexPath, 'utf-8');
+		const index: SessionIndex = JSON.parse(raw);
+		return index.entries
+			.filter(e => !e.isSidechain)
+			.map(
+				({
+					sessionId,
+					summary,
+					firstPrompt,
+					modified,
+					created,
+					gitBranch,
+					messageCount,
+				}) => ({
+					sessionId,
+					summary,
+					firstPrompt,
+					modified,
+					created,
+					gitBranch,
+					messageCount,
+				}),
+			)
+			.sort(
+				(a, b) =>
+					new Date(b.modified).getTime() - new Date(a.modified).getTime(),
+			);
+	} catch {
+		return [];
+	}
 }
 
 /**
  * Get the most recently modified session for a project, or null if none.
  */
 export function getMostRecentSession(projectDir: string): SessionEntry | null {
-  const entries = readSessionIndex(projectDir);
-  return entries[0] ?? null;
+	const entries = readSessionIndex(projectDir);
+	return entries[0] ?? null;
 }
 ```
 
@@ -223,6 +241,7 @@ git commit -m "feat: add session index reader utility"
 ### Task 2: Relative Time Formatter
 
 **Files:**
+
 - Modify: `source/utils/formatters.ts`
 - Modify: `source/utils/formatters.test.ts`
 
@@ -232,35 +251,35 @@ Add to `source/utils/formatters.test.ts`:
 
 ```typescript
 describe('formatRelativeTime', () => {
-  it('formats seconds ago', () => {
-    const now = new Date();
-    const thirtySecondsAgo = new Date(now.getTime() - 30_000).toISOString();
-    expect(formatRelativeTime(thirtySecondsAgo)).toBe('just now');
-  });
+	it('formats seconds ago', () => {
+		const now = new Date();
+		const thirtySecondsAgo = new Date(now.getTime() - 30_000).toISOString();
+		expect(formatRelativeTime(thirtySecondsAgo)).toBe('just now');
+	});
 
-  it('formats minutes ago', () => {
-    const now = new Date();
-    const fiveMinAgo = new Date(now.getTime() - 5 * 60_000).toISOString();
-    expect(formatRelativeTime(fiveMinAgo)).toBe('5 minutes ago');
-  });
+	it('formats minutes ago', () => {
+		const now = new Date();
+		const fiveMinAgo = new Date(now.getTime() - 5 * 60_000).toISOString();
+		expect(formatRelativeTime(fiveMinAgo)).toBe('5 minutes ago');
+	});
 
-  it('formats hours ago', () => {
-    const now = new Date();
-    const threeHoursAgo = new Date(now.getTime() - 3 * 3_600_000).toISOString();
-    expect(formatRelativeTime(threeHoursAgo)).toBe('3 hours ago');
-  });
+	it('formats hours ago', () => {
+		const now = new Date();
+		const threeHoursAgo = new Date(now.getTime() - 3 * 3_600_000).toISOString();
+		expect(formatRelativeTime(threeHoursAgo)).toBe('3 hours ago');
+	});
 
-  it('formats days ago', () => {
-    const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - 2 * 86_400_000).toISOString();
-    expect(formatRelativeTime(twoDaysAgo)).toBe('2 days ago');
-  });
+	it('formats days ago', () => {
+		const now = new Date();
+		const twoDaysAgo = new Date(now.getTime() - 2 * 86_400_000).toISOString();
+		expect(formatRelativeTime(twoDaysAgo)).toBe('2 days ago');
+	});
 
-  it('formats singular units', () => {
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 3_600_000).toISOString();
-    expect(formatRelativeTime(oneHourAgo)).toBe('1 hour ago');
-  });
+	it('formats singular units', () => {
+		const now = new Date();
+		const oneHourAgo = new Date(now.getTime() - 3_600_000).toISOString();
+		expect(formatRelativeTime(oneHourAgo)).toBe('1 hour ago');
+	});
 });
 ```
 
@@ -279,18 +298,19 @@ Add to `source/utils/formatters.ts`:
  * e.g. "5 minutes ago", "3 hours ago", "2 days ago"
  */
 export function formatRelativeTime(isoDate: string): string {
-  const diffMs = Date.now() - new Date(isoDate).getTime();
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return 'just now';
+	const diffMs = Date.now() - new Date(isoDate).getTime();
+	const seconds = Math.floor(diffMs / 1000);
+	if (seconds < 60) return 'just now';
 
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60)
+		return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
 
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
 
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+	const days = Math.floor(hours / 24);
+	return `${days} ${days === 1 ? 'day' : 'days'} ago`;
 }
 ```
 
@@ -311,6 +331,7 @@ git commit -m "feat: add formatRelativeTime utility"
 ### Task 3: SessionPicker Component
 
 **Files:**
+
 - Create: `source/components/SessionPicker.tsx`
 - Create: `source/components/SessionPicker.test.tsx`
 
@@ -429,73 +450,79 @@ import {type SessionEntry} from '../utils/sessionIndex.js';
 import {formatRelativeTime} from '../utils/formatters.js';
 
 type Props = {
-  sessions: SessionEntry[];
-  onSelect: (sessionId: string) => void;
-  onCancel: () => void;
+	sessions: SessionEntry[];
+	onSelect: (sessionId: string) => void;
+	onCancel: () => void;
 };
 
 export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
+	const [selectedIndex, setSelectedIndex] = useState(0);
 
-  useInput((_input, key) => {
-    if (key.escape) {
-      onCancel();
-      return;
-    }
-    if (key.return) {
-      if (sessions.length > 0) {
-        onSelect(sessions[selectedIndex]!.sessionId);
-      }
-      return;
-    }
-    if (key.downArrow) {
-      setSelectedIndex(i => Math.min(i + 1, sessions.length - 1));
-      return;
-    }
-    if (key.upArrow) {
-      setSelectedIndex(i => Math.max(i - 1, 0));
-    }
-  });
+	useInput((_input, key) => {
+		if (key.escape) {
+			onCancel();
+			return;
+		}
+		if (key.return) {
+			if (sessions.length > 0) {
+				onSelect(sessions[selectedIndex]!.sessionId);
+			}
+			return;
+		}
+		if (key.downArrow) {
+			setSelectedIndex(i => Math.min(i + 1, sessions.length - 1));
+			return;
+		}
+		if (key.upArrow) {
+			setSelectedIndex(i => Math.max(i - 1, 0));
+		}
+	});
 
-  if (sessions.length === 0) {
-    return (
-      <Box flexDirection="column" padding={1}>
-        <Text color="yellow">No previous sessions found.</Text>
-        <Text dimColor>Press Escape to start a new session.</Text>
-      </Box>
-    );
-  }
+	if (sessions.length === 0) {
+		return (
+			<Box flexDirection="column" padding={1}>
+				<Text color="yellow">No previous sessions found.</Text>
+				<Text dimColor>Press Escape to start a new session.</Text>
+			</Box>
+		);
+	}
 
-  return (
-    <Box flexDirection="column" padding={1}>
-      <Box marginBottom={1}>
-        <Text bold color="cyan">Sessions</Text>
-        <Text dimColor> — ↑/↓ navigate, Enter select, Esc cancel</Text>
-      </Box>
-      {sessions.map((session, index) => {
-        const isSelected = index === selectedIndex;
-        const summary = session.summary || session.firstPrompt.slice(0, 60);
-        return (
-          <Box key={session.sessionId} flexDirection="column" marginBottom={index < sessions.length - 1 ? 1 : 0}>
-            <Text>
-              <Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
-                {isSelected ? '▸ ' : '  '}
-                {summary}
-              </Text>
-            </Text>
-            <Text dimColor>
-              {'  '}
-              {session.gitBranch || 'no branch'}
-              {' · '}
-              {formatRelativeTime(session.modified)}
-              {' · '}
-              {session.messageCount} messages
-            </Text>
-          </Box>
-        );
-      })}
-    </Box>
-  );
+	return (
+		<Box flexDirection="column" padding={1}>
+			<Box marginBottom={1}>
+				<Text bold color="cyan">
+					Sessions
+				</Text>
+				<Text dimColor> — ↑/↓ navigate, Enter select, Esc cancel</Text>
+			</Box>
+			{sessions.map((session, index) => {
+				const isSelected = index === selectedIndex;
+				const summary = session.summary || session.firstPrompt.slice(0, 60);
+				return (
+					<Box
+						key={session.sessionId}
+						flexDirection="column"
+						marginBottom={index < sessions.length - 1 ? 1 : 0}
+					>
+						<Text>
+							<Text color={isSelected ? 'cyan' : undefined} bold={isSelected}>
+								{isSelected ? '▸ ' : '  '}
+								{summary}
+							</Text>
+						</Text>
+						<Text dimColor>
+							{'  '}
+							{session.gitBranch || 'no branch'}
+							{' · '}
+							{formatRelativeTime(session.modified)}
+							{' · '}
+							{session.messageCount} messages
+						</Text>
+					</Box>
+				);
+			})}
+		</Box>
+	);
 }
 ```
 
@@ -516,6 +543,7 @@ git commit -m "feat: add SessionPicker component with arrow-key navigation"
 ### Task 4: CLI Flags (--continue, --sessions)
 
 **Files:**
+
 - Modify: `source/cli.tsx`
 
 **Step 1: Add new flags to meow config**
@@ -557,20 +585,20 @@ let initialSessionId: string | undefined;
 let showSessionPicker = false;
 
 if (cli.flags.sessions) {
-  showSessionPicker = true;
+	showSessionPicker = true;
 } else if (cli.flags.continue !== undefined) {
-  if (cli.flags.continue === '') {
-    // --continue with no value: auto-resume most recent
-    const recent = getMostRecentSession(cli.flags.projectDir);
-    if (recent) {
-      initialSessionId = recent.sessionId;
-    } else {
-      console.error('No previous sessions found for this project.');
-    }
-  } else {
-    // --continue <sessionId>
-    initialSessionId = cli.flags.continue;
-  }
+	if (cli.flags.continue === '') {
+		// --continue with no value: auto-resume most recent
+		const recent = getMostRecentSession(cli.flags.projectDir);
+		if (recent) {
+			initialSessionId = recent.sessionId;
+		} else {
+			console.error('No previous sessions found for this project.');
+		}
+	} else {
+		// --continue <sessionId>
+		initialSessionId = cli.flags.continue;
+	}
 }
 ```
 
@@ -610,6 +638,7 @@ git commit -m "feat: add --continue and --sessions CLI flags"
 ### Task 5: App Phase State Machine
 
 **Files:**
+
 - Modify: `source/app.tsx`
 
 This is the core wiring task. Changes:
@@ -623,8 +652,8 @@ import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
 
 type AppPhase =
-  | {type: 'session-select'}
-  | {type: 'main'; initialSessionId?: string};
+	| {type: 'session-select'}
+	| {type: 'main'; initialSessionId?: string};
 ```
 
 **Step 2: Update Props type**
@@ -633,9 +662,9 @@ Add to Props:
 
 ```typescript
 type Props = {
-  // ... existing props ...
-  initialSessionId?: string;
-  showSessionPicker?: boolean;
+	// ... existing props ...
+	initialSessionId?: string;
+	showSessionPicker?: boolean;
 };
 ```
 
@@ -718,10 +747,10 @@ Add `initialSessionId` and `showSessionPicker` to AppContent props. On mount, au
 const hasAutoSpawned = useRef(false);
 
 useEffect(() => {
-  if (initialSessionId && !hasAutoSpawned.current) {
-    hasAutoSpawned.current = true;
-    spawnClaude('', initialSessionId);
-  }
+	if (initialSessionId && !hasAutoSpawned.current) {
+		hasAutoSpawned.current = true;
+		spawnClaude('', initialSessionId);
+	}
 }, [initialSessionId, spawnClaude]);
 ```
 
@@ -747,6 +776,7 @@ git commit -m "feat: add AppPhase state machine for session picker/main toggle"
 ### Task 6: /sessions Builtin Command
 
 **Files:**
+
 - Create: `source/commands/builtins/sessions.ts`
 - Create: `source/commands/__tests__/sessions.test.ts`
 - Modify: `source/commands/builtins/index.ts`
@@ -758,8 +788,8 @@ In `source/commands/types.ts`, add to `UICommandContext`:
 
 ```typescript
 export type UICommandContext = {
-  // ... existing fields ...
-  showSessionPicker?: () => void;
+	// ... existing fields ...
+	showSessionPicker?: () => void;
 };
 ```
 
@@ -772,26 +802,26 @@ import {describe, it, expect, vi} from 'vitest';
 import {sessionsCommand} from '../builtins/sessions.js';
 
 describe('sessionsCommand', () => {
-  it('has correct name and category', () => {
-    expect(sessionsCommand.name).toBe('sessions');
-    expect(sessionsCommand.category).toBe('ui');
-  });
+	it('has correct name and category', () => {
+		expect(sessionsCommand.name).toBe('sessions');
+		expect(sessionsCommand.category).toBe('ui');
+	});
 
-  it('calls showSessionPicker when available', () => {
-    const showSessionPicker = vi.fn();
-    const ctx = {
-      args: {},
-      messages: [],
-      setMessages: vi.fn(),
-      addMessage: vi.fn(),
-      exit: vi.fn(),
-      clearScreen: vi.fn(),
-      sessionStats: {} as any,
-      showSessionPicker,
-    };
-    sessionsCommand.execute(ctx);
-    expect(showSessionPicker).toHaveBeenCalled();
-  });
+	it('calls showSessionPicker when available', () => {
+		const showSessionPicker = vi.fn();
+		const ctx = {
+			args: {},
+			messages: [],
+			setMessages: vi.fn(),
+			addMessage: vi.fn(),
+			exit: vi.fn(),
+			clearScreen: vi.fn(),
+			sessionStats: {} as any,
+			showSessionPicker,
+		};
+		sessionsCommand.execute(ctx);
+		expect(showSessionPicker).toHaveBeenCalled();
+	});
 });
 ```
 
@@ -808,14 +838,14 @@ Create `source/commands/builtins/sessions.ts`:
 import {type UICommand} from '../types.js';
 
 export const sessionsCommand: UICommand = {
-  name: 'sessions',
-  description: 'Browse and resume previous sessions',
-  category: 'ui',
-  execute(ctx) {
-    if (ctx.showSessionPicker) {
-      ctx.showSessionPicker();
-    }
-  },
+	name: 'sessions',
+	description: 'Browse and resume previous sessions',
+	category: 'ui',
+	execute(ctx) {
+		if (ctx.showSessionPicker) {
+			ctx.showSessionPicker();
+		}
+	},
 };
 ```
 
@@ -826,7 +856,13 @@ In `source/commands/builtins/index.ts`, add:
 ```typescript
 import {sessionsCommand} from './sessions.js';
 
-const builtins = [helpCommand, clearCommand, quitCommand, statsCommand, sessionsCommand];
+const builtins = [
+	helpCommand,
+	clearCommand,
+	quitCommand,
+	statsCommand,
+	sessionsCommand,
+];
 ```
 
 **Step 6: Wire showSessionPicker in app.tsx handleSubmit**
@@ -868,6 +904,7 @@ git commit -m "feat: add /sessions builtin command"
 ### Task 7: Integration Test — Full Flow
 
 **Files:**
+
 - Create: `source/components/SessionPicker.integration.test.tsx` (optional, or add to existing test)
 
 **Step 1: Write an integration test for the session picker → resume flow**
@@ -891,6 +928,7 @@ git commit -m "chore: integration fixups for session restoration"
 ### Task 8: Update Help Text and CLAUDE.md
 
 **Files:**
+
 - Modify: `source/cli.tsx` (help text — already done in Task 4)
 - Modify: `CLAUDE.md`
 

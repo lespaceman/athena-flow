@@ -19,6 +19,7 @@ There is an uncommitted refactoring that merged `handleSafeToolAutoAllow` + `han
 ### Task 1: Fix Failing eventHandlers Tests
 
 **Files:**
+
 - Modify: `source/hooks/eventHandlers.test.ts`
 
 The merged `handlePermissionCheck` now handles BOTH safe tools (auto-allow) and dangerous tools (enqueue permission). Tests that call `handleSafeToolAutoAllow` or test `handlePermissionCheck` returning `false` for safe tools need updating.
@@ -28,6 +29,7 @@ The merged `handlePermissionCheck` now handles BOTH safe tools (auto-allow) and 
 Run: `npx vitest run source/hooks/eventHandlers.test.ts 2>&1 | grep -E '(FAIL|✕|×|AssertionError|toBe)'`
 
 Identify the 6 failing tests. They likely:
+
 - Reference `handleSafeToolAutoAllow` (removed function)
 - Expect `handlePermissionCheck` to return `false` for safe tools (now returns `true` and auto-allows)
 - Expect separate handler behavior that's now unified
@@ -35,6 +37,7 @@ Identify the 6 failing tests. They likely:
 **Step 2: Update tests to match merged handler behavior**
 
 For each failing test:
+
 - If it tested `handleSafeToolAutoAllow` directly → merge into `handlePermissionCheck` test group
 - If it expected `false` for safe tools → now expect `true` with `cb.respond()` called (auto-allow)
 - If it expected `false` for non-PreToolUse → still expect `false` (guard clause unchanged)
@@ -73,6 +76,7 @@ git commit -m "refactor: merge safe-tool and permission-check handlers into sing
 5. **Auto-passthrough timeout firing first**: `storeWithoutPassthrough` is used for permission events, so they should NOT auto-timeout. Verify this is still the case after the refactoring.
 
 **Steps:**
+
 1. Read `source/hooks/useHookServer.ts` — verify `storeWithoutPassthrough` does NOT set a timeout
 2. Read `source/app.tsx` lines 200-215 — verify `handlePermissionDecision` uses current state
 3. Check if there's a race: does the socket close before the user responds?
@@ -85,9 +89,11 @@ git commit -m "refactor: merge safe-tool and permission-check handlers into sing
 ### Task 3: Write a Failing Integration Test
 
 **Files:**
+
 - Modify: `source/hooks/eventHandlers.test.ts` OR create `source/components/PermissionDialog.test.tsx` test
 
 Based on findings from Task 2, write a test that reproduces the exact failure:
+
 - If the issue is the handler chain: test that `handlePermissionCheck` stores the request correctly for both safe and dangerous tools
 - If the issue is the UI: test that PermissionDialog's `onDecision` is callable after render
 - If the issue is socket response: test that `resolvePermission` writes to socket
@@ -121,6 +127,7 @@ Based on Tasks 2-3, implement the minimal fix. Possible fixes depending on root 
 Even if TaskList's `useInput` isn't the root cause, it's good practice to disable it during dialogs.
 
 **Files:**
+
 - Modify: `source/components/TaskList.tsx` — add `dialogActive?: boolean` prop, update `isActive`
 - Modify: `source/app.tsx` line 368-372 — pass `dialogActive` prop
 - Modify: `source/components/TaskList.test.tsx` (if exists) — add test

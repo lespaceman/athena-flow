@@ -15,6 +15,7 @@
 The `sessionStartTime` is only set when `event.payload.model` is truthy. If the `SessionStart` event arrives without a `model` field, session duration stays at 0s even though the session is running.
 
 **Files:**
+
 - Modify: `source/hooks/useHeaderMetrics.ts:38-47`
 - Modify: `source/hooks/useHeaderMetrics.test.ts`
 
@@ -96,6 +97,7 @@ fixing Duration: 0s in /stats output."
 **Fix:** Use a `useRef`-based ID set to track which items have been emitted as stable. Once an item ID is added to `stableItems`, it stays in its position. New items are always appended at the end, never inserted in the middle.
 
 **Files:**
+
 - Modify: `source/hooks/useContentOrdering.ts:257-268`
 - Modify: `source/hooks/useContentOrdering.test.ts`
 
@@ -361,6 +363,7 @@ Expected: ALL PASS
 **Step 4: Manual verification**
 
 Build and run athena-cli. Start a Claude session. After events arrive, run `/stats` twice. Verify:
+
 - Stats block appears exactly once per `/stats` call
 - Tasks widget appears exactly once (not multiplied)
 - Duration shows non-zero value (if SessionStart was received)

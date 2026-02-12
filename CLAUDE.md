@@ -113,6 +113,11 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - Flag registry tests: test `buildIsolationArgs()` and `validateConflicts()` declaratively
 - AbortController tests: verify that aborted signals produce graceful early returns (e.g., `error: 'Aborted'`)
 
+## Rendering Paths
+
+- **Tool output rendering**: `UnifiedToolCallEvent` renders top-level tool results; `SubagentEvent` renders child tool results inside subagent boxes — both paths must be updated when changing tool output display
+- **PostToolUse `tool_response` shapes**: Structured objects per tool — Bash: `{stdout, stderr, ...}`, Glob: `{filenames[], durationMs, numFiles, truncated}`, Read: content-block array `[{type, file: {content, ...}}]`, WebFetch: `{result, bytes, code, url, ...}`, WebSearch: `{query, results: [{tool_use_id, content: [{title, url}]}], ...}`, Write: `{filePath, success}`, Edit: `{filePath, oldString, newString, originalFile, structuredPatch, ...}`
+
 ## Architectural Patterns
 
 - **Protocol forward compatibility**: Unknown hook event names are auto-passthroughed, version check is `>= 1` (not exact match)

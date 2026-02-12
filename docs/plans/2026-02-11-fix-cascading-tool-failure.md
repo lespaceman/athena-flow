@@ -13,6 +13,7 @@
 ### Task 1: Add `allowedTools` defaults to isolation presets
 
 **Files:**
+
 - Modify: `source/types/isolation.ts:134-165`
 
 **Step 1: Write the failing test**
@@ -21,10 +22,7 @@ Create `source/types/isolation.test.ts`:
 
 ```typescript
 import {describe, it, expect} from 'vitest';
-import {
-	ISOLATION_PRESETS,
-	resolveIsolationConfig,
-} from './isolation.js';
+import {ISOLATION_PRESETS, resolveIsolationConfig} from './isolation.js';
 
 describe('ISOLATION_PRESETS', () => {
 	it('strict preset should allow core read/edit/search tools', () => {
@@ -215,6 +213,7 @@ all siblings fail. Pre-allowing tools in each preset avoids this."
 ### Task 2: Verify `buildIsolationArgs` emits the new `allowedTools` flags end-to-end
 
 **Files:**
+
 - Modify: `source/utils/flagRegistry.test.ts`
 
 **Step 1: Add a test verifying preset → args end-to-end**
@@ -252,6 +251,7 @@ git commit -m "test: verify preset allowedTools flow through buildIsolationArgs"
 ### Task 3: Update CLAUDE.md to document the preset differences
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 
 **Step 1: Update the Architecture section**
