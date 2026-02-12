@@ -242,7 +242,9 @@ export function useContentOrdering({
 		}
 	}
 
-	// Pass 2: temporal fallback for PostToolUse events missing toolUseId
+	// Pass 2: temporal fallback for PostToolUse events missing toolUseId.
+	// For each unmatched post, find the earliest unmatched pre with the same
+	// tool_name that precedes it in time.
 	const unmatchedPres = events.filter(
 		e =>
 			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
@@ -254,21 +256,18 @@ export function useContentOrdering({
 			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
 			!e.toolUseId,
 	);
-	// Track which indices in unmatchedPres have been consumed
-	const consumedPreIdx = new Set<number>();
+	const consumedPreIds = new Set<string>();
 	for (const post of unmatchedPosts) {
-		for (let i = 0; i < unmatchedPres.length; i++) {
-			if (consumedPreIdx.has(i)) continue;
-			const pre = unmatchedPres[i]!;
-			if (
+		const match = unmatchedPres.find(
+			pre =>
+				!consumedPreIds.has(pre.toolUseId!) &&
 				pre.toolName === post.toolName &&
-				pre.timestamp.getTime() <= post.timestamp.getTime()
-			) {
-				postToolByUseId.set(pre.toolUseId!, post);
-				pairedPreIds.add(pre.toolUseId!);
-				consumedPreIdx.add(i);
-				break;
-			}
+				pre.timestamp.getTime() <= post.timestamp.getTime(),
+		);
+		if (match) {
+			postToolByUseId.set(match.toolUseId!, post);
+			pairedPreIds.add(match.toolUseId!);
+			consumedPreIds.add(match.toolUseId!);
 		}
 	}
 
