@@ -81,8 +81,24 @@ function createMarked(width: number): Marked {
 
 	m.use({
 		renderer: {
+			heading({tokens, depth}: Tokens.Heading): string {
+				const text = m.parser(tokens);
+				const styled =
+					depth === 1 ? chalk.bold.underline(text) : chalk.bold(text);
+				return styled + '\n';
+			},
 			hr(): string {
-				return '\n' + chalk.dim('───') + '\n\n';
+				return chalk.dim('───') + '\n';
+			},
+			list(token: Tokens.List): string {
+				let body = '';
+				for (let i = 0; i < token.items.length; i++) {
+					const item = token.items[i]!;
+					const bullet = token.ordered ? `${i + 1}. ` : '  • ';
+					const text = m.parser(item.tokens);
+					body += bullet + text + '\n';
+				}
+				return body;
 			},
 			table(token: Tokens.Table): string {
 				const colWidths = computeColWidths(token, width);
@@ -110,7 +126,7 @@ function createMarked(width: number): Marked {
 					table.push(row.map(cell => renderInline(cell.text)));
 				}
 
-				return chalk.reset(table.toString()) + '\n\n';
+				return chalk.reset(table.toString()) + '\n';
 			},
 		},
 	});
@@ -132,7 +148,7 @@ export default function MarkdownText({
 	try {
 		const result = marked.parse(content);
 		rendered = typeof result === 'string' ? result.trimEnd() : content;
-		rendered = rendered.replace(/\n{3,}/g, '\n\n');
+		rendered = rendered.replace(/\n{3,}/g, '\n');
 	} catch {
 		rendered = content;
 	}

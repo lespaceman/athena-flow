@@ -30,7 +30,7 @@ describe('extractToolOutput', () => {
 				type: 'code',
 				content: 'hello world',
 				language: 'bash',
-				maxLines: 20,
+				maxLines: 10,
 			});
 		});
 
@@ -72,7 +72,7 @@ describe('extractToolOutput', () => {
 				type: 'code',
 				content: 'const x = 1;',
 				language: 'typescript',
-				maxLines: 20,
+				maxLines: 10,
 			});
 		});
 
@@ -95,7 +95,7 @@ describe('extractToolOutput', () => {
 				type: 'code',
 				content: 'print("hi")',
 				language: 'python',
-				maxLines: 20,
+				maxLines: 10,
 			});
 		});
 
@@ -109,7 +109,7 @@ describe('extractToolOutput', () => {
 				type: 'code',
 				content: 'const x = 1;',
 				language: 'typescript',
-				maxLines: 20,
+				maxLines: 10,
 			});
 		});
 	});
@@ -129,7 +129,7 @@ describe('extractToolOutput', () => {
 				type: 'diff',
 				oldText: 'const a = 1;',
 				newText: 'const a = 2;',
-				maxLines: 40,
+				maxLines: 20,
 			});
 		});
 	});
@@ -225,7 +225,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'This is the page content summary.',
-				maxLines: 30,
+				maxLines: 10,
 			});
 		});
 
@@ -234,7 +234,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'Some summary text',
-				maxLines: 30,
+				maxLines: 10,
 			});
 		});
 	});
@@ -286,7 +286,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'Some summary text',
-				maxLines: 20,
+				maxLines: 10,
 			});
 		});
 	});
@@ -331,7 +331,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'Found 3 results',
-				maxLines: 30,
+				maxLines: 10,
 			});
 		});
 	});
@@ -342,13 +342,13 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'response text',
-				maxLines: 40,
+				maxLines: 20,
 			});
 		});
 
 		it('handles null response', () => {
 			const result = extractToolOutput('Unknown', {}, null);
-			expect(result).toEqual({type: 'text', content: '', maxLines: 40});
+			expect(result).toEqual({type: 'text', content: '', maxLines: 20});
 		});
 
 		it('extracts content field from MCP-style wrapped response', () => {
@@ -360,7 +360,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'useful output',
-				maxLines: 40,
+				maxLines: 20,
 			});
 		});
 
@@ -373,7 +373,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'query output',
-				maxLines: 40,
+				maxLines: 20,
 			});
 		});
 
@@ -385,7 +385,7 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'line one\nline two',
-				maxLines: 40,
+				maxLines: 20,
 			});
 		});
 	});

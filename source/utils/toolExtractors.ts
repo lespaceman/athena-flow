@@ -92,9 +92,9 @@ function extractBash(
 		const out = response.stdout.trim();
 		const err = response.stderr.trim();
 		const content = err ? (out ? `${out}\n${err}` : err) : out;
-		return {type: 'code', content, language: 'bash', maxLines: 20};
+		return {type: 'code', content, language: 'bash', maxLines: 10};
 	}
-	return {type: 'code', content: extractTextContent(response), maxLines: 20};
+	return {type: 'code', content: extractTextContent(response), maxLines: 10};
 }
 
 function extractFileContent(block: unknown): string | undefined {
@@ -121,7 +121,7 @@ function extractRead(
 		type: 'code',
 		content: content ?? extractTextContent(response),
 		language: detectLanguage(input['file_path']),
-		maxLines: 20,
+		maxLines: 10,
 	};
 }
 
@@ -133,7 +133,7 @@ function extractEdit(
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newText =
 		typeof input['new_string'] === 'string' ? input['new_string'] : '';
-	return {type: 'diff', oldText, newText, maxLines: 40};
+	return {type: 'diff', oldText, newText, maxLines: 20};
 }
 
 function extractWrite(
@@ -167,7 +167,7 @@ function extractGrep(
 		return {primary: line};
 	});
 
-	return {type: 'list', items, maxItems: 15};
+	return {type: 'list', items, maxItems: 10};
 }
 
 function extractGlob(
@@ -179,14 +179,14 @@ function extractGlob(
 		const items: ListItem[] = filenames
 			.filter((f): f is string => typeof f === 'string')
 			.map(f => ({primary: f}));
-		return {type: 'list', items, maxItems: 15};
+		return {type: 'list', items, maxItems: 10};
 	}
 	const text = extractTextContent(response);
 	const items: ListItem[] = text
 		.split('\n')
 		.filter(Boolean)
 		.map(line => ({primary: line}));
-	return {type: 'list', items, maxItems: 15};
+	return {type: 'list', items, maxItems: 10};
 }
 
 function extractWebFetch(
@@ -196,7 +196,7 @@ function extractWebFetch(
 	const result = prop(response, 'result');
 	const content =
 		typeof result === 'string' ? result : extractTextContent(response);
-	return {type: 'text', content, maxLines: 30};
+	return {type: 'text', content, maxLines: 10};
 }
 
 function formatSearchLink(item: unknown): string | null {
@@ -224,10 +224,10 @@ function extractWebSearch(
 			}
 		}
 		if (links.length > 0) {
-			return {type: 'text', content: links.join('\n'), maxLines: 20};
+			return {type: 'text', content: links.join('\n'), maxLines: 10};
 		}
 	}
-	return {type: 'text', content: extractTextContent(response), maxLines: 20};
+	return {type: 'text', content: extractTextContent(response), maxLines: 10};
 }
 
 function extractNotebookEdit(
@@ -245,7 +245,7 @@ function extractNotebookEdit(
 		type: 'code',
 		content: source,
 		language: detectLanguage(path),
-		maxLines: 20,
+		maxLines: 10,
 	};
 }
 
@@ -254,10 +254,10 @@ function extractTask(
 	response: unknown,
 ): RenderableOutput {
 	const text = extractTextContent(response);
-	if (text) return {type: 'text', content: text, maxLines: 30};
+	if (text) return {type: 'text', content: text, maxLines: 10};
 	const desc =
 		typeof input['description'] === 'string' ? input['description'] : '';
-	return {type: 'text', content: desc || 'Task completed', maxLines: 30};
+	return {type: 'text', content: desc || 'Task completed', maxLines: 10};
 }
 
 const EXTRACTORS: Record<string, Extractor> = {
@@ -289,7 +289,7 @@ export function extractToolOutput(
 	return {
 		type: 'text',
 		content: extractTextContent(toolResponse),
-		maxLines: 40,
+		maxLines: 20,
 	};
 }
 
