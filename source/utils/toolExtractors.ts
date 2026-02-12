@@ -173,7 +173,7 @@ function extractEdit(
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newText =
 		typeof input['new_string'] === 'string' ? input['new_string'] : '';
-	return {type: 'diff', oldText, newText};
+	return {type: 'diff', oldText, newText, maxLines: 40};
 }
 
 function extractWrite(
@@ -245,10 +245,10 @@ function extractWebFetch(
 	if (typeof response === 'object' && response !== null) {
 		const result = prop(response, 'result');
 		if (typeof result === 'string') {
-			return {type: 'text', content: result};
+			return {type: 'text', content: result, maxLines: 30};
 		}
 	}
-	return {type: 'text', content: extractTextContent(response)};
+	return {type: 'text', content: extractTextContent(response), maxLines: 30};
 }
 
 function extractWebSearch(
@@ -292,12 +292,12 @@ function extractWebSearch(
 			}
 
 			if (links.length > 0) {
-				return {type: 'text', content: links.join('\n')};
+				return {type: 'text', content: links.join('\n'), maxLines: 20};
 			}
 		}
 	}
 	// Fallback: plain text summary
-	return {type: 'text', content: extractTextContent(response)};
+	return {type: 'text', content: extractTextContent(response), maxLines: 20};
 }
 
 function extractNotebookEdit(
@@ -325,10 +325,10 @@ function extractTask(
 ): RenderableOutput {
 	// Task tool response is typically a text summary from the subagent
 	const text = extractTextContent(response);
-	if (text) return {type: 'text', content: text};
+	if (text) return {type: 'text', content: text, maxLines: 30};
 	const desc =
 		typeof input['description'] === 'string' ? input['description'] : '';
-	return {type: 'text', content: desc || 'Task completed'};
+	return {type: 'text', content: desc || 'Task completed', maxLines: 30};
 }
 
 // ── Registry ────────────────────────────────────────────────────────
@@ -363,7 +363,7 @@ export function extractToolOutput(
 			// Fallback on extractor error
 		}
 	}
-	return {type: 'text', content: extractTextContent(toolResponse)};
+	return {type: 'text', content: extractTextContent(toolResponse), maxLines: 40};
 }
 
 // Exported for testing

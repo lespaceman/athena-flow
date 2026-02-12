@@ -129,6 +129,7 @@ describe('extractToolOutput', () => {
 				type: 'diff',
 				oldText: 'const a = 1;',
 				newText: 'const a = 2;',
+				maxLines: 40,
 			});
 		});
 	});
@@ -140,10 +141,10 @@ describe('extractToolOutput', () => {
 				{file_path: '/tmp/test.txt'},
 				{filePath: '/tmp/test.txt', success: true},
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'Wrote /tmp/test.txt',
-			});
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('Wrote /tmp/test.txt');
+			}
 		});
 
 		it('handles string response', () => {
@@ -152,10 +153,10 @@ describe('extractToolOutput', () => {
 				{file_path: '/tmp/test.txt'},
 				'File created successfully',
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'File created successfully',
-			});
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('File created successfully');
+			}
 		});
 	});
 
@@ -224,12 +225,13 @@ describe('extractToolOutput', () => {
 			expect(result).toEqual({
 				type: 'text',
 				content: 'This is the page content summary.',
+				maxLines: 30,
 			});
 		});
 
 		it('falls back to text for string response', () => {
 			const result = extractToolOutput('WebFetch', {}, 'Some summary text');
-			expect(result).toEqual({type: 'text', content: 'Some summary text'});
+			expect(result).toEqual({type: 'text', content: 'Some summary text', maxLines: 30});
 		});
 	});
 
@@ -277,7 +279,7 @@ describe('extractToolOutput', () => {
 
 		it('falls back to text for non-structured response', () => {
 			const result = extractToolOutput('WebSearch', {}, 'Some summary text');
-			expect(result).toEqual({type: 'text', content: 'Some summary text'});
+			expect(result).toEqual({type: 'text', content: 'Some summary text', maxLines: 20});
 		});
 	});
 
@@ -304,10 +306,10 @@ describe('extractToolOutput', () => {
 				{notebook_path: 'nb.ipynb', edit_mode: 'delete', new_source: ''},
 				'Cell deleted',
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'delete cell in nb.ipynb',
-			});
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('delete cell in nb.ipynb');
+			}
 		});
 	});
 
@@ -318,19 +320,19 @@ describe('extractToolOutput', () => {
 				{description: 'search code'},
 				'Found 3 results',
 			);
-			expect(result).toEqual({type: 'text', content: 'Found 3 results'});
+			expect(result).toEqual({type: 'text', content: 'Found 3 results', maxLines: 30});
 		});
 	});
 
 	describe('unknown tool', () => {
 		it('falls back to text', () => {
 			const result = extractToolOutput('SomeMCPTool', {}, 'response text');
-			expect(result).toEqual({type: 'text', content: 'response text'});
+			expect(result).toEqual({type: 'text', content: 'response text', maxLines: 40});
 		});
 
 		it('handles null response', () => {
 			const result = extractToolOutput('Unknown', {}, null);
-			expect(result).toEqual({type: 'text', content: ''});
+			expect(result).toEqual({type: 'text', content: '', maxLines: 40});
 		});
 
 		it('extracts content field from MCP-style wrapped response', () => {
@@ -339,7 +341,7 @@ describe('extractToolOutput', () => {
 				{},
 				{content: 'useful output'},
 			);
-			expect(result).toEqual({type: 'text', content: 'useful output'});
+			expect(result).toEqual({type: 'text', content: 'useful output', maxLines: 40});
 		});
 
 		it('extracts result field from structured response', () => {
@@ -348,7 +350,7 @@ describe('extractToolOutput', () => {
 				{},
 				{result: 'query output', durationMs: 42},
 			);
-			expect(result).toEqual({type: 'text', content: 'query output'});
+			expect(result).toEqual({type: 'text', content: 'query output', maxLines: 40});
 		});
 
 		it('extracts text from content-block array', () => {
@@ -356,7 +358,7 @@ describe('extractToolOutput', () => {
 				{type: 'text', text: 'line one'},
 				{type: 'text', text: 'line two'},
 			]);
-			expect(result).toEqual({type: 'text', content: 'line one\nline two'});
+			expect(result).toEqual({type: 'text', content: 'line one\nline two', maxLines: 40});
 		});
 	});
 });

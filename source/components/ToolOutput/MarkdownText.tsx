@@ -1,5 +1,5 @@
 import React from 'react';
-import {Text} from 'ink';
+import {Box, Text} from 'ink';
 import {Marked, type Tokens} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import Table from 'cli-table3';
@@ -135,10 +135,14 @@ function createMarked(width: number): Marked {
 	return m;
 }
 
-export default function MarkdownText({content}: Props): React.ReactNode {
+export default function MarkdownText({
+	content,
+	maxLines,
+	availableWidth,
+}: Props): React.ReactNode {
 	if (!content) return null;
 
-	const width = process.stdout.columns || 80;
+	const width = availableWidth ?? process.stdout.columns ?? 80;
 	const marked = createMarked(width);
 
 	let rendered: string;
@@ -148,6 +152,20 @@ export default function MarkdownText({content}: Props): React.ReactNode {
 		rendered = typeof result === 'string' ? result.trimEnd() : content;
 	} catch {
 		rendered = content;
+	}
+
+	if (maxLines != null) {
+		const lines = rendered.split('\n');
+		if (lines.length > maxLines) {
+			const omitted = lines.length - maxLines;
+			rendered = lines.slice(0, maxLines).join('\n');
+			return (
+				<Box flexDirection="column">
+					<Text>{rendered}</Text>
+					<Text dimColor>({omitted} more lines)</Text>
+				</Box>
+			);
+		}
 	}
 
 	return <Text>{rendered}</Text>;
