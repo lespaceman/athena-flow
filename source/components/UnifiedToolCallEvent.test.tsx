@@ -139,6 +139,21 @@ describe('UnifiedToolCallEvent', () => {
 		expect(frame).toContain('Bash');
 	});
 
+	it('renders ⎿ gutter prefix on tool result', () => {
+		const post = makePostToolPayload({
+			stdout: 'test output',
+			stderr: '',
+			interrupted: false,
+			isImage: false,
+			noOutputExpected: false,
+		});
+		const event = makePreToolEvent({postToolEvent: post.display});
+		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('\u23bf'); // ⎿
+		expect(frame).toContain('test output');
+	});
+
 	it('renders standalone PostToolUse (orphaned)', () => {
 		const post = makePostToolPayload('orphaned result');
 		const event: HookEventDisplay = {

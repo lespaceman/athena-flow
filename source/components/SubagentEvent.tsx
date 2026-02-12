@@ -28,6 +28,9 @@ import {
 import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
 
+// Border box overhead: 2 (left+right border chars) + 1 (paddingLeft on children container)
+const BORDER_BOX_OVERHEAD = 3;
+
 type Props = {
 	event: HookEventDisplay;
 	childEventsByAgent?: Map<string, HookEventDisplay[]>;
@@ -75,8 +78,10 @@ function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 				{isFailed ? (
 					<ResponseBlock response={getPostToolText(payload)} isFailed={true} />
 				) : (
-					<ToolResultContainer>
-						{(availableWidth) => (
+					<ToolResultContainer
+						parentWidth={(process.stdout.columns || 80) - BORDER_BOX_OVERHEAD}
+					>
+						{availableWidth => (
 							<ToolOutputRenderer
 								toolName={payload.tool_name}
 								toolInput={payload.tool_input}

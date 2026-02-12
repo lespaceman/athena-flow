@@ -12,6 +12,7 @@ import {
 	isPostToolUseFailureEvent,
 } from '../types/hooks/index.js';
 import {type Theme} from '../theme/index.js';
+import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
 
 // ── Status constants ────────────────────────────────────────────────
 
@@ -40,26 +41,9 @@ export const SUBAGENT_SYMBOLS = {
 
 // ── Response formatting ─────────────────────────────────────────────
 
-export const RESPONSE_PREFIX = '\u23bf  ';
-const CONTINUATION_PAD = '   '; // matches width of "⎿  "
-
 export function truncateStr(s: string, maxLen: number): string {
 	if (s.length <= maxLen) return s;
 	return s.slice(0, maxLen - 3) + '...';
-}
-
-/**
- * Indent continuation lines so multiline response text aligns with
- * the content after the `⎿ ` prefix (2 chars wide).
- */
-export function formatResponseBlock(text: string): string {
-	const lines = text.split('\n');
-	if (lines.length <= 1) return RESPONSE_PREFIX + text;
-	return lines
-		.map((line, i) =>
-			i === 0 ? RESPONSE_PREFIX + line : CONTINUATION_PAD + line,
-		)
-		.join('\n');
 }
 
 /**
@@ -189,11 +173,14 @@ export function ResponseBlock({
 }): React.ReactNode {
 	if (!response) return null;
 	return (
-		<Box paddingLeft={3}>
+		<ToolResultContainer
+			dimGutter={!isFailed}
+			gutterColor={isFailed ? 'red' : undefined}
+		>
 			<Text color={isFailed ? 'red' : undefined} dimColor={!isFailed}>
-				{formatResponseBlock(response)}
+				{response}
 			</Text>
-		</Box>
+		</ToolResultContainer>
 	);
 }
 

@@ -19,12 +19,8 @@ describe('DiffBlock', () => {
 	});
 
 	it('truncates when total lines exceed maxLines', () => {
-		const oldText = Array.from({length: 30}, (_, i) => `old ${i}`).join(
-			'\n',
-		);
-		const newText = Array.from({length: 30}, (_, i) => `new ${i}`).join(
-			'\n',
-		);
+		const oldText = Array.from({length: 30}, (_, i) => `old ${i}`).join('\n');
+		const newText = Array.from({length: 30}, (_, i) => `new ${i}`).join('\n');
 		const {lastFrame} = render(
 			<DiffBlock oldText={oldText} newText={newText} maxLines={10} />,
 		);

@@ -30,7 +30,7 @@ describe('extractToolOutput', () => {
 				type: 'code',
 				content: 'hello world',
 				language: 'bash',
-				maxLines: 30,
+				maxLines: 20,
 			});
 		});
 
@@ -231,7 +231,11 @@ describe('extractToolOutput', () => {
 
 		it('falls back to text for string response', () => {
 			const result = extractToolOutput('WebFetch', {}, 'Some summary text');
-			expect(result).toEqual({type: 'text', content: 'Some summary text', maxLines: 30});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'Some summary text',
+				maxLines: 30,
+			});
 		});
 	});
 
@@ -279,7 +283,11 @@ describe('extractToolOutput', () => {
 
 		it('falls back to text for non-structured response', () => {
 			const result = extractToolOutput('WebSearch', {}, 'Some summary text');
-			expect(result).toEqual({type: 'text', content: 'Some summary text', maxLines: 20});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'Some summary text',
+				maxLines: 20,
+			});
 		});
 	});
 
@@ -320,14 +328,22 @@ describe('extractToolOutput', () => {
 				{description: 'search code'},
 				'Found 3 results',
 			);
-			expect(result).toEqual({type: 'text', content: 'Found 3 results', maxLines: 30});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'Found 3 results',
+				maxLines: 30,
+			});
 		});
 	});
 
 	describe('unknown tool', () => {
 		it('falls back to text', () => {
 			const result = extractToolOutput('SomeMCPTool', {}, 'response text');
-			expect(result).toEqual({type: 'text', content: 'response text', maxLines: 40});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'response text',
+				maxLines: 40,
+			});
 		});
 
 		it('handles null response', () => {
@@ -341,7 +357,11 @@ describe('extractToolOutput', () => {
 				{},
 				{content: 'useful output'},
 			);
-			expect(result).toEqual({type: 'text', content: 'useful output', maxLines: 40});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'useful output',
+				maxLines: 40,
+			});
 		});
 
 		it('extracts result field from structured response', () => {
@@ -350,7 +370,11 @@ describe('extractToolOutput', () => {
 				{},
 				{result: 'query output', durationMs: 42},
 			);
-			expect(result).toEqual({type: 'text', content: 'query output', maxLines: 40});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'query output',
+				maxLines: 40,
+			});
 		});
 
 		it('extracts text from content-block array', () => {
@@ -358,7 +382,11 @@ describe('extractToolOutput', () => {
 				{type: 'text', text: 'line one'},
 				{type: 'text', text: 'line two'},
 			]);
-			expect(result).toEqual({type: 'text', content: 'line one\nline two', maxLines: 40});
+			expect(result).toEqual({
+				type: 'text',
+				content: 'line one\nline two',
+				maxLines: 40,
+			});
 		});
 	});
 });

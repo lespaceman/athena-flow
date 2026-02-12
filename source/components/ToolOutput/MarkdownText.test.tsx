@@ -20,9 +20,7 @@ describe('MarkdownText', () => {
 		const content = Array.from({length: 50}, (_, i) => `Line ${i}`).join(
 			'\n\n',
 		);
-		const {lastFrame} = render(
-			<MarkdownText content={content} maxLines={5} />,
-		);
+		const {lastFrame} = render(<MarkdownText content={content} maxLines={5} />);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('more lines');
 		expect(frame).not.toContain('Line 49');

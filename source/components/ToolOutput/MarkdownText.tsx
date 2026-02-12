@@ -94,11 +94,14 @@ function createMarked(width: number): Marked {
 		}) as Parameters<typeof m.use>[0],
 	);
 
-	// Override table renderer to inject width-constrained colWidths.
-	// marked-terminal's built-in table renderer doesn't pass the `width`
-	// option to cli-table3, so wordWrap has no effect on wide tables.
+	// Override renderers for cleaner terminal output.
 	m.use({
 		renderer: {
+			// Minimal horizontal rule — short dim line instead of full-width
+			hr(): string {
+				return '\n' + chalk.dim('───') + '\n\n';
+			},
+			// Width-constrained tables with proportional column widths.
 			table(token: Tokens.Table): string {
 				const colWidths = computeColWidths(token, width);
 				// Render inline markdown (bold, italic, code) so cli-table3
@@ -150,6 +153,8 @@ export default function MarkdownText({
 		const result = marked.parse(content);
 		// marked.parse can return string or Promise — we use sync mode
 		rendered = typeof result === 'string' ? result.trimEnd() : content;
+		// Collapse runs of 3+ blank lines to max 1 blank line
+		rendered = rendered.replace(/\n{3,}/g, '\n\n');
 	} catch {
 		rendered = content;
 	}

@@ -116,9 +116,9 @@ function extractBash(
 		const out = response.stdout.trim();
 		const err = response.stderr.trim();
 		const content = err ? (out ? `${out}\n${err}` : err) : out;
-		return {type: 'code', content, language: 'bash', maxLines: 30};
+		return {type: 'code', content, language: 'bash', maxLines: 20};
 	}
-	return {type: 'code', content: extractTextContent(response), maxLines: 30};
+	return {type: 'code', content: extractTextContent(response), maxLines: 20};
 }
 
 function extractRead(
@@ -225,7 +225,7 @@ function extractGlob(
 			const items: ListItem[] = filenames
 				.filter((f): f is string => typeof f === 'string')
 				.map(f => ({primary: f}));
-			return {type: 'list', items, maxItems: 20};
+			return {type: 'list', items, maxItems: 15};
 		}
 	}
 	// Fallback: string response (newline-separated paths)
@@ -234,7 +234,7 @@ function extractGlob(
 		.split('\n')
 		.filter(Boolean)
 		.map(line => ({primary: line}));
-	return {type: 'list', items, maxItems: 20};
+	return {type: 'list', items, maxItems: 15};
 }
 
 function extractWebFetch(
@@ -363,7 +363,11 @@ export function extractToolOutput(
 			// Fallback on extractor error
 		}
 	}
-	return {type: 'text', content: extractTextContent(toolResponse), maxLines: 40};
+	return {
+		type: 'text',
+		content: extractTextContent(toolResponse),
+		maxLines: 40,
+	};
 }
 
 // Exported for testing

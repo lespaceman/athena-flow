@@ -114,14 +114,17 @@ export default function UnifiedToolCallEvent({
 		if (isFailed) {
 			const errorText = getPostToolText(resolvedPost) || 'Unknown error';
 			responseNode = (
-				<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+				<ToolResultContainer
+					gutterColor={statusColors.blocked}
+					dimGutter={false}
+				>
 					<Text color={statusColors.blocked}>{errorText}</Text>
 				</ToolResultContainer>
 			);
 		} else {
 			responseNode = (
 				<ToolResultContainer>
-					{(availableWidth) => (
+					{availableWidth => (
 						<ToolOutputRenderer
 							toolName={toolName}
 							toolInput={toolInput}

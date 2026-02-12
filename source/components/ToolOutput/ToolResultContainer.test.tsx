@@ -27,7 +27,7 @@ describe('ToolResultContainer', () => {
 		let receivedWidth = 0;
 		render(
 			<ToolResultContainer>
-				{(width) => {
+				{width => {
 					receivedWidth = width;
 					return <Text>test</Text>;
 				}}
