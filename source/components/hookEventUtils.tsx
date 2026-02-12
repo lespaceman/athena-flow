@@ -1,6 +1,6 @@
 /**
  * Shared constants, formatting functions, and sub-components used across
- * hook event renderers (ToolCallEvent, SubagentEvent, etc.).
+ * hook event renderers (UnifiedToolCallEvent, SubagentEvent, etc.).
  */
 
 import React from 'react';

@@ -215,20 +215,19 @@ export function useContentOrdering({
 	}
 
 	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure by toolUseId
-	const preToolByUseId = new Map<string, number>();
+	const preToolUseIds = new Set<string>();
 	const postToolByUseId = new Map<string, HookEventDisplay>();
 	for (const e of events) {
 		if (
 			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
 			e.toolUseId
 		) {
-			// Store index placeholder — will be resolved after hookItems is built
-			preToolByUseId.set(e.toolUseId, 0);
+			preToolUseIds.add(e.toolUseId);
 		}
 		if (
 			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
 			e.toolUseId &&
-			preToolByUseId.has(e.toolUseId)
+			preToolUseIds.has(e.toolUseId)
 		) {
 			postToolByUseId.set(e.toolUseId, e);
 		}
@@ -243,7 +242,7 @@ export function useContentOrdering({
 			if (
 				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
 				e.toolUseId &&
-				preToolByUseId.has(e.toolUseId)
+				preToolUseIds.has(e.toolUseId)
 			)
 				return false;
 			return true;

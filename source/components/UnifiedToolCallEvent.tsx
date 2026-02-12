@@ -76,6 +76,14 @@ export default function UnifiedToolCallEvent({
 	let bulletColor: string;
 	let responseNode: React.ReactNode = null;
 
+	// Resolve the post-tool payload: either from a standalone orphaned event
+	// or from the paired postToolEvent merged by useContentOrdering.
+	const resolvedPostPayload = isStandalonePost
+		? (payload as PostToolUseEvent | PostToolUseFailureEvent)
+		: postPayload
+			? (postPayload as PostToolUseEvent | PostToolUseFailureEvent)
+			: null;
+
 	if (event.status === 'blocked') {
 		// User rejected
 		bulletColor = statusColors.blocked;
@@ -84,23 +92,12 @@ export default function UnifiedToolCallEvent({
 				<Text color={statusColors.blocked}>{RESPONSE_PREFIX}User rejected</Text>
 			</Box>
 		);
-	} else if (isStandalonePost) {
-		// Orphaned post-tool event — payload is guaranteed to be a post-tool type
-		const postEvent = payload as PostToolUseEvent | PostToolUseFailureEvent;
-		const isFailed = isPostToolUseFailureEvent(postEvent);
+	} else if (resolvedPostPayload) {
+		// Completed — has a result (standalone or paired)
+		const isFailed = isPostToolUseFailureEvent(resolvedPostPayload);
 		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
 		responseNode = renderResponse(
-			getPostToolText(postEvent),
-			isFailed,
-			statusColors.blocked,
-		);
-	} else if (postPayload) {
-		// Has a matched post-tool result
-		const postEvent = postPayload as PostToolUseEvent | PostToolUseFailureEvent;
-		const isFailed = isPostToolUseFailureEvent(postEvent);
-		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
-		responseNode = renderResponse(
-			getPostToolText(postEvent),
+			getPostToolText(resolvedPostPayload),
 			isFailed,
 			statusColors.blocked,
 		);
