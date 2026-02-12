@@ -29,21 +29,14 @@ const TABLE_CHARS = {
 	middle: '│',
 };
 
-/**
- * Compute column widths that fit within the terminal.
- * Each column gets space proportional to its max content length.
- */
 function computeColWidths(
 	token: Tokens.Table,
 	terminalWidth: number,
 ): number[] {
 	const colCount = token.header.length;
-	// Borders: │ col │ col │ = colCount + 1 border chars
-	// Padding: 1 left + 1 right per column = 2 * colCount
 	const overhead = colCount + 1 + 2 * colCount;
 	const available = Math.max(terminalWidth - overhead, colCount * 4);
 
-	// Measure max content length per column using plain text (strip markdown markers)
 	const stripMd = (s: string) => s.replace(/\*\*|__|~~|`/g, '');
 	const maxLens = token.header.map(h => stripMd(h.text).length);
 	for (const row of token.rows) {
@@ -54,29 +47,21 @@ function computeColWidths(
 
 	const totalContent = maxLens.reduce((a, b) => a + b, 0) || 1;
 
-	// Distribute proportionally with a minimum of 4 chars per column
-	const minCol = 4;
 	return maxLens.map(len =>
-		Math.max(minCol, Math.floor((len / totalContent) * available)),
+		Math.max(4, Math.floor((len / totalContent) * available)),
 	);
 }
 
 function createMarked(width: number): Marked {
 	const m = new Marked();
-	// marked-terminal types lag behind runtime API — cast is safe
 	m.use(
 		markedTerminal({
-			// ── Layout ──────────────────────────────────────────
 			width,
 			reflowText: true,
 			tab: 2,
 			showSectionPrefix: false,
-
-			// ── Text features ───────────────────────────────────
 			unescape: true,
 			emoji: true,
-
-			// ── Colors — muted palette for terminal companion UI ─
 			paragraph: chalk.reset,
 			strong: chalk.bold,
 			em: chalk.italic,
@@ -94,18 +79,13 @@ function createMarked(width: number): Marked {
 		}) as Parameters<typeof m.use>[0],
 	);
 
-	// Override renderers for cleaner terminal output.
 	m.use({
 		renderer: {
-			// Minimal horizontal rule — short dim line instead of full-width
 			hr(): string {
 				return '\n' + chalk.dim('───') + '\n\n';
 			},
-			// Width-constrained tables with proportional column widths.
 			table(token: Tokens.Table): string {
 				const colWidths = computeColWidths(token, width);
-				// Render inline markdown (bold, italic, code) so cli-table3
-				// wraps on visible text, not raw markdown markers
 				const renderInline = (text: string): string => {
 					const result = m.parseInline(text);
 					return typeof result === 'string' ? result : text;
@@ -151,9 +131,7 @@ export default function MarkdownText({
 	let rendered: string;
 	try {
 		const result = marked.parse(content);
-		// marked.parse can return string or Promise — we use sync mode
 		rendered = typeof result === 'string' ? result.trimEnd() : content;
-		// Collapse runs of 3+ blank lines to max 1 blank line
 		rendered = rendered.replace(/\n{3,}/g, '\n\n');
 	} catch {
 		rendered = content;

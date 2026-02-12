@@ -1,8 +1,3 @@
-/**
- * Shared constants, formatting functions, and sub-components used across
- * hook event renderers (UnifiedToolCallEvent, SubagentEvent, etc.).
- */
-
 import React from 'react';
 import {Box, Text} from 'ink';
 import {
@@ -13,8 +8,6 @@ import {
 } from '../types/hooks/index.js';
 import {type Theme} from '../theme/index.js';
 import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
-
-// ── Status constants ────────────────────────────────────────────────
 
 export function getStatusColors(theme: Theme) {
 	return {
@@ -39,25 +32,14 @@ export const SUBAGENT_SYMBOLS = {
 	json_output: '\u2192', // → (same as regular)
 } as const;
 
-// ── Response formatting ─────────────────────────────────────────────
-
 export function truncateStr(s: string, maxLen: number): string {
 	if (s.length <= maxLen) return s;
 	return s.slice(0, maxLen - 3) + '...';
 }
 
 /**
- * Format tool_response for display.
- *
- * Claude Code tool responses come in several shapes:
- *  - String (e.g. Bash stdout)
- *  - Content-block array: [{type:"text", text:"..."}, ...]
- *  - Single content block: {type:"text", text:"..."}
- *  - Wrapped response: {content: <string or content-block array>, isError?: boolean}
- *  - null / undefined
- *
- * This function always extracts the text content rather than dumping the
- * raw response object.
+ * Extract display text from a tool_response, handling the various shapes:
+ * string, content-block array, single content block, wrapped {content: ...}, or object.
  */
 export function formatToolResponse(response: unknown): string {
 	if (response == null) return '';
@@ -106,10 +88,6 @@ export function formatToolResponse(response: unknown): string {
 	return String(response);
 }
 
-/**
- * Bash tool response shape from Claude Code.
- * The Bash tool returns a structured object rather than a plain string.
- */
 type BashToolResponse = {
 	stdout: string;
 	stderr: string;
@@ -128,15 +106,6 @@ export function isBashToolResponse(
 	);
 }
 
-/**
- * Extract the display text from a PostToolUse or PostToolUseFailure payload.
- *
- * PostToolUse has `tool_response` (varies by tool).
- * PostToolUseFailure has `error` (string) per the hooks reference.
- *
- * For the Bash tool, extracts stdout/stderr from the structured response
- * rather than dumping all metadata fields.
- */
 export function getPostToolText(
 	payload: PostToolUseEvent | PostToolUseFailureEvent,
 ): string {
@@ -159,11 +128,6 @@ export function getPostToolText(
 	return formatToolResponse(payload.tool_response);
 }
 
-// ── Shared sub-components ───────────────────────────────────────────
-
-/**
- * Render the response line (⎿) for a PostToolUse/PostToolUseFailure payload.
- */
 export function ResponseBlock({
 	response,
 	isFailed,
@@ -184,9 +148,6 @@ export function ResponseBlock({
 	);
 }
 
-/**
- * Render stderr if present on a hook result.
- */
 export function StderrBlock({
 	result,
 }: {
