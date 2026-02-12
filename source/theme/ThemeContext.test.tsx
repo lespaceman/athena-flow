@@ -15,7 +15,7 @@ describe('ThemeContext', () => {
 	it('provides darkTheme by default (no provider)', () => {
 		const {lastFrame} = render(<ThemeProbe />);
 		expect(lastFrame()).toContain('theme:dark');
-		expect(lastFrame()).toContain('accent:cyan');
+		expect(lastFrame()).toContain(`accent:${darkTheme.accent}`);
 	});
 
 	it('provides darkTheme when wrapped with dark ThemeProvider', () => {
@@ -25,7 +25,7 @@ describe('ThemeContext', () => {
 			</ThemeProvider>,
 		);
 		expect(lastFrame()).toContain('theme:dark');
-		expect(lastFrame()).toContain('accent:cyan');
+		expect(lastFrame()).toContain(`accent:${darkTheme.accent}`);
 	});
 
 	it('provides lightTheme when wrapped with light ThemeProvider', () => {

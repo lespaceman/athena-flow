@@ -2,25 +2,28 @@ import {describe, it, expect} from 'vitest';
 import {darkTheme, lightTheme, resolveTheme} from './themes.js';
 
 describe('themes', () => {
-	it('darkTheme has all required tokens', () => {
+	it('darkTheme has all required tokens with Catppuccin Mocha palette', () => {
 		expect(darkTheme.name).toBe('dark');
-		expect(darkTheme.accent).toBe('cyan');
-		expect(darkTheme.status.success).toBe('green');
-		expect(darkTheme.status.error).toBe('red');
-		expect(darkTheme.status.warning).toBe('yellow');
-		expect(darkTheme.status.info).toBe('cyan');
-		expect(darkTheme.status.neutral).toBe('gray');
-		expect(darkTheme.accentSecondary).toBe('magenta');
-		expect(darkTheme.contextBar.medium).toBe('#FF8C00');
-		expect(darkTheme.userMessage.text).toBe('#b0b0b0');
-		expect(darkTheme.userMessage.background).toBe('#2d3748');
+		expect(darkTheme.accent).toBe('#89b4fa');
+		expect(darkTheme.status.success).toBe('#a6e3a1');
+		expect(darkTheme.status.error).toBe('#f38ba8');
+		expect(darkTheme.status.warning).toBe('#f9e2af');
+		expect(darkTheme.status.info).toBe('#89dceb');
+		expect(darkTheme.status.neutral).toBe('#6c7086');
+		expect(darkTheme.accentSecondary).toBe('#cba6f7');
+		expect(darkTheme.contextBar.medium).toBe('#fab387');
+		expect(darkTheme.userMessage.text).toBe('#bac2de');
+		expect(darkTheme.userMessage.background).toBe('#313244');
 	});
 
-	it('lightTheme avoids cyan and yellow (unreadable on light backgrounds)', () => {
+	it('lightTheme has distinct Catppuccin Latte palette', () => {
 		expect(lightTheme.name).toBe('light');
-		expect(lightTheme.accent).not.toBe('cyan');
-		expect(lightTheme.status.warning).not.toBe('yellow');
-		expect(lightTheme.status.info).not.toBe('cyan');
+		expect(lightTheme.accent).toBe('#5c5cff');
+		expect(lightTheme.status.success).toBe('#40a02b');
+		expect(lightTheme.status.error).toBe('#d20f39');
+		expect(lightTheme.status.warning).toBe('#df8e1d');
+		expect(lightTheme.status.info).toBe('#1e66f5');
+		expect(lightTheme.accentSecondary).toBe('#8839ef');
 	});
 
 	it('resolveTheme returns dark by default', () => {

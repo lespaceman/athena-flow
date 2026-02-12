@@ -125,15 +125,18 @@ export default function UnifiedToolCallEvent({
 		} else {
 			responseNode = (
 				<Box paddingLeft={2}>
-					<ToolOutputRenderer
-						toolName={toolName}
-						toolInput={toolInput}
-						toolResponse={
-							isPostToolUseEvent(resolvedPost)
-								? resolvedPost.tool_response
-								: undefined
-						}
-					/>
+					<Text dimColor>{RESPONSE_PREFIX}</Text>
+					<Box flexDirection="column" flexShrink={1}>
+						<ToolOutputRenderer
+							toolName={toolName}
+							toolInput={toolInput}
+							toolResponse={
+								isPostToolUseEvent(resolvedPost)
+									? resolvedPost.tool_response
+									: undefined
+							}
+						/>
+					</Box>
 				</Box>
 			);
 		}

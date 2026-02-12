@@ -260,10 +260,9 @@ function extractWebSearch(
 
 		// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
 		if (Array.isArray(results)) {
-			const items: ListItem[] = [];
+			const links: string[] = [];
 
 			for (const entry of results) {
-				// Structured entry with content array of {title, url}
 				if (typeof entry === 'object' && entry !== null) {
 					const content = prop(entry, 'content');
 					if (Array.isArray(content)) {
@@ -272,30 +271,28 @@ function extractWebSearch(
 								const title = prop(item, 'title');
 								const url = prop(item, 'url');
 								if (typeof title === 'string') {
-									items.push({
-										primary: title,
-										secondary: typeof url === 'string' ? url : undefined,
-									});
+									links.push(
+										typeof url === 'string'
+											? `- [${title}](${url})`
+											: `- ${title}`,
+									);
 								}
 							}
 						}
-					}
-					// Direct {title, url} object
-					else {
+					} else {
 						const title = prop(entry, 'title');
 						const url = prop(entry, 'url');
 						if (typeof title === 'string') {
-							items.push({
-								primary: title,
-								secondary: typeof url === 'string' ? url : undefined,
-							});
+							links.push(
+								typeof url === 'string' ? `- [${title}](${url})` : `- ${title}`,
+							);
 						}
 					}
 				}
 			}
 
-			if (items.length > 0) {
-				return {type: 'list', items, maxItems: 10};
+			if (links.length > 0) {
+				return {type: 'text', content: links.join('\n')};
 			}
 		}
 	}

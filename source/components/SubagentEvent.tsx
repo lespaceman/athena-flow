@@ -21,6 +21,7 @@ import {
 	getStatusColors,
 	STATUS_SYMBOLS,
 	SUBAGENT_SYMBOLS,
+	RESPONSE_PREFIX,
 	getPostToolText,
 	ResponseBlock,
 	StderrBlock,
@@ -76,13 +77,18 @@ function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 					<ResponseBlock response={getPostToolText(payload)} isFailed={true} />
 				) : (
 					<Box paddingLeft={2}>
-						<ToolOutputRenderer
-							toolName={payload.tool_name}
-							toolInput={payload.tool_input}
-							toolResponse={
-								isPostToolUseEvent(payload) ? payload.tool_response : undefined
-							}
-						/>
+						<Text dimColor>{RESPONSE_PREFIX}</Text>
+						<Box flexDirection="column" flexShrink={1}>
+							<ToolOutputRenderer
+								toolName={payload.tool_name}
+								toolInput={payload.tool_input}
+								toolResponse={
+									isPostToolUseEvent(payload)
+										? payload.tool_response
+										: undefined
+								}
+							/>
+						</Box>
 					</Box>
 				)}
 				<StderrBlock result={event.result} />
