@@ -6,10 +6,12 @@
  * that arrive without a matching PreToolUse anchor.
  */
 
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
+	type PostToolUseEvent,
+	type PostToolUseFailureEvent,
 	isPreToolUseEvent,
 	isPermissionRequestEvent,
 	isPostToolUseEvent,
@@ -41,27 +43,34 @@ export default function UnifiedToolCallEvent({
 	const payload = event.payload;
 	const postPayload = event.postToolEvent?.payload;
 
-	// Determine if this is a standalone post-tool event (orphaned)
-	const isStandalonePost =
-		(isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) &&
-		!isPreToolUseEvent(payload) &&
-		!isPermissionRequestEvent(payload);
-
-	// For standalone post events, use the event's own payload for tool info
-	const toolPayload = isStandalonePost ? payload : payload;
-
-	// Must be a tool event
+	// Guard: must be a tool event
 	if (
-		!isPreToolUseEvent(toolPayload) &&
-		!isPermissionRequestEvent(toolPayload) &&
-		!isPostToolUseEvent(toolPayload) &&
-		!isPostToolUseFailureEvent(toolPayload)
+		!isPreToolUseEvent(payload) &&
+		!isPermissionRequestEvent(payload) &&
+		!isPostToolUseEvent(payload) &&
+		!isPostToolUseFailureEvent(payload)
 	) {
 		return null;
 	}
 
-	const parsed = parseToolName(toolPayload.tool_name);
-	const inlineParams = formatInlineParams(toolPayload.tool_input);
+	// Standalone (orphaned) post-tool events have no matching PreToolUse anchor
+	const isStandalonePost =
+		!isPreToolUseEvent(payload) && !isPermissionRequestEvent(payload);
+
+	// Pending when awaiting a post-tool result (not blocked, not standalone)
+	const isPending =
+		event.status === 'pending' ||
+		(event.status !== 'blocked' && !event.postToolEvent && !isStandalonePost);
+
+	const [pulse, setPulse] = useState(true);
+	useEffect(() => {
+		if (!isPending) return;
+		const id = setInterval(() => setPulse(p => !p), 500);
+		return () => clearInterval(id);
+	}, [isPending]);
+
+	const parsed = parseToolName(payload.tool_name);
+	const inlineParams = formatInlineParams(payload.tool_input);
 
 	// Determine state and colors
 	let bulletColor: string;
@@ -76,23 +85,27 @@ export default function UnifiedToolCallEvent({
 			</Box>
 		);
 	} else if (isStandalonePost) {
-		// Orphaned post-tool event
-		const isFailed = isPostToolUseFailureEvent(payload);
+		// Orphaned post-tool event — payload is guaranteed to be a post-tool type
+		const postEvent = payload as PostToolUseEvent | PostToolUseFailureEvent;
+		const isFailed = isPostToolUseFailureEvent(postEvent);
 		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
-		const responseText = getPostToolText(
-			payload as Parameters<typeof getPostToolText>[0],
+		responseNode = renderResponse(
+			getPostToolText(postEvent),
+			isFailed,
+			statusColors.blocked,
 		);
-		responseNode = renderResponse(responseText, isFailed, statusColors.blocked);
 	} else if (postPayload) {
 		// Has a matched post-tool result
-		const isFailed = isPostToolUseFailureEvent(postPayload);
+		const postEvent = postPayload as PostToolUseEvent | PostToolUseFailureEvent;
+		const isFailed = isPostToolUseFailureEvent(postEvent);
 		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
-		const responseText = getPostToolText(
-			postPayload as Parameters<typeof getPostToolText>[0],
+		responseNode = renderResponse(
+			getPostToolText(postEvent),
+			isFailed,
+			statusColors.blocked,
 		);
-		responseNode = renderResponse(responseText, isFailed, statusColors.blocked);
 	} else {
-		// Pending — no result yet
+		// Pending — no result yet (pulsates between bright yellow and dim)
 		bulletColor = statusColors.pending;
 		responseNode = (
 			<Box paddingLeft={2}>
@@ -104,7 +117,9 @@ export default function UnifiedToolCallEvent({
 	return (
 		<Box flexDirection="column" marginBottom={1}>
 			<Box>
-				<Text color={bulletColor}>{BULLET} </Text>
+				<Text color={bulletColor} dimColor={isPending && !pulse}>
+					{BULLET}{' '}
+				</Text>
 				<Text color={bulletColor} bold>
 					{parsed.displayName}
 				</Text>
@@ -112,9 +127,7 @@ export default function UnifiedToolCallEvent({
 			</Box>
 			{verbose && (
 				<Box paddingLeft={3}>
-					<Text dimColor>
-						{JSON.stringify(toolPayload.tool_input, null, 2)}
-					</Text>
+					<Text dimColor>{JSON.stringify(payload.tool_input, null, 2)}</Text>
 				</Box>
 			)}
 			{responseNode}

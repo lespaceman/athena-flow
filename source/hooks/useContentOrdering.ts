@@ -121,6 +121,7 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 export function isStableContent(
 	item: ContentItem,
 	stoppedAgentIds?: Set<string>,
+	sessionEnded?: boolean,
 ): boolean {
 	if (item.type === 'message') return true;
 
@@ -130,8 +131,16 @@ export function isStableContent(
 			return item.data.transcriptSummary !== undefined;
 		case 'PreToolUse':
 		case 'PermissionRequest':
-			// Stable once no longer pending (answered, passthrough, or blocked)
-			return item.data.status !== 'pending';
+			// Blocked (user rejected) → stable immediately
+			if (item.data.status === 'blocked') return true;
+			// Pending → not stable
+			if (item.data.status === 'pending') return false;
+			// Non-pending with postToolEvent merged → stable
+			if (item.data.postToolEvent !== undefined) return true;
+			// Session ended or no toolUseId (can never pair) → stable
+			if (sessionEnded || !item.data.toolUseId) return true;
+			// Still waiting for PostToolUse to arrive
+			return false;
 		case 'SubagentStart': {
 			// Stable when blocked or when a matching SubagentStop exists
 			if (item.data.status === 'blocked') return true;
@@ -311,8 +320,13 @@ export function useContentOrdering({
 		itemById.set(item.data.id, item);
 	}
 
+	// Detect if the session has ended (Stop or SessionEnd event present)
+	const sessionEnded = events.some(
+		e => e.hookName === 'Stop' || e.hookName === 'SessionEnd',
+	);
+
 	const isStable = (item: ContentItem) =>
-		isStableContent(item, stoppedAgentIds);
+		isStableContent(item, stoppedAgentIds, sessionEnded);
 
 	// Build append-only stableItems:
 	// 1. Keep existing stable items in their original order (skip removed ones)

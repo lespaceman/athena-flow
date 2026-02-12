@@ -39,4 +39,10 @@ export type HookEventDisplay = {
 	 * single unified subagent box instead of separate Start/Stop boxes.
 	 */
 	stopEvent?: HookEventDisplay;
+	/**
+	 * For PreToolUse/PermissionRequest events: holds the corresponding
+	 * PostToolUse or PostToolUseFailure event data when the tool completes.
+	 * Used to render tool call and result as a single unified entry.
+	 */
+	postToolEvent?: HookEventDisplay;
 };
