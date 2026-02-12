@@ -4,7 +4,7 @@ import {Box, Text} from 'ink';
 // Layout: [LEFT_MARGIN 3][GUTTER 2 ("⎿ ")][CONTENT...][RIGHT_PAD 1]
 const LEFT_MARGIN = 2;
 const GUTTER_WIDTH = 2;
-const RIGHT_PAD = 1;
+const RIGHT_PAD = 2;
 const TOTAL_OVERHEAD = LEFT_MARGIN + GUTTER_WIDTH + RIGHT_PAD;
 
 type Props = {
