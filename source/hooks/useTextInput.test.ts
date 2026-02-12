@@ -180,6 +180,32 @@ describe('textInputReducer', () => {
 		});
 	});
 
+	describe('newline-escape', () => {
+		it('replaces trailing backslash with newline', () => {
+			const state = {value: 'hello\\', cursorOffset: 6};
+			const result = textInputReducer(state, {type: 'newline-escape'});
+			expect(result).toEqual({value: 'hello\n', cursorOffset: 6});
+		});
+
+		it('works mid-string when cursor follows a backslash', () => {
+			const state = {value: 'ab\\cd', cursorOffset: 3};
+			const result = textInputReducer(state, {type: 'newline-escape'});
+			expect(result).toEqual({value: 'ab\ncd', cursorOffset: 3});
+		});
+
+		it('no-ops when cursor is at position 0', () => {
+			const state = {value: '\\hello', cursorOffset: 0};
+			const result = textInputReducer(state, {type: 'newline-escape'});
+			expect(result).toBe(state);
+		});
+
+		it('no-ops when character before cursor is not backslash', () => {
+			const state = {value: 'hello', cursorOffset: 5};
+			const result = textInputReducer(state, {type: 'newline-escape'});
+			expect(result).toBe(state);
+		});
+	});
+
 	describe('set-value', () => {
 		it('replaces value and moves cursor to end', () => {
 			const state = {value: 'old', cursorOffset: 1};
@@ -329,6 +355,72 @@ describe('useInput keyboard handler', () => {
 
 		// Result should be "ac" (b deleted), not "ab" (c deleted)
 		expect(lastFrame()).toContain('[ac]');
+	});
+
+	it('Delete key deletes character at cursor (forward delete)', async () => {
+		const {lastFrame, stdin} = render(
+			React.createElement(TextInputTestHarness),
+		);
+
+		// Type "abc" → cursor at 3
+		stdin.write('abc');
+		await delay(50);
+		expect(lastFrame()).toContain('[abc]');
+
+		// Move cursor left once → cursor at 2 (on 'c')
+		stdin.write('\x1b[D'); // left arrow
+		await delay(50);
+
+		// Press Delete key → should delete 'c' (at cursor), not 'b' (before cursor)
+		stdin.write('\x1b[3~'); // forward delete
+		await delay(50);
+
+		expect(lastFrame()).toContain('[ab]');
+	});
+
+	it('backslash + Enter inserts newline instead of submitting', async () => {
+		const onSubmit = vi.fn();
+		const {lastFrame, stdin} = render(
+			React.createElement(TextInputTestHarness, {onSubmit}),
+		);
+
+		stdin.write('hello\\');
+		await delay(50);
+		stdin.write('\r');
+		await delay(50);
+
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(lastFrame()).toContain('[hello\n]');
+	});
+
+	it('plain Enter still submits', async () => {
+		const onSubmit = vi.fn();
+		const {stdin} = render(
+			React.createElement(TextInputTestHarness, {onSubmit}),
+		);
+
+		stdin.write('hello');
+		await delay(50);
+		stdin.write('\r');
+		await delay(50);
+
+		expect(onSubmit).toHaveBeenCalledWith('hello');
+	});
+
+	it('double backslash + Enter inserts newline (shell-like behavior)', async () => {
+		const onSubmit = vi.fn();
+		const {lastFrame, stdin} = render(
+			React.createElement(TextInputTestHarness, {onSubmit}),
+		);
+
+		stdin.write('hello\\\\');
+		await delay(50);
+		stdin.write('\r');
+		await delay(50);
+
+		// The second \ is before cursor, so it gets replaced with \n
+		expect(onSubmit).not.toHaveBeenCalled();
+		expect(lastFrame()).toContain('[hello\\\n]');
 	});
 
 	it('ignored keys do not modify value', async () => {

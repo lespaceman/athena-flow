@@ -1,5 +1,5 @@
 import {useReducer, useCallback, useEffect, useRef} from 'react';
-import {useInput} from 'ink';
+import {useInput, useStdin} from 'ink';
 
 export type TextInputState = {
 	value: string;
@@ -16,6 +16,7 @@ export type TextInputAction =
 	| {type: 'move-end'}
 	| {type: 'delete-word-back'}
 	| {type: 'clear-line'}
+	| {type: 'newline-escape'}
 	| {type: 'set-value'; value: string};
 
 export function textInputReducer(
@@ -79,6 +80,13 @@ export function textInputReducer(
 			if (cursorOffset === 0) return state;
 			return {value: value.slice(cursorOffset), cursorOffset: 0};
 
+		case 'newline-escape': {
+			if (cursorOffset === 0 || value[cursorOffset - 1] !== '\\') return state;
+			const before = value.slice(0, cursorOffset - 1);
+			const after = value.slice(cursorOffset);
+			return {value: before + '\n' + after, cursorOffset};
+		}
+
 		case 'set-value':
 			if (action.value === value && cursorOffset === action.value.length)
 				return state;
@@ -136,13 +144,62 @@ export function useTextInput(
 		dispatch({type: 'set-value', value: newValue});
 	}, []);
 
+	// Ink's useInput cannot distinguish Backspace (\x7f) from forward-Delete
+	// (\x1b[3~) — both fire as key.delete.  We prepend a `readable` listener
+	// on stdin so we can peek at the raw data *before* Ink's App reads it.
+	// If the pending data is the forward-Delete sequence, we set a flag that
+	// the useInput handler checks to dispatch delete-forward instead of
+	// backspace.
+	const {stdin} = useStdin();
+	const isForwardDeleteRef = useRef(false);
+
+	useEffect(() => {
+		if (!isActive || !stdin) return;
+
+		const FORWARD_DELETE = '\x1b[3~';
+
+		const onReadable = () => {
+			// Peek at the pending data to detect the forward-Delete sequence.
+			// ink-testing-library exposes `.data` directly; for real Node.js
+			// readable streams we read() then unshift() to put data back
+			// before Ink's handler consumes it.
+			let raw: string | null = null;
+
+			if (typeof (stdin as any).data === 'string') {
+				// ink-testing-library path
+				raw = (stdin as any).data;
+			} else if (typeof stdin.read === 'function') {
+				// Real Node.js stream path: consume + put back
+				const chunk = stdin.read();
+				if (chunk !== null) {
+					raw = chunk.toString();
+					stdin.unshift(chunk);
+				}
+			}
+
+			if (raw === FORWARD_DELETE) {
+				isForwardDeleteRef.current = true;
+			}
+		};
+
+		stdin.prependListener('readable', onReadable);
+		return () => {
+			stdin.removeListener('readable', onReadable);
+		};
+	}, [isActive, stdin]);
+
 	useInput(
 		(input, key) => {
 			// Leave navigation/control keys for parent handlers
 			if (key.upArrow || key.downArrow || key.tab || key.escape) return;
 
 			if (key.return) {
-				onSubmitRef.current?.(stateRef.current.value);
+				const {value: val, cursorOffset: cur} = stateRef.current;
+				if (cur > 0 && val[cur - 1] === '\\') {
+					dispatch({type: 'newline-escape'});
+				} else {
+					onSubmitRef.current?.(val);
+				}
 				return;
 			}
 
@@ -175,10 +232,16 @@ export function useTextInput(
 			}
 
 			// Ink maps \x7f (Backspace on most terminals) to key.delete, not
-			// key.backspace.  Treat both as backspace so the physical Backspace
-			// key works everywhere.  Forward-delete is covered by Ctrl+D above.
+			// key.backspace.  The forward-Delete key (\x1b[3~) also fires as
+			// key.delete.  We use the isForwardDeleteRef flag (set by our
+			// raw stdin peek) to distinguish the two.
 			if (key.backspace || key.delete) {
-				dispatch({type: 'backspace'});
+				if (isForwardDeleteRef.current) {
+					isForwardDeleteRef.current = false;
+					dispatch({type: 'delete-forward'});
+				} else {
+					dispatch({type: 'backspace'});
+				}
 				return;
 			}
 

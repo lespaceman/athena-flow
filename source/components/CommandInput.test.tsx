@@ -8,9 +8,11 @@ import * as registryModule from '../commands/registry.js';
 const KEY = {
 	UP: '\x1b[A',
 	DOWN: '\x1b[B',
+	LEFT: '\x1b[D',
 	ESCAPE: '\x1b',
 	TAB: '\t',
 	ENTER: '\r',
+	DELETE: '\x1b[3~',
 } as const;
 
 const noop = () => {};
@@ -268,6 +270,19 @@ describe('CommandInput', () => {
 		expectLineContaining(frame(lastFrame), '/clear', '>');
 	});
 
+	it('Delete key removes character at cursor, not before it', async () => {
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={noop} />);
+
+		await typeAndWait(stdin, 'abc');
+		// Move cursor left → on 'c'
+		await typeAndWait(stdin, KEY.LEFT);
+		// Press Delete → should remove 'c' (at cursor), leaving "ab"
+		await typeAndWait(stdin, KEY.DELETE);
+
+		expect(frame(lastFrame)).toContain('ab');
+		expect(frame(lastFrame)).not.toContain('abc');
+	});
+
 	it('does not accept input when disabled', async () => {
 		const onSubmit = vi.fn();
 		const {lastFrame, stdin} = render(
@@ -325,6 +340,49 @@ describe('CommandInput', () => {
 		await typeAndWait(stdin, KEY.UP);
 		expect(onArrowUp).toHaveBeenCalledTimes(2);
 		expect(frame(lastFrame)).toContain('older message');
+	});
+
+	it('submits selected command on Enter when suggestions are showing', async () => {
+		const onSubmit = vi.fn();
+		const {stdin} = render(<CommandInput onSubmit={onSubmit} />);
+
+		// Type "/" to show suggestions, then navigate to "clear"
+		await typeAndWait(stdin, '/');
+		await typeAndWait(stdin, KEY.DOWN); // select "clear"
+		await typeAndWait(stdin, KEY.ENTER);
+
+		expect(onSubmit).toHaveBeenCalledWith('/clear');
+	});
+
+	it('submits selected command when partial prefix is typed', async () => {
+		const onSubmit = vi.fn();
+		const {stdin} = render(<CommandInput onSubmit={onSubmit} />);
+
+		// Type "/c" to filter, first match should be "clear"
+		await typeAndWait(stdin, '/c');
+		await typeAndWait(stdin, KEY.ENTER);
+
+		expect(onSubmit).toHaveBeenCalledWith('/clear');
+	});
+
+	it('backslash + Enter inserts newline instead of submitting', async () => {
+		const onSubmit = vi.fn();
+		const {lastFrame, stdin} = render(<CommandInput onSubmit={onSubmit} />);
+
+		await typeAndWait(stdin, 'hello\\');
+		await typeAndWait(stdin, KEY.ENTER);
+
+		expect(onSubmit).not.toHaveBeenCalled();
+		// Cursor should be on a new line after the newline character
+		const output = frame(lastFrame);
+		const lines = output.split('\n');
+		const helloLine = lines.find(l => l.includes('hello'));
+		expect(helloLine).toBeDefined();
+		// The cursor (inverse block) should NOT be on the same line as "hello"
+		// — it should be on the next line
+		const helloLineIndex = lines.indexOf(helloLine!);
+		const nextLine = lines[helloLineIndex + 1];
+		expect(nextLine).toBeDefined();
 	});
 
 	it('shows suggestions again when user types after history recall', async () => {
