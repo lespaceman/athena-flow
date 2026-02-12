@@ -32,6 +32,7 @@ export function createTokenAccumulator() {
 	let outputTokens = 0;
 	let cacheRead = 0;
 	let cacheWrite = 0;
+	let contextSize = 0; // Latest turn's prompt size
 
 	function processLine(line: string): void {
 		const trimmed = line.trim();
@@ -57,11 +58,17 @@ export function createTokenAccumulator() {
 				outputTokens = u.output_tokens ?? outputTokens;
 				cacheRead = u.cache_read_input_tokens ?? cacheRead;
 				cacheWrite = u.cache_creation_input_tokens ?? cacheWrite;
+				// Don't update contextSize from result — it's cumulative, not per-turn
 			} else {
 				inputTokens += u.input_tokens ?? 0;
 				outputTokens += u.output_tokens ?? 0;
 				cacheRead += u.cache_read_input_tokens ?? 0;
 				cacheWrite += u.cache_creation_input_tokens ?? 0;
+				// Track latest turn's prompt size (context window usage)
+				contextSize =
+					(u.input_tokens ?? 0) +
+					(u.cache_read_input_tokens ?? 0) +
+					(u.cache_creation_input_tokens ?? 0);
 			}
 		}
 	}
@@ -88,7 +95,7 @@ export function createTokenAccumulator() {
 
 		/** Current accumulated token usage, or null fields if nothing received yet. */
 		getUsage(): TokenUsage {
-			const total = inputTokens + outputTokens;
+			const total = inputTokens + outputTokens + cacheRead + cacheWrite;
 			if (total === 0) {
 				return {
 					input: null,
@@ -96,7 +103,7 @@ export function createTokenAccumulator() {
 					cacheRead: null,
 					cacheWrite: null,
 					total: null,
-					contextPercent: null,
+					contextSize: null,
 				};
 			}
 			return {
@@ -105,7 +112,7 @@ export function createTokenAccumulator() {
 				cacheRead,
 				cacheWrite,
 				total,
-				contextPercent: null, // Not available from stream-json
+				contextSize: contextSize > 0 ? contextSize : null,
 			};
 		},
 
@@ -116,6 +123,7 @@ export function createTokenAccumulator() {
 			outputTokens = 0;
 			cacheRead = 0;
 			cacheWrite = 0;
+			contextSize = 0;
 		},
 	};
 }

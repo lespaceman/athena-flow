@@ -43,7 +43,7 @@ describe('useHeaderMetrics', () => {
 				cacheRead: null,
 				cacheWrite: null,
 				total: null,
-				contextPercent: null,
+				contextSize: null,
 			},
 		});
 	});
@@ -210,6 +210,6 @@ describe('useHeaderMetrics', () => {
 		expect(result.current.tokens.input).toBeNull();
 		expect(result.current.tokens.output).toBeNull();
 		expect(result.current.tokens.total).toBeNull();
-		expect(result.current.tokens.contextPercent).toBeNull();
+		expect(result.current.tokens.contextSize).toBeNull();
 	});
 });

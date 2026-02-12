@@ -32,12 +32,12 @@ describe('HookEvent', () => {
 		status: 'pending',
 	};
 
-	it('renders pending event with yellow open circle', () => {
+	it('renders pending event with yellow bullet', () => {
 		const {lastFrame} = render(<HookEvent event={baseEvent} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Bash');
-		expect(frame).toContain('\u25cb'); // ○ symbol for pending
+		expect(frame).toContain('\u25cf'); // ● unified bullet for all states
 	});
 
 	it('renders passthrough event with green filled circle', () => {
@@ -52,7 +52,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('\u25cf'); // ● symbol for passthrough
 	});
 
-	it('renders blocked event with red X', () => {
+	it('renders blocked event with red bullet and User rejected', () => {
 		const event: HookEventDisplay = {
 			...baseEvent,
 			status: 'blocked',
@@ -61,11 +61,11 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u2717'); // ✗ symbol for blocked
-		expect(frame).toContain('Access denied');
+		expect(frame).toContain('\u25cf'); // ● unified bullet
+		expect(frame).toContain('User rejected');
 	});
 
-	it('renders json_output event with arrow', () => {
+	it('renders json_output event with unified bullet', () => {
 		const event: HookEventDisplay = {
 			...baseEvent,
 			status: 'json_output',
@@ -74,7 +74,7 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u2192'); // → symbol for json_output
+		expect(frame).toContain('\u25cf'); // ● unified bullet for all states
 	});
 
 	it('renders PreToolUse header with inline params', () => {

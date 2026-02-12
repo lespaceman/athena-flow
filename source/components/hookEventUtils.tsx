@@ -1,6 +1,6 @@
 /**
  * Shared constants, formatting functions, and sub-components used across
- * hook event renderers (ToolCallEvent, SubagentEvent, etc.).
+ * hook event renderers (UnifiedToolCallEvent, SubagentEvent, etc.).
  */
 
 import React from 'react';
@@ -123,10 +123,33 @@ export function formatToolResponse(response: unknown): string {
 }
 
 /**
+ * Bash tool response shape from Claude Code.
+ * The Bash tool returns a structured object rather than a plain string.
+ */
+type BashToolResponse = {
+	stdout: string;
+	stderr: string;
+	interrupted: boolean;
+	isImage: boolean;
+	noOutputExpected: boolean;
+};
+
+function isBashToolResponse(response: unknown): response is BashToolResponse {
+	return (
+		typeof response === 'object' &&
+		response !== null &&
+		typeof (response as Record<string, unknown>)['stdout'] === 'string'
+	);
+}
+
+/**
  * Extract the display text from a PostToolUse or PostToolUseFailure payload.
  *
  * PostToolUse has `tool_response` (varies by tool).
  * PostToolUseFailure has `error` (string) per the hooks reference.
+ *
+ * For the Bash tool, extracts stdout/stderr from the structured response
+ * rather than dumping all metadata fields.
  */
 export function getPostToolText(
 	payload: PostToolUseEvent | PostToolUseFailureEvent,
@@ -134,6 +157,19 @@ export function getPostToolText(
 	if (isPostToolUseFailureEvent(payload)) {
 		return payload.error;
 	}
+
+	// Bash tool returns {stdout, stderr, interrupted, ...} — extract text content
+	if (
+		payload.tool_name === 'Bash' &&
+		isBashToolResponse(payload.tool_response)
+	) {
+		const {stdout, stderr} = payload.tool_response;
+		const out = stdout.trim();
+		const err = stderr.trim();
+		if (err) return out ? `${out}\n${err}` : err;
+		return out;
+	}
+
 	return formatToolResponse(payload.tool_response);
 }
 

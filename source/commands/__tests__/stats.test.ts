@@ -9,7 +9,7 @@ const NULL_TOKENS = {
 	cacheRead: null,
 	cacheWrite: null,
 	total: null,
-	contextPercent: null,
+	contextSize: null,
 };
 
 function makeSessionStats(): SessionStatsSnapshot {
@@ -37,7 +37,7 @@ function makeSessionStats(): SessionStatsSnapshot {
 			cacheRead: null,
 			cacheWrite: null,
 			total: 15000,
-			contextPercent: null,
+			contextSize: null,
 		},
 		elapsed: 120,
 	};

@@ -8,7 +8,7 @@ const NULL_TOKENS = {
 	cacheRead: null,
 	cacheWrite: null,
 	total: null,
-	contextPercent: null,
+	contextSize: null,
 };
 
 function makeUIContext(

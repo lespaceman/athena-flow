@@ -42,7 +42,7 @@ const NULL_TOKENS: TokenUsage = {
 	cacheRead: null,
 	cacheWrite: null,
 	total: null,
-	contextPercent: null,
+	contextSize: null,
 };
 
 /**

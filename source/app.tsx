@@ -432,7 +432,7 @@ function AppContent({
 				spinnerFrame={spinnerFrame}
 				modelName={metrics.modelName || modelName}
 				toolCallCount={metrics.totalToolCallCount}
-				tokenTotal={tokenUsage.total}
+				contextSize={tokenUsage.contextSize}
 				projectDir={projectDir}
 			/>
 		</Box>

@@ -121,6 +121,7 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 export function isStableContent(
 	item: ContentItem,
 	stoppedAgentIds?: Set<string>,
+	sessionEnded?: boolean,
 ): boolean {
 	if (item.type === 'message') return true;
 
@@ -130,8 +131,16 @@ export function isStableContent(
 			return item.data.transcriptSummary !== undefined;
 		case 'PreToolUse':
 		case 'PermissionRequest':
-			// Stable once no longer pending (answered, passthrough, or blocked)
-			return item.data.status !== 'pending';
+			// Blocked (user rejected) → stable immediately
+			if (item.data.status === 'blocked') return true;
+			// Pending → not stable
+			if (item.data.status === 'pending') return false;
+			// Non-pending with postToolEvent merged → stable
+			if (item.data.postToolEvent !== undefined) return true;
+			// Session ended or no toolUseId (can never pair) → stable
+			if (sessionEnded || !item.data.toolUseId) return true;
+			// Still waiting for PostToolUse to arrive
+			return false;
 		case 'SubagentStart': {
 			// Stable when blocked or when a matching SubagentStop exists
 			if (item.data.status === 'blocked') return true;
@@ -205,11 +214,50 @@ export function useContentOrdering({
 		children.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 	}
 
+	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure by toolUseId
+	const preToolUseIds = new Set<string>();
+	const postToolByUseId = new Map<string, HookEventDisplay>();
+	for (const e of events) {
+		if (
+			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+			e.toolUseId
+		) {
+			preToolUseIds.add(e.toolUseId);
+		}
+		if (
+			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+			e.toolUseId &&
+			preToolUseIds.has(e.toolUseId)
+		) {
+			postToolByUseId.set(e.toolUseId, e);
+		}
+	}
+
 	// Interleave messages and hook events by timestamp.
 	// See shouldExcludeFromMainStream for the list of excluded event types.
+	// Also exclude PostToolUse/PostToolUseFailure when paired with a PreToolUse.
 	const hookItems: ContentItem[] = events
-		.filter(e => !shouldExcludeFromMainStream(e))
+		.filter(e => {
+			if (shouldExcludeFromMainStream(e)) return false;
+			if (
+				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+				e.toolUseId &&
+				preToolUseIds.has(e.toolUseId)
+			)
+				return false;
+			return true;
+		})
 		.map(e => ({type: 'hook' as const, data: e}));
+
+	// Merge postToolEvent onto matching PreToolUse/PermissionRequest items
+	for (const item of hookItems) {
+		if (item.type === 'hook' && item.data.toolUseId) {
+			const postEvent = postToolByUseId.get(item.data.toolUseId);
+			if (postEvent) {
+				item.data = {...item.data, postToolEvent: postEvent};
+			}
+		}
+	}
 
 	// Extract the latest TodoWrite event for sticky bottom rendering (legacy).
 	const todoWriteEvents = events.filter(
@@ -271,8 +319,13 @@ export function useContentOrdering({
 		itemById.set(item.data.id, item);
 	}
 
+	// Detect if the session has ended (Stop or SessionEnd event present)
+	const sessionEnded = events.some(
+		e => e.hookName === 'Stop' || e.hookName === 'SessionEnd',
+	);
+
 	const isStable = (item: ContentItem) =>
-		isStableContent(item, stoppedAgentIds);
+		isStableContent(item, stoppedAgentIds, sessionEnded);
 
 	// Build append-only stableItems:
 	// 1. Keep existing stable items in their original order (skip removed ones)

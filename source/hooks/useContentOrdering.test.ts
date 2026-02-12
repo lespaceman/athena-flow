@@ -45,6 +45,8 @@ function makeEvent(
 		status: overrides.status ?? 'pending',
 		transcriptSummary: overrides.transcriptSummary,
 		parentSubagentId: overrides.parentSubagentId,
+		toolUseId: overrides.toolUseId,
+		postToolEvent: overrides.postToolEvent,
 	};
 }
 
@@ -97,13 +99,17 @@ describe('isStableContent', () => {
 			expect(isStableContent(item)).toBe(false);
 		});
 
-		it('AskUserQuestion is stable when passthrough', () => {
+		it('AskUserQuestion is stable when passthrough with postToolEvent', () => {
 			const item = {
 				type: 'hook' as const,
 				data: makeEvent({
 					hookName: 'PreToolUse',
 					toolName: 'AskUserQuestion',
 					status: 'passthrough',
+					postToolEvent: makeEvent({
+						hookName: 'PostToolUse',
+						status: 'passthrough',
+					}),
 				}),
 			};
 			expect(isStableContent(item)).toBe(true);
@@ -133,7 +139,37 @@ describe('isStableContent', () => {
 			expect(isStableContent(item)).toBe(true);
 		});
 
-		it('stable when passthrough', () => {
+		it('stable when passthrough with postToolEvent', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					status: 'passthrough',
+					postToolEvent: makeEvent({
+						hookName: 'PostToolUse',
+						status: 'passthrough',
+					}),
+				}),
+			};
+			expect(isStableContent(item)).toBe(true);
+		});
+
+		it('NOT stable when passthrough without postToolEvent (has toolUseId)', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-waiting',
+					status: 'passthrough',
+				}),
+			};
+			// Still waiting for PostToolUse to arrive
+			expect(isStableContent(item)).toBe(false);
+		});
+
+		it('stable when passthrough without postToolEvent and no toolUseId', () => {
 			const item = {
 				type: 'hook' as const,
 				data: makeEvent({
@@ -142,6 +178,7 @@ describe('isStableContent', () => {
 					status: 'passthrough',
 				}),
 			};
+			// No toolUseId means it can never be paired — stable
 			expect(isStableContent(item)).toBe(true);
 		});
 	});
@@ -1248,6 +1285,135 @@ describe('useContentOrdering', () => {
 		});
 	});
 
+	describe('tool event pairing', () => {
+		it('merges PostToolUse onto matching PreToolUse by toolUseId', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-1',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-123',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+					},
+				}),
+				makeEvent({
+					id: 'post-1',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-123',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_response: 'hi',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			// PostToolUse should NOT appear as its own item
+			expect(allItems.filter(i => i.data.id === 'post-1')).toHaveLength(0);
+
+			// PreToolUse should have postToolEvent merged
+			const preItem = allItems.find(i => i.data.id === 'pre-1');
+			expect(preItem).toBeDefined();
+			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
+				'post-1',
+			);
+		});
+
+		it('merges PostToolUseFailure onto matching PreToolUse by toolUseId', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-2',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-456',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'bad-cmd'},
+					},
+				}),
+				makeEvent({
+					id: 'post-2',
+					hookName: 'PostToolUseFailure',
+					toolName: 'Bash',
+					toolUseId: 'tu-456',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						hook_event_name: 'PostToolUseFailure',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'bad-cmd'},
+						error: 'command not found',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			expect(allItems.filter(i => i.data.id === 'post-2')).toHaveLength(0);
+
+			const preItem = allItems.find(i => i.data.id === 'pre-2');
+			expect(preItem).toBeDefined();
+			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
+				'post-2',
+			);
+		});
+
+		it('renders PostToolUse standalone when no matching PreToolUse', () => {
+			const events = [
+				makeEvent({
+					id: 'orphan-post',
+					hookName: 'PostToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-orphan',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'PostToolUse',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hi'},
+						tool_response: 'hi',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+			const allItems = [...stableItems, ...dynamicItems];
+
+			expect(allItems.filter(i => i.data.id === 'orphan-post')).toHaveLength(1);
+		});
+	});
+
 	describe('append-only stableItems', () => {
 		it('new stable items are appended at end, never inserted into middle', () => {
 			const events = [
@@ -1285,6 +1451,59 @@ describe('useContentOrdering', () => {
 			expect(result.current.stableItems[1]!.data.id).toBe('e3');
 			// New item appended at end
 			expect(result.current.stableItems[2]!.data.id).toBe('mid');
+		});
+	});
+
+	describe('isStableContent with paired tool events', () => {
+		it('PreToolUse with postToolEvent is stable', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({
+					hookName: 'PreToolUse',
+					status: 'passthrough',
+					postToolEvent: makeEvent({
+						hookName: 'PostToolUse',
+						status: 'passthrough',
+					}),
+				}),
+			};
+			expect(isStableContent(item)).toBe(true);
+		});
+
+		it('passthrough PreToolUse with toolUseId but no postToolEvent is NOT stable (waiting for result)', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({
+					hookName: 'PreToolUse',
+					status: 'passthrough',
+					toolUseId: 'tu-waiting',
+				}),
+			};
+			expect(isStableContent(item)).toBe(false);
+		});
+
+		it('passthrough PreToolUse without toolUseId is stable (can never pair)', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({hookName: 'PreToolUse', status: 'passthrough'}),
+			};
+			expect(isStableContent(item)).toBe(true);
+		});
+
+		it('blocked PreToolUse (user rejected) is stable without postToolEvent', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({hookName: 'PreToolUse', status: 'blocked'}),
+			};
+			expect(isStableContent(item)).toBe(true);
+		});
+
+		it('pending PreToolUse is not stable', () => {
+			const item = {
+				type: 'hook' as const,
+				data: makeEvent({hookName: 'PreToolUse', status: 'pending'}),
+			};
+			expect(isStableContent(item)).toBe(false);
 		});
 	});
 });

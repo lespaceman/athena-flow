@@ -11,8 +11,7 @@ import {
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
-import ToolCallEvent from './ToolCallEvent.js';
-import ToolResultEvent from './ToolResultEvent.js';
+import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import SubagentEvent from './SubagentEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
 import GenericHookEvent from './GenericHookEvent.js';
@@ -54,12 +53,15 @@ export default function HookEvent({
 		return null;
 	}
 
-	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
-		return <ToolCallEvent event={event} verbose={verbose} />;
-	}
-
-	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
-		return <ToolResultEvent event={event} verbose={verbose} />;
+	// Unified tool call: PreToolUse/PermissionRequest (with paired post-tool result)
+	// or orphaned PostToolUse/PostToolUseFailure (no matching PreToolUse)
+	if (
+		isPreToolUseEvent(payload) ||
+		isPermissionRequestEvent(payload) ||
+		isPostToolUseEvent(payload) ||
+		isPostToolUseFailureEvent(payload)
+	) {
+		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
 	}
 
 	if (isSubagentStartEvent(payload)) {
