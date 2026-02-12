@@ -9,12 +9,14 @@ type Props = {
 	toolName: string;
 	toolInput: Record<string, unknown>;
 	toolResponse: unknown;
+	availableWidth?: number;
 };
 
 export default function ToolOutputRenderer({
 	toolName,
 	toolInput,
 	toolResponse,
+	availableWidth,
 }: Props): React.ReactNode {
 	const output = extractToolOutput(toolName, toolInput, toolResponse);
 
@@ -25,13 +27,33 @@ export default function ToolOutputRenderer({
 					content={output.content}
 					language={output.language}
 					maxLines={output.maxLines}
+					availableWidth={availableWidth}
 				/>
 			);
 		case 'diff':
-			return <DiffBlock oldText={output.oldText} newText={output.newText} />;
+			return (
+				<DiffBlock
+					oldText={output.oldText}
+					newText={output.newText}
+					maxLines={output.maxLines}
+					availableWidth={availableWidth}
+				/>
+			);
 		case 'list':
-			return <StructuredList items={output.items} maxItems={output.maxItems} />;
+			return (
+				<StructuredList
+					items={output.items}
+					maxItems={output.maxItems}
+					availableWidth={availableWidth}
+				/>
+			);
 		case 'text':
-			return <MarkdownText content={output.content} />;
+			return (
+				<MarkdownText
+					content={output.content}
+					maxLines={output.maxLines}
+					availableWidth={availableWidth}
+				/>
+			);
 	}
 }

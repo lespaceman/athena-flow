@@ -5,6 +5,7 @@ import {type ListItem} from '../../types/toolOutput.js';
 type Props = {
 	items: ListItem[];
 	maxItems?: number;
+	availableWidth?: number;
 };
 
 export default function StructuredList({

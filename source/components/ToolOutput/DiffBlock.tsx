@@ -5,6 +5,8 @@ import {useTheme} from '../../theme/index.js';
 type Props = {
 	oldText: string;
 	newText: string;
+	maxLines?: number;
+	availableWidth?: number;
 };
 
 export default function DiffBlock({oldText, newText}: Props): React.ReactNode {

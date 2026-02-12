@@ -7,6 +7,8 @@ import chalk from 'chalk';
 
 type Props = {
 	content: string;
+	maxLines?: number;
+	availableWidth?: number;
 };
 
 const TABLE_CHARS = {
