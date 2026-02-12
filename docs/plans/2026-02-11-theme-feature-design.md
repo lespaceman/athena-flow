@@ -33,6 +33,10 @@ export type Theme = {
 		medium: string;
 		high: string;
 	};
+	userMessage: {
+		text: string; // user message foreground
+		background: string; // user message background
+	};
 };
 ```
 

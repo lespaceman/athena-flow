@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type SessionEntry} from '../utils/sessionIndex.js';
 import {formatRelativeTime} from '../utils/formatters.js';
+import {useTheme} from '../theme/index.js';
 
 type Props = {
 	sessions: SessionEntry[];
@@ -12,6 +13,7 @@ type Props = {
 const VISIBLE_COUNT = 15;
 
 export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
+	const theme = useTheme();
 	const [focusIndex, setFocusIndex] = useState(0);
 
 	useInput((_input, key) => {
@@ -49,7 +51,7 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 	return (
 		<Box flexDirection="column" padding={1}>
 			<Box marginBottom={1}>
-				<Text bold color="cyan">
+				<Text bold color={theme.accent}>
 					Sessions
 				</Text>
 			</Box>
