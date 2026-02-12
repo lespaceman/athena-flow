@@ -1,5 +1,5 @@
 import React, {useCallback, useMemo} from 'react';
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useInput, useStdout} from 'ink';
 import {type HookEventDisplay} from '../types/hooks/display.js';
 import {isToolEvent} from '../types/hooks/events.js';
 import {type PermissionDecision} from '../types/server.js';
@@ -7,13 +7,11 @@ import {parseToolName} from '../utils/toolNameParser.js';
 import {getRiskTier, RISK_TIER_CONFIG} from '../services/riskTier.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 import TypeToConfirm from './TypeToConfirm.js';
-import {useTheme} from '../theme/index.js';
 
 type Props = {
 	request: HookEventDisplay;
 	queuedCount: number;
 	onDecision: (decision: PermissionDecision) => void;
-	agentChain?: string[];
 };
 
 export default function PermissionDialog({
@@ -21,29 +19,17 @@ export default function PermissionDialog({
 	queuedCount,
 	onDecision,
 }: Props) {
-	const theme = useTheme();
-
-	// Get the raw tool name
 	const rawToolName = request.toolName ?? 'Unknown';
+	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
 
-	// Parse tool name for display
-	const parsed = parseToolName(rawToolName);
-	const {displayName, serverLabel} = parsed;
+	const toolInput = isToolEvent(request.payload)
+		? request.payload.tool_input
+		: undefined;
 
-	// Extract tool input from payload if it's a tool event
-	let toolInput: Record<string, unknown> | undefined;
-	if (isToolEvent(request.payload)) {
-		toolInput = request.payload.tool_input;
-	}
-
-	// Get risk tier (pass toolInput for Bash command-level classification)
 	const tier = getRiskTier(rawToolName, toolInput);
-	const tierConfig = RISK_TIER_CONFIG[tier];
+	const requiresConfirmation =
+		RISK_TIER_CONFIG[tier].requiresConfirmation === true;
 
-	// Check if type-to-confirm is required
-	const requiresConfirmation = tierConfig.requiresConfirmation === true;
-
-	// Build options for the select menu
 	const options: OptionItem[] = useMemo(() => {
 		const items: OptionItem[] = [
 			{label: 'Allow', value: 'allow'},
@@ -51,7 +37,7 @@ export default function PermissionDialog({
 			{label: `Always allow "${displayName}"`, value: 'always-allow'},
 		];
 
-		if (parsed.isMcp && serverLabel) {
+		if (isMcp && serverLabel) {
 			items.push({
 				label: `Always allow all from ${serverLabel}`,
 				value: 'always-allow-server',
@@ -59,9 +45,8 @@ export default function PermissionDialog({
 		}
 
 		return items;
-	}, [displayName, serverLabel, parsed.isMcp]);
+	}, [displayName, serverLabel, isMcp]);
 
-	// Handle type-to-confirm callbacks
 	const handleConfirm = useCallback(() => {
 		onDecision('allow');
 	}, [onDecision]);
@@ -70,7 +55,6 @@ export default function PermissionDialog({
 		onDecision('deny');
 	}, [onDecision]);
 
-	// Handle option selection
 	const handleSelect = useCallback(
 		(value: string) => {
 			onDecision(value as PermissionDecision);
@@ -78,7 +62,6 @@ export default function PermissionDialog({
 		[onDecision],
 	);
 
-	// Escape to deny (standard terminal convention)
 	useInput(
 		(_input, key) => {
 			if (key.escape) {
@@ -88,43 +71,52 @@ export default function PermissionDialog({
 		{isActive: !requiresConfirmation},
 	);
 
-	// Build title: "Allow {displayName}?" or "Allow {displayName} ({serverLabel})?"
 	const title = serverLabel
-		? `Allow ${displayName} (${serverLabel})?`
-		: `Allow ${displayName}?`;
+		? `Allow "${displayName}" (${serverLabel})?`
+		: `Allow "${displayName}"?`;
+
+	const {stdout} = useStdout();
+	const columns = stdout?.columns ?? 80;
 
 	return (
-		<Box
-			flexDirection="column"
-			borderStyle="round"
-			borderColor={tierConfig.color(theme)}
-			paddingX={1}
-		>
-			{/* Title line with optional queue count */}
-			<Box justifyContent="space-between">
-				<Text bold>{title}</Text>
-				{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
-			</Box>
+		<Box flexDirection="column">
+			<Text dimColor>{'╌'.repeat(columns)}</Text>
 
-			{/* Action area */}
-			<Box marginTop={1}>
-				{requiresConfirmation ? (
-					<TypeToConfirm
-						confirmText={displayName}
-						onConfirm={handleConfirm}
-						onCancel={handleCancel}
-					/>
-				) : (
-					<OptionList options={options} onSelect={handleSelect} />
+			<Box flexDirection="column" paddingX={1}>
+				<Box justifyContent="space-between">
+					<Text bold>{title}</Text>
+					{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
+				</Box>
+
+				<Box marginTop={1}>
+					{requiresConfirmation ? (
+						<TypeToConfirm
+							confirmText={displayName}
+							onConfirm={handleConfirm}
+							onCancel={handleCancel}
+						/>
+					) : (
+						<OptionList options={options} onSelect={handleSelect} />
+					)}
+				</Box>
+
+				{!requiresConfirmation && (
+					<Box marginTop={1} gap={2}>
+						<Text>
+							<Text dimColor>↑/↓</Text> Navigate
+						</Text>
+						<Text>
+							<Text dimColor>1-{options.length}</Text> Jump
+						</Text>
+						<Text>
+							<Text dimColor>Enter</Text> Select
+						</Text>
+						<Text>
+							<Text dimColor>Esc</Text> Cancel
+						</Text>
+					</Box>
 				)}
 			</Box>
-
-			{/* Footer hint (non-destructive only) */}
-			{!requiresConfirmation && (
-				<Box marginTop={1}>
-					<Text dimColor>↑↓ Navigate Enter Select Esc Deny</Text>
-				</Box>
-			)}
 		</Box>
 	);
 }

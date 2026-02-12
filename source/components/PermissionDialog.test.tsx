@@ -28,7 +28,7 @@ function makePermissionEvent(
 
 describe('PermissionDialog', () => {
 	describe('title', () => {
-		it('shows "Allow {tool}?" for built-in tools', () => {
+		it('shows "Allow "{tool}"?" for built-in tools', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -38,10 +38,10 @@ describe('PermissionDialog', () => {
 				/>,
 			);
 
-			expect(lastFrame()).toContain('Allow Edit?');
+			expect(lastFrame()).toContain('Allow "Edit"?');
 		});
 
-		it('shows "Allow {tool} ({server})?" for MCP tools', () => {
+		it('shows "Allow "{tool}" ({server})?" for MCP tools', () => {
 			const event = makePermissionEvent('mcp__agent-web-interface__click', {
 				eid: 'btn-1',
 			});
@@ -54,7 +54,7 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Allow click (agent-web-interface (MCP))?');
+			expect(frame).toContain('Allow "click" (agent-web-interface (MCP))?');
 		});
 	});
 
@@ -128,7 +128,9 @@ describe('PermissionDialog', () => {
 			);
 
 			expect(lastFrame()).toContain('Navigate');
-			expect(lastFrame()).toContain('Esc Deny');
+			expect(lastFrame()).toContain('Jump');
+			expect(lastFrame()).toContain('Select');
+			expect(lastFrame()).toContain('Cancel');
 		});
 
 		it('does not show "Show details" option', () => {
