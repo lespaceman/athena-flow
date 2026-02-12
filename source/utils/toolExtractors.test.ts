@@ -286,6 +286,47 @@ describe('extractToolOutput', () => {
 		});
 	});
 
+	describe('NotebookEdit', () => {
+		it('shows new source as code block', () => {
+			const result = extractToolOutput(
+				'NotebookEdit',
+				{
+					notebook_path: 'analysis.ipynb',
+					new_source: 'import pandas as pd',
+					edit_mode: 'replace',
+				},
+				'Cell updated',
+			);
+			expect(result.type).toBe('code');
+			if (result.type === 'code') {
+				expect(result.content).toBe('import pandas as pd');
+			}
+		});
+
+		it('falls back to text when no source', () => {
+			const result = extractToolOutput(
+				'NotebookEdit',
+				{notebook_path: 'nb.ipynb', edit_mode: 'delete', new_source: ''},
+				'Cell deleted',
+			);
+			expect(result).toEqual({
+				type: 'text',
+				content: 'delete cell in nb.ipynb',
+			});
+		});
+	});
+
+	describe('Task', () => {
+		it('extracts text from response', () => {
+			const result = extractToolOutput(
+				'Task',
+				{description: 'search code'},
+				'Found 3 results',
+			);
+			expect(result).toEqual({type: 'text', content: 'Found 3 results'});
+		});
+	});
+
 	describe('unknown tool', () => {
 		it('falls back to text', () => {
 			const result = extractToolOutput('SomeMCPTool', {}, 'response text');
@@ -295,6 +336,32 @@ describe('extractToolOutput', () => {
 		it('handles null response', () => {
 			const result = extractToolOutput('Unknown', {}, null);
 			expect(result).toEqual({type: 'text', content: ''});
+		});
+
+		it('extracts content field from MCP-style wrapped response', () => {
+			const result = extractToolOutput(
+				'mcp__myserver__tool',
+				{},
+				{content: 'useful output'},
+			);
+			expect(result).toEqual({type: 'text', content: 'useful output'});
+		});
+
+		it('extracts result field from structured response', () => {
+			const result = extractToolOutput(
+				'mcp__srv__query',
+				{},
+				{result: 'query output', durationMs: 42},
+			);
+			expect(result).toEqual({type: 'text', content: 'query output'});
+		});
+
+		it('extracts text from content-block array', () => {
+			const result = extractToolOutput('mcp__srv__tool', {}, [
+				{type: 'text', text: 'line one'},
+				{type: 'text', text: 'line two'},
+			]);
+			expect(result).toEqual({type: 'text', content: 'line one\nline two'});
 		});
 	});
 });

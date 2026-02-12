@@ -49,20 +49,56 @@ function detectLanguage(filePath: unknown): string | undefined {
 
 // ── Content extraction helpers ──────────────────────────────────────
 
-function extractTextContent(response: unknown): string {
-	if (response == null) return '';
-	if (typeof response === 'string') return response;
-	return formatToolResponse(response);
-}
-
 /**
- * Safely access a nested property on an unknown value.
+ * Safely access a property on an unknown value.
  */
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {
 		return (obj as Record<string, unknown>)[key];
 	}
 	return undefined;
+}
+
+function extractTextContent(response: unknown): string {
+	if (response == null) return '';
+	if (typeof response === 'string') return response;
+
+	// Content-block array: extract text fields
+	if (Array.isArray(response)) {
+		const parts: string[] = [];
+		for (const block of response) {
+			if (typeof block === 'string') {
+				parts.push(block);
+			} else if (typeof block === 'object' && block !== null) {
+				const text = prop(block, 'text');
+				if (typeof text === 'string') parts.push(text);
+			}
+		}
+		if (parts.length > 0) return parts.join('\n').trim();
+	}
+
+	if (typeof response === 'object' && response !== null) {
+		// Single text content block
+		const text = prop(response, 'text');
+		if (typeof text === 'string' && prop(response, 'type') === 'text') {
+			return text.trim();
+		}
+
+		// Wrapped content (common in MCP tools)
+		const content = prop(response, 'content');
+		if (content != null) return extractTextContent(content);
+
+		// Try common meaningful fields before dumping everything
+		const result = prop(response, 'result');
+		if (typeof result === 'string') return result;
+		const message = prop(response, 'message');
+		if (typeof message === 'string') return message;
+		const output = prop(response, 'output');
+		if (typeof output === 'string') return output;
+	}
+
+	// Last resort: compact JSON (rendered inside a code block by the caller)
+	return formatToolResponse(response);
 }
 
 // ── Per-tool extractors ─────────────────────────────────────────────
@@ -245,14 +281,16 @@ function extractWebSearch(
 						}
 					}
 					// Direct {title, url} object
-					else if (typeof prop(entry, 'title') === 'string') {
-						items.push({
-							primary: String(prop(entry, 'title')),
-							secondary:
-								typeof prop(entry, 'url') === 'string'
-									? String(prop(entry, 'url'))
-									: undefined,
-						});
+					else {
+						const title = prop(entry, 'title');
+						const url = prop(entry, 'url');
+						if (typeof title === 'string') {
+							items.push({
+								primary: title,
+								secondary:
+									typeof url === 'string' ? url : undefined,
+							});
+						}
 					}
 				}
 			}
@@ -266,6 +304,37 @@ function extractWebSearch(
 	return {type: 'text', content: extractTextContent(response)};
 }
 
+function extractNotebookEdit(
+	input: Record<string, unknown>,
+	_response: unknown,
+): RenderableOutput {
+	const path =
+		typeof input['notebook_path'] === 'string' ? input['notebook_path'] : '';
+	const mode =
+		typeof input['edit_mode'] === 'string' ? input['edit_mode'] : 'replace';
+	const source =
+		typeof input['new_source'] === 'string' ? input['new_source'] : '';
+	if (!source) return {type: 'text', content: `${mode} cell in ${path}`};
+	return {
+		type: 'code',
+		content: source,
+		language: detectLanguage(path),
+		maxLines: 20,
+	};
+}
+
+function extractTask(
+	input: Record<string, unknown>,
+	response: unknown,
+): RenderableOutput {
+	// Task tool response is typically a text summary from the subagent
+	const text = extractTextContent(response);
+	if (text) return {type: 'text', content: text};
+	const desc =
+		typeof input['description'] === 'string' ? input['description'] : '';
+	return {type: 'text', content: desc || 'Task completed'};
+}
+
 // ── Registry ────────────────────────────────────────────────────────
 
 const EXTRACTORS: Record<string, Extractor> = {
@@ -277,6 +346,8 @@ const EXTRACTORS: Record<string, Extractor> = {
 	Glob: extractGlob,
 	WebFetch: extractWebFetch,
 	WebSearch: extractWebSearch,
+	NotebookEdit: extractNotebookEdit,
+	Task: extractTask,
 };
 
 /**
