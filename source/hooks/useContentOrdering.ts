@@ -214,9 +214,17 @@ export function useContentOrdering({
 		children.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 	}
 
-	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure by toolUseId
+	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure.
+	// Primary: pair by toolUseId (exact match).
+	// Fallback: when PostToolUse lacks toolUseId (Claude Code bug — see
+	// https://github.com/anthropics/claude-code/issues/13241), pair by tool_name
+	// in temporal order: each unmatched PostToolUse pairs with the earliest
+	// unmatched PreToolUse of the same tool_name that precedes it in time.
 	const preToolUseIds = new Set<string>();
 	const postToolByUseId = new Map<string, HookEventDisplay>();
+	const pairedPreIds = new Set<string>();
+
+	// Pass 1: exact toolUseId pairing
 	for (const e of events) {
 		if (
 			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
@@ -230,8 +238,41 @@ export function useContentOrdering({
 			preToolUseIds.has(e.toolUseId)
 		) {
 			postToolByUseId.set(e.toolUseId, e);
+			pairedPreIds.add(e.toolUseId);
 		}
 	}
+
+	// Pass 2: temporal fallback for PostToolUse events missing toolUseId.
+	// For each unmatched post, find the earliest unmatched pre with the same
+	// tool_name that precedes it in time.
+	const unmatchedPres = events.filter(
+		e =>
+			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+			e.toolUseId &&
+			!pairedPreIds.has(e.toolUseId),
+	);
+	const unmatchedPosts = events.filter(
+		e =>
+			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+			!e.toolUseId,
+	);
+	const consumedPreIds = new Set<string>();
+	for (const post of unmatchedPosts) {
+		const match = unmatchedPres.find(
+			pre =>
+				!consumedPreIds.has(pre.toolUseId!) &&
+				pre.toolName === post.toolName &&
+				pre.timestamp.getTime() <= post.timestamp.getTime(),
+		);
+		if (match) {
+			postToolByUseId.set(match.toolUseId!, post);
+			pairedPreIds.add(match.toolUseId!);
+			consumedPreIds.add(match.toolUseId!);
+		}
+	}
+
+	// Build set of paired PostToolUse event IDs for filtering
+	const pairedPostIds = new Set([...postToolByUseId.values()].map(e => e.id));
 
 	// Interleave messages and hook events by timestamp.
 	// See shouldExcludeFromMainStream for the list of excluded event types.
@@ -241,8 +282,8 @@ export function useContentOrdering({
 			if (shouldExcludeFromMainStream(e)) return false;
 			if (
 				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-				e.toolUseId &&
-				preToolUseIds.has(e.toolUseId)
+				(pairedPostIds.has(e.id) ||
+					(e.toolUseId && preToolUseIds.has(e.toolUseId)))
 			)
 				return false;
 			return true;
@@ -319,10 +360,20 @@ export function useContentOrdering({
 		itemById.set(item.data.id, item);
 	}
 
-	// Detect if the session has ended (Stop or SessionEnd event present)
-	const sessionEnded = events.some(
-		e => e.hookName === 'Stop' || e.hookName === 'SessionEnd',
-	);
+	// Detect if the CURRENT session has ended. A new SessionStart after the
+	// last Stop/SessionEnd means a new session is active — sessionEnded must
+	// be false so new PreToolUse events stay dynamic until their PostToolUse
+	// arrives. Without this, events from the second message would be stamped
+	// as stable immediately (rendered once in Ink's <Static> as "Running…"
+	// and never updated).
+	let sessionEnded = false;
+	for (const e of events) {
+		if (e.hookName === 'Stop' || e.hookName === 'SessionEnd') {
+			sessionEnded = true;
+		} else if (e.hookName === 'SessionStart') {
+			sessionEnded = false;
+		}
+	}
 
 	const isStable = (item: ContentItem) =>
 		isStableContent(item, stoppedAgentIds, sessionEnded);
