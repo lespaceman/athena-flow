@@ -1,13 +1,11 @@
-import React, {useState, useCallback} from 'react';
+import React, {useCallback, useMemo} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type HookEventDisplay} from '../types/hooks/display.js';
 import {isToolEvent} from '../types/hooks/events.js';
 import {type PermissionDecision} from '../types/server.js';
-import {parseToolName, formatArgs} from '../utils/toolNameParser.js';
+import {parseToolName} from '../utils/toolNameParser.js';
 import {getRiskTier, RISK_TIER_CONFIG} from '../services/riskTier.js';
-import PermissionHeader from './PermissionHeader.js';
-import KeybindingBar from './KeybindingBar.js';
-import RawPayloadDetails from './RawPayloadDetails.js';
+import OptionList, {type OptionItem} from './OptionList.js';
 import TypeToConfirm from './TypeToConfirm.js';
 import {useTheme} from '../theme/index.js';
 
@@ -22,9 +20,7 @@ export default function PermissionDialog({
 	request,
 	queuedCount,
 	onDecision,
-	agentChain,
 }: Props) {
-	const [showDetails, setShowDetails] = useState(false);
 	const theme = useTheme();
 
 	// Get the raw tool name
@@ -44,11 +40,36 @@ export default function PermissionDialog({
 	const tier = getRiskTier(rawToolName, toolInput);
 	const tierConfig = RISK_TIER_CONFIG[tier];
 
-	// Format args for display
-	const formattedArgs = formatArgs(toolInput);
-
 	// Check if type-to-confirm is required
 	const requiresConfirmation = tierConfig.requiresConfirmation === true;
+
+	// Build options for the select menu
+	const options: OptionItem[] = useMemo(() => {
+		const items: OptionItem[] = [
+			{label: 'Allow', description: 'Allow this tool call', value: 'allow'},
+			{label: 'Deny', description: 'Deny this tool call', value: 'deny'},
+			{
+				label: `Always allow "${displayName}"`,
+				description: 'Remember this choice for this tool',
+				value: 'always-allow',
+			},
+			{
+				label: `Always deny "${displayName}"`,
+				description: 'Always block this tool',
+				value: 'always-deny',
+			},
+		];
+
+		if (parsed.isMcp && serverLabel) {
+			items.push({
+				label: `Always allow all from ${serverLabel}`,
+				description: 'Trust all tools from this server',
+				value: 'always-allow-server',
+			});
+		}
+
+		return items;
+	}, [displayName, serverLabel, parsed.isMcp]);
 
 	// Handle type-to-confirm callbacks
 	const handleConfirm = useCallback(() => {
@@ -59,55 +80,28 @@ export default function PermissionDialog({
 		onDecision('deny');
 	}, [onDecision]);
 
-	// Keyboard handling with useInput
-	useInput(
-		(input, key) => {
-			// If tier requires confirmation, don't process keyboard shortcuts
-			// (TypeToConfirm handles its own input)
-			if (requiresConfirmation) {
-				return;
-			}
+	// Handle option selection
+	const handleSelect = useCallback(
+		(value: string) => {
+			onDecision(value as PermissionDecision);
+		},
+		[onDecision],
+	);
 
+	// Escape to deny (standard terminal convention)
+	useInput(
+		(_input, key) => {
 			if (key.escape) {
 				onDecision('deny');
-				return;
-			}
-
-			// Toggle details with 'i' or '?'
-			if (input === 'i' || input === '?') {
-				setShowDetails(prev => !prev);
-				return;
-			}
-
-			// Permission decisions
-			if (input === 'a') {
-				onDecision('allow');
-				return;
-			}
-
-			if (input === 'd' || key.return) {
-				onDecision('deny');
-				return;
-			}
-
-			if (input === 'A') {
-				onDecision('always-allow');
-				return;
-			}
-
-			if (input === 'D') {
-				onDecision('always-deny');
-				return;
-			}
-
-			// "S" = always allow all tools from this MCP server
-			if (input === 'S' && parsed.isMcp) {
-				onDecision('always-allow-server');
-				return;
 			}
 		},
 		{isActive: !requiresConfirmation},
 	);
+
+	// Build title: "Allow {displayName}?" or "Allow {displayName} ({serverLabel})?"
+	const title = serverLabel
+		? `Allow ${displayName} (${serverLabel})?`
+		: `Allow ${displayName}?`;
 
 	return (
 		<Box
@@ -116,47 +110,10 @@ export default function PermissionDialog({
 			borderColor={tierConfig.color(theme)}
 			paddingX={1}
 		>
-			{/* Header with risk tier badge */}
-			<PermissionHeader tier={tier} queuedCount={queuedCount} />
-
-			{/* Context block */}
-			<Box marginTop={1} flexDirection="column">
-				{/* Tool name */}
-				<Box>
-					<Text>Tool: </Text>
-					<Text bold>{displayName}</Text>
-				</Box>
-
-				{/* Server label (if MCP) */}
-				{serverLabel && (
-					<Box>
-						<Text>Server: </Text>
-						<Text dimColor>{serverLabel}</Text>
-					</Box>
-				)}
-
-				{/* Args */}
-				<Box>
-					<Text>Args: </Text>
-					<Text dimColor>{formattedArgs}</Text>
-				</Box>
-
-				{/* Agent chain context */}
-				{agentChain && agentChain.length > 0 && (
-					<Box>
-						<Text dimColor>Context: </Text>
-						<Text color={theme.accentSecondary}>{agentChain.join(' → ')}</Text>
-					</Box>
-				)}
-			</Box>
-
-			{/* Raw payload details (collapsible) */}
-			<Box marginTop={1}>
-				<RawPayloadDetails
-					rawToolName={rawToolName}
-					payload={toolInput ?? {}}
-					isExpanded={showDetails}
-				/>
+			{/* Title line with optional queue count */}
+			<Box justifyContent="space-between">
+				<Text bold>{title}</Text>
+				{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
 			</Box>
 
 			{/* Action area */}
@@ -168,9 +125,16 @@ export default function PermissionDialog({
 						onCancel={handleCancel}
 					/>
 				) : (
-					<KeybindingBar toolName={displayName} serverLabel={serverLabel} />
+					<OptionList options={options} onSelect={handleSelect} />
 				)}
 			</Box>
+
+			{/* Footer hint (non-destructive only) */}
+			{!requiresConfirmation && (
+				<Box marginTop={1}>
+					<Text dimColor>↑↓ Navigate Enter Select Esc Deny</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }

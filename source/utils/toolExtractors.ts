@@ -287,8 +287,7 @@ function extractWebSearch(
 						if (typeof title === 'string') {
 							items.push({
 								primary: title,
-								secondary:
-									typeof url === 'string' ? url : undefined,
+								secondary: typeof url === 'string' ? url : undefined,
 							});
 						}
 					}
