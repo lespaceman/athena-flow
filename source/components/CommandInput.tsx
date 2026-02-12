@@ -54,9 +54,18 @@ export default function CommandInput({
 	const handleSubmit = useCallback(
 		(val: string) => {
 			if (disabled) return;
-			if (!val.trim()) return;
-			onSubmit(val);
-			latest.current.setValue('');
+			const cur = latest.current;
+			// When suggestions are visible, submit the selected command
+			let submitted = val;
+			if (cur.showSuggestions) {
+				const cmd = cur.filteredCommands[cur.safeIndex];
+				if (cmd) {
+					submitted = `/${cmd.name}`;
+				}
+			}
+			if (!submitted.trim()) return;
+			onSubmit(submitted);
+			cur.setValue('');
 		},
 		[onSubmit, disabled],
 	);
@@ -256,10 +265,10 @@ function renderInputContent(
 		cursorOffset < value.length ? value.slice(cursorOffset + 1) : '';
 
 	return (
-		<>
-			<Text>{beforeCursor}</Text>
+		<Text>
+			{beforeCursor}
 			<Text inverse>{cursorChar}</Text>
-			<Text>{afterCursor}</Text>
-		</>
+			{afterCursor}
+		</Text>
 	);
 }
