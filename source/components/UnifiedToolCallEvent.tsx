@@ -1,11 +1,3 @@
-/**
- * Unified tool call renderer: shows a PreToolUse/PermissionRequest event
- * with its PostToolUse/PostToolUseFailure result nested underneath.
- *
- * Also handles standalone (orphaned) PostToolUse/PostToolUseFailure events
- * that arrive without a matching PreToolUse anchor.
- */
-
 import React, {useState, useEffect} from 'react';
 import {Box, Text} from 'ink';
 import {
@@ -20,12 +12,10 @@ import {
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {
 	getStatusColors,
-	RESPONSE_PREFIX,
 	getPostToolText,
-	formatResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
-import {ToolOutputRenderer} from './ToolOutput/index.js';
+import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -35,6 +25,15 @@ type Props = {
 
 const BULLET = '\u25cf'; // ●
 
+function isPostPayload(
+	p: unknown,
+): p is PostToolUseEvent | PostToolUseFailureEvent {
+	return (
+		isPostToolUseEvent(p as PostToolUseEvent) ||
+		isPostToolUseFailureEvent(p as PostToolUseFailureEvent)
+	);
+}
+
 /**
  * Resolve the post-tool payload from either a standalone orphaned event
  * or from the paired postToolEvent merged by useContentOrdering.
@@ -42,22 +41,10 @@ const BULLET = '\u25cf'; // ●
 function resolvePostPayload(
 	event: HookEventDisplay,
 ): (PostToolUseEvent | PostToolUseFailureEvent) | null {
-	const {payload, postToolEvent} = event;
-
-	// Standalone: the event itself is a PostToolUse/PostToolUseFailure
-	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
-		return payload;
+	if (isPostPayload(event.payload)) return event.payload;
+	if (event.postToolEvent && isPostPayload(event.postToolEvent.payload)) {
+		return event.postToolEvent.payload;
 	}
-
-	// Paired: postToolEvent was merged by useContentOrdering
-	if (
-		postToolEvent &&
-		(isPostToolUseEvent(postToolEvent.payload) ||
-			isPostToolUseFailureEvent(postToolEvent.payload))
-	) {
-		return postToolEvent.payload;
-	}
-
 	return null;
 }
 
@@ -69,7 +56,6 @@ export default function UnifiedToolCallEvent({
 	const statusColors = getStatusColors(theme);
 	const payload = event.payload;
 
-	// All tool events (Pre/Post/PermissionRequest) share tool_name and tool_input
 	const toolName = (payload as {tool_name: string}).tool_name;
 	const toolInput = (payload as {tool_input: Record<string, unknown>})
 		.tool_input;
@@ -77,9 +63,6 @@ export default function UnifiedToolCallEvent({
 	const isStandalonePost =
 		!isPreToolUseEvent(payload) && !isPermissionRequestEvent(payload);
 
-	// Pending when awaiting a post-tool result.
-	// Only show "Running…" if this event has a toolUseId (pairing is possible).
-	// Without toolUseId, we can't pair with PostToolUse so fall back to status-based rendering.
 	const isPending =
 		event.status === 'pending' ||
 		(event.status !== 'blocked' &&
@@ -99,57 +82,54 @@ export default function UnifiedToolCallEvent({
 
 	const resolvedPost = resolvePostPayload(event);
 
-	// Determine bullet color and response content
+	const isFailed = resolvedPost
+		? isPostToolUseFailureEvent(resolvedPost)
+		: false;
+
 	let bulletColor: string;
 	let responseNode: React.ReactNode = null;
 
 	if (event.status === 'blocked') {
 		bulletColor = statusColors.blocked;
 		responseNode = (
-			<Box paddingLeft={2}>
-				<Text color={statusColors.blocked}>{RESPONSE_PREFIX}User rejected</Text>
-			</Box>
+			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+				<Text color={statusColors.blocked}>User rejected</Text>
+			</ToolResultContainer>
+		);
+	} else if (isFailed) {
+		bulletColor = statusColors.blocked;
+		const errorText = getPostToolText(resolvedPost!) || 'Unknown error';
+		responseNode = (
+			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+				<Text color={statusColors.blocked}>{errorText}</Text>
+			</ToolResultContainer>
 		);
 	} else if (resolvedPost) {
-		const isFailed = isPostToolUseFailureEvent(resolvedPost);
-		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
-		if (isFailed) {
-			const errorText = getPostToolText(resolvedPost) || 'Unknown error';
-			responseNode = (
-				<Box paddingLeft={2}>
-					<Text color={statusColors.blocked}>
-						{formatResponseBlock(errorText)}
-					</Text>
-				</Box>
-			);
-		} else {
-			responseNode = (
-				<Box paddingLeft={2}>
-					<Text dimColor>{RESPONSE_PREFIX}</Text>
-					<Box flexDirection="column" flexShrink={1}>
-						<ToolOutputRenderer
-							toolName={toolName}
-							toolInput={toolInput}
-							toolResponse={
-								isPostToolUseEvent(resolvedPost)
-									? resolvedPost.tool_response
-									: undefined
-							}
-						/>
-					</Box>
-				</Box>
-			);
-		}
+		bulletColor = statusColors.passthrough;
+		responseNode = (
+			<ToolResultContainer>
+				{availableWidth => (
+					<ToolOutputRenderer
+						toolName={toolName}
+						toolInput={toolInput}
+						toolResponse={
+							isPostToolUseEvent(resolvedPost)
+								? resolvedPost.tool_response
+								: undefined
+						}
+						availableWidth={availableWidth}
+					/>
+				)}
+			</ToolResultContainer>
+		);
 	} else if (isPending) {
-		// Actively waiting for PostToolUse result
 		bulletColor = statusColors.pending;
 		responseNode = (
-			<Box paddingLeft={2}>
-				<Text dimColor>{'\u2514 Running\u2026'}</Text>
-			</Box>
+			<ToolResultContainer>
+				<Text dimColor>Running…</Text>
+			</ToolResultContainer>
 		);
 	} else {
-		// Completed but no paired result (no toolUseId, or pairing unavailable)
 		bulletColor = statusColors.passthrough;
 	}
 

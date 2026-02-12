@@ -6,6 +6,7 @@ type Props = {
 	content: string;
 	language?: string;
 	maxLines?: number;
+	availableWidth?: number;
 };
 
 const MAX_HIGHLIGHT_SIZE = 50_000;

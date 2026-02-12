@@ -12,6 +12,6 @@ export type ListItem = {
 
 export type RenderableOutput =
 	| {type: 'code'; content: string; language?: string; maxLines?: number}
-	| {type: 'diff'; oldText: string; newText: string}
+	| {type: 'diff'; oldText: string; newText: string; maxLines?: number}
 	| {type: 'list'; items: ListItem[]; maxItems?: number}
-	| {type: 'text'; content: string};
+	| {type: 'text'; content: string; maxLines?: number};

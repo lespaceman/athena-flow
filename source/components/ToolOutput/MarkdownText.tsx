@@ -1,5 +1,5 @@
 import React from 'react';
-import {Text} from 'ink';
+import {Box, Text} from 'ink';
 import {Marked, type Tokens} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import Table from 'cli-table3';
@@ -7,6 +7,8 @@ import chalk from 'chalk';
 
 type Props = {
 	content: string;
+	maxLines?: number;
+	availableWidth?: number;
 };
 
 const TABLE_CHARS = {
@@ -27,21 +29,14 @@ const TABLE_CHARS = {
 	middle: '│',
 };
 
-/**
- * Compute column widths that fit within the terminal.
- * Each column gets space proportional to its max content length.
- */
 function computeColWidths(
 	token: Tokens.Table,
 	terminalWidth: number,
 ): number[] {
 	const colCount = token.header.length;
-	// Borders: │ col │ col │ = colCount + 1 border chars
-	// Padding: 1 left + 1 right per column = 2 * colCount
 	const overhead = colCount + 1 + 2 * colCount;
 	const available = Math.max(terminalWidth - overhead, colCount * 4);
 
-	// Measure max content length per column using plain text (strip markdown markers)
 	const stripMd = (s: string) => s.replace(/\*\*|__|~~|`/g, '');
 	const maxLens = token.header.map(h => stripMd(h.text).length);
 	for (const row of token.rows) {
@@ -52,29 +47,21 @@ function computeColWidths(
 
 	const totalContent = maxLens.reduce((a, b) => a + b, 0) || 1;
 
-	// Distribute proportionally with a minimum of 4 chars per column
-	const minCol = 4;
 	return maxLens.map(len =>
-		Math.max(minCol, Math.floor((len / totalContent) * available)),
+		Math.max(4, Math.floor((len / totalContent) * available)),
 	);
 }
 
 function createMarked(width: number): Marked {
 	const m = new Marked();
-	// marked-terminal types lag behind runtime API — cast is safe
 	m.use(
 		markedTerminal({
-			// ── Layout ──────────────────────────────────────────
 			width,
 			reflowText: true,
 			tab: 2,
 			showSectionPrefix: false,
-
-			// ── Text features ───────────────────────────────────
 			unescape: true,
 			emoji: true,
-
-			// ── Colors — muted palette for terminal companion UI ─
 			paragraph: chalk.reset,
 			strong: chalk.bold,
 			em: chalk.italic,
@@ -92,15 +79,29 @@ function createMarked(width: number): Marked {
 		}) as Parameters<typeof m.use>[0],
 	);
 
-	// Override table renderer to inject width-constrained colWidths.
-	// marked-terminal's built-in table renderer doesn't pass the `width`
-	// option to cli-table3, so wordWrap has no effect on wide tables.
 	m.use({
 		renderer: {
+			heading({tokens, depth}: Tokens.Heading): string {
+				const text = m.parser(tokens);
+				const styled =
+					depth === 1 ? chalk.bold.underline(text) : chalk.bold(text);
+				return styled + '\n';
+			},
+			hr(): string {
+				return chalk.dim('───') + '\n';
+			},
+			list(token: Tokens.List): string {
+				let body = '';
+				for (let i = 0; i < token.items.length; i++) {
+					const item = token.items[i]!;
+					const bullet = token.ordered ? `${i + 1}. ` : '  • ';
+					const text = m.parser(item.tokens);
+					body += bullet + text + '\n';
+				}
+				return body;
+			},
 			table(token: Tokens.Table): string {
 				const colWidths = computeColWidths(token, width);
-				// Render inline markdown (bold, italic, code) so cli-table3
-				// wraps on visible text, not raw markdown markers
 				const renderInline = (text: string): string => {
 					const result = m.parseInline(text);
 					return typeof result === 'string' ? result : text;
@@ -125,7 +126,7 @@ function createMarked(width: number): Marked {
 					table.push(row.map(cell => renderInline(cell.text)));
 				}
 
-				return chalk.reset(table.toString()) + '\n\n';
+				return chalk.reset(table.toString()) + '\n';
 			},
 		},
 	});
@@ -133,19 +134,37 @@ function createMarked(width: number): Marked {
 	return m;
 }
 
-export default function MarkdownText({content}: Props): React.ReactNode {
+export default function MarkdownText({
+	content,
+	maxLines,
+	availableWidth,
+}: Props): React.ReactNode {
 	if (!content) return null;
 
-	const width = process.stdout.columns || 80;
+	const width = availableWidth ?? process.stdout.columns ?? 80;
 	const marked = createMarked(width);
 
 	let rendered: string;
 	try {
 		const result = marked.parse(content);
-		// marked.parse can return string or Promise — we use sync mode
 		rendered = typeof result === 'string' ? result.trimEnd() : content;
+		rendered = rendered.replace(/\n{3,}/g, '\n');
 	} catch {
 		rendered = content;
+	}
+
+	if (maxLines != null) {
+		const lines = rendered.split('\n');
+		if (lines.length > maxLines) {
+			const omitted = lines.length - maxLines;
+			rendered = lines.slice(0, maxLines).join('\n');
+			return (
+				<Box flexDirection="column">
+					<Text>{rendered}</Text>
+					<Text dimColor>({omitted} more lines)</Text>
+				</Box>
+			);
+		}
 	}
 
 	return <Text>{rendered}</Text>;

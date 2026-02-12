@@ -1,18 +1,8 @@
-/**
- * Tool-specific extractors that transform raw tool_response into a
- * RenderableOutput discriminated union for rich rendering.
- *
- * Each extractor is a pure function: (toolInput, toolResponse) → RenderableOutput.
- * Unknown tools fall back to the generic text extractor.
- */
-
 import {type RenderableOutput, type ListItem} from '../types/toolOutput.js';
 import {
 	formatToolResponse,
 	isBashToolResponse,
 } from '../components/hookEventUtils.js';
-
-// ── Language detection ──────────────────────────────────────────────
 
 const EXT_TO_LANGUAGE: Record<string, string> = {
 	'.ts': 'typescript',
@@ -47,11 +37,6 @@ function detectLanguage(filePath: unknown): string | undefined {
 	return EXT_TO_LANGUAGE[filePath.slice(dot).toLowerCase()];
 }
 
-// ── Content extraction helpers ──────────────────────────────────────
-
-/**
- * Safely access a property on an unknown value.
- */
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {
 		return (obj as Record<string, unknown>)[key];
@@ -63,7 +48,6 @@ function extractTextContent(response: unknown): string {
 	if (response == null) return '';
 	if (typeof response === 'string') return response;
 
-	// Content-block array: extract text fields
 	if (Array.isArray(response)) {
 		const parts: string[] = [];
 		for (const block of response) {
@@ -78,30 +62,22 @@ function extractTextContent(response: unknown): string {
 	}
 
 	if (typeof response === 'object' && response !== null) {
-		// Single text content block
 		const text = prop(response, 'text');
 		if (typeof text === 'string' && prop(response, 'type') === 'text') {
 			return text.trim();
 		}
 
-		// Wrapped content (common in MCP tools)
 		const content = prop(response, 'content');
 		if (content != null) return extractTextContent(content);
 
-		// Try common meaningful fields before dumping everything
-		const result = prop(response, 'result');
-		if (typeof result === 'string') return result;
-		const message = prop(response, 'message');
-		if (typeof message === 'string') return message;
-		const output = prop(response, 'output');
-		if (typeof output === 'string') return output;
+		for (const key of ['result', 'message', 'output'] as const) {
+			const val = prop(response, key);
+			if (typeof val === 'string') return val;
+		}
 	}
 
-	// Last resort: compact JSON (rendered inside a code block by the caller)
 	return formatToolResponse(response);
 }
-
-// ── Per-tool extractors ─────────────────────────────────────────────
 
 type Extractor = (
 	toolInput: Record<string, unknown>,
@@ -116,52 +92,36 @@ function extractBash(
 		const out = response.stdout.trim();
 		const err = response.stderr.trim();
 		const content = err ? (out ? `${out}\n${err}` : err) : out;
-		return {type: 'code', content, language: 'bash', maxLines: 30};
+		return {type: 'code', content, language: 'bash', maxLines: 10};
 	}
-	return {type: 'code', content: extractTextContent(response), maxLines: 30};
+	return {type: 'code', content: extractTextContent(response), maxLines: 10};
+}
+
+function extractFileContent(block: unknown): string | undefined {
+	const fileContent = prop(prop(block, 'file'), 'content');
+	if (typeof fileContent === 'string') return fileContent;
+	const text = prop(block, 'text');
+	if (typeof text === 'string') return text;
+	return undefined;
 }
 
 function extractRead(
 	input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	// PostToolUse shape: content-block array [{type:"text", file:{filePath, content, ...}}]
-	// or object {type:"text", file:{...}}
+	// PostToolUse shape: content-block array [{type:"text", file:{content, ...}}] or single object
+	const blocks = Array.isArray(response) ? response : [response];
 	let content: string | undefined;
-
-	// Content-block array: [{type:"text", file:{filePath, content, numLines, ...}}]
-	if (Array.isArray(response)) {
-		for (const block of response) {
-			const file = prop(block, 'file');
-			if (file) {
-				const c = prop(file, 'content');
-				if (typeof c === 'string') {
-					content = c;
-					break;
-				}
-			}
-			// Also handle plain text blocks
-			const text = prop(block, 'text');
-			if (typeof text === 'string') {
-				content = text;
-				break;
-			}
-		}
-	}
-	// Single object with file field
-	if (!content && typeof response === 'object' && response !== null) {
-		const file = prop(response, 'file');
-		if (file) {
-			const c = prop(file, 'content');
-			if (typeof c === 'string') content = c;
-		}
+	for (const block of blocks) {
+		content = extractFileContent(block);
+		if (content) break;
 	}
 
 	return {
 		type: 'code',
 		content: content ?? extractTextContent(response),
 		language: detectLanguage(input['file_path']),
-		maxLines: 20,
+		maxLines: 10,
 	};
 }
 
@@ -173,22 +133,19 @@ function extractEdit(
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newText =
 		typeof input['new_string'] === 'string' ? input['new_string'] : '';
-	return {type: 'diff', oldText, newText};
+	return {type: 'diff', oldText, newText, maxLines: 20};
 }
 
 function extractWrite(
 	input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	// PostToolUse shape: {filePath, success} — show confirmation
-	if (typeof response === 'object' && response !== null) {
-		const filePath = prop(response, 'filePath') ?? input['file_path'] ?? '';
-		return {type: 'text', content: `Wrote ${String(filePath)}`};
-	}
 	const text = extractTextContent(response);
-	if (text) return {type: 'text', content: text};
-	const filePath =
-		typeof input['file_path'] === 'string' ? input['file_path'] : '';
+	if (text && typeof response !== 'object')
+		return {type: 'text', content: text};
+	const filePath = String(
+		prop(response, 'filePath') ?? input['file_path'] ?? '',
+	);
 	return {type: 'text', content: `Wrote ${filePath}`};
 }
 
@@ -200,7 +157,6 @@ function extractGrep(
 	const lines = text.split('\n').filter(Boolean);
 
 	const items: ListItem[] = lines.map(line => {
-		// Grep output format: "file:line:content" or just file paths
 		const match = /^(.+?):(\d+):(.+)$/.exec(line);
 		if (match) {
 			return {
@@ -211,93 +167,67 @@ function extractGrep(
 		return {primary: line};
 	});
 
-	return {type: 'list', items, maxItems: 15};
+	return {type: 'list', items, maxItems: 10};
 }
 
 function extractGlob(
 	_input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	// PostToolUse shape: {filenames: string[], durationMs, numFiles, truncated}
-	if (typeof response === 'object' && response !== null) {
-		const filenames = prop(response, 'filenames');
-		if (Array.isArray(filenames)) {
-			const items: ListItem[] = filenames
-				.filter((f): f is string => typeof f === 'string')
-				.map(f => ({primary: f}));
-			return {type: 'list', items, maxItems: 20};
-		}
+	const filenames = prop(response, 'filenames');
+	if (Array.isArray(filenames)) {
+		const items: ListItem[] = filenames
+			.filter((f): f is string => typeof f === 'string')
+			.map(f => ({primary: f}));
+		return {type: 'list', items, maxItems: 10};
 	}
-	// Fallback: string response (newline-separated paths)
 	const text = extractTextContent(response);
 	const items: ListItem[] = text
 		.split('\n')
 		.filter(Boolean)
 		.map(line => ({primary: line}));
-	return {type: 'list', items, maxItems: 20};
+	return {type: 'list', items, maxItems: 10};
 }
 
 function extractWebFetch(
 	_input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	// PostToolUse shape: {bytes, code, codeText, result, durationMs, url}
-	if (typeof response === 'object' && response !== null) {
-		const result = prop(response, 'result');
-		if (typeof result === 'string') {
-			return {type: 'text', content: result};
-		}
-	}
-	return {type: 'text', content: extractTextContent(response)};
+	const result = prop(response, 'result');
+	const content =
+		typeof result === 'string' ? result : extractTextContent(response);
+	return {type: 'text', content, maxLines: 10};
+}
+
+function formatSearchLink(item: unknown): string | null {
+	const title = prop(item, 'title');
+	if (typeof title !== 'string') return null;
+	const url = prop(item, 'url');
+	return typeof url === 'string' ? `- [${title}](${url})` : `- ${title}`;
 }
 
 function extractWebSearch(
 	_input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	if (typeof response === 'object' && response !== null) {
-		const results = prop(response, 'results');
-
-		// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
-		if (Array.isArray(results)) {
-			const links: string[] = [];
-
-			for (const entry of results) {
-				if (typeof entry === 'object' && entry !== null) {
-					const content = prop(entry, 'content');
-					if (Array.isArray(content)) {
-						for (const item of content) {
-							if (typeof item === 'object' && item !== null) {
-								const title = prop(item, 'title');
-								const url = prop(item, 'url');
-								if (typeof title === 'string') {
-									links.push(
-										typeof url === 'string'
-											? `- [${title}](${url})`
-											: `- ${title}`,
-									);
-								}
-							}
-						}
-					} else {
-						const title = prop(entry, 'title');
-						const url = prop(entry, 'url');
-						if (typeof title === 'string') {
-							links.push(
-								typeof url === 'string' ? `- [${title}](${url})` : `- ${title}`,
-							);
-						}
-					}
-				}
-			}
-
-			if (links.length > 0) {
-				return {type: 'text', content: links.join('\n')};
+	// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
+	const results = prop(response, 'results');
+	if (Array.isArray(results)) {
+		const links: string[] = [];
+		for (const entry of results) {
+			const content = prop(entry, 'content');
+			// Nested: results[].content[] has the actual search items
+			const items = Array.isArray(content) ? content : [entry];
+			for (const item of items) {
+				const link = formatSearchLink(item);
+				if (link) links.push(link);
 			}
 		}
+		if (links.length > 0) {
+			return {type: 'text', content: links.join('\n'), maxLines: 10};
+		}
 	}
-	// Fallback: plain text summary
-	return {type: 'text', content: extractTextContent(response)};
+	return {type: 'text', content: extractTextContent(response), maxLines: 10};
 }
 
 function extractNotebookEdit(
@@ -315,7 +245,7 @@ function extractNotebookEdit(
 		type: 'code',
 		content: source,
 		language: detectLanguage(path),
-		maxLines: 20,
+		maxLines: 10,
 	};
 }
 
@@ -323,15 +253,12 @@ function extractTask(
 	input: Record<string, unknown>,
 	response: unknown,
 ): RenderableOutput {
-	// Task tool response is typically a text summary from the subagent
 	const text = extractTextContent(response);
-	if (text) return {type: 'text', content: text};
+	if (text) return {type: 'text', content: text, maxLines: 10};
 	const desc =
 		typeof input['description'] === 'string' ? input['description'] : '';
-	return {type: 'text', content: desc || 'Task completed'};
+	return {type: 'text', content: desc || 'Task completed', maxLines: 10};
 }
-
-// ── Registry ────────────────────────────────────────────────────────
 
 const EXTRACTORS: Record<string, Extractor> = {
 	Bash: extractBash,
@@ -346,10 +273,6 @@ const EXTRACTORS: Record<string, Extractor> = {
 	Task: extractTask,
 };
 
-/**
- * Extract a RenderableOutput from a tool response.
- * Falls back to plain text for unknown tools.
- */
 export function extractToolOutput(
 	toolName: string,
 	toolInput: Record<string, unknown>,
@@ -360,11 +283,14 @@ export function extractToolOutput(
 		try {
 			return extractor(toolInput, toolResponse);
 		} catch {
-			// Fallback on extractor error
+			// fall through to generic text
 		}
 	}
-	return {type: 'text', content: extractTextContent(toolResponse)};
+	return {
+		type: 'text',
+		content: extractTextContent(toolResponse),
+		maxLines: 20,
+	};
 }
 
-// Exported for testing
 export {detectLanguage};

@@ -1,11 +1,3 @@
-/**
- * Renders a SubagentStart event with child events inside a bordered box.
- *
- * When the subagent completes, the corresponding SubagentStop event is merged
- * into event.stopEvent, allowing this single component to render both the
- * running state and the completed state with response text.
- */
-
 import React from 'react';
 import {Box, Text} from 'ink';
 import {
@@ -21,22 +13,20 @@ import {
 	getStatusColors,
 	STATUS_SYMBOLS,
 	SUBAGENT_SYMBOLS,
-	RESPONSE_PREFIX,
 	getPostToolText,
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
-import {ToolOutputRenderer} from './ToolOutput/index.js';
+import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
+
+const BORDER_BOX_OVERHEAD = 3; // left border + right border + paddingLeft
 
 type Props = {
 	event: HookEventDisplay;
 	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
-/**
- * Compact renderer for a child event inside a subagent box.
- */
 function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -76,20 +66,20 @@ function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 				{isFailed ? (
 					<ResponseBlock response={getPostToolText(payload)} isFailed={true} />
 				) : (
-					<Box paddingLeft={2}>
-						<Text dimColor>{RESPONSE_PREFIX}</Text>
-						<Box flexDirection="column" flexShrink={1}>
+					<ToolResultContainer
+						parentWidth={(process.stdout.columns || 80) - BORDER_BOX_OVERHEAD}
+					>
+						{availableWidth => (
 							<ToolOutputRenderer
 								toolName={payload.tool_name}
 								toolInput={payload.tool_input}
 								toolResponse={
-									isPostToolUseEvent(payload)
-										? payload.tool_response
-										: undefined
+									'tool_response' in payload ? payload.tool_response : undefined
 								}
+								availableWidth={availableWidth}
 							/>
-						</Box>
-					</Box>
+						)}
+					</ToolResultContainer>
 				)}
 				<StderrBlock result={event.result} />
 			</Box>
@@ -112,12 +102,10 @@ export default function SubagentEvent({
 	const theme = useTheme();
 	if (!isSubagentStartEvent(event.payload)) return null;
 
-	// TypeScript narrows payload to SubagentStartEvent after the guard
 	const payload = event.payload;
 	const subSymbol = SUBAGENT_SYMBOLS[event.status];
 	const children = childEventsByAgent?.get(payload.agent_id) ?? [];
 
-	// Check if subagent has completed (stopEvent is merged from SubagentStop)
 	const isCompleted = Boolean(event.stopEvent);
 	const responseText =
 		event.stopEvent?.transcriptSummary?.lastAssistantText ?? '';

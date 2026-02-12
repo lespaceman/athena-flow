@@ -12,11 +12,7 @@ import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
 } from '../types/hooks/index.js';
-import {
-	getStatusColors,
-	STATUS_SYMBOLS,
-	RESPONSE_PREFIX,
-} from './hookEventUtils.js';
+import {getStatusColors, STATUS_SYMBOLS} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -79,7 +75,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 					</Text>
 					{answers?.[q.question] && (
 						<Text color={theme.status.success}>
-							{RESPONSE_PREFIX}
+							{'\u23bf  '}
 							{answers[q.question]}
 						</Text>
 					)}
