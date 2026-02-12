@@ -53,12 +53,14 @@ export default function HookEvent({
 		return null;
 	}
 
-	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
-		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
-	}
-
-	// Orphaned PostToolUse/PostToolUseFailure (no matching PreToolUse)
-	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
+	// Unified tool call: PreToolUse/PermissionRequest (with paired post-tool result)
+	// or orphaned PostToolUse/PostToolUseFailure (no matching PreToolUse)
+	if (
+		isPreToolUseEvent(payload) ||
+		isPermissionRequestEvent(payload) ||
+		isPostToolUseEvent(payload) ||
+		isPostToolUseFailureEvent(payload)
+	) {
 		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
 	}
 

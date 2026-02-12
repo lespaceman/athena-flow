@@ -34,6 +34,32 @@ type Props = {
 
 const BULLET = '\u25cf'; // ●
 
+/**
+ * Resolve the post-tool payload from either a standalone orphaned event
+ * or from the paired postToolEvent merged by useContentOrdering.
+ */
+function resolvePostPayload(
+	event: HookEventDisplay,
+): (PostToolUseEvent | PostToolUseFailureEvent) | null {
+	const {payload, postToolEvent} = event;
+
+	// Standalone: the event itself is a PostToolUse/PostToolUseFailure
+	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
+		return payload;
+	}
+
+	// Paired: postToolEvent was merged by useContentOrdering
+	if (
+		postToolEvent &&
+		(isPostToolUseEvent(postToolEvent.payload) ||
+			isPostToolUseFailureEvent(postToolEvent.payload))
+	) {
+		return postToolEvent.payload;
+	}
+
+	return null;
+}
+
 export default function UnifiedToolCallEvent({
 	event,
 	verbose,
@@ -41,19 +67,12 @@ export default function UnifiedToolCallEvent({
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
 	const payload = event.payload;
-	const postPayload = event.postToolEvent?.payload;
 
-	// Guard: must be a tool event
-	if (
-		!isPreToolUseEvent(payload) &&
-		!isPermissionRequestEvent(payload) &&
-		!isPostToolUseEvent(payload) &&
-		!isPostToolUseFailureEvent(payload)
-	) {
-		return null;
-	}
+	// All tool events (Pre/Post/PermissionRequest) share tool_name and tool_input
+	const toolName = (payload as {tool_name: string}).tool_name;
+	const toolInput = (payload as {tool_input: Record<string, unknown>})
+		.tool_input;
 
-	// Standalone (orphaned) post-tool events have no matching PreToolUse anchor
 	const isStandalonePost =
 		!isPreToolUseEvent(payload) && !isPermissionRequestEvent(payload);
 
@@ -69,40 +88,31 @@ export default function UnifiedToolCallEvent({
 		return () => clearInterval(id);
 	}, [isPending]);
 
-	const parsed = parseToolName(payload.tool_name);
-	const inlineParams = formatInlineParams(payload.tool_input);
+	const parsed = parseToolName(toolName);
+	const inlineParams = formatInlineParams(toolInput);
 
-	// Determine state and colors
+	const resolvedPost = resolvePostPayload(event);
+
+	// Determine bullet color and response content
 	let bulletColor: string;
 	let responseNode: React.ReactNode = null;
 
-	// Resolve the post-tool payload: either from a standalone orphaned event
-	// or from the paired postToolEvent merged by useContentOrdering.
-	const resolvedPostPayload = isStandalonePost
-		? (payload as PostToolUseEvent | PostToolUseFailureEvent)
-		: postPayload
-			? (postPayload as PostToolUseEvent | PostToolUseFailureEvent)
-			: null;
-
 	if (event.status === 'blocked') {
-		// User rejected
 		bulletColor = statusColors.blocked;
 		responseNode = (
 			<Box paddingLeft={2}>
 				<Text color={statusColors.blocked}>{RESPONSE_PREFIX}User rejected</Text>
 			</Box>
 		);
-	} else if (resolvedPostPayload) {
-		// Completed — has a result (standalone or paired)
-		const isFailed = isPostToolUseFailureEvent(resolvedPostPayload);
+	} else if (resolvedPost) {
+		const isFailed = isPostToolUseFailureEvent(resolvedPost);
 		bulletColor = isFailed ? statusColors.blocked : statusColors.passthrough;
 		responseNode = renderResponse(
-			getPostToolText(resolvedPostPayload),
+			getPostToolText(resolvedPost),
 			isFailed,
 			statusColors.blocked,
 		);
 	} else {
-		// Pending — no result yet (pulsates between bright yellow and dim)
 		bulletColor = statusColors.pending;
 		responseNode = (
 			<Box paddingLeft={2}>
@@ -124,11 +134,15 @@ export default function UnifiedToolCallEvent({
 			</Box>
 			{verbose && (
 				<Box paddingLeft={3}>
-					<Text dimColor>{JSON.stringify(payload.tool_input, null, 2)}</Text>
+					<Text dimColor>{JSON.stringify(toolInput, null, 2)}</Text>
 				</Box>
 			)}
 			{responseNode}
-			{verbose && postPayload && renderVerboseResponse(postPayload)}
+			{verbose && resolvedPost && (
+				<Box paddingLeft={3}>
+					<Text dimColor>{getPostToolText(resolvedPost)}</Text>
+				</Box>
+			)}
 			<StderrBlock result={event.result} />
 			{event.postToolEvent && (
 				<StderrBlock result={event.postToolEvent.result} />
@@ -142,38 +156,13 @@ function renderResponse(
 	isFailed: boolean,
 	errorColor: string,
 ): React.ReactNode {
-	if (isFailed) {
-		return (
-			<Box paddingLeft={2}>
-				<Text color={errorColor}>
-					{formatResponseBlock(responseText || 'Unknown error')}
-				</Text>
-			</Box>
-		);
-	}
-
-	const displayText = responseText || '(no output)';
+	const displayText =
+		responseText || (isFailed ? 'Unknown error' : '(no output)');
 	return (
 		<Box paddingLeft={2}>
-			<Text dimColor>{formatResponseBlock(displayText)}</Text>
-		</Box>
-	);
-}
-
-function renderVerboseResponse(
-	postPayload: HookEventDisplay['payload'],
-): React.ReactNode {
-	if (
-		!isPostToolUseEvent(postPayload) &&
-		!isPostToolUseFailureEvent(postPayload)
-	) {
-		return null;
-	}
-	const responseText = getPostToolText(postPayload);
-	if (!responseText) return null;
-	return (
-		<Box paddingLeft={3}>
-			<Text dimColor>{responseText}</Text>
+			<Text color={isFailed ? errorColor : undefined} dimColor={!isFailed}>
+				{formatResponseBlock(displayText)}
+			</Text>
 		</Box>
 	);
 }
