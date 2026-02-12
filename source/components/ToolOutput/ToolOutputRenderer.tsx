@@ -3,7 +3,7 @@ import {extractToolOutput} from '../../utils/toolExtractors.js';
 import CodeBlock from './CodeBlock.js';
 import DiffBlock from './DiffBlock.js';
 import StructuredList from './StructuredList.js';
-import TextBlock from './TextBlock.js';
+import MarkdownText from './MarkdownText.js';
 
 type Props = {
 	toolName: string;
@@ -32,6 +32,6 @@ export default function ToolOutputRenderer({
 		case 'list':
 			return <StructuredList items={output.items} maxItems={output.maxItems} />;
 		case 'text':
-			return <TextBlock content={output.content} />;
+			return <MarkdownText content={output.content} />;
 	}
 }

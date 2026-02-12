@@ -131,7 +131,7 @@ function extractRead(
 
 function extractEdit(
 	input: Record<string, unknown>,
-	_response: unknown, // eslint-disable-line @typescript-eslint/no-unused-vars
+	_response: unknown,
 ): RenderableOutput {
 	const oldText =
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
@@ -220,10 +220,9 @@ function extractWebSearch(
 	response: unknown,
 ): RenderableOutput {
 	if (typeof response === 'object' && response !== null) {
-		const obj = response as Record<string, unknown>;
-		const results = obj['results'];
+		const results = prop(response, 'results');
 
-		// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]},..., "summary string"], durationSeconds}
+		// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
 		if (Array.isArray(results)) {
 			const items: ListItem[] = [];
 
