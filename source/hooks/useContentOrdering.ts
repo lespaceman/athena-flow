@@ -361,10 +361,20 @@ export function useContentOrdering({
 		itemById.set(item.data.id, item);
 	}
 
-	// Detect if the session has ended (Stop or SessionEnd event present)
-	const sessionEnded = events.some(
-		e => e.hookName === 'Stop' || e.hookName === 'SessionEnd',
-	);
+	// Detect if the CURRENT session has ended. A new SessionStart after the
+	// last Stop/SessionEnd means a new session is active — sessionEnded must
+	// be false so new PreToolUse events stay dynamic until their PostToolUse
+	// arrives. Without this, events from the second message would be stamped
+	// as stable immediately (rendered once in Ink's <Static> as "Running…"
+	// and never updated).
+	let sessionEnded = false;
+	for (const e of events) {
+		if (e.hookName === 'Stop' || e.hookName === 'SessionEnd') {
+			sessionEnded = true;
+		} else if (e.hookName === 'SessionStart') {
+			sessionEnded = false;
+		}
+	}
 
 	const isStable = (item: ContentItem) =>
 		isStableContent(item, stoppedAgentIds, sessionEnded);

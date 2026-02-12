@@ -1596,6 +1596,87 @@ describe('useContentOrdering', () => {
 		});
 	});
 
+	describe('sessionEnded does not affect new session events', () => {
+		it('PreToolUse from new session stays dynamic even when previous session ended', () => {
+			const events = [
+				// First session ends
+				makeEvent({
+					id: 'stop-1',
+					hookName: 'Stop',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+				makeEvent({
+					id: 'end-1',
+					hookName: 'SessionEnd',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					transcriptSummary: {
+						lastAssistantText: 'done',
+						lastAssistantTimestamp: null,
+						messageCount: 1,
+						toolCallCount: 0,
+					},
+					payload: {
+						hook_event_name: 'SessionEnd',
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						reason: 'other',
+					},
+				}),
+				// New session starts
+				makeEvent({
+					id: 'start-2',
+					hookName: 'SessionStart',
+					status: 'passthrough',
+					timestamp: new Date(3000),
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 's2',
+						transcript_path: '/tmp/t2.jsonl',
+						cwd: '/project',
+						source: 'startup',
+					},
+				}),
+				// New PreToolUse in the new session — awaiting PostToolUse
+				makeEvent({
+					id: 'pre-new',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-new',
+					status: 'json_output',
+					timestamp: new Date(4000),
+					payload: {
+						hook_event_name: 'PreToolUse',
+						session_id: 's2',
+						transcript_path: '/tmp/t2.jsonl',
+						cwd: '/project',
+						tool_name: 'Bash',
+						tool_input: {command: 'echo hello'},
+						tool_use_id: 'tu-new',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
+
+			// The new PreToolUse should be in dynamicItems (NOT stable)
+			// because it's still awaiting its PostToolUse result
+			const inStable = stableItems.find(i => i.data.id === 'pre-new');
+			const inDynamic = dynamicItems.find(i => i.data.id === 'pre-new');
+			expect(inStable).toBeUndefined();
+			expect(inDynamic).toBeDefined();
+		});
+	});
+
 	describe('isStableContent with paired tool events', () => {
 		it('PreToolUse with postToolEvent is stable', () => {
 			const item = {
