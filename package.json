@@ -24,13 +24,17 @@
 	],
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
+		"cli-highlight": "^2.1.11",
 		"ink": "^6.0.0",
+		"marked": "^15.0.12",
+		"marked-terminal": "^7.3.0",
 		"meow": "^13.0.0",
 		"react": "^19.0.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.0.0",
 		"@testing-library/react": "^16.3.2",
+		"@types/marked-terminal": "^6.1.1",
 		"@types/node": "^25.0.10",
 		"@types/react": "^19.0.0",
 		"@vdemedes/prettier-config": "^2.0.1",

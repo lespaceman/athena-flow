@@ -2,12 +2,13 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {type Message as MessageType} from '../types/index.js';
 import {useTheme} from '../theme/index.js';
+import {MarkdownText} from './ToolOutput/index.js';
 
 type Props = {
 	message: MessageType;
 };
 
-export default function Message({message}: Props) {
+export default function Message({message}: Props): React.ReactNode {
 	const theme = useTheme();
 	const isUser = message.role === 'user';
 
@@ -28,9 +29,10 @@ export default function Message({message}: Props) {
 
 	return (
 		<Box flexDirection="column" marginBottom={1}>
-			<Text wrap="wrap" color={theme.text}>
-				{`● ${message.content.trimStart()}`}
-			</Text>
+			<Box>
+				<Text color={theme.accent}>{'● '}</Text>
+				<MarkdownText content={message.content.trimStart()} />
+			</Box>
 		</Box>
 	);
 }

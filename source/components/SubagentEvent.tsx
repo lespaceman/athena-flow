@@ -25,6 +25,7 @@ import {
 	ResponseBlock,
 	StderrBlock,
 } from './hookEventUtils.js';
+import {ToolOutputRenderer} from './ToolOutput/index.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -62,7 +63,6 @@ function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
 		const parsed = parseToolName(payload.tool_name);
 		const isFailed = isPostToolUseFailureEvent(payload);
-		const responseText = getPostToolText(payload);
 		return (
 			<Box flexDirection="column">
 				<Box>
@@ -72,7 +72,19 @@ function ChildEvent({event}: {event: HookEventDisplay}): React.ReactNode {
 					</Text>
 					<Text dimColor>{isFailed ? ' (failed)' : ' (response)'}</Text>
 				</Box>
-				<ResponseBlock response={responseText} isFailed={isFailed} />
+				{isFailed ? (
+					<ResponseBlock response={getPostToolText(payload)} isFailed={true} />
+				) : (
+					<Box paddingLeft={2}>
+						<ToolOutputRenderer
+							toolName={payload.tool_name}
+							toolInput={payload.tool_input}
+							toolResponse={
+								isPostToolUseEvent(payload) ? payload.tool_response : undefined
+							}
+						/>
+					</Box>
+				)}
 				<StderrBlock result={event.result} />
 			</Box>
 		);
