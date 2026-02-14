@@ -9,7 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary.js';
 import HookEvent from './components/HookEvent.js';
 import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
-import StatusLine from './components/Header/StatusLine.js';
+
 import StatsPanel from './components/Header/StatsPanel.js';
 import Header from './components/Header/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -279,29 +279,25 @@ function AppContent({
 		{isActive: !dialogActive},
 	);
 
-	type StaticItem = {type: 'header'; id: string} | (typeof stableItems)[number];
-	const allStaticItems: StaticItem[] = [
-		{type: 'header', id: 'header'},
-		...stableItems,
-	];
+	const allStaticItems = stableItems;
 
 	return (
 		<Box flexDirection="column">
-			{/* Static items — header identity + stable events/messages */}
+			<Header
+				version={version}
+				modelName={metrics.modelName || modelName}
+				projectDir={projectDir}
+				terminalWidth={terminalWidth}
+				claudeState={claudeState}
+				spinnerFrame={spinnerFrame}
+				toolCallCount={metrics.totalToolCallCount}
+				contextSize={tokenUsage.contextSize}
+				isServerRunning={isServerRunning}
+			/>
+			{/* Static items — stable events/messages */}
 			<Static items={allStaticItems}>
-				{item => {
-					if (item.type === 'header') {
-						return (
-							<Header
-								key="header"
-								version={version}
-								modelName={modelName}
-								projectDir={projectDir}
-								terminalWidth={terminalWidth}
-							/>
-						);
-					}
-					return item.type === 'message' ? (
+				{item =>
+					item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
 					) : (
 						<ErrorBoundary
@@ -310,8 +306,8 @@ function AppContent({
 						>
 							<HookEvent event={item.data} verbose={verbose} />
 						</ErrorBoundary>
-					);
-				}}
+					)
+				}
 			</Static>
 
 			{/* Stats panel — toggled with Ctrl+s, shows detailed metrics */}
@@ -389,17 +385,6 @@ function AppContent({
 				onEscape={isClaudeRunning ? sendInterrupt : undefined}
 				onArrowUp={inputHistory.back}
 				onArrowDown={inputHistory.forward}
-			/>
-			<StatusLine
-				isServerRunning={isServerRunning}
-				socketPath={socketPath ?? null}
-				claudeState={claudeState}
-				verbose={verbose ?? false}
-				spinnerFrame={spinnerFrame}
-				modelName={metrics.modelName || modelName}
-				toolCallCount={metrics.totalToolCallCount}
-				contextSize={tokenUsage.contextSize}
-				projectDir={projectDir}
 			/>
 		</Box>
 	);
