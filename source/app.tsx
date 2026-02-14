@@ -271,7 +271,8 @@ function AppContent({
 
 	useInput(
 		(_input, key) => {
-			if (key.ctrl && _input === 's') {
+			// Ctrl+E toggles stats panel (avoids Ctrl+S XOFF flow control conflict)
+			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
 		},
