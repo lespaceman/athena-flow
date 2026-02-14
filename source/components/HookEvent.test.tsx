@@ -472,7 +472,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('command: "rm -rf /"');
 	});
 
-	it('renders SubagentStart with Task header and agent_id (flat, no border)', () => {
+	it('renders SubagentStart as compact block with agent type and status', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -492,10 +492,9 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('agent-abc');
-		expect(frame).toContain('\u25c6'); // ◆ filled diamond
-		expect(frame).not.toContain('\u25cf'); // ● no circle
+		expect(frame).toContain('●');
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('Running');
 		// Flat rendering — no border chars
 		expect(frame).not.toContain('\u256d'); // ╭ no round border
 		expect(frame).not.toContain('\u2502'); // │ no border side
@@ -597,7 +596,7 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
 	});
 
-	it('renders pending SubagentStart with open diamond and no duration', () => {
+	it('renders pending SubagentStart as compact block with Running status', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -616,10 +615,9 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u25c7'); // ◇ open diamond
-		expect(frame).not.toContain('\u25cb'); // ○ no circle
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
+		expect(frame).toContain('●');
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('Running');
 	});
 
 	// "renders SubagentStart with bordered box" removed - border chars already checked in SubagentStart header test
@@ -874,7 +872,7 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('/9j/');
 	});
 
-	it('renders SubagentStart without children (flat header only)', () => {
+	it('renders SubagentStart as compact 2-line block without borders', () => {
 		const subagentPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -894,8 +892,10 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		// Flat header only — no border, no children inline
-		expect(frame).toContain('Task(Explore)');
+		// Compact block — header + status line, no border
+		expect(frame).toContain('●');
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('└');
 		expect(frame).not.toContain('\u256d'); // ╭ no border
 		expect(frame).not.toContain('\u2502'); // │ no border
 	});

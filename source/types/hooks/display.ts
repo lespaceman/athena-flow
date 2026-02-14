@@ -50,4 +50,6 @@ export type HookEventDisplay = {
 	 * Extracted from the Task PreToolUse's tool_input.description.
 	 */
 	taskDescription?: string;
+	/** For SubagentStart events: aggregated metrics about child tool calls */
+	childMetrics?: {toolCount: number; duration: number};
 };

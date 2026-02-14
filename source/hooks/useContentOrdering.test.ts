@@ -691,7 +691,7 @@ describe('useContentOrdering', () => {
 			expect(taskPostToolUse).toHaveLength(0);
 		});
 
-		it('includes child SubagentStart (parentSubagentId set) in dynamicItems', () => {
+		it('excludes child SubagentStart (parentSubagentId set) from main stream', () => {
 			const events = [
 				makeEvent({
 					id: 'sub-child',
@@ -710,17 +710,54 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {dynamicItems} = callHook({messages: [], events});
+			const {stableItems, dynamicItems} = callHook({messages: [], events});
 
-			const subInDynamic = dynamicItems.filter(
-				i => i.type === 'hook' && i.data.id === 'sub-child',
-			);
-			expect(subInDynamic).toHaveLength(1);
+			const allIds = [...stableItems, ...dynamicItems].map(i => i.data.id);
+			expect(allIds).not.toContain('sub-child');
 		});
 	});
 
 	describe('child event rendering in main stream', () => {
-		it('includes child events (with parentSubagentId) in content stream', () => {
+		it('excludes child events (with parentSubagentId) from the main content stream', () => {
+			const result = callHook({
+				messages: [],
+				events: [
+					makeEvent({
+						id: 'parent-start',
+						hookName: 'SubagentStart',
+						status: 'passthrough',
+						timestamp: new Date(1000),
+						payload: {
+							session_id: 's1',
+							transcript_path: '/tmp/t.jsonl',
+							cwd: '/project',
+							hook_event_name: 'SubagentStart',
+							agent_id: 'a1',
+							agent_type: 'Explore',
+						},
+					}),
+					makeEvent({
+						id: 'child-tool',
+						hookName: 'PreToolUse',
+						toolName: 'Glob',
+						parentSubagentId: 'a1',
+						status: 'passthrough',
+						timestamp: new Date(1500),
+						postToolEvent: makeEvent({
+							hookName: 'PostToolUse',
+							status: 'passthrough',
+						}),
+					}),
+				],
+			});
+			const allIds = [...result.stableItems, ...result.dynamicItems].map(
+				i => i.data.id,
+			);
+			expect(allIds).toContain('parent-start');
+			expect(allIds).not.toContain('child-tool');
+		});
+
+		it('excludes all child events regardless of status', () => {
 			const events = [
 				makeEvent({
 					id: 'parent',
@@ -768,44 +805,9 @@ describe('useContentOrdering', () => {
 				...dynamicItems.map(i => i.data.id),
 			];
 
-			// All events flow through the main content stream
 			expect(allContentIds).toContain('parent');
-			expect(allContentIds).toContain('child-1');
-			expect(allContentIds).toContain('child-2');
-		});
-
-		it('child events get independent stability tracking', () => {
-			const events = [
-				makeEvent({
-					id: 'child-stable',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					parentSubagentId: 'agent-a',
-					postToolEvent: makeEvent({
-						hookName: 'PostToolUse',
-						status: 'passthrough',
-					}),
-				}),
-				makeEvent({
-					id: 'child-dynamic',
-					hookName: 'PreToolUse',
-					toolName: 'Read',
-					status: 'pending',
-					timestamp: new Date(2000),
-					parentSubagentId: 'agent-a',
-				}),
-			];
-
-			const {stableItems, dynamicItems} = callHook({
-				messages: [],
-				events,
-			});
-
-			// Completed child is stable, pending child is dynamic
-			expect(stableItems.some(i => i.data.id === 'child-stable')).toBe(true);
-			expect(dynamicItems.some(i => i.data.id === 'child-dynamic')).toBe(true);
+			expect(allContentIds).not.toContain('child-1');
+			expect(allContentIds).not.toContain('child-2');
 		});
 	});
 

@@ -46,6 +46,9 @@ function getItemTime(item: ContentItem): number {
  *   aggregated into the sticky bottom task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
+	// Child events belong to their parent subagent's feed, not the main stream
+	if (event.parentSubagentId) return true;
+
 	if (event.hookName === 'SessionEnd') return true;
 	if (event.hookName === 'SubagentStop') return true;
 	if (
@@ -292,9 +295,25 @@ export function useContentOrdering({
 				isSubagentStartEvent(item.data.payload) &&
 				stoppedAgentIds.has(item.data.payload.agent_id)
 			) {
-				const stopEvent = stopEventsByAgent.get(item.data.payload.agent_id);
+				const agentId = item.data.payload.agent_id;
+				const stopEvent = stopEventsByAgent.get(agentId);
+				// Compute child metrics
+				const childToolCount = events.filter(
+					e =>
+						e.parentSubagentId === agentId &&
+						(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest'),
+				).length;
+				const startTime = item.data.timestamp.getTime();
+				const endTime = stopEvent?.timestamp.getTime() ?? Date.now();
 				if (stopEvent) {
-					item.data = {...item.data, stopEvent};
+					item.data = {
+						...item.data,
+						stopEvent,
+						childMetrics: {
+							toolCount: childToolCount,
+							duration: endTime - startTime,
+						},
+					};
 				}
 			}
 		}
