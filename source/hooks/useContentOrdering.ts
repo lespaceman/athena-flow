@@ -175,6 +175,7 @@ export function useContentOrdering({
 	// Track IDs that have been emitted as stable, in order.
 	// Once an item enters this list, its position is fixed.
 	const stableOrderRef = useRef<string[]>([]);
+	const pendingPromotionRef = useRef<Set<string>>(new Set());
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
 	const sessionEndMessages: ContentItem[] = events
 		.filter(
@@ -392,18 +393,36 @@ export function useContentOrdering({
 		}
 	}
 
-	// Append newly-stable items (in timestamp order among themselves)
-	for (const item of contentItems) {
-		if (isStable(item) && !prevStableIds.has(item.data.id)) {
+	// Phase 1: Promote items that were pending from the previous render
+	for (const id of pendingPromotionRef.current) {
+		const item = itemById.get(id);
+		if (item && isStable(item) && !prevStableIds.has(id)) {
 			stableItems.push(item);
 		}
 	}
 
+	// Phase 2: Newly-stable items go into pending (will promote next render)
+	const newPending = new Set<string>();
+	for (const item of contentItems) {
+		if (
+			isStable(item) &&
+			!prevStableIds.has(item.data.id) &&
+			!pendingPromotionRef.current.has(item.data.id)
+		) {
+			newPending.add(item.data.id);
+		}
+	}
+	pendingPromotionRef.current = newPending;
+
 	// Update the ref with the current stable ID order
 	stableOrderRef.current = stableItems.map(i => i.data.id);
 
-	// Dynamic items: everything that's not stable
-	const dynamicItems = contentItems.filter(item => !isStable(item));
+	// Dynamic items: everything not yet promoted to stable
+	// (includes pending items so they remain visible during the delay)
+	const stableIdSet = new Set(stableItems.map(i => i.data.id));
+	const dynamicItems = contentItems.filter(
+		item => !stableIdSet.has(item.data.id),
+	);
 
 	return {
 		stableItems,
