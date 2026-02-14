@@ -63,11 +63,9 @@ export default function SubagentEvent({
 					</Text>
 				)}
 			</Box>
-			{isCompleted && (
-				<Box paddingLeft={2}>
-					<Text dimColor>{'  '}(ctrl+o to expand)</Text>
-				</Box>
-			)}
+			<Box paddingLeft={2}>
+				<Text dimColor>{'  '}(ctrl+o to expand)</Text>
+			</Box>
 		</Box>
 	);
 }

@@ -17,6 +17,7 @@ import {
 	generateId,
 	isToolEvent,
 	isSubagentStartEvent,
+	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
 	type PendingRequest,
@@ -151,12 +152,23 @@ export function useHookServer(
 	const expandedAgentIdRef = useRef<string | null>(null);
 
 	const toggleSubagentExpansion = useCallback(() => {
-		// Find the most recent completed SubagentStart event
+		// Build set of agent_ids that have a SubagentStop (i.e., completed)
+		const stoppedIds = new Set<string>();
+		for (const e of eventsRef.current) {
+			if (
+				e.hookName === 'SubagentStop' &&
+				isSubagentStopEvent(e.payload)
+			) {
+				stoppedIds.add(e.payload.agent_id);
+			}
+		}
+
+		// Find the most recent SubagentStart that has completed
 		const completedAgents = eventsRef.current.filter(
 			e =>
 				e.hookName === 'SubagentStart' &&
 				isSubagentStartEvent(e.payload) &&
-				e.stopEvent,
+				stoppedIds.has(e.payload.agent_id),
 		);
 		const lastAgent = completedAgents.at(-1);
 		if (!lastAgent || !isSubagentStartEvent(lastAgent.payload)) return;
