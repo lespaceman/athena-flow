@@ -579,6 +579,94 @@ describe('useContentOrdering', () => {
 			expect(subagentStopItems).toHaveLength(0);
 		});
 
+		it('excludes PreToolUse for Task tool (merged into SubagentStart)', () => {
+			const events = [
+				makeEvent({
+					id: 'task-pre',
+					hookName: 'PreToolUse',
+					toolName: 'Task',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Task',
+						tool_input: {
+							description: 'Explore the codebase',
+							subagent_type: 'Explore',
+						},
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({
+				messages: [],
+				events,
+			});
+
+			const allItems = [...stableItems, ...dynamicItems];
+			const taskPreToolUse = allItems.filter(
+				i =>
+					i.type === 'hook' &&
+					i.data.hookName === 'PreToolUse' &&
+					i.data.toolName === 'Task',
+			);
+			expect(taskPreToolUse).toHaveLength(0);
+		});
+
+		it('attaches taskDescription to SubagentStart from parent Task PreToolUse', () => {
+			const events = [
+				makeEvent({
+					id: 'task-pre',
+					hookName: 'PreToolUse',
+					toolName: 'Task',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Task',
+						tool_input: {
+							description: 'Explore the codebase',
+							subagent_type: 'Explore',
+						},
+					},
+				}),
+				makeEvent({
+					id: 'sub-start',
+					hookName: 'SubagentStart',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItems} = callHook({
+				messages: [],
+				events,
+			});
+
+			const allItems = [...stableItems, ...dynamicItems];
+			const subagentItem = allItems.find(
+				i => i.type === 'hook' && i.data.id === 'sub-start',
+			);
+			expect(subagentItem).toBeDefined();
+			expect(
+				subagentItem?.type === 'hook' && subagentItem.data.taskDescription,
+			).toBe('Explore the codebase');
+		});
+
 		it('excludes PostToolUse for Task tool (content shown in subagent box)', () => {
 			const events = [
 				makeEvent({
