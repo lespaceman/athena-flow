@@ -275,6 +275,10 @@ function AppContent({
 			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
+			// Ctrl+O toggles expansion of the most recent completed subagent
+			if (key.ctrl && _input === 'o') {
+				hookServer.toggleSubagentExpansion();
+			}
 		},
 		{isActive: !dialogActive},
 	);

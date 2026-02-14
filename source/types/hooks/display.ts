@@ -51,5 +51,5 @@ export type HookEventDisplay = {
 	 */
 	taskDescription?: string;
 	/** For SubagentStart events: aggregated metrics about child tool calls */
-	childMetrics?: {toolCount: number; duration: number};
+	childMetrics?: {toolCount: number; duration: number; model?: string};
 };

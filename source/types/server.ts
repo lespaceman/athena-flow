@@ -65,6 +65,8 @@ export type UseHookServerResult = {
 	resolveQuestion: (requestId: string, answers: Record<string, string>) => void;
 	/** Expand a collapsed tool output into the event stream */
 	expandToolOutput: (toolId: string) => void;
+	/** Toggle expansion of the most recent completed subagent's child events */
+	toggleSubagentExpansion: () => void;
 	/** Print full task list snapshot into the event stream */
 	printTaskSnapshot: () => void;
 };

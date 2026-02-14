@@ -7,6 +7,7 @@ import {
 import {useTheme} from '../theme/index.js';
 import {useSpinner} from '../hooks/useSpinner.js';
 import {truncateLine} from '../utils/truncate.js';
+import {formatModelName} from '../utils/formatters.js';
 
 function formatDuration(ms: number): string {
 	const secs = Math.round(ms / 1000);
@@ -26,9 +27,11 @@ export default function SubagentEvent({
 	const spinnerFrame = useSpinner(!isCompleted);
 	const terminalWidth = process.stdout.columns ?? 80;
 
-	// Line 1: ● AgentType(description)
+	// Line 1: ● AgentType(description) ModelName
 	const description = event.taskDescription ? `(${event.taskDescription})` : '';
-	const headerText = `${payload.agent_type}${description}`;
+	const model = event.childMetrics?.model;
+	const modelSuffix = model ? ` ${formatModelName(model)}` : '';
+	const headerText = `${payload.agent_type}${description}${modelSuffix}`;
 	const headerTruncated = truncateLine(headerText, terminalWidth - 4);
 
 	// Line 2: └ Done/Running (N tool uses · Xs)
@@ -60,6 +63,11 @@ export default function SubagentEvent({
 					</Text>
 				)}
 			</Box>
+			{isCompleted && (
+				<Box paddingLeft={2}>
+					<Text dimColor>{'  '}(ctrl+o to expand)</Text>
+				</Box>
+			)}
 		</Box>
 	);
 }

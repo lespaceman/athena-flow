@@ -16,6 +16,7 @@ import {
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
+	isSubagentStartEvent,
 } from '../types/hooks/index.js';
 import {
 	type PendingRequest,
@@ -142,6 +143,68 @@ export function useHookServer(
 				} as unknown as HookEventDisplay['payload']),
 			status: 'passthrough',
 			toolUseId: resolvedId,
+		};
+
+		setEvents(prev => [...prev, expansionEvent]);
+	}, []);
+
+	const expandedAgentIdRef = useRef<string | null>(null);
+
+	const toggleSubagentExpansion = useCallback(() => {
+		// Find the most recent completed SubagentStart event
+		const completedAgents = eventsRef.current.filter(
+			e =>
+				e.hookName === 'SubagentStart' &&
+				isSubagentStartEvent(e.payload) &&
+				e.stopEvent,
+		);
+		const lastAgent = completedAgents.at(-1);
+		if (!lastAgent || !isSubagentStartEvent(lastAgent.payload)) return;
+
+		const agentId = lastAgent.payload.agent_id;
+		const expansionId = `agent-expansion-${agentId}`;
+
+		// Toggle: if same agent is already expanded, collapse it
+		if (expandedAgentIdRef.current === agentId) {
+			expandedAgentIdRef.current = null;
+			setEvents(prev => prev.filter(e => e.id !== expansionId));
+			return;
+		}
+
+		// Collapse previous if different agent
+		if (expandedAgentIdRef.current) {
+			const prevExpId = `agent-expansion-${expandedAgentIdRef.current}`;
+			setEvents(prev => prev.filter(e => e.id !== prevExpId));
+		}
+
+		expandedAgentIdRef.current = agentId;
+
+		// Collect child events for this agent
+		const childEvents = eventsRef.current.filter(
+			e => e.parentSubagentId === agentId,
+		);
+		const childLines = childEvents.map(e => {
+			const tool = e.toolName ?? e.hookName;
+			const blocked = e.status === 'blocked' ? ' [blocked]' : '';
+			return `  ${tool}${blocked}`;
+		});
+		const message =
+			`Agent ${lastAgent.payload.agent_type} (${agentId}) \u2014 ` +
+			`${childEvents.length} child events:\n${childLines.join('\n')}`;
+
+		const expansionEvent: HookEventDisplay = {
+			id: expansionId,
+			requestId: expansionId,
+			timestamp: new Date(),
+			hookName: 'Notification' as HookEventDisplay['hookName'],
+			payload: {
+				session_id: '',
+				transcript_path: '',
+				cwd: '',
+				hook_event_name: 'Notification',
+				message,
+			} as unknown as HookEventDisplay['payload'],
+			status: 'passthrough',
 		};
 
 		setEvents(prev => [...prev, expansionEvent]);
@@ -540,6 +603,7 @@ export function useHookServer(
 		questionQueueCount,
 		resolveQuestion,
 		expandToolOutput,
+		toggleSubagentExpansion,
 		printTaskSnapshot,
 	};
 }

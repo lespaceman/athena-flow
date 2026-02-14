@@ -349,10 +349,17 @@ export function useContentOrdering({
 			}
 			if (bestMatch && isPreToolUseEvent(bestMatch.payload)) {
 				const input = bestMatch.payload.tool_input as Record<string, unknown>;
-				const description = input.description;
-				if (typeof description === 'string') {
-					item.data = {...item.data, taskDescription: description};
+				const updates: Partial<HookEventDisplay> = {};
+				if (typeof input.description === 'string') {
+					updates.taskDescription = input.description;
 				}
+				if (typeof input.model === 'string' && item.data.childMetrics) {
+					updates.childMetrics = {
+						...item.data.childMetrics,
+						model: input.model,
+					};
+				}
+				item.data = {...item.data, ...updates};
 				consumedTaskPreIds.add(bestMatch.id);
 			}
 		}
