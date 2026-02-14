@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React from 'react';
 import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
@@ -70,13 +70,6 @@ export default function UnifiedToolCallEvent({
 			!isStandalonePost &&
 			!!event.toolUseId);
 
-	const [pulse, setPulse] = useState(true);
-	useEffect(() => {
-		if (!isPending) return;
-		const id = setInterval(() => setPulse(p => !p), 500);
-		return () => clearInterval(id);
-	}, [isPending]);
-
 	const parsed = parseToolName(toolName);
 	const inlineParams = formatInlineParams(toolInput);
 
@@ -136,7 +129,7 @@ export default function UnifiedToolCallEvent({
 	return (
 		<Box flexDirection="column" marginBottom={1}>
 			<Box>
-				<Text color={bulletColor} dimColor={isPending && !pulse}>
+				<Text color={bulletColor} dimColor={isPending}>
 					{BULLET}{' '}
 				</Text>
 				<Text color={bulletColor} bold>
