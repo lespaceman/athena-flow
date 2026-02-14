@@ -1,121 +1,184 @@
-# Phase 1: UI Stabilization Design
+# Phase 1: UI Stabilization Design (Final)
 
 **Date:** 2026-02-15
 **Status:** Approved
-**Scope:** Fix rendering stability, enforce layout constraints, prepare for Phase 2 (feeds/radar)
+**Scope:** Eliminate flicker/jank, enforce 1-line headers, bound dynamic region, introduce safe tool output collapsing. Phase 2 will add feeds/radar/todo.
 
-## Context
+## 1) Hard Constraints for Phase 1
 
-The ATHENA CLI v1 spec defines hard invariants: 1-line header, max 4-line footer, append-only event stream, 1-line event headers. The current UI violates most of these — events render multi-line, the footer has no height budget, and flickering occurs due to deferred Static promotion in `useContentOrdering`.
+Even in Phase 1, we enforce a strict layout budget except during dialogs.
 
-This design covers Phase 1: stabilize the rendering before implementing the full spec (feeds, radar, etc.) in Phase 2.
+1. Header: exactly 1 line (always)
+2. Event stream: append-only, rendered via `<Static>` (always)
+3. Footer (non-dialog): max **4 lines total**
+4. Footer (dialog active): may expand, but capped at **12 lines**; if terminal height is too small, dialog switches to compact mode (see §5).
 
-## Decisions Made
+## 2) Decisions
 
 | Question | Decision |
 |----------|----------|
-| Dialog height vs 4-line footer | Dialogs are exceptions — footer can temporarily grow when a dialog is active |
-| Tool output inline vs collapsed | Hybrid: short output (≤5 lines) inline, long output collapsed with `:open` |
-| Full spec vs stability first | Stability first — feeds, radar, todo strip come in Phase 2 |
-| Header/footer restructure | Incremental — consolidate Header to 1 line, keep current footer position |
+| Dialog height vs footer budget | Dialogs may exceed 4-line footer, but are capped at 12 lines and must degrade gracefully on small terminals |
+| Tool output inline vs collapsed | Temporary hybrid: preview inline (≤5 lines) in Static; larger outputs collapsed with `:open` expansion |
+| Stability first vs full spec | Stability first; feeds/radar/todo belong to Phase 2 |
+| Header/footer restructure | Incremental: merge Header+StatusLine into 1 line; footer discipline enforced in `app.tsx` without a new AppShell |
 
-## Section 1: Fix Flickering / Jank
+## 3) Event Model Rule (removes "stability ambiguity")
+
+Phase 1 formalizes one simple rule to support immediate Static promotion:
+
+* **All UI items in the event stream are immutable events.**
+* Tool lifecycle is represented as separate events:
+  * `ToolStart` (optional)
+  * `ToolEnd` (required)
+* No event is "updated". If a tool transitions RUNNING→DONE, that's a new event line.
+
+This removes the need for "wait until stable".
+
+## 4) Fix Flicker/Jank
 
 ### Problem
-`useContentOrdering` uses a deferred-promotion mechanism (`pendingPromotionRef`) that waits one render cycle before moving items to `<Static>`. During this gap, items render in the dynamic region then vanish and re-appear in Static — visible flicker.
+`useContentOrdering` defers promoting content into `<Static>` via `pendingPromotionRef`, causing visible "render dynamic → disappear → reappear" flicker.
 
 ### Fix
-- **Remove deferred promotion** — promote to Static immediately when stable. A brief "Running..." in Static is acceptable; flickering is not.
-- **Throttle dynamic region updates** — batch to ~4-8 Hz max.
-- **Throttle `useHeaderMetrics`** — 1 Hz update cadence to prevent redraw jitter.
+- Remove deferred promotion. **Promote immediately** to `<Static>` on the same render tick the content is created.
+- Any "live" or rapidly changing UI must not be part of the event stream (it belongs in the footer only).
+- Batch any non-essential dynamic updates:
+  - Dynamic UI updates: cap at **8 Hz**
+  - Header metrics: cap at **1 Hz**
 
 ### Files
 - `source/hooks/useContentOrdering.ts`
 - `source/app.tsx`
 - `source/hooks/useHeaderMetrics.ts`
 
-## Section 2: Enforce 1-Line Event Headers
+## 5) Footer Height Discipline (Phase 1 version)
+
+### Non-dialog state (max 4 lines)
+
+Footer contains:
+1. Optional 1-line "Task/TODO summary" (collapsed only — single line always)
+2. CommandInput (1 line)
+3. Optional 1–2 lines of hints/status (only if needed, but total ≤4)
+
+No multi-line TaskList panel in Phase 1. Full task list is shown via command (`:tasks`) as an appended static snapshot.
+
+### Dialog state (exception, capped)
+
+- Footer may expand to show the dialog UI, capped at **12 lines**.
+- During dialog:
+  - CommandInput is disabled but still visible (1 line) to preserve muscle memory.
+  - Task/TODO summary is hidden.
+
+### Small terminal fallback
+
+If terminal height is insufficient:
+- Dialog switches to compact mode (single-line prompt + numeric options), and prints the detailed context into the static stream.
+
+### Files
+- `source/app.tsx`
+- `source/components/TaskList.tsx` (converted to a 1-line summary; full list via `:tasks` snapshot command)
+
+## 6) Enforce 1-Line Event Headers
 
 ### Problem
-`UnifiedToolCallEvent` and `SubagentEvent` can produce multi-line headers when tool names + params are long.
+`UnifiedToolCallEvent` and `SubagentEvent` headers wrap due to long tool args.
 
 ### Fix
-- **Truncate header lines** to terminal width via `truncateLine(text, terminalWidth)` helper.
-- **Flatten SubagentEvent** — remove bordered box, render child events as indented 1-line entries. The bordered box is the source of width-overflow bugs (see CLAUDE.md note on `borderStyle="round"` overhead).
-- Verbose JSON dumps only shown with `--verbose` flag (not a stability concern).
+- Introduce `truncateLine(text, terminalWidth)` and apply to all event headers.
+- Flatten `SubagentEvent` (no borders, no nested containers). Child items are separate event lines with indentation only.
+- Verbose JSON only via `--verbose` (not required for Phase 1 stability).
 
 ### Files
 - `source/components/UnifiedToolCallEvent.tsx`
 - `source/components/SubagentEvent.tsx`
 - `source/utils/truncate.ts` (new)
 
-## Section 3: Hybrid Tool Output Collapse
+## 7) Tool Output Collapsing (hybrid, stability-safe)
 
-### Problem
-Tool results (code blocks, diffs, file lists) can be arbitrarily tall, pushing dynamic content off-screen.
+### Requirement
+Tool output can be arbitrarily tall; must not push the UI around.
 
-### Fix
-- **Threshold**: Output > 5 lines → show 2-line preview + `(+N lines, :open <toolId> to expand)` hint.
-- **`:open <toolId>` command**: Appends full output as a new static block in the event stream. De-duplicated per toolId per session.
-- **Short output (≤5 lines)**: Renders inline as today, no change.
-- **Implementation**: `ToolResultContainer` gains `maxPreviewLines` prop. `ToolOutputRenderer` returns measurable output, container counts lines to decide collapse vs inline.
+### Policy
+- Tool output is rendered into the event stream only, never into a growing dynamic footer region.
+- Preview rule:
+  - ≤5 lines: render inline (in Static, under the tool event or as immediate subsequent lines)
+  - \>5 lines: render a 2-line preview + hint `(+N lines, :open <toolId>)`
+- `:open <toolId>` appends the full output as a new static block. De-duplicate per toolId per session.
+
+### Implementation constraint (important)
+
+Do NOT "measure" rendered React trees to count lines. Instead:
+- Tool outputs must expose a **pre-render representation** for preview purposes: `string[] previewLines` and `totalLineCount`.
+- The full renderer can still produce rich output when expanded, but preview/collapse decisions must be deterministic and cheap.
 
 ### Files
-- `source/components/ToolOutput/ToolResultContainer.tsx`
-- `source/components/ToolOutput/ToolOutputRenderer.tsx`
-- `source/commands/` (new `:open` command)
-- `source/hooks/useContentOrdering.ts` (expansion block support)
+- `source/components/ToolOutput/ToolResultContainer.tsx` (accepts previewLines/totalLineCount)
+- `source/components/ToolOutput/ToolOutputRenderer.tsx` (returns structured preview metadata)
+- `source/utils/toolExtractors.ts` (extractors return preview metadata alongside RenderableOutput)
+- `source/commands/builtins/open.ts` (new `:open`)
+- `source/hooks/useContentOrdering.ts` (support appending expansion blocks)
 
-## Section 4: Consolidate Header to 1 Line
-
-### Problem
-`Header` and `StatusLine` are separate components. Together they consume 2+ lines.
+## 8) Consolidate Header to 1 Line
 
 ### Fix
-- **Merge into single 1-line Header**:
-  ```
-  ATHENA state:WORKING model:opus ctx:148k tools:23 ● server:ready
-  ```
-- **Rate-limit to 1 Hz**.
-- **Remove `StatusLine`** as a separate component — its data feeds into the merged Header.
-- **Keep `StatsPanel`** (Ctrl+S toggle) for detailed metrics.
+Merge Header + StatusLine into a single 1-line header:
+
+```
+ATHENA state:WORKING model:opus ctx:148k tools:23 server:ready
+```
+
+Rules:
+- Update at 1 Hz max.
+- Remove `StatusLine` component; its data flows into Header.
+- Detailed metrics view remains available but must not use conflicting shortcuts (see §9).
 
 ### Files
 - `source/components/Header/Header.tsx`
-- `source/components/Header/StatusLine.tsx` (merge into Header, then remove)
+- `source/components/Header/StatusLine.tsx` (merged then removed)
 - `source/app.tsx`
 
-## Section 5: Footer Height Discipline
+## 9) Shortcuts and Commands (must not interfere with native shortcuts)
 
-### Problem
-The footer region has no height budget.
+### Rule
+Avoid bindings that commonly conflict with terminals, shells, readline, or editors.
 
-### Fix
-- **Non-dialog state**: Footer = CommandInput (1 line) + TaskList (collapsed: 1 line, expanded: up to 4 lines). Max ~5 lines.
-- **Dialog state**: Footer = Dialog (8-10 lines, exception) + CommandInput (disabled, 1 line). TaskList hidden during dialogs.
-- No new Footer wrapper component — enforce discipline via conditional rendering in `app.tsx`.
+Do not use:
+- `Ctrl+S` (flow control / save conflict)
+- `Ctrl+Z` (suspend)
+- `Ctrl+C` (interrupt)
+- `Ctrl+R` (reverse search)
+- `Ctrl+W` (delete word)
+- `Ctrl+P/N` (history navigation in many shells)
+- `Tab` (completion)
+- `Alt+Arrow` (word navigation)
 
-### Files
-- `source/app.tsx`
-- `source/components/TaskList.tsx`
+### Phase 1 shortcuts (minimal)
+- `Esc` = cancel dialog / close overlays (safe, expected)
+- `:` opens command mode implicitly by typing commands (already the case)
+- Everything else via commands to reduce keybinding risk.
 
-## Risk Assessment
+Commands introduced in Phase 1:
+- `:open <toolId>`
+- `:open last`
+- `:tasks` (prints a snapshot into the static stream)
 
-| Change | Risk | Impact |
-|--------|------|--------|
-| Remove deferred promotion | Medium | Eliminates main flicker source |
-| Throttle header/metrics | Low | Reduces redraw churn |
-| 1-line event headers | Low | Cleaner event stream |
-| Flatten SubagentEvent | Medium | Eliminates width overflow bugs |
-| Hybrid tool output collapse | Medium | Controls event stream height |
-| Merge Header + StatusLine | Low | Simpler layout |
-| Footer height discipline | Low | Predictable dynamic region |
+Metrics panel toggle:
+- Use `F9` (default) to toggle StatsPanel (rare conflict). Must be configurable.
 
-## Out of Scope (Phase 2)
+## 10) Out of Scope (Phase 2)
 
-- Feed system (MAIN/agent feeds)
+- Feeds (MAIN vs agent feeds)
 - RadarStrip
-- TodoStrip (pinned per-feed)
-- Feed switching keybindings (F2/F3)
-- `:feed`, `:todo`, `:feeds` commands
+- Pinned TodoStrip per-feed
+- Feed switching keybindings and `:feed` / `:todo` / `:feeds`
 - AppShell wrapper component
+
+## 11) Acceptance Criteria (Phase 1)
+
+- No visible flicker caused by dynamic→static promotion.
+- Header is always 1 line.
+- Event headers never wrap (truncate applied).
+- Subagent boxes removed; no bordered containers in stream.
+- Tool outputs >5 lines are collapsed by default; full content accessible via `:open`.
+- Footer is ≤4 lines during normal operation; dialogs may expand but are capped at 12 lines and degrade on small terminals.
+- No default shortcut uses `Ctrl+S` / `Tab` / `Alt+Arrow` / other common terminal conflicts.
