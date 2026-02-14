@@ -78,19 +78,36 @@ If terminal height is insufficient:
 - `source/app.tsx`
 - `source/components/TaskList.tsx` (converted to a 1-line summary; full list via `:tasks` snapshot command)
 
-## 6) Enforce 1-Line Event Headers
+## 6) Enforce 1-Line Event Headers + Compact Subagent Blocks
 
 ### Problem
-`UnifiedToolCallEvent` and `SubagentEvent` headers wrap due to long tool args.
+`UnifiedToolCallEvent` headers wrap due to long tool args. Child subagent tool calls spam the main feed.
 
-### Fix
-- Introduce `truncateLine(text, terminalWidth)` and apply to all event headers.
-- Flatten `SubagentEvent` (no borders, no nested containers). Child items are separate event lines with indentation only.
+### Fix: Tool events
+- Introduce `truncateLine(text, terminalWidth)` (ANSI-safe via `string-width`) and apply to all event headers.
 - Verbose JSON only via `--verbose` (not required for Phase 1 stability).
+
+### Fix: Subagent rendering
+Subagents render as a **2-3 line compact block** in the main feed (matching Claude Code's native rendering):
+
+```
+● Explore(Explore key source files) Haiku 4.5
+  └ Done (7 tool uses · 33.8k tokens · 19s)
+  (ctrl+o to expand)
+```
+
+Rules:
+- **Line 1:** Agent type, description (from Task PreToolUse), model name
+- **Line 2:** Completion summary — tool count, tokens, duration (computed from child events)
+- **Line 3:** Expand hint (`:open <agentId>` or keybinding). In Phase 1, expand appends a snapshot of child events to the static stream. In Phase 2, it switches to the agent feed.
+- **No child tool calls in main feed.** Events with `parentSubagentId` are excluded from `shouldExcludeFromMainStream`.
+- **While running:** Line 2 shows spinner + "Running..." instead of "Done". Line 3 omitted.
+- No bordered boxes, no nested containers.
 
 ### Files
 - `source/components/UnifiedToolCallEvent.tsx`
-- `source/components/SubagentEvent.tsx`
+- `source/components/SubagentEvent.tsx` (rewrite as compact block)
+- `source/hooks/useContentOrdering.ts` (exclude child events from main stream)
 - `source/utils/truncate.ts` (new)
 
 ## 7) Tool Output Collapsing (hybrid, stability-safe)

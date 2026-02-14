@@ -410,55 +410,224 @@ git commit -m "fix: truncate tool call headers to terminal width"
 
 ---
 
-### Task 6: Verify SubagentEvent is Already Flat + Add Invariant Test
+### Task 6: Rewrite SubagentEvent as Compact Block + Hide Child Events from Main Feed
 
-**Note:** Code review confirmed `SubagentEvent.tsx` already uses plain `<Box flexDirection="column">` without `borderStyle`. This task is verification only — add a test to lock the invariant, plus truncate the completion response text.
+Subagents render as a 2-3 line compact block (matching Claude Code's native rendering). Child tool calls are completely hidden from the main feed.
 
 **Files:**
-- Modify: `source/components/SubagentEvent.tsx` (truncate response only)
-- Test: add invariant test
+- Modify: `source/components/SubagentEvent.tsx` (rewrite)
+- Modify: `source/hooks/useContentOrdering.ts:48-62` (exclude child events)
+- Test: new/updated tests
 
-**Step 1: Write invariant test**
+**Step 1: Write failing test — child events excluded from main stream**
+
+In `source/hooks/useContentOrdering.test.ts`:
 
 ```typescript
-it('renders subagent start without border characters', () => {
-	const {lastFrame} = render(
-		<SubagentEvent event={makeSubagentStartEvent({agentType: 'Explore'})} />
-	);
-	const frame = lastFrame()!;
-	expect(frame).not.toMatch(/[╭╮╰╯│─]/);
-	expect(frame).toContain('Task(Explore)');
+it('excludes child events (with parentSubagentId) from the main content stream', () => {
+	const result = callHook({
+		messages: [],
+		events: [
+			makeEvent({
+				id: 'parent-start',
+				hookName: 'SubagentStart',
+				status: 'passthrough',
+				payload: makeSubagentStartPayload({agentId: 'a1', agentType: 'Explore'}),
+			}),
+			makeEvent({
+				id: 'child-tool',
+				hookName: 'PreToolUse',
+				toolName: 'Glob',
+				parentSubagentId: 'a1',
+				status: 'passthrough',
+				payload: makePreToolUsePayload({toolName: 'Glob'}),
+			}),
+		],
+	});
+	const allIds = [...result.stableItems, ...result.dynamicItems].map(i => i.data.id);
+	expect(allIds).toContain('parent-start');
+	expect(allIds).not.toContain('child-tool');
 });
 ```
 
-**Step 2: Run — should PASS (already borderless)**
+**Step 2: Run to verify failure**
 
-Run: `npx vitest run source/components/HookEvent.test.tsx -t "border"`
+Run: `npx vitest run source/hooks/useContentOrdering.test.ts -t "excludes child events"`
 
-Expected: PASS
+Expected: FAIL — child events currently pass through.
 
-**Step 3: Truncate completion response text**
+**Step 3: Add `parentSubagentId` filter to shouldExcludeFromMainStream**
 
-In `SubagentEvent.tsx`, truncate `responseText` using the ANSI-safe `truncateLine` from Task 4:
+In `source/hooks/useContentOrdering.ts`, add at the top of `shouldExcludeFromMainStream`:
 
 ```typescript
-import {truncateLine} from '../utils/truncate.js';
+function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
+	// Child events belong to their parent subagent's feed, not the main stream
+	if (event.parentSubagentId) return true;
 
-const terminalWidth = process.stdout.columns ?? 80;
-const displayResponse = truncateLine(responseText, terminalWidth - 10);
+	if (event.hookName === 'SessionEnd') return true;
+	// ... rest unchanged ...
+}
 ```
 
-**Step 4: Run tests**
+**Step 4: Run content ordering tests**
 
-Run: `npx vitest run source/components/HookEvent.test.tsx`
+Run: `npx vitest run source/hooks/useContentOrdering.test.ts`
+
+Expected: Some existing tests that assert child events appear in the stream will fail. Update them to expect exclusion instead.
+
+**Step 5: Write failing test — compact SubagentEvent rendering**
+
+```typescript
+describe('SubagentEvent compact block', () => {
+	it('renders 2-line block: header + summary when completed', () => {
+		const event = makeSubagentStartEvent({
+			agentType: 'Explore',
+			taskDescription: 'Explore key source files',
+			stopEvent: makeSubagentStopEvent({agentType: 'Explore'}),
+		});
+		const {lastFrame} = render(<SubagentEvent event={event} childMetrics={{toolCount: 7, duration: 19000}} />);
+		const frame = lastFrame()!;
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('Explore key source files');
+		expect(frame).toContain('Done');
+		expect(frame).toContain('7 tool uses');
+		expect(frame).not.toMatch(/[╭╮╰╯│─]/); // no borders
+	});
+
+	it('renders running state with spinner', () => {
+		const event = makeSubagentStartEvent({agentType: 'Explore'});
+		const {lastFrame} = render(<SubagentEvent event={event} childMetrics={{toolCount: 3, duration: 5000}} />);
+		expect(lastFrame()).toContain('Running');
+	});
+});
+```
+
+**Step 6: Rewrite SubagentEvent.tsx**
+
+```typescript
+import React from 'react';
+import {Box, Text} from 'ink';
+import {
+	type HookEventDisplay,
+	isSubagentStartEvent,
+} from '../types/hooks/index.js';
+import {useTheme} from '../theme/index.js';
+import {useSpinner} from '../hooks/useSpinner.js';
+import {truncateLine} from '../utils/truncate.js';
+
+type ChildMetrics = {
+	toolCount: number;
+	duration: number; // ms
+};
+
+type Props = {
+	event: HookEventDisplay;
+	childMetrics?: ChildMetrics;
+};
+
+function formatDuration(ms: number): string {
+	const secs = Math.round(ms / 1000);
+	return secs < 60 ? `${secs}s` : `${Math.floor(secs / 60)}m${secs % 60}s`;
+}
+
+export default function SubagentEvent({event, childMetrics}: Props): React.ReactNode {
+	const theme = useTheme();
+	if (!isSubagentStartEvent(event.payload)) return null;
+
+	const payload = event.payload;
+	const isCompleted = Boolean(event.stopEvent);
+	const spinnerFrame = useSpinner(!isCompleted);
+	const terminalWidth = process.stdout.columns ?? 80;
+
+	// Line 1: ● AgentType(description) ModelName
+	const description = event.taskDescription
+		? `(${event.taskDescription})`
+		: '';
+	const headerText = `${payload.agent_type}${description}`;
+	const headerTruncated = truncateLine(headerText, terminalWidth - 4);
+
+	// Line 2: └ Done/Running (N tool uses · Xs)
+	const toolCount = childMetrics?.toolCount ?? 0;
+	const duration = childMetrics?.duration ?? 0;
+	const summaryParts: string[] = [];
+	if (toolCount > 0) summaryParts.push(`${toolCount} tool uses`);
+	if (duration > 0) summaryParts.push(formatDuration(duration));
+	const summaryDetail = summaryParts.length > 0
+		? ` (${summaryParts.join(' · ')})`
+		: '';
+
+	return (
+		<Box flexDirection="column" marginBottom={1}>
+			<Box>
+				<Text color={theme.accentSecondary} bold>● </Text>
+				<Text color={theme.accentSecondary} bold>{headerTruncated}</Text>
+			</Box>
+			<Box paddingLeft={2}>
+				<Text dimColor>└ </Text>
+				{isCompleted ? (
+					<Text color={theme.status.success}>Done{summaryDetail}</Text>
+				) : (
+					<Text color={theme.status.info}>{spinnerFrame} Running{summaryDetail}</Text>
+				)}
+			</Box>
+			{isCompleted && (
+				<Box paddingLeft={2}>
+					<Text dimColor>(:open {payload.agent_id} to expand)</Text>
+				</Box>
+			)}
+		</Box>
+	);
+}
+```
+
+**Step 7: Pass childMetrics from app.tsx or compute in SubagentEvent**
+
+The child metrics (tool count, duration) need to be computed. Two options:
+
+**Option A (simpler):** Compute in `useContentOrdering` and attach to the SubagentStart event as a new field `childMetrics` on `HookEventDisplay`.
+
+**Option B:** Pass the full events array to SubagentEvent and let it compute. More encapsulated but couples the component to the event store.
+
+Prefer **Option A** — add `childMetrics` to `HookEventDisplay`:
+
+```typescript
+// In display.ts:
+childMetrics?: {toolCount: number; duration: number};
+```
+
+In `useContentOrdering.ts`, when merging stopEvent onto SubagentStart, also compute:
+
+```typescript
+// After merging stopEvent onto item.data:
+const childToolCount = events.filter(
+	e => e.parentSubagentId === item.data.payload.agent_id
+		&& e.hookName === 'PreToolUse'
+).length;
+const startTime = item.data.timestamp.getTime();
+const endTime = stopEvent?.timestamp.getTime() ?? Date.now();
+item.data = {
+	...item.data,
+	stopEvent,
+	childMetrics: {toolCount: childToolCount, duration: endTime - startTime},
+};
+```
+
+**Step 8: Run all tests**
+
+Run: `npx vitest run source/hooks/useContentOrdering.test.ts && npx vitest run source/components/HookEvent.test.tsx`
 
 Expected: PASS
 
-**Step 5: Commit**
+**Step 9: Commit**
 
 ```bash
-git add source/components/SubagentEvent.tsx source/components/HookEvent.test.tsx
-git commit -m "test: add SubagentEvent borderless invariant + truncate response text"
+git add source/components/SubagentEvent.tsx source/hooks/useContentOrdering.ts source/hooks/useContentOrdering.test.ts source/types/hooks/display.ts source/components/HookEvent.test.tsx
+git commit -m "feat: compact SubagentEvent block + hide child events from main feed
+
+Subagents render as 2-3 line compact blocks (header + summary + expand hint).
+Child tool calls with parentSubagentId are excluded from the main stream.
+Child metrics (tool count, duration) computed in useContentOrdering."
 ```
 
 ---
@@ -1299,7 +1468,7 @@ Task 2 (throttle header metrics)   ← independent
 Task 3 (Ctrl+S → F9)               ← independent
 Task 4 (truncateLine utility)       ← independent
 Task 5 (1-line headers)             ← depends on Task 4
-Task 6 (flatten SubagentEvent)      ← independent
+Task 6 (compact SubagentEvent)      ← depends on Task 4
 Task 7 (preview metadata)           ← independent
 Task 8 (collapse in container)      ← depends on Task 7
 Task 9 (wire collapse + :open)      ← depends on Tasks 7, 8
@@ -1311,7 +1480,7 @@ Task 14 (full validation)           ← depends on all
 ```
 
 Parallelizable groups:
-- **Group A:** Tasks 1, 2, 3, 4, 6, 7, 12 (all independent)
-- **Group B:** Tasks 5, 8, 10, 13 (depend on Group A items)
+- **Group A:** Tasks 1, 2, 3, 4, 7, 12 (all independent)
+- **Group B:** Tasks 5, 6, 8, 10, 13 (depend on Group A items)
 - **Group C:** Tasks 9, 11 (depend on Group B items)
 - **Group D:** Task 14 (depends on all)
