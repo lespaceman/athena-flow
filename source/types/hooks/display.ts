@@ -45,4 +45,9 @@ export type HookEventDisplay = {
 	 * Used to render tool call and result as a single unified entry.
 	 */
 	postToolEvent?: HookEventDisplay;
+	/**
+	 * For SubagentStart events: the description from the parent Task tool call.
+	 * Extracted from the Task PreToolUse's tool_input.description.
+	 */
+	taskDescription?: string;
 };

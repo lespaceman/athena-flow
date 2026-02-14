@@ -49,6 +49,7 @@ function makeEvent(
 		parentSubagentId: overrides.parentSubagentId,
 		toolUseId: overrides.toolUseId,
 		postToolEvent: overrides.postToolEvent,
+		taskDescription: overrides.taskDescription,
 	};
 }
 
@@ -411,7 +412,7 @@ describe('useContentOrdering', () => {
 	});
 
 	describe('SubagentStart rendering paths', () => {
-		it('excludes SubagentStart events from hookItems (not in dynamicItems)', () => {
+		it('includes running SubagentStart in dynamicItems', () => {
 			const events = [
 				makeEvent({
 					id: 'sub-running',
@@ -431,73 +432,10 @@ describe('useContentOrdering', () => {
 
 			const {dynamicItems} = callHook({messages: [], events});
 
-			// SubagentStart should NOT appear in dynamicItems (handled via activeSubagents)
 			const subagentInDynamic = dynamicItems.filter(
 				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
 			);
-			expect(subagentInDynamic).toHaveLength(0);
-		});
-
-		it('returns running SubagentStart events in activeSubagents', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-running',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {activeSubagents} = callHook({messages: [], events});
-
-			expect(activeSubagents).toHaveLength(1);
-			expect(activeSubagents[0]!.id).toBe('sub-running');
-		});
-
-		it('does not include completed SubagentStart in activeSubagents', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-done',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-				makeEvent({
-					id: 'sub-stop',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStop',
-						stop_hook_active: false,
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {activeSubagents} = callHook({messages: [], events});
-
-			expect(activeSubagents).toHaveLength(0);
+			expect(subagentInDynamic).toHaveLength(1);
 		});
 
 		it('places completed SubagentStart in stableItems', () => {
@@ -667,7 +605,7 @@ describe('useContentOrdering', () => {
 			expect(taskPostToolUse).toHaveLength(0);
 		});
 
-		it('excludes child SubagentStart (parentSubagentId set) from activeSubagents', () => {
+		it('includes child SubagentStart (parentSubagentId set) in dynamicItems', () => {
 			const events = [
 				makeEvent({
 					id: 'sub-child',
@@ -686,20 +624,31 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {activeSubagents} = callHook({messages: [], events});
+			const {dynamicItems} = callHook({messages: [], events});
 
-			expect(activeSubagents).toHaveLength(0);
+			const subInDynamic = dynamicItems.filter(
+				i => i.type === 'hook' && i.data.id === 'sub-child',
+			);
+			expect(subInDynamic).toHaveLength(1);
 		});
 	});
 
-	describe('child event grouping', () => {
-		it('excludes events with parentSubagentId from stableItems and dynamicItems', () => {
+	describe('child event rendering in main stream', () => {
+		it('includes child events (with parentSubagentId) in content stream', () => {
 			const events = [
 				makeEvent({
 					id: 'parent',
 					hookName: 'SubagentStart',
 					status: 'passthrough',
 					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStart',
+						agent_id: 'abc123',
+						agent_type: 'Explore',
+					},
 				}),
 				makeEvent({
 					id: 'child-1',
@@ -708,6 +657,10 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(1500),
 					parentSubagentId: 'abc123',
+					postToolEvent: makeEvent({
+						hookName: 'PostToolUse',
+						status: 'passthrough',
+					}),
 				}),
 				makeEvent({
 					id: 'child-2',
@@ -719,7 +672,7 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {stableItems, dynamicItems, activeSubagents} = callHook({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
@@ -729,81 +682,44 @@ describe('useContentOrdering', () => {
 				...dynamicItems.map(i => i.data.id),
 			];
 
-			// Running SubagentStart is in activeSubagents, not in stableItems/dynamicItems
-			expect(activeSubagents.map(e => e.id)).toContain('parent');
-			expect(allContentIds).not.toContain('parent');
-			expect(allContentIds).not.toContain('child-1');
-			expect(allContentIds).not.toContain('child-2');
+			// All events flow through the main content stream
+			expect(allContentIds).toContain('parent');
+			expect(allContentIds).toContain('child-1');
+			expect(allContentIds).toContain('child-2');
 		});
 
-		it('groups child events correctly by agent_id in childEventsByAgent', () => {
+		it('child events get independent stability tracking', () => {
 			const events = [
 				makeEvent({
-					id: 'child-a1',
+					id: 'child-stable',
 					hookName: 'PreToolUse',
 					toolName: 'Bash',
 					status: 'passthrough',
 					timestamp: new Date(1000),
 					parentSubagentId: 'agent-a',
+					postToolEvent: makeEvent({
+						hookName: 'PostToolUse',
+						status: 'passthrough',
+					}),
 				}),
 				makeEvent({
-					id: 'child-b1',
+					id: 'child-dynamic',
 					hookName: 'PreToolUse',
 					toolName: 'Read',
-					status: 'passthrough',
-					timestamp: new Date(1500),
-					parentSubagentId: 'agent-b',
-				}),
-				makeEvent({
-					id: 'child-a2',
-					hookName: 'PreToolUse',
-					toolName: 'Grep',
-					status: 'passthrough',
+					status: 'pending',
 					timestamp: new Date(2000),
 					parentSubagentId: 'agent-a',
 				}),
 			];
 
-			const {childEventsByAgent} = callHook({
+			const {stableItems, dynamicItems} = callHook({
 				messages: [],
 				events,
 			});
 
-			expect(childEventsByAgent.get('agent-a')).toHaveLength(2);
-			expect(childEventsByAgent.get('agent-a')![0]!.id).toBe('child-a1');
-			expect(childEventsByAgent.get('agent-a')![1]!.id).toBe('child-a2');
-			expect(childEventsByAgent.get('agent-b')).toHaveLength(1);
-			expect(childEventsByAgent.get('agent-b')![0]!.id).toBe('child-b1');
-		});
-
-		it('events without parentSubagentId are unaffected', () => {
-			const events = [
-				makeEvent({
-					id: 'top-level',
-					hookName: 'Notification',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {stableItems, childEventsByAgent} = callHook({
-				messages: [],
-				events,
-			});
-
-			expect(
-				stableItems.some(i => i.type === 'hook' && i.data.id === 'top-level'),
-			).toBe(true);
-			expect(childEventsByAgent.size).toBe(0);
-		});
-
-		it('returns empty map when no child events exist', () => {
-			const {childEventsByAgent} = callHook({
-				messages: [],
-				events: [],
-			});
-
-			expect(childEventsByAgent.size).toBe(0);
+			// Completed child is stable, pending child is dynamic
+			expect(stableItems.some(i => i.data.id === 'child-stable')).toBe(true);
+			expect(dynamicItems.some(i => i.data.id === 'child-dynamic')).toBe(true);
 		});
 	});
 
