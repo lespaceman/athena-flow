@@ -19,7 +19,7 @@
 | Preview metadata on tool extractors | `9c5e6de` | Working |
 | Deterministic collapse in ToolResultContainer | `11e2121` | Working |
 | Wire collapse + `:open` command | `6e517f9` | Working |
-| Consolidate Header + StatusLine into 1 line | `cd6480a` | Working |
+| Consolidate Header + StatusLine into 1 line | `cd6480a` | Broken — see BUG-3 |
 | Remove old StatusLine component | `3a0ba40` | Working |
 | `:tasks` command | `1ab1ae9` | Working |
 
@@ -36,15 +36,12 @@
 
 **Root cause (partially fixed):** The initial implementation checked `e.stopEvent` on raw events — a computed field that only exists in `useContentOrdering` output. Fix `69bfaae` changed to `SubagentStop` lookup, but it still doesn't work.
 
-**Possible remaining causes:**
-1. **Terminal intercepts Ctrl+O (0x0F / SI):** Some terminals consume Ctrl+O before it reaches the application, even in raw mode. Needs testing with explicit stdin logging to confirm delivery.
-2. **Ink useInput may not fire for `_input === 'o'` with `key.ctrl`:** Ink maps control chars to their ASCII values — Ctrl+O becomes `\x0f`, not `'o'`. The handler checks `_input === 'o'` which may not match. Need to check if Ink normalizes this.
-3. **The handler may silently fail:** If no completed agents exist yet, or if `isSubagentStartEvent` guard fails on the raw payload, the function returns early with no feedback.
+**Likely remaining cause:** Ink maps Ctrl+O to `\x0f` (ASCII SI). The handler checks `_input === 'o'` which does NOT match `\x0f`. Ink's `useInput` normalizes some ctrl+key combos but likely not all. Need to test what `_input` value Ink actually provides for Ctrl+O.
 
-**Suggested investigation:**
-- Add temporary `console.error('ctrl+o received')` in the useInput handler to confirm key delivery
-- Check what `_input` value Ink provides for Ctrl+O
-- Consider alternative keybinding if Ctrl+O is unreliable
+**Suggested fix:**
+- Log the actual `_input` value to confirm
+- If `_input` is `\x0f`, match on that instead of `'o'`
+- Or pick a different keybinding entirely
 
 ### BUG-2: `:open` command shows no feedback when called without arguments
 
@@ -53,6 +50,23 @@
 **Symptom:** Typing `:open` with no toolId silently does nothing.
 
 **Fix:** Add a user-visible error message when `toolId` is missing.
+
+### BUG-3: Header renders in the MIDDLE of content, not at the top
+
+**Commit:** `cd6480a`
+**File:** `source/app.tsx`
+
+**Symptom:** The `ATHENA v0.1.0 | waiting for input ...` header line appears between the static event stream and the dynamic footer region, instead of at the very top of the terminal.
+
+**Root cause:** Ink's `<Static>` component always renders at the top of the terminal output, regardless of JSX ordering. Moving Header outside `<Static>` (to enable live updates) caused it to render BELOW all static items.
+
+**Options:**
+1. Put Header back inside `<Static>` as the first item (loses live updates — shows stale state)
+2. Use Ink's `<Box position="absolute">` or cursor manipulation to pin Header at top
+3. Accept Header below static items but move it to the very start of the dynamic region (current behavior, but visually confusing)
+4. Use a fundamentally different approach: render Header as a status bar using raw terminal escape sequences (write directly to stdout row 0) outside Ink's control
+
+**Recommendation:** Option 1 is simplest and stable. Header updates at 1 Hz anyway, so it can re-enter Static on each new event batch. Or, accept the position and style it as a separator between static and dynamic regions.
 
 ---
 
@@ -128,6 +142,19 @@
 
 **Status:** Deferred by user. Implementation plan exists in impl doc Task 13.
 
+### GAP-8: Subagent feed navigation (Ctrl+O + up/down)
+
+**User requirement:** Ctrl+O should open the most recent completed subagent's child event feed. Then up/down arrows (or similar) should let you cycle through different subagents. Pressing Ctrl+O again should close the feed.
+
+**Current:** Ctrl+O is wired but doesn't work (BUG-1). No concept of "selected agent" or up/down navigation between agents.
+
+**Implementation approach:**
+1. Maintain `selectedAgentIndex` state (index into list of completed SubagentStart events)
+2. Ctrl+O toggles feed panel open/closed. On first press, selects the latest agent.
+3. Up/down (while feed is open) cycles `selectedAgentIndex` through completed agents
+4. Feed panel renders child events for the selected agent in the dynamic region
+5. Feed panel should have a bounded height (e.g., max 10 lines) to not push footer off screen
+
 ---
 
 ## Spec deviations (intentional)
@@ -150,6 +177,8 @@
 
 - **Raw events vs computed events:** `useHookServer.ts` stores raw events from the UDS socket. Computed fields like `stopEvent`, `postToolEvent`, `childMetrics`, and `taskDescription` are added by `useContentOrdering` during its processing pass. Any logic in `useHookServer` that needs these fields must query the raw event stream directly (e.g., find `SubagentStop` events by `agent_id` instead of checking `stopEvent`).
 
-- **Ctrl+key reliability:** Terminal control characters (Ctrl+A through Ctrl+Z) map to ASCII 0x01-0x1A. Some are consumed by terminals (Ctrl+C=interrupt, Ctrl+Z=suspend, Ctrl+S=XOFF, Ctrl+Q=XON). Ink receives the rest in raw mode, but `_input` for control chars may be the raw byte, not the letter. Need to verify Ink's normalization behavior for each binding.
+- **Ink `<Static>` always renders at the top:** Everything inside `<Static>` is pinned to the top of terminal output. Everything outside renders below it. There is no way to render dynamic content ABOVE static content in Ink. This fundamentally constrains where the Header can live — it either goes in Static (stable but stale) or below Static (live but visually wrong).
+
+- **Ctrl+key reliability in Ink:** Ink's `useInput` provides `(_input, key)` where `key.ctrl` is boolean. For standard ASCII control chars (Ctrl+A=0x01 through Ctrl+Z=0x1A), `_input` is the raw byte, NOT the letter. So `Ctrl+E` gives `_input === '\x05'`, not `'e'`. However, Ink normalizes some common ones. Must test each binding to confirm what `_input` value is received. The existing `Ctrl+E` handler checks `_input === 'e'` and works — so Ink does normalize at least some. Need to verify if Ctrl+O (`\x0f`) normalizes to `'o'` or stays as `'\x0f'`.
 
 - **Ink `<Static>` is write-once:** Items promoted to `stableItems` render once and never update. All state changes (PostToolUse pairing, SubagentStop merging, childMetrics computation) must happen BEFORE promotion. This is working correctly after Task 1's fix.
