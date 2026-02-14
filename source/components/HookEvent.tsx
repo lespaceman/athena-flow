@@ -1,4 +1,5 @@
 import React from 'react';
+import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
@@ -15,6 +16,7 @@ import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import SubagentEvent from './SubagentEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
 import GenericHookEvent from './GenericHookEvent.js';
+import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -32,6 +34,33 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 
 	if (event.hookName === 'SessionEnd') {
 		return <SessionEndEvent event={event} />;
+	}
+
+	if ((event.hookName as string) === 'Expansion') {
+		const expandToolName = event.toolName ?? 'Unknown';
+		return (
+			<Box flexDirection="column" marginBottom={1}>
+				<Text dimColor>
+					── expanded: {expandToolName} ({event.toolUseId}) ──
+				</Text>
+				<ToolResultContainer>
+					{width => (
+						<ToolOutputRenderer
+							toolName={expandToolName}
+							toolInput={
+								isPreToolUseEvent(event.payload) ? event.payload.tool_input : {}
+							}
+							toolResponse={
+								isPostToolUseEvent(event.payload)
+									? event.payload.tool_response
+									: undefined
+							}
+							availableWidth={width}
+						/>
+					)}
+				</ToolResultContainer>
+			</Box>
+		);
 	}
 
 	const payload = event.payload;

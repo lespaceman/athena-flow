@@ -17,6 +17,7 @@ import {
 	StderrBlock,
 } from './hookEventUtils.js';
 import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
+import {extractToolOutput} from '../utils/toolExtractors.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
@@ -92,6 +93,11 @@ export default function UnifiedToolCallEvent({
 		? isPostToolUseFailureEvent(resolvedPost)
 		: false;
 
+	const outputMeta =
+		resolvedPost && isPostToolUseEvent(resolvedPost)
+			? extractToolOutput(toolName, toolInput, resolvedPost.tool_response)
+			: null;
+
 	let bulletColor: string;
 	let responseNode: React.ReactNode = null;
 
@@ -113,7 +119,11 @@ export default function UnifiedToolCallEvent({
 	} else if (resolvedPost) {
 		bulletColor = statusColors.passthrough;
 		responseNode = (
-			<ToolResultContainer>
+			<ToolResultContainer
+				previewLines={outputMeta?.previewLines}
+				totalLineCount={outputMeta?.totalLineCount}
+				toolId={event.toolUseId}
+			>
 				{availableWidth => (
 					<ToolOutputRenderer
 						toolName={toolName}

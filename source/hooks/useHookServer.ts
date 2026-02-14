@@ -52,6 +52,8 @@ export function useHookServer(
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const activeSubagentStackRef = useRef<string[]>([]);
+	const eventsRef = useRef<HookEventDisplay[]>([]);
+	const expandedToolIdsRef = useRef<Set<string>>(new Set());
 	const abortRef = useRef<AbortController>(new AbortController());
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
@@ -60,8 +62,9 @@ export function useHookServer(
 	const [rules, setRules] = useState<HookRule[]>([]);
 	const rulesRef = useRef<HookRule[]>([]);
 
-	// Keep ref in sync so the socket handler sees current rules
+	// Keep refs in sync so callbacks see current state
 	rulesRef.current = rules;
+	eventsRef.current = events;
 
 	// --- Extracted queues ---
 	const {
@@ -100,6 +103,48 @@ export function useHookServer(
 
 	const clearEvents = useCallback(() => {
 		setEvents([]);
+	}, []);
+
+	const expandToolOutput = useCallback((toolId: string) => {
+		const resolvedId =
+			toolId === 'last'
+				? [...eventsRef.current].reverse().find(e => e.toolUseId)?.toolUseId
+				: toolId;
+		if (!resolvedId || expandedToolIdsRef.current.has(resolvedId)) return;
+		expandedToolIdsRef.current.add(resolvedId);
+
+		const preEvent = eventsRef.current.find(
+			e =>
+				(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+				e.toolUseId === resolvedId,
+		);
+		const postEvent = eventsRef.current.find(
+			e =>
+				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+				e.toolUseId === resolvedId,
+		);
+		if (!postEvent && !preEvent) return;
+
+		const expansionEvent: HookEventDisplay = {
+			id: `expansion-${resolvedId}`,
+			requestId: `expansion-${resolvedId}`,
+			timestamp: new Date(),
+			hookName: 'Expansion' as HookEventDisplay['hookName'],
+			toolName: preEvent?.toolName,
+			payload:
+				postEvent?.payload ??
+				preEvent?.payload ??
+				({
+					session_id: '',
+					transcript_path: '',
+					cwd: '',
+					hook_event_name: 'Expansion',
+				} as unknown as HookEventDisplay['payload']),
+			status: 'passthrough',
+			toolUseId: resolvedId,
+		};
+
+		setEvents(prev => [...prev, expansionEvent]);
 	}, []);
 
 	// Respond to a hook event
@@ -466,5 +511,6 @@ export function useHookServer(
 		currentQuestionRequest,
 		questionQueueCount,
 		resolveQuestion,
+		expandToolOutput,
 	};
 }
