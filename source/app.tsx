@@ -250,13 +250,7 @@ function AppContent({
 		resolveQuestion(currentQuestionRequest.requestId, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {
-		stableItems,
-		dynamicItems,
-		activeSubagents,
-		childEventsByAgent,
-		tasks,
-	} = useContentOrdering({
+	const {stableItems, dynamicItems, tasks} = useContentOrdering({
 		messages,
 		events,
 	});
@@ -313,11 +307,7 @@ function AppContent({
 							key={item.data.id}
 							fallback={<Text color="red">[Error rendering event]</Text>}
 						>
-							<HookEvent
-								event={item.data}
-								verbose={verbose}
-								childEventsByAgent={childEventsByAgent}
-							/>
+							<HookEvent event={item.data} verbose={verbose} />
 						</ErrorBoundary>
 					);
 				}}
@@ -341,28 +331,10 @@ function AppContent({
 						key={item.data.id}
 						fallback={<Text color="red">[Error rendering event]</Text>}
 					>
-						<HookEvent
-							event={item.data}
-							verbose={verbose}
-							childEventsByAgent={childEventsByAgent}
-						/>
+						<HookEvent event={item.data} verbose={verbose} />
 					</ErrorBoundary>
 				),
 			)}
-
-			{/* Active subagents - always dynamic, updates with child events */}
-			{activeSubagents.map(event => (
-				<ErrorBoundary
-					key={event.id}
-					fallback={<Text color="red">[Error rendering event]</Text>}
-				>
-					<HookEvent
-						event={event}
-						verbose={verbose}
-						childEventsByAgent={childEventsByAgent}
-					/>
-				</ErrorBoundary>
-			))}
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList

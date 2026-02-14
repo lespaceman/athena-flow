@@ -19,14 +19,9 @@ import GenericHookEvent from './GenericHookEvent.js';
 type Props = {
 	event: HookEventDisplay;
 	verbose?: boolean;
-	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
-export default function HookEvent({
-	event,
-	verbose,
-	childEventsByAgent,
-}: Props): React.ReactNode {
+export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	// Skip noise events in non-verbose mode
 	if (
 		!verbose &&
@@ -61,13 +56,17 @@ export default function HookEvent({
 		isPostToolUseEvent(payload) ||
 		isPostToolUseFailureEvent(payload)
 	) {
-		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
+		return (
+			<UnifiedToolCallEvent
+				event={event}
+				verbose={verbose}
+				isNested={Boolean(event.parentSubagentId)}
+			/>
+		);
 	}
 
 	if (isSubagentStartEvent(payload)) {
-		return (
-			<SubagentEvent event={event} childEventsByAgent={childEventsByAgent} />
-		);
+		return <SubagentEvent event={event} />;
 	}
 
 	if (isSubagentStopEvent(payload)) {
