@@ -96,10 +96,15 @@ visible render-dynamic-then-reappear flicker."
 - Modify: `source/hooks/useHeaderMetrics.ts`
 - Test: `source/hooks/useHeaderMetrics.test.ts`
 
-**Step 1: Write a failing test**
+**Step 1: Write a failing test using fake timers**
+
+Use `vi.useFakeTimers()` for deterministic behavior — real-time `Date.now()` tests are brittle:
 
 ```typescript
 it('throttles recomputation within 1s window', () => {
+	vi.useFakeTimers();
+	vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+
 	const events1 = [makeSessionStartEvent()];
 	const events2 = [...events1, makePreToolUseEvent()];
 
@@ -109,9 +114,19 @@ it('throttles recomputation within 1s window', () => {
 	);
 
 	const first = result.current;
+
+	// Advance only 500ms (within throttle window)
+	vi.advanceTimersByTime(500);
 	rerender({events: events2});
-	// Within throttle window, should return same reference
 	expect(result.current).toBe(first);
+
+	// Advance past throttle window
+	vi.advanceTimersByTime(600);
+	rerender({events: events2});
+	expect(result.current).not.toBe(first);
+	expect(result.current.toolCallCount).toBe(1);
+
+	vi.useRealTimers();
 });
 ```
 
@@ -218,11 +233,13 @@ causing phantom freezes. F9 is safe and rarely conflicts."
 
 ---
 
-### Task 4: Create truncateLine Utility
+### Task 4: Create truncateLine Utility (ANSI-safe)
 
 **Files:**
 - Create: `source/utils/truncate.ts`
 - Create: `source/utils/truncate.test.ts`
+
+**Important:** Terminal strings contain ANSI escape codes (e.g. `\x1b[31m` for red) that are invisible but inflate `.length`. We MUST use `string-width` (already an Ink transitive dependency) to measure visible column width, and `strip-ansi` to safely slice. Do NOT use `.length` or `.slice()` directly on ANSI-containing strings.
 
 **Step 1: Write failing tests**
 
@@ -236,11 +253,22 @@ describe('truncateLine', () => {
 		expect(truncateLine('hello', 80)).toBe('hello');
 	});
 
-	it('truncates with ellipsis when exceeding width', () => {
+	it('truncates plain text with ellipsis when exceeding width', () => {
 		const long = 'a'.repeat(100);
 		const result = truncateLine(long, 50);
-		expect(result.length).toBe(50);
+		// Visible width should be 50
+		expect(result).toHaveLength(50);
 		expect(result.endsWith('…')).toBe(true);
+	});
+
+	it('handles ANSI escape codes correctly', () => {
+		// \x1b[31m = red, \x1b[39m = reset — invisible chars
+		const ansi = '\x1b[31m' + 'a'.repeat(100) + '\x1b[39m';
+		const result = truncateLine(ansi, 50);
+		// Must NOT cut in the middle of an escape sequence
+		// Visible width of result should be ≤50
+		const stringWidth = (await import('string-width')).default;
+		expect(stringWidth(result)).toBeLessThanOrEqual(50);
 	});
 
 	it('handles empty string', () => {
@@ -249,6 +277,14 @@ describe('truncateLine', () => {
 
 	it('handles width smaller than ellipsis', () => {
 		expect(truncateLine('hello world', 1)).toBe('…');
+	});
+
+	it('handles CJK wide characters', () => {
+		// CJK characters are 2 columns wide
+		const cjk = '你好世界测试'; // 6 chars × 2 cols = 12 visible width
+		const result = truncateLine(cjk, 8);
+		const stringWidth = (await import('string-width')).default;
+		expect(stringWidth(result)).toBeLessThanOrEqual(8);
 	});
 });
 ```
@@ -259,20 +295,38 @@ Run: `npx vitest run source/utils/truncate.test.ts`
 
 Expected: FAIL — module not found.
 
-**Step 3: Implement**
+**Step 3: Implement with string-width**
 
 ```typescript
 // source/utils/truncate.ts
+import stringWidth from 'string-width';
+
 /**
- * Truncate a string to fit within a given character width.
+ * Truncate a string to fit within a given visible column width.
+ * Uses string-width for ANSI-safe measurement (handles escape codes,
+ * CJK double-width characters, emoji, etc.).
  * Appends '…' if truncation occurs.
  */
 export function truncateLine(text: string, maxWidth: number): string {
-	if (text.length <= maxWidth) return text;
+	if (stringWidth(text) <= maxWidth) return text;
 	if (maxWidth <= 1) return '…';
-	return text.slice(0, maxWidth - 1) + '…';
+
+	// Binary search for the longest prefix whose visible width + '…' fits
+	let lo = 0;
+	let hi = text.length;
+	while (lo < hi) {
+		const mid = Math.ceil((lo + hi) / 2);
+		if (stringWidth(text.slice(0, mid)) <= maxWidth - 1) {
+			lo = mid;
+		} else {
+			hi = mid - 1;
+		}
+	}
+	return text.slice(0, lo) + '…';
 }
 ```
+
+Note: `string-width` is already available as a transitive dependency of Ink. Check if it needs to be added as a direct dependency in `package.json`. If so, run `npm install string-width`.
 
 **Step 4: Run tests**
 
@@ -284,7 +338,10 @@ Expected: PASS
 
 ```bash
 git add source/utils/truncate.ts source/utils/truncate.test.ts
-git commit -m "feat: add truncateLine utility for 1-line event header enforcement"
+git commit -m "feat: add ANSI-safe truncateLine utility using string-width
+
+Correctly handles ANSI escape codes, CJK double-width chars,
+and emoji. Uses binary search over string-width for efficiency."
 ```
 
 ---
@@ -353,16 +410,18 @@ git commit -m "fix: truncate tool call headers to terminal width"
 
 ---
 
-### Task 6: Flatten SubagentEvent (Remove Bordered Containers)
+### Task 6: Verify SubagentEvent is Already Flat + Add Invariant Test
+
+**Note:** Code review confirmed `SubagentEvent.tsx` already uses plain `<Box flexDirection="column">` without `borderStyle`. This task is verification only — add a test to lock the invariant, plus truncate the completion response text.
 
 **Files:**
-- Modify: `source/components/SubagentEvent.tsx`
-- Test: `source/components/HookEvent.test.tsx` or new test
+- Modify: `source/components/SubagentEvent.tsx` (truncate response only)
+- Test: add invariant test
 
-**Step 1: Write test verifying no borders**
+**Step 1: Write invariant test**
 
 ```typescript
-it('renders subagent start as a single line without borders', () => {
+it('renders subagent start without border characters', () => {
 	const {lastFrame} = render(
 		<SubagentEvent event={makeSubagentStartEvent({agentType: 'Explore'})} />
 	);
@@ -372,17 +431,21 @@ it('renders subagent start as a single line without borders', () => {
 });
 ```
 
-**Step 2: Run to check current state**
+**Step 2: Run — should PASS (already borderless)**
 
-Current `SubagentEvent.tsx` already renders without `borderStyle`. If the test passes, this task is just verification. If `ResponseBlock` adds multi-line content, truncate it.
+Run: `npx vitest run source/components/HookEvent.test.tsx -t "border"`
 
-**Step 3: Truncate response text on completion**
+Expected: PASS
+
+**Step 3: Truncate completion response text**
+
+In `SubagentEvent.tsx`, truncate `responseText` using the ANSI-safe `truncateLine` from Task 4:
 
 ```typescript
-const maxResponseLength = (process.stdout.columns ?? 80) - 10;
-const displayResponse = responseText.length > maxResponseLength
-	? responseText.slice(0, maxResponseLength - 1) + '…'
-	: responseText;
+import {truncateLine} from '../utils/truncate.js';
+
+const terminalWidth = process.stdout.columns ?? 80;
+const displayResponse = truncateLine(responseText, terminalWidth - 10);
 ```
 
 **Step 4: Run tests**
@@ -395,7 +458,7 @@ Expected: PASS
 
 ```bash
 git add source/components/SubagentEvent.tsx source/components/HookEvent.test.tsx
-git commit -m "fix: ensure SubagentEvent renders as compact 1-line entry"
+git commit -m "test: add SubagentEvent borderless invariant + truncate response text"
 ```
 
 ---
@@ -472,6 +535,8 @@ not React tree measurement, for deterministic behavior."
 ---
 
 ### Task 8: Add Collapse Support to ToolResultContainer
+
+**Important:** Do NOT use Ink's `<Box height={N}>` to clip content — Ink's `height` prop sets a minimum height in many cases and clipping is unreliable across terminal/Ink versions. Instead, when collapsed, render ONLY the `previewLines` strings and skip the `children` entirely. The collapse decision happens BEFORE React rendering, not via CSS-like clipping.
 
 **Files:**
 - Modify: `source/components/ToolOutput/ToolResultContainer.tsx`
@@ -716,11 +781,101 @@ Add `import {openCommand} from './open.js';` and add `openCommand` to the `built
 
 **Step 5: Add `expandToolOutput` to UseHookServerResult**
 
-In `source/types/server.ts`, add the method signature. In `source/hooks/useHookServer.ts`, implement it:
-- Find the event matching `toolId` (or "last" for the most recent tool event)
-- Create a synthetic expansion event with full tool output
-- Append to events array
-- Track expanded toolIds to prevent duplicate expansions
+**5a. Add method signature to `source/types/server.ts`:**
+
+In the `UseHookServerResult` type, add:
+
+```typescript
+/** Append a full tool output expansion block to the event stream. Idempotent per toolId. */
+expandToolOutput: (toolId: string) => void;
+```
+
+**5b. Implement in `source/hooks/useHookServer.ts`:**
+
+Add a ref to track already-expanded toolIds, and implement the callback:
+
+```typescript
+const expandedToolIdsRef = useRef<Set<string>>(new Set());
+
+const expandToolOutput = useCallback((toolId: string) => {
+	// Resolve "last" to the most recent tool event's toolUseId
+	const resolvedId = toolId === 'last'
+		? [...events].reverse().find(e => e.toolUseId)?.toolUseId
+		: toolId;
+
+	if (!resolvedId) return;
+
+	// Idempotent: skip if already expanded
+	if (expandedToolIdsRef.current.has(resolvedId)) return;
+	expandedToolIdsRef.current.add(resolvedId);
+
+	// Find the original PostToolUse event with this toolUseId
+	const postEvent = events.find(
+		e => (e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure')
+			&& e.toolUseId === resolvedId,
+	);
+	// Also find the PreToolUse for tool name/input
+	const preEvent = events.find(
+		e => (e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest')
+			&& e.toolUseId === resolvedId,
+	);
+
+	if (!postEvent && !preEvent) return;
+
+	// Create a synthetic expansion event
+	const expansionEvent: HookEventDisplay = {
+		id: `expansion-${resolvedId}`,
+		requestId: `expansion-${resolvedId}`,
+		timestamp: new Date(),
+		hookName: 'Expansion' as any, // Synthetic type — HookEvent.tsx must handle it
+		toolName: preEvent?.toolName,
+		payload: postEvent?.payload ?? preEvent?.payload ?? {},
+		status: 'passthrough',
+		toolUseId: resolvedId,
+	};
+
+	setEvents(prev => [...prev, expansionEvent]);
+}, [events]);
+```
+
+**5c. Add `Expansion` rendering to HookEvent.tsx:**
+
+In `HookEvent.tsx`, add a case before the fallback:
+
+```typescript
+if (event.hookName === 'Expansion') {
+	return <ExpansionBlock event={event} />;
+}
+```
+
+Create `source/components/ExpansionBlock.tsx` — renders the full tool output without collapse, prefixed with a separator:
+
+```typescript
+export default function ExpansionBlock({event}: {event: HookEventDisplay}) {
+	const toolName = event.toolName ?? 'Unknown';
+	const toolInput = isPreToolUseEvent(event.payload)
+		? event.payload.tool_input : {};
+	const toolResponse = isPostToolUseEvent(event.payload)
+		? event.payload.tool_response : undefined;
+
+	return (
+		<Box flexDirection="column" marginBottom={1}>
+			<Text dimColor>── tool output {event.toolUseId} ──</Text>
+			<ToolResultContainer>
+				{width => (
+					<ToolOutputRenderer
+						toolName={toolName}
+						toolInput={toolInput}
+						toolResponse={toolResponse}
+						availableWidth={width}
+					/>
+				)}
+			</ToolResultContainer>
+			<Text dimColor>── end ──</Text>
+		</Box>
+	);
+}
+```
 
 **Step 6: Run tests**
 
@@ -836,15 +991,35 @@ export default function Header({
 
 **Step 4: Move Header outside `<Static>` in app.tsx**
 
-This allows the header to update live (state changes, spinner, context size):
+This is a significant rendering model change. Currently Header is the first item in `allStaticItems` (rendered once via `<Static>`). Moving it outside enables live updates but changes the component tree.
+
+**4a. Remove header from allStaticItems (app.tsx:281-285):**
 
 ```typescript
-// In app.tsx, replace allStaticItems construction:
-// Remove {type: 'header', id: 'header'} from allStaticItems.
-// Render Header BEFORE <Static>:
+// BEFORE:
+type StaticItem = {type: 'header'; id: string} | (typeof stableItems)[number];
+const allStaticItems: StaticItem[] = [
+	{type: 'header', id: 'header'},
+	...stableItems,
+];
 
+// AFTER:
+const allStaticItems = stableItems;
+```
+
+**4b. Remove the header case from the Static render function (app.tsx:292-301):**
+
+```typescript
+// BEFORE: has if (item.type === 'header') { return <Header .../>; }
+// AFTER: remove that branch entirely, only render messages and hook events
+```
+
+**4c. Add Header as a dynamic component BEFORE `<Static>` (app.tsx:~288):**
+
+```typescript
 return (
 	<Box flexDirection="column">
+		{/* Header renders outside Static for live updates */}
 		<Header
 			version={version}
 			modelName={modelName}
@@ -856,23 +1031,39 @@ return (
 			contextSize={tokenUsage.contextSize}
 			isServerRunning={isServerRunning}
 		/>
-		<Static items={stableItems}>
-			{item => { /* existing rendering, minus header case */ }}
+
+		{/* Static items — stable events/messages (no longer includes header) */}
+		<Static items={allStaticItems}>
+			{item =>
+				item.type === 'message' ? (
+					<Message key={item.data.id} message={item.data} />
+				) : (
+					<ErrorBoundary key={item.data.id} fallback={<Text color="red">[Error]</Text>}>
+						<HookEvent event={item.data} verbose={verbose} />
+					</ErrorBoundary>
+				)
+			}
 		</Static>
-		{/* rest of dynamic content */}
+		{/* ... rest unchanged ... */}
 	</Box>
 );
 ```
 
-**Step 5: Remove StatusLine render from footer area (around line 392-402)**
+**Step 5: Remove StatusLine render from footer area (app.tsx:392-402)**
 
-Delete the `<StatusLine>` JSX and its import.
+Delete the `<StatusLine>` JSX and its import at the top of the file.
 
-**Step 6: Run tests**
+**Step 6: Update existing Header tests**
+
+Existing `Header.test.tsx` likely asserts on border characters (`╭╮╰╯`), logo lines (`▄██████▄`), and the "Welcome back!" text. These will ALL break. Update them:
+- Remove assertions about borders, logo, tips
+- Add assertions for the new 1-line format: `ATHENA`, state label, model, tools count, context size, server indicator
+
+**Step 7: Run tests**
 
 Run: `npx vitest run source/components/Header/Header.test.tsx && npx vitest run`
 
-Expected: PASS
+Expected: PASS (after test updates)
 
 **Step 7: Commit**
 
