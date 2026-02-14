@@ -1,6 +1,8 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
+import stripAnsi from 'strip-ansi';
+import stringWidth from 'string-width';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import type {
 	HookEventDisplay,
@@ -152,6 +154,34 @@ describe('UnifiedToolCallEvent', () => {
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('\u23bf'); // ⎿
 		expect(frame).toContain('test output');
+	});
+
+	it('truncates header line to terminal width', () => {
+		const originalColumns = process.stdout.columns;
+		Object.defineProperty(process.stdout, 'columns', {
+			value: 40,
+			writable: true,
+		});
+
+		const event = makePreToolEvent({
+			payload: {
+				session_id: 'session-1',
+				transcript_path: '/tmp/transcript.jsonl',
+				cwd: '/project',
+				hook_event_name: 'PreToolUse',
+				tool_name: 'Bash',
+				tool_input: {command: 'a'.repeat(200)},
+			} as PreToolUseEvent,
+		});
+		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
+		const lines = (lastFrame() ?? '').split('\n');
+		const headerWidth = stringWidth(stripAnsi(lines[0]!));
+		expect(headerWidth).toBeLessThanOrEqual(40);
+
+		Object.defineProperty(process.stdout, 'columns', {
+			value: originalColumns,
+			writable: true,
+		});
 	});
 
 	it('renders standalone PostToolUse (orphaned)', () => {

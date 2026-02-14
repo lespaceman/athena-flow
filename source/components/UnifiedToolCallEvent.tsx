@@ -10,6 +10,7 @@ import {
 	isPostToolUseFailureEvent,
 } from '../types/hooks/index.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
+import {truncateLine} from '../utils/truncate.js';
 import {
 	getStatusColors,
 	getPostToolText,
@@ -76,6 +77,15 @@ export default function UnifiedToolCallEvent({
 	const parsed = parseToolName(toolName);
 	const inlineParams = formatInlineParams(toolInput);
 
+	const terminalWidth = process.stdout.columns ?? 80;
+	const bulletWidth = 2; // "● "
+	const nameWidth = parsed.displayName.length;
+	const availableForParams = terminalWidth - bulletWidth - nameWidth;
+	const truncatedParams = truncateLine(
+		inlineParams,
+		Math.max(availableForParams, 10),
+	);
+
 	const resolvedPost = resolvePostPayload(event);
 
 	const isFailed = resolvedPost
@@ -138,7 +148,7 @@ export default function UnifiedToolCallEvent({
 				<Text color={bulletColor} bold>
 					{parsed.displayName}
 				</Text>
-				<Text dimColor>{inlineParams}</Text>
+				<Text dimColor>{truncatedParams}</Text>
 			</Box>
 			{verbose && (
 				<Box paddingLeft={3}>
