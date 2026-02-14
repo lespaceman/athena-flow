@@ -147,6 +147,34 @@ export function useHookServer(
 		setEvents(prev => [...prev, expansionEvent]);
 	}, []);
 
+	const printTaskSnapshot = useCallback(() => {
+		const taskEvents = eventsRef.current.filter(
+			e =>
+				e.hookName === 'PreToolUse' &&
+				(e.toolName === 'TaskCreate' || e.toolName === 'TaskUpdate') &&
+				!e.parentSubagentId,
+		);
+
+		if (taskEvents.length === 0) return;
+
+		const snapshotEvent: HookEventDisplay = {
+			id: `task-snapshot-${Date.now()}`,
+			requestId: `task-snapshot-${Date.now()}`,
+			timestamp: new Date(),
+			hookName: 'Notification' as HookEventDisplay['hookName'],
+			payload: {
+				session_id: '',
+				transcript_path: '',
+				cwd: '',
+				hook_event_name: 'Notification',
+				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
+			} as unknown as HookEventDisplay['payload'],
+			status: 'passthrough',
+		};
+
+		setEvents(prev => [...prev, snapshotEvent]);
+	}, []);
+
 	// Respond to a hook event
 	const respond = useCallback(
 		(requestId: string, result: HookResultPayload) => {
@@ -512,5 +540,6 @@ export function useHookServer(
 		questionQueueCount,
 		resolveQuestion,
 		expandToolOutput,
+		printTaskSnapshot,
 	};
 }
