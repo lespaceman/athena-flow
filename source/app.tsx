@@ -376,7 +376,7 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{appMode.type === 'permission' && currentPermissionRequest ? (
+			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
 					fallback={
 						<PermissionErrorFallback
@@ -390,7 +390,8 @@ function AppContent({
 						onDecision={handlePermissionDecision}
 					/>
 				</ErrorBoundary>
-			) : appMode.type === 'question' && currentQuestionRequest ? (
+			)}
+			{appMode.type === 'question' && currentQuestionRequest && (
 				<ErrorBoundary
 					fallback={<QuestionErrorFallback onSkip={handleQuestionSkip} />}
 				>
@@ -401,34 +402,32 @@ function AppContent({
 						onSkip={handleQuestionSkip}
 					/>
 				</ErrorBoundary>
-			) : (
-				<>
-					<CommandInput
-						onSubmit={handleSubmit}
-						disabled={dialogActive}
-						disabledMessage={
-							appMode.type === 'question'
-								? 'Waiting for your input...'
-								: undefined
-						}
-						onEscape={isClaudeRunning ? sendInterrupt : undefined}
-						onArrowUp={inputHistory.back}
-						onArrowDown={inputHistory.forward}
-					/>
-
-					<StatusLine
-						isServerRunning={isServerRunning}
-						socketPath={socketPath ?? null}
-						claudeState={claudeState}
-						verbose={verbose ?? false}
-						spinnerFrame={spinnerFrame}
-						modelName={metrics.modelName || modelName}
-						toolCallCount={metrics.totalToolCallCount}
-						contextSize={tokenUsage.contextSize}
-						projectDir={projectDir}
-					/>
-				</>
 			)}
+			<CommandInput
+				onSubmit={handleSubmit}
+				disabled={dialogActive}
+				disabledMessage={
+					appMode.type === 'question'
+						? 'Waiting for your input...'
+						: appMode.type === 'permission'
+							? 'Respond to permission request above...'
+							: undefined
+				}
+				onEscape={isClaudeRunning ? sendInterrupt : undefined}
+				onArrowUp={inputHistory.back}
+				onArrowDown={inputHistory.forward}
+			/>
+			<StatusLine
+				isServerRunning={isServerRunning}
+				socketPath={socketPath ?? null}
+				claudeState={claudeState}
+				verbose={verbose ?? false}
+				spinnerFrame={spinnerFrame}
+				modelName={metrics.modelName || modelName}
+				toolCallCount={metrics.totalToolCallCount}
+				contextSize={tokenUsage.contextSize}
+				projectDir={projectDir}
+			/>
 		</Box>
 	);
 }
