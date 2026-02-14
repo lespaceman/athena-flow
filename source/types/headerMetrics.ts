@@ -52,7 +52,7 @@ export type AppMode =
 	| {type: 'permission'}
 	| {type: 'question'};
 
-/** Map AppMode to ClaudeState for backward compat with StatusLine/constants. */
+/** Map AppMode to ClaudeState for Header display. */
 export function appModeToClaudeState(mode: AppMode): ClaudeState {
 	switch (mode.type) {
 		case 'permission':
