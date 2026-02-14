@@ -11,9 +11,7 @@ import {isStableContent, useContentOrdering} from './useContentOrdering.js';
  * a React component context.
  */
 function callHook(opts: {messages: Message[]; events: HookEventDisplay[]}) {
-	const {result, rerender} = renderHook(() => useContentOrdering(opts));
-	// Re-render to flush the one-cycle promotion delay for newly-stable items
-	rerender();
+	const {result} = renderHook(() => useContentOrdering(opts));
 	return result.current;
 }
 
@@ -1585,17 +1583,12 @@ describe('useContentOrdering', () => {
 				{initialProps: {messages: [], events}},
 			);
 
-			// Extra rerender to flush the one-cycle promotion delay
-			rerender({messages: [], events});
-
 			expect(result.current.stableItems).toHaveLength(2);
 			expect(result.current.stableItems[0]!.data.id).toBe('e1');
 			expect(result.current.stableItems[1]!.data.id).toBe('e3');
 
 			// Add a message at t=2000 (between e1 and e3)
 			const midMessage = makeMessage('mid', 'assistant', new Date(2000));
-			rerender({messages: [midMessage], events});
-			// Flush promotion delay for the new item
 			rerender({messages: [midMessage], events});
 
 			expect(result.current.stableItems).toHaveLength(3);
