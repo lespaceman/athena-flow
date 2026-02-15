@@ -15,6 +15,7 @@
 ### Task 1: Formalize Event Immutability — Remove In-Place Updates
 
 **Files:**
+
 - Modify: `source/hooks/useContentOrdering.ts:175-176, 396-427`
 - Test: `source/hooks/useContentOrdering.test.ts`
 
@@ -93,6 +94,7 @@ visible render-dynamic-then-reappear flicker."
 ### Task 2: Throttle useHeaderMetrics to 1 Hz
 
 **Files:**
+
 - Modify: `source/hooks/useHeaderMetrics.ts`
 - Test: `source/hooks/useHeaderMetrics.test.ts`
 
@@ -151,7 +153,10 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 
 	return useMemo(() => {
 		const now = Date.now();
-		if (cachedRef.current !== null && now - lastComputeRef.current < THROTTLE_MS) {
+		if (
+			cachedRef.current !== null &&
+			now - lastComputeRef.current < THROTTLE_MS
+		) {
 			return cachedRef.current;
 		}
 		// ... existing computation (lines 26-112 unchanged) ...
@@ -180,6 +185,7 @@ git commit -m "perf: throttle useHeaderMetrics to 1 Hz to reduce redraw churn"
 ### Task 3: Replace Ctrl+S with F9 for StatsPanel Toggle
 
 **Files:**
+
 - Modify: `source/app.tsx:272-279`
 - Test: Verify manually or update existing tests
 
@@ -236,6 +242,7 @@ causing phantom freezes. F9 is safe and rarely conflicts."
 ### Task 4: Create truncateLine Utility (ANSI-safe)
 
 **Files:**
+
 - Create: `source/utils/truncate.ts`
 - Create: `source/utils/truncate.test.ts`
 
@@ -349,6 +356,7 @@ and emoji. Uses binary search over string-width for efficiency."
 ### Task 5: Enforce 1-Line Headers in UnifiedToolCallEvent
 
 **Files:**
+
 - Modify: `source/components/UnifiedToolCallEvent.tsx:132-142`
 - Test: `source/components/UnifiedToolCallEvent.test.tsx`
 
@@ -390,7 +398,10 @@ const terminalWidth = process.stdout.columns ?? 80;
 const bulletWidth = 2; // "● "
 const nameWidth = parsed.displayName.length;
 const availableForParams = terminalWidth - bulletWidth - nameWidth;
-const truncatedParams = truncateLine(inlineParams, Math.max(availableForParams, 10));
+const truncatedParams = truncateLine(
+	inlineParams,
+	Math.max(availableForParams, 10),
+);
 ```
 
 Replace `{inlineParams}` with `{truncatedParams}` in the JSX.
@@ -415,6 +426,7 @@ git commit -m "fix: truncate tool call headers to terminal width"
 Subagents render as a 2-3 line compact block (matching Claude Code's native rendering). Child tool calls are completely hidden from the main feed.
 
 **Files:**
+
 - Modify: `source/components/SubagentEvent.tsx` (rewrite)
 - Modify: `source/hooks/useContentOrdering.ts:48-62` (exclude child events)
 - Test: new/updated tests
@@ -432,7 +444,10 @@ it('excludes child events (with parentSubagentId) from the main content stream',
 				id: 'parent-start',
 				hookName: 'SubagentStart',
 				status: 'passthrough',
-				payload: makeSubagentStartPayload({agentId: 'a1', agentType: 'Explore'}),
+				payload: makeSubagentStartPayload({
+					agentId: 'a1',
+					agentType: 'Explore',
+				}),
 			}),
 			makeEvent({
 				id: 'child-tool',
@@ -444,7 +459,9 @@ it('excludes child events (with parentSubagentId) from the main content stream',
 			}),
 		],
 	});
-	const allIds = [...result.stableItems, ...result.dynamicItems].map(i => i.data.id);
+	const allIds = [...result.stableItems, ...result.dynamicItems].map(
+		i => i.data.id,
+	);
 	expect(allIds).toContain('parent-start');
 	expect(allIds).not.toContain('child-tool');
 });
@@ -601,8 +618,9 @@ In `useContentOrdering.ts`, when merging stopEvent onto SubagentStart, also comp
 ```typescript
 // After merging stopEvent onto item.data:
 const childToolCount = events.filter(
-	e => e.parentSubagentId === item.data.payload.agent_id
-		&& e.hookName === 'PreToolUse'
+	e =>
+		e.parentSubagentId === item.data.payload.agent_id &&
+		e.hookName === 'PreToolUse',
 ).length;
 const startTime = item.data.timestamp.getTime();
 const endTime = stopEvent?.timestamp.getTime() ?? Date.now();
@@ -635,6 +653,7 @@ Child metrics (tool count, duration) computed in useContentOrdering."
 ### Task 7: Add Preview Metadata to Tool Extractors
 
 **Files:**
+
 - Modify: `source/utils/toolExtractors.ts`
 - Test: existing extractor tests or new tests
 
@@ -646,13 +665,23 @@ Add `previewLines` and `totalLineCount` to the `RenderableOutput` discriminated 
 
 ```typescript
 type RenderableOutputBase = {
-	previewLines: string[];    // first N lines as plain strings
-	totalLineCount: number;    // total lines if fully rendered
+	previewLines: string[]; // first N lines as plain strings
+	totalLineCount: number; // total lines if fully rendered
 };
 
 export type RenderableOutput =
-	| (RenderableOutputBase & {type: 'code'; content: string; language?: string; maxLines?: number})
-	| (RenderableOutputBase & {type: 'diff'; oldText: string; newText: string; maxLines?: number})
+	| (RenderableOutputBase & {
+			type: 'code';
+			content: string;
+			language?: string;
+			maxLines?: number;
+	  })
+	| (RenderableOutputBase & {
+			type: 'diff';
+			oldText: string;
+			newText: string;
+			maxLines?: number;
+	  })
 	| (RenderableOutputBase & {type: 'list'; items: string[]; maxItems?: number})
 	| (RenderableOutputBase & {type: 'text'; content: string; maxLines?: number});
 ```
@@ -677,9 +706,13 @@ return {
 
 ```typescript
 it('returns previewLines and totalLineCount for code output', () => {
-	const output = extractToolOutput('Bash', {command: 'ls'}, {
-		stdout: 'line1\nline2\nline3\nline4\nline5\nline6\nline7',
-	});
+	const output = extractToolOutput(
+		'Bash',
+		{command: 'ls'},
+		{
+			stdout: 'line1\nline2\nline3\nline4\nline5\nline6\nline7',
+		},
+	);
 	expect(output.previewLines).toHaveLength(5);
 	expect(output.totalLineCount).toBe(7);
 });
@@ -708,6 +741,7 @@ not React tree measurement, for deterministic behavior."
 **Important:** Do NOT use Ink's `<Box height={N}>` to clip content — Ink's `height` prop sets a minimum height in many cases and clipping is unreliable across terminal/Ink versions. Instead, when collapsed, render ONLY the `previewLines` strings and skip the `children` entirely. The collapse decision happens BEFORE React rendering, not via CSS-like clipping.
 
 **Files:**
+
 - Modify: `source/components/ToolOutput/ToolResultContainer.tsx`
 - Test: `source/components/ToolOutput/ToolResultContainer.test.tsx`
 
@@ -855,6 +889,7 @@ rather than measuring React tree height."
 ### Task 9: Wire Collapse into UnifiedToolCallEvent + Add :open Command
 
 **Files:**
+
 - Modify: `source/components/UnifiedToolCallEvent.tsx:103-119`
 - Create: `source/commands/builtins/open.ts`
 - Modify: `source/commands/builtins/index.ts`
@@ -934,7 +969,11 @@ export const openCommand: HookCommand = {
 	category: 'hook',
 	aliases: ['o'],
 	args: [
-		{name: 'toolId', description: 'The tool use ID to expand (or "last")', required: true},
+		{
+			name: 'toolId',
+			description: 'The tool use ID to expand (or "last")',
+			required: true,
+		},
 	],
 	execute(ctx) {
 		const toolId = ctx.args.toolId;
@@ -966,45 +1005,51 @@ Add a ref to track already-expanded toolIds, and implement the callback:
 ```typescript
 const expandedToolIdsRef = useRef<Set<string>>(new Set());
 
-const expandToolOutput = useCallback((toolId: string) => {
-	// Resolve "last" to the most recent tool event's toolUseId
-	const resolvedId = toolId === 'last'
-		? [...events].reverse().find(e => e.toolUseId)?.toolUseId
-		: toolId;
+const expandToolOutput = useCallback(
+	(toolId: string) => {
+		// Resolve "last" to the most recent tool event's toolUseId
+		const resolvedId =
+			toolId === 'last'
+				? [...events].reverse().find(e => e.toolUseId)?.toolUseId
+				: toolId;
 
-	if (!resolvedId) return;
+		if (!resolvedId) return;
 
-	// Idempotent: skip if already expanded
-	if (expandedToolIdsRef.current.has(resolvedId)) return;
-	expandedToolIdsRef.current.add(resolvedId);
+		// Idempotent: skip if already expanded
+		if (expandedToolIdsRef.current.has(resolvedId)) return;
+		expandedToolIdsRef.current.add(resolvedId);
 
-	// Find the original PostToolUse event with this toolUseId
-	const postEvent = events.find(
-		e => (e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure')
-			&& e.toolUseId === resolvedId,
-	);
-	// Also find the PreToolUse for tool name/input
-	const preEvent = events.find(
-		e => (e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest')
-			&& e.toolUseId === resolvedId,
-	);
+		// Find the original PostToolUse event with this toolUseId
+		const postEvent = events.find(
+			e =>
+				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
+				e.toolUseId === resolvedId,
+		);
+		// Also find the PreToolUse for tool name/input
+		const preEvent = events.find(
+			e =>
+				(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+				e.toolUseId === resolvedId,
+		);
 
-	if (!postEvent && !preEvent) return;
+		if (!postEvent && !preEvent) return;
 
-	// Create a synthetic expansion event
-	const expansionEvent: HookEventDisplay = {
-		id: `expansion-${resolvedId}`,
-		requestId: `expansion-${resolvedId}`,
-		timestamp: new Date(),
-		hookName: 'Expansion' as any, // Synthetic type — HookEvent.tsx must handle it
-		toolName: preEvent?.toolName,
-		payload: postEvent?.payload ?? preEvent?.payload ?? {},
-		status: 'passthrough',
-		toolUseId: resolvedId,
-	};
+		// Create a synthetic expansion event
+		const expansionEvent: HookEventDisplay = {
+			id: `expansion-${resolvedId}`,
+			requestId: `expansion-${resolvedId}`,
+			timestamp: new Date(),
+			hookName: 'Expansion' as any, // Synthetic type — HookEvent.tsx must handle it
+			toolName: preEvent?.toolName,
+			payload: postEvent?.payload ?? preEvent?.payload ?? {},
+			status: 'passthrough',
+			toolUseId: resolvedId,
+		};
 
-	setEvents(prev => [...prev, expansionEvent]);
-}, [events]);
+		setEvents(prev => [...prev, expansionEvent]);
+	},
+	[events],
+);
 ```
 
 **5c. Add `Expansion` rendering to HookEvent.tsx:**
@@ -1067,6 +1112,7 @@ Tool outputs >5 lines show a 2-line preview with :open hint.
 ### Task 10: Consolidate Header + StatusLine into 1 Line
 
 **Files:**
+
 - Modify: `source/components/Header/Header.tsx`
 - Test: `source/components/Header/Header.test.tsx`
 
@@ -1225,6 +1271,7 @@ Delete the `<StatusLine>` JSX and its import at the top of the file.
 **Step 6: Update existing Header tests**
 
 Existing `Header.test.tsx` likely asserts on border characters (`╭╮╰╯`), logo lines (`▄██████▄`), and the "Welcome back!" text. These will ALL break. Update them:
+
 - Remove assertions about borders, logo, tips
 - Add assertions for the new 1-line format: `ATHENA`, state label, model, tools count, context size, server indicator
 
@@ -1249,6 +1296,7 @@ Merges state, model, tools, context, and server status into 1 line."
 ### Task 11: Remove Old StatusLine Component
 
 **Files:**
+
 - Delete: `source/components/Header/StatusLine.tsx`
 - Delete: `source/components/Header/StatusLine.test.tsx`
 
@@ -1281,6 +1329,7 @@ git commit -m "chore: remove old StatusLine component (merged into Header)"
 ### Task 12: Add :tasks Command (Replaces Multi-Line TaskList)
 
 **Files:**
+
 - Create: `source/commands/builtins/tasks.ts`
 - Modify: `source/commands/builtins/index.ts`
 - Create: `source/commands/__tests__/tasks.test.ts`
@@ -1340,6 +1389,7 @@ git commit -m "feat: add :tasks command for full task list snapshot"
 ### Task 13: Footer Height Discipline — TaskList as 1-Line Summary
 
 **Files:**
+
 - Modify: `source/components/TaskList.tsx`
 - Modify: `source/app.tsx`
 - Test: `source/components/TaskList.test.tsx`
@@ -1480,6 +1530,7 @@ Task 14 (full validation)           ← depends on all
 ```
 
 Parallelizable groups:
+
 - **Group A:** Tasks 1, 2, 3, 4, 7, 12 (all independent)
 - **Group B:** Tasks 5, 6, 8, 10, 13 (depend on Group A items)
 - **Group C:** Tasks 9, 11 (depend on Group B items)

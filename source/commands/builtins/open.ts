@@ -1,4 +1,5 @@
 import {type HookCommand} from '../types.js';
+import {generateId} from '../../types/hooks/index.js';
 
 export const openCommand: HookCommand = {
 	name: 'open',
@@ -14,7 +15,15 @@ export const openCommand: HookCommand = {
 	],
 	execute(ctx) {
 		const toolId = ctx.args['toolId'];
-		if (!toolId) return;
+		if (!toolId) {
+			ctx.addMessage({
+				id: generateId(),
+				role: 'assistant',
+				content: 'Usage: :open <toolId> — specify a tool use ID or "last"',
+				timestamp: new Date(),
+			});
+			return;
+		}
 		ctx.hookServer.expandToolOutput(toolId);
 	},
 };

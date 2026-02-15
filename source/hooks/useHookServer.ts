@@ -1,4 +1,10 @@
 import {useEffect, useRef, useCallback, useState} from 'react';
+import {
+	resolveExpansionTarget,
+	findLastCompletedAgent,
+	formatAgentSummary,
+	createNotificationEvent,
+} from './expansionResolver.js';
 import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -16,8 +22,6 @@ import {
 	isValidHookEventEnvelope,
 	generateId,
 	isToolEvent,
-	isSubagentStartEvent,
-	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
 	type PendingRequest,
@@ -108,72 +112,47 @@ export function useHookServer(
 	}, []);
 
 	const expandToolOutput = useCallback((toolId: string) => {
-		const resolvedId =
-			toolId === 'last'
-				? [...eventsRef.current].reverse().find(e => e.toolUseId)?.toolUseId
-				: toolId;
-		if (!resolvedId || expandedToolIdsRef.current.has(resolvedId)) return;
-		expandedToolIdsRef.current.add(resolvedId);
+		const target = resolveExpansionTarget(eventsRef.current, toolId);
+		if (!target) return;
 
-		const preEvent = eventsRef.current.find(
-			e =>
-				(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-				e.toolUseId === resolvedId,
-		);
-		const postEvent = eventsRef.current.find(
-			e =>
-				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-				e.toolUseId === resolvedId,
-		);
-		if (!postEvent && !preEvent) return;
+		const targetId = target.type === 'tool' ? target.toolUseId : target.agentId;
+		if (expandedToolIdsRef.current.has(targetId)) return;
+		expandedToolIdsRef.current.add(targetId);
 
-		const expansionEvent: HookEventDisplay = {
-			id: `expansion-${resolvedId}`,
-			requestId: `expansion-${resolvedId}`,
-			timestamp: new Date(),
-			hookName: 'Expansion' as HookEventDisplay['hookName'],
-			toolName: preEvent?.toolName,
-			payload:
-				postEvent?.payload ??
-				preEvent?.payload ??
-				({
-					session_id: '',
-					transcript_path: '',
-					cwd: '',
-					hook_event_name: 'Expansion',
-				} as unknown as HookEventDisplay['payload']),
-			status: 'passthrough',
-			toolUseId: resolvedId,
-		};
-
-		setEvents(prev => [...prev, expansionEvent]);
+		if (target.type === 'tool') {
+			const expansionEvent: HookEventDisplay = {
+				id: `expansion-${targetId}`,
+				requestId: `expansion-${targetId}`,
+				timestamp: new Date(),
+				hookName: 'Expansion' as HookEventDisplay['hookName'],
+				toolName: target.preEvent?.toolName,
+				payload:
+					target.postEvent?.payload ??
+					target.preEvent?.payload ??
+					({
+						session_id: '',
+						transcript_path: '',
+						cwd: '',
+						hook_event_name: 'Expansion',
+					} as unknown as HookEventDisplay['payload']),
+				status: 'passthrough',
+				toolUseId: targetId,
+			};
+			setEvents(prev => [...prev, expansionEvent]);
+		} else {
+			const message = formatAgentSummary(target);
+			const event = createNotificationEvent(`expansion-${targetId}`, message);
+			setEvents(prev => [...prev, event]);
+		}
 	}, []);
 
 	const expandedAgentIdRef = useRef<string | null>(null);
 
 	const toggleSubagentExpansion = useCallback(() => {
-		// Build set of agent_ids that have a SubagentStop (i.e., completed)
-		const stoppedIds = new Set<string>();
-		for (const e of eventsRef.current) {
-			if (
-				e.hookName === 'SubagentStop' &&
-				isSubagentStopEvent(e.payload)
-			) {
-				stoppedIds.add(e.payload.agent_id);
-			}
-		}
+		const target = findLastCompletedAgent(eventsRef.current);
+		if (!target) return;
 
-		// Find the most recent SubagentStart that has completed
-		const completedAgents = eventsRef.current.filter(
-			e =>
-				e.hookName === 'SubagentStart' &&
-				isSubagentStartEvent(e.payload) &&
-				stoppedIds.has(e.payload.agent_id),
-		);
-		const lastAgent = completedAgents.at(-1);
-		if (!lastAgent || !isSubagentStartEvent(lastAgent.payload)) return;
-
-		const agentId = lastAgent.payload.agent_id;
+		const {agentId} = target;
 		const expansionId = `agent-expansion-${agentId}`;
 
 		// Toggle: if same agent is already expanded, collapse it
@@ -191,63 +170,26 @@ export function useHookServer(
 
 		expandedAgentIdRef.current = agentId;
 
-		// Collect child events for this agent
-		const childEvents = eventsRef.current.filter(
-			e => e.parentSubagentId === agentId,
-		);
-		const childLines = childEvents.map(e => {
-			const tool = e.toolName ?? e.hookName;
-			const blocked = e.status === 'blocked' ? ' [blocked]' : '';
-			return `  ${tool}${blocked}`;
-		});
-		const message =
-			`Agent ${lastAgent.payload.agent_type} (${agentId}) \u2014 ` +
-			`${childEvents.length} child events:\n${childLines.join('\n')}`;
-
-		const expansionEvent: HookEventDisplay = {
-			id: expansionId,
-			requestId: expansionId,
-			timestamp: new Date(),
-			hookName: 'Notification' as HookEventDisplay['hookName'],
-			payload: {
-				session_id: '',
-				transcript_path: '',
-				cwd: '',
-				hook_event_name: 'Notification',
-				message,
-			} as unknown as HookEventDisplay['payload'],
-			status: 'passthrough',
-		};
-
-		setEvents(prev => [...prev, expansionEvent]);
+		const message = formatAgentSummary(target);
+		const event = createNotificationEvent(expansionId, message);
+		setEvents(prev => [...prev, event]);
 	}, []);
 
 	const printTaskSnapshot = useCallback(() => {
-		const taskEvents = eventsRef.current.filter(
+		const hasTaskEvents = eventsRef.current.some(
 			e =>
 				e.hookName === 'PreToolUse' &&
 				(e.toolName === 'TaskCreate' || e.toolName === 'TaskUpdate') &&
 				!e.parentSubagentId,
 		);
 
-		if (taskEvents.length === 0) return;
+		if (!hasTaskEvents) return;
 
-		const snapshotEvent: HookEventDisplay = {
-			id: `task-snapshot-${Date.now()}`,
-			requestId: `task-snapshot-${Date.now()}`,
-			timestamp: new Date(),
-			hookName: 'Notification' as HookEventDisplay['hookName'],
-			payload: {
-				session_id: '',
-				transcript_path: '',
-				cwd: '',
-				hook_event_name: 'Notification',
-				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
-			} as unknown as HookEventDisplay['payload'],
-			status: 'passthrough',
-		};
-
-		setEvents(prev => [...prev, snapshotEvent]);
+		const event = createNotificationEvent(
+			`task-snapshot-${Date.now()}`,
+			'\u{1F4CB} Task list snapshot requested via :tasks command',
+		);
+		setEvents(prev => [...prev, event]);
 	}, []);
 
 	// Respond to a hook event

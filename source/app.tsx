@@ -206,6 +206,7 @@ function AppContent({
 				hook: {
 					args: result.args,
 					hookServer,
+					addMessage: addMessageObj,
 				},
 				prompt: {
 					spawn: spawnClaude,
@@ -276,7 +277,8 @@ function AppContent({
 				setStatsExpanded(prev => !prev);
 			}
 			// Ctrl+O toggles expansion of the most recent completed subagent
-			if (key.ctrl && _input === 'o') {
+			// Ink may not normalize Ctrl+O (0x0F) to 'o', so match both
+			if (key.ctrl && (_input === 'o' || _input === '\x0f')) {
 				hookServer.toggleSubagentExpansion();
 			}
 		},
@@ -287,6 +289,9 @@ function AppContent({
 
 	return (
 		<Box flexDirection="column">
+			{allStaticItems.length > 0 && (
+				<Text dimColor>{'─'.repeat(Math.min(terminalWidth, 80))}</Text>
+			)}
 			<Header
 				version={version}
 				modelName={metrics.modelName || modelName}

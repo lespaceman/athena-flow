@@ -15,31 +15,33 @@ Even in Phase 1, we enforce a strict layout budget except during dialogs.
 
 ## 2) Decisions
 
-| Question | Decision |
-|----------|----------|
-| Dialog height vs footer budget | Dialogs may exceed 4-line footer, but are capped at 12 lines and must degrade gracefully on small terminals |
-| Tool output inline vs collapsed | Temporary hybrid: preview inline (≤5 lines) in Static; larger outputs collapsed with `:open` expansion |
-| Stability first vs full spec | Stability first; feeds/radar/todo belong to Phase 2 |
-| Header/footer restructure | Incremental: merge Header+StatusLine into 1 line; footer discipline enforced in `app.tsx` without a new AppShell |
+| Question                        | Decision                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Dialog height vs footer budget  | Dialogs may exceed 4-line footer, but are capped at 12 lines and must degrade gracefully on small terminals      |
+| Tool output inline vs collapsed | Temporary hybrid: preview inline (≤5 lines) in Static; larger outputs collapsed with `:open` expansion           |
+| Stability first vs full spec    | Stability first; feeds/radar/todo belong to Phase 2                                                              |
+| Header/footer restructure       | Incremental: merge Header+StatusLine into 1 line; footer discipline enforced in `app.tsx` without a new AppShell |
 
 ## 3) Event Model Rule (removes "stability ambiguity")
 
 Phase 1 formalizes one simple rule to support immediate Static promotion:
 
-* **All UI items in the event stream are immutable events.**
-* Tool lifecycle is represented as separate events:
-  * `ToolStart` (optional)
-  * `ToolEnd` (required)
-* No event is "updated". If a tool transitions RUNNING→DONE, that's a new event line.
+- **All UI items in the event stream are immutable events.**
+- Tool lifecycle is represented as separate events:
+  - `ToolStart` (optional)
+  - `ToolEnd` (required)
+- No event is "updated". If a tool transitions RUNNING→DONE, that's a new event line.
 
 This removes the need for "wait until stable".
 
 ## 4) Fix Flicker/Jank
 
 ### Problem
+
 `useContentOrdering` defers promoting content into `<Static>` via `pendingPromotionRef`, causing visible "render dynamic → disappear → reappear" flicker.
 
 ### Fix
+
 - Remove deferred promotion. **Promote immediately** to `<Static>` on the same render tick the content is created.
 - Any "live" or rapidly changing UI must not be part of the event stream (it belongs in the footer only).
 - Batch any non-essential dynamic updates:
@@ -47,6 +49,7 @@ This removes the need for "wait until stable".
   - Header metrics: cap at **1 Hz**
 
 ### Files
+
 - `source/hooks/useContentOrdering.ts`
 - `source/app.tsx`
 - `source/hooks/useHeaderMetrics.ts`
@@ -56,6 +59,7 @@ This removes the need for "wait until stable".
 ### Non-dialog state (max 4 lines)
 
 Footer contains:
+
 1. Optional 1-line "Task/TODO summary" (collapsed only — single line always)
 2. CommandInput (1 line)
 3. Optional 1–2 lines of hints/status (only if needed, but total ≤4)
@@ -72,22 +76,27 @@ No multi-line TaskList panel in Phase 1. Full task list is shown via command (`:
 ### Small terminal fallback
 
 If terminal height is insufficient:
+
 - Dialog switches to compact mode (single-line prompt + numeric options), and prints the detailed context into the static stream.
 
 ### Files
+
 - `source/app.tsx`
 - `source/components/TaskList.tsx` (converted to a 1-line summary; full list via `:tasks` snapshot command)
 
 ## 6) Enforce 1-Line Event Headers + Compact Subagent Blocks
 
 ### Problem
+
 `UnifiedToolCallEvent` headers wrap due to long tool args. Child subagent tool calls spam the main feed.
 
 ### Fix: Tool events
+
 - Introduce `truncateLine(text, terminalWidth)` (ANSI-safe via `string-width`) and apply to all event headers.
 - Verbose JSON only via `--verbose` (not required for Phase 1 stability).
 
 ### Fix: Subagent rendering
+
 Subagents render as a **2-3 line compact block** in the main feed (matching Claude Code's native rendering):
 
 ```
@@ -97,6 +106,7 @@ Subagents render as a **2-3 line compact block** in the main feed (matching Clau
 ```
 
 Rules:
+
 - **Line 1:** Agent type, description (from Task PreToolUse), model name
 - **Line 2:** Completion summary — tool count, tokens, duration (computed from child events)
 - **Line 3:** Expand hint (`:open <agentId>` or keybinding). In Phase 1, expand appends a snapshot of child events to the static stream. In Phase 2, it switches to the agent feed.
@@ -105,6 +115,7 @@ Rules:
 - No bordered boxes, no nested containers.
 
 ### Files
+
 - `source/components/UnifiedToolCallEvent.tsx`
 - `source/components/SubagentEvent.tsx` (rewrite as compact block)
 - `source/hooks/useContentOrdering.ts` (exclude child events from main stream)
@@ -113,9 +124,11 @@ Rules:
 ## 7) Tool Output Collapsing (hybrid, stability-safe)
 
 ### Requirement
+
 Tool output can be arbitrarily tall; must not push the UI around.
 
 ### Policy
+
 - Tool output is rendered into the event stream only, never into a growing dynamic footer region.
 - Preview rule:
   - ≤5 lines: render inline (in Static, under the tool event or as immediate subsequent lines)
@@ -125,10 +138,12 @@ Tool output can be arbitrarily tall; must not push the UI around.
 ### Implementation constraint (important)
 
 Do NOT "measure" rendered React trees to count lines. Instead:
+
 - Tool outputs must expose a **pre-render representation** for preview purposes: `string[] previewLines` and `totalLineCount`.
 - The full renderer can still produce rich output when expanded, but preview/collapse decisions must be deterministic and cheap.
 
 ### Files
+
 - `source/components/ToolOutput/ToolResultContainer.tsx` (accepts previewLines/totalLineCount)
 - `source/components/ToolOutput/ToolOutputRenderer.tsx` (returns structured preview metadata)
 - `source/utils/toolExtractors.ts` (extractors return preview metadata alongside RenderableOutput)
@@ -138,6 +153,7 @@ Do NOT "measure" rendered React trees to count lines. Instead:
 ## 8) Consolidate Header to 1 Line
 
 ### Fix
+
 Merge Header + StatusLine into a single 1-line header:
 
 ```
@@ -145,11 +161,13 @@ ATHENA state:WORKING model:opus ctx:148k tools:23 server:ready
 ```
 
 Rules:
+
 - Update at 1 Hz max.
 - Remove `StatusLine` component; its data flows into Header.
 - Detailed metrics view remains available but must not use conflicting shortcuts (see §9).
 
 ### Files
+
 - `source/components/Header/Header.tsx`
 - `source/components/Header/StatusLine.tsx` (merged then removed)
 - `source/app.tsx`
@@ -157,9 +175,11 @@ Rules:
 ## 9) Shortcuts and Commands (must not interfere with native shortcuts)
 
 ### Rule
+
 Avoid bindings that commonly conflict with terminals, shells, readline, or editors.
 
 Do not use:
+
 - `Ctrl+S` (flow control / save conflict)
 - `Ctrl+Z` (suspend)
 - `Ctrl+C` (interrupt)
@@ -170,16 +190,19 @@ Do not use:
 - `Alt+Arrow` (word navigation)
 
 ### Phase 1 shortcuts (minimal)
+
 - `Esc` = cancel dialog / close overlays (safe, expected)
 - `:` opens command mode implicitly by typing commands (already the case)
 - Everything else via commands to reduce keybinding risk.
 
 Commands introduced in Phase 1:
+
 - `:open <toolId>`
 - `:open last`
 - `:tasks` (prints a snapshot into the static stream)
 
 Metrics panel toggle:
+
 - Use `F9` (default) to toggle StatsPanel (rare conflict). Must be configurable.
 
 ## 10) Out of Scope (Phase 2)

@@ -68,6 +68,7 @@ export type UICommandContext = {
 export type HookCommandContext = {
 	args: Record<string, string>;
 	hookServer: UseHookServerResult;
+	addMessage: (msg: Message) => void;
 };
 
 export type PromptCommandContext = {
