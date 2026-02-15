@@ -232,7 +232,7 @@ function AppContent({
 	const handlePermissionDecision = useCallback(
 		(decision: PermissionDecision) => {
 			if (!currentPermissionRequest) return;
-			resolvePermission(currentPermissionRequest.requestId, decision);
+			resolvePermission(currentPermissionRequest.id, decision);
 		},
 		[currentPermissionRequest, resolvePermission],
 	);
@@ -240,14 +240,14 @@ function AppContent({
 	const handleQuestionAnswer = useCallback(
 		(answers: Record<string, string>) => {
 			if (!currentQuestionRequest) return;
-			resolveQuestion(currentQuestionRequest.requestId, answers);
+			resolveQuestion(currentQuestionRequest.id, answers);
 		},
 		[currentQuestionRequest, resolveQuestion],
 	);
 
 	const handleQuestionSkip = useCallback(() => {
 		if (!currentQuestionRequest) return;
-		resolveQuestion(currentQuestionRequest.requestId, {});
+		resolveQuestion(currentQuestionRequest.id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
 	const {stableItems, dynamicItems, tasks} = useContentOrdering({
@@ -275,11 +275,6 @@ function AppContent({
 			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
-			// Ctrl+O expands all subagents into the event stream
-			// Ink may not normalize Ctrl+O (0x0F) to 'o', so match both
-			if (key.ctrl && (_input === 'o' || _input === '\x0f')) {
-				hookServer.expandAllSubagents();
-			}
 		},
 		{isActive: !dialogActive},
 	);
@@ -291,6 +286,7 @@ function AppContent({
 			{allStaticItems.length > 0 && (
 				<Text dimColor>{'─'.repeat(Math.min(terminalWidth, 80))}</Text>
 			)}
+			{/* Header temporarily disabled
 			<Header
 				version={version}
 				modelName={metrics.modelName || modelName}
@@ -302,6 +298,7 @@ function AppContent({
 				contextSize={tokenUsage.contextSize}
 				isServerRunning={isServerRunning}
 			/>
+			*/}
 			{/* Static items — stable events/messages */}
 			<Static items={allStaticItems}>
 				{item =>

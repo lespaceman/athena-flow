@@ -1,22 +1,19 @@
 import React from 'react';
-import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
 	isPostToolUseEvent,
 	isPostToolUseFailureEvent,
 	isPermissionRequestEvent,
-	isSubagentStartEvent,
 	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
-import SubagentEvent from './SubagentEvent.js';
+import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
 import GenericHookEvent from './GenericHookEvent.js';
-import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 
 type Props = {
 	event: HookEventDisplay;
@@ -36,33 +33,6 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		return <SessionEndEvent event={event} />;
 	}
 
-	if ((event.hookName as string) === 'Expansion') {
-		const expandToolName = event.toolName ?? 'Unknown';
-		return (
-			<Box flexDirection="column" marginBottom={1}>
-				<Text dimColor>
-					── expanded: {expandToolName} ({event.toolUseId}) ──
-				</Text>
-				<ToolResultContainer>
-					{width => (
-						<ToolOutputRenderer
-							toolName={expandToolName}
-							toolInput={
-								isPreToolUseEvent(event.payload) ? event.payload.tool_input : {}
-							}
-							toolResponse={
-								isPostToolUseEvent(event.payload)
-									? event.payload.tool_response
-									: undefined
-							}
-							availableWidth={width}
-						/>
-					)}
-				</ToolResultContainer>
-			</Box>
-		);
-	}
-
 	const payload = event.payload;
 
 	if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
@@ -75,6 +45,11 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	// since they're internal state management.
 	if (isPreToolUseEvent(payload) && TASK_TOOL_NAMES.has(payload.tool_name)) {
 		return null;
+	}
+
+	// Task PreToolUse → agent start marker (shows subagent_type + prompt)
+	if (isPreToolUseEvent(payload) && payload.tool_name === 'Task') {
+		return <TaskAgentEvent event={event} />;
 	}
 
 	// Unified tool call: PreToolUse/PermissionRequest (with paired post-tool result)
@@ -94,12 +69,8 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		);
 	}
 
-	if (isSubagentStartEvent(payload)) {
-		return <SubagentEvent event={event} />;
-	}
-
 	if (isSubagentStopEvent(payload)) {
-		return <SubagentStopEvent event={event} verbose={verbose} />;
+		return <SubagentStopEvent event={event} />;
 	}
 
 	// GenericHookEvent — only for truly unrecognized event types

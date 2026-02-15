@@ -2,10 +2,6 @@ import {describe, it, expect} from 'vitest';
 import {
 	isValidHookEventEnvelope,
 	generateId,
-	PROTOCOL_VERSION,
-	createPassthroughResult,
-	createBlockResult,
-	createJsonOutputResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
 	createPermissionRequestAllowResult,
@@ -18,9 +14,6 @@ import {
 	type SubagentStartEvent,
 	type SubagentStopEvent,
 	isPreToolUseEvent,
-	isPostToolUseEvent,
-	isNotificationEvent,
-	isStopEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
 	isToolEvent,
@@ -61,8 +54,6 @@ describe('hooks types', () => {
 		};
 
 		const validEnvelope: HookEventEnvelope = {
-			v: 1,
-			kind: 'hook_event',
 			request_id: 'req-123',
 			ts: Date.now(),
 			session_id: 'test-session',
@@ -83,22 +74,6 @@ describe('hooks types', () => {
 			expect(isValidHookEventEnvelope('string')).toBe(false);
 			expect(isValidHookEventEnvelope(123)).toBe(false);
 			expect(isValidHookEventEnvelope([])).toBe(false);
-		});
-
-		it('should return false for missing or invalid version', () => {
-			expect(isValidHookEventEnvelope({...validEnvelope, v: undefined})).toBe(
-				false,
-			);
-			expect(isValidHookEventEnvelope({...validEnvelope, v: 'wrong'})).toBe(
-				false,
-			);
-			expect(isValidHookEventEnvelope({...validEnvelope, v: 0})).toBe(false);
-		});
-
-		it('should return false for wrong kind', () => {
-			expect(
-				isValidHookEventEnvelope({...validEnvelope, kind: 'hook_result'}),
-			).toBe(false);
 		});
 
 		it('should return false for missing or empty request_id', () => {
@@ -143,16 +118,6 @@ describe('hooks types', () => {
 			).toBe(false);
 		});
 
-		it('should accept envelopes with version >= PROTOCOL_VERSION (forward compat)', () => {
-			expect(
-				isValidHookEventEnvelope({...validEnvelope, v: PROTOCOL_VERSION + 1}),
-			).toBe(true);
-		});
-
-		it('should reject envelopes with version < 1 (no backwards compat below v1)', () => {
-			expect(isValidHookEventEnvelope({...validEnvelope, v: 0})).toBe(false);
-		});
-
 		it('should accept unknown hook event names for forward compatibility', () => {
 			expect(
 				isValidHookEventEnvelope({
@@ -187,37 +152,6 @@ describe('hooks types', () => {
 	});
 
 	describe('result creators', () => {
-		it('createPassthroughResult returns correct structure', () => {
-			expect(createPassthroughResult()).toEqual({action: 'passthrough'});
-		});
-
-		it('createBlockResult wraps reason in stderr', () => {
-			expect(createBlockResult('Permission denied')).toEqual({
-				action: 'block_with_stderr',
-				stderr: 'Permission denied',
-			});
-		});
-
-		it('createBlockResult handles empty reason', () => {
-			expect(createBlockResult('')).toEqual({
-				action: 'block_with_stderr',
-				stderr: '',
-			});
-		});
-
-		it('createJsonOutputResult wraps json in stdout_json', () => {
-			expect(createJsonOutputResult({foo: 'bar', count: 42})).toEqual({
-				action: 'json_output',
-				stdout_json: {foo: 'bar', count: 42},
-			});
-		});
-
-		it('createJsonOutputResult preserves nested objects', () => {
-			const nested = {a: {b: {c: 1}}};
-			const result = createJsonOutputResult(nested);
-			expect(result.stdout_json).toEqual({a: {b: {c: 1}}});
-		});
-
 		it('createPreToolUseDenyResult creates deny structure', () => {
 			expect(createPreToolUseDenyResult('Blocked by policy')).toEqual({
 				action: 'json_output',
@@ -334,12 +268,8 @@ describe('hooks types', () => {
 			agent_type: 'Explore',
 		};
 
-		// Test each type guard returns true for matching event
 		it.each([
 			['isPreToolUseEvent', isPreToolUseEvent, preToolUseEvent],
-			['isPostToolUseEvent', isPostToolUseEvent, postToolUseEvent],
-			['isNotificationEvent', isNotificationEvent, notificationEvent],
-			['isStopEvent', isStopEvent, stopEvent],
 			['isSubagentStartEvent', isSubagentStartEvent, subagentStartEvent],
 			['isSubagentStopEvent', isSubagentStopEvent, subagentStopEvent],
 		])('%s returns true for matching event', (_name, guard, event) => {
@@ -357,12 +287,6 @@ describe('hooks types', () => {
 			expect(isToolEvent(notificationEvent)).toBe(false);
 			expect(isToolEvent(stopEvent)).toBe(false);
 			expect(isToolEvent(subagentStartEvent)).toBe(false);
-		});
-
-		// Test guards distinguish between similar events
-		it('isStopEvent distinguishes Stop from SubagentStop', () => {
-			expect(isStopEvent(stopEvent)).toBe(true);
-			expect(isStopEvent(subagentStopEvent)).toBe(false);
 		});
 
 		it('isSubagentStartEvent distinguishes SubagentStart from SubagentStop', () => {

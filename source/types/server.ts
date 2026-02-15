@@ -20,7 +20,7 @@ export type PermissionDecision =
  * A pending request waiting for a response.
  */
 export type PendingRequest = {
-	requestId: string;
+	id: string;
 	socket: net.Socket;
 	timeoutId: ReturnType<typeof setTimeout>;
 	event: HookEventDisplay;
@@ -63,8 +63,6 @@ export type UseHookServerResult = {
 	questionQueueCount: number;
 	/** Resolve an AskUserQuestion request with the user's answers */
 	resolveQuestion: (requestId: string, answers: Record<string, string>) => void;
-	/** Expand all subagents' child events into the event stream */
-	expandAllSubagents: () => void;
 	/** Print full task list snapshot into the event stream */
 	printTaskSnapshot: () => void;
 };

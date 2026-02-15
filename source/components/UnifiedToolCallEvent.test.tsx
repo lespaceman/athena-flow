@@ -24,7 +24,6 @@ function makePreToolEvent(
 	};
 	return {
 		id: 'test-1',
-		requestId: 'req-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',
@@ -51,7 +50,6 @@ function makePostToolPayload(response: unknown): {
 		payload,
 		display: {
 			id: 'test-2',
-			requestId: 'req-2',
 			timestamp: new Date('2024-01-15T10:30:46.000Z'),
 			hookName: 'PostToolUse',
 			toolName: 'Bash',
@@ -78,7 +76,6 @@ function makePostToolFailurePayload(): {
 		payload,
 		display: {
 			id: 'test-2',
-			requestId: 'req-2',
 			timestamp: new Date('2024-01-15T10:30:46.000Z'),
 			hookName: 'PostToolUseFailure',
 			toolName: 'Bash',

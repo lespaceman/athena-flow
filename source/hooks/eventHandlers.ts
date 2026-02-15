@@ -16,7 +16,6 @@ import {
 	isToolEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
-	createBlockResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createPermissionRequestAllowResult,
@@ -85,10 +84,10 @@ export function handlePermissionRequest(
 	if (matchedRule?.action === 'deny') {
 		cb.storeWithoutPassthrough(ctx);
 		cb.addEvent(ctx.displayEvent);
-		cb.respond(
-			envelope.request_id,
-			createBlockResult(`Blocked by rule: ${matchedRule.addedBy}`),
-		);
+		cb.respond(envelope.request_id, {
+			action: 'block_with_stderr',
+			stderr: `Blocked by rule: ${matchedRule.addedBy}`,
+		});
 		return true;
 	}
 

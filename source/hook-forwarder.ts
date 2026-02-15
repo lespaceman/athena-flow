@@ -18,7 +18,6 @@ import * as net from 'node:net';
 import * as path from 'node:path';
 
 import {
-	PROTOCOL_VERSION,
 	type ClaudeHookEvent,
 	type HookEventEnvelope,
 	type HookResultEnvelope,
@@ -143,8 +142,6 @@ async function main(): Promise<void> {
 		// Build the envelope
 		const requestId = generateId();
 		const envelope: HookEventEnvelope = {
-			v: PROTOCOL_VERSION,
-			kind: 'hook_event',
 			request_id: requestId,
 			ts: Date.now(),
 			session_id: hookInput.session_id ?? 'unknown',

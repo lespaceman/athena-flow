@@ -10,7 +10,6 @@ function makePermissionEvent(
 ): HookEventDisplay {
 	return {
 		id: 'test-id',
-		requestId: 'req-123',
 		timestamp: new Date('2025-01-01T12:00:00'),
 		hookName: 'PreToolUse',
 		toolName,

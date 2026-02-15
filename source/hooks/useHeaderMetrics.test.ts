@@ -11,7 +11,6 @@ function makeEvent(
 ): HookEventDisplay {
 	return {
 		id: overrides.id ?? 'evt-1',
-		requestId: overrides.requestId ?? 'req-1',
 		timestamp: overrides.timestamp ?? new Date('2024-01-15T10:00:00Z'),
 		hookName: overrides.hookName,
 		toolName: overrides.toolName,

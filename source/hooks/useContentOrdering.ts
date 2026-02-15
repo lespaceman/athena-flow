@@ -11,8 +11,6 @@ import {type Message} from '../types/common.js';
 import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
-	isSubagentStartEvent,
-	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {
 	type TodoItem,
@@ -40,21 +38,16 @@ function getItemTime(item: ContentItem): number {
  *
  * Excluded events:
  * - SessionEnd: rendered as synthetic assistant messages instead
- * - SubagentStop: merged into SubagentStart as stopEvent
  * - PostToolUse for Task: content already shown in subagent box
  * - Task tool events (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet):
  *   aggregated into the sticky bottom task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
-	// Child events belong to their parent subagent's feed, not the main stream
-	if (event.parentSubagentId) return true;
-
 	if (event.hookName === 'SessionEnd') return true;
-	if (event.hookName === 'SubagentStop') return true;
-	if (
-		(event.hookName === 'PreToolUse' || event.hookName === 'PostToolUse') &&
-		event.toolName === 'Task'
-	)
+	// SubagentStart is redundant — Task PreToolUse is the "agent start" item
+	if (event.hookName === 'SubagentStart') return true;
+	// PostToolUse for Task is hidden — SubagentStop shows the response
+	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
 		return true;
 	if (
 		(event.hookName === 'PreToolUse' || event.hookName === 'PostToolUse') &&
@@ -117,13 +110,9 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 /**
  * Determine whether a content item has reached a terminal state and can
  * be moved into the Ink `<Static>` list (rendered once, never updated).
- *
- * @param stoppedAgentIds - Set of agent_ids that have a matching SubagentStop event.
- *   Used to determine SubagentStart stability without merged fields.
  */
 export function isStableContent(
 	item: ContentItem,
-	stoppedAgentIds?: Set<string>,
 	sessionEnded?: boolean,
 ): boolean {
 	if (item.type === 'message') return true;
@@ -144,13 +133,13 @@ export function isStableContent(
 			if (sessionEnded || !item.data.toolUseId) return true;
 			// Still waiting for PostToolUse to arrive
 			return false;
-		case 'SubagentStart': {
-			// Stable when blocked or when a matching SubagentStop exists
-			if (item.data.status === 'blocked') return true;
-			if (!isSubagentStartEvent(item.data.payload)) return false;
-			return stoppedAgentIds?.has(item.data.payload.agent_id) ?? false;
-		}
+		case 'SubagentStop':
+			// Stable once transcript response has loaded (or session ended)
+			if (item.data.status === 'pending') return false;
+			if (sessionEnded) return true;
+			return item.data.transcriptSummary !== undefined;
 		default:
+			// Others (Notification, etc.): stable when not pending
 			return item.data.status !== 'pending';
 	}
 }
@@ -192,18 +181,6 @@ export function useContentOrdering({
 				timestamp: e.timestamp,
 			},
 		}));
-
-	// Build maps for subagent tracking:
-	// - stoppedAgentIds: agent_ids that have a SubagentStop event
-	// - stopEventsByAgent: SubagentStop events indexed by agent_id (for merging)
-	const stoppedAgentIds = new Set<string>();
-	const stopEventsByAgent = new Map<string, HookEventDisplay>();
-	for (const e of events) {
-		if (isSubagentStopEvent(e.payload)) {
-			stoppedAgentIds.add(e.payload.agent_id);
-			stopEventsByAgent.set(e.payload.agent_id, e);
-		}
-	}
 
 	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure.
 	// Primary: pair by toolUseId (exact match).
@@ -282,85 +259,11 @@ export function useContentOrdering({
 		.map(e => ({type: 'hook' as const, data: e}));
 
 	// Merge postToolEvent onto matching PreToolUse/PermissionRequest items
-	// and merge stopEvent onto SubagentStart items
 	for (const item of hookItems) {
-		if (item.type === 'hook') {
-			if (item.data.toolUseId) {
-				const postEvent = postToolByUseId.get(item.data.toolUseId);
-				if (postEvent) {
-					item.data = {...item.data, postToolEvent: postEvent};
-				}
-			}
-			if (
-				isSubagentStartEvent(item.data.payload) &&
-				stoppedAgentIds.has(item.data.payload.agent_id)
-			) {
-				const agentId = item.data.payload.agent_id;
-				const stopEvent = stopEventsByAgent.get(agentId);
-				// Compute child metrics
-				const childToolCount = events.filter(
-					e =>
-						e.parentSubagentId === agentId &&
-						(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest'),
-				).length;
-				const startTime = item.data.timestamp.getTime();
-				const endTime = stopEvent?.timestamp.getTime() ?? Date.now();
-				if (stopEvent) {
-					item.data = {
-						...item.data,
-						stopEvent,
-						childMetrics: {
-							toolCount: childToolCount,
-							duration: endTime - startTime,
-						},
-					};
-				}
-			}
-		}
-	}
-
-	// Pair Task PreToolUse descriptions onto SubagentStart items.
-	// Build list of top-level Task PreToolUse events sorted by time.
-	const taskPreToolUseEvents = events
-		.filter(
-			e =>
-				e.hookName === 'PreToolUse' &&
-				e.toolName === 'Task' &&
-				!e.parentSubagentId &&
-				isPreToolUseEvent(e.payload),
-		)
-		.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-	const consumedTaskPreIds = new Set<string>();
-	for (const item of hookItems) {
-		if (item.type === 'hook' && isSubagentStartEvent(item.data.payload)) {
-			const agentType = item.data.payload.agent_type;
-			const itemTime = item.data.timestamp.getTime();
-			// Find closest preceding Task PreToolUse with matching subagent_type
-			let bestMatch: HookEventDisplay | undefined;
-			for (const taskEvt of taskPreToolUseEvents) {
-				if (consumedTaskPreIds.has(taskEvt.id)) continue;
-				if (taskEvt.timestamp.getTime() > itemTime) break;
-				if (!isPreToolUseEvent(taskEvt.payload)) continue;
-				const input = taskEvt.payload.tool_input as Record<string, unknown>;
-				if (input.subagent_type === agentType) {
-					bestMatch = taskEvt;
-				}
-			}
-			if (bestMatch && isPreToolUseEvent(bestMatch.payload)) {
-				const input = bestMatch.payload.tool_input as Record<string, unknown>;
-				const updates: Partial<HookEventDisplay> = {};
-				if (typeof input.description === 'string') {
-					updates.taskDescription = input.description;
-				}
-				if (typeof input.model === 'string' && item.data.childMetrics) {
-					updates.childMetrics = {
-						...item.data.childMetrics,
-						model: input.model,
-					};
-				}
-				item.data = {...item.data, ...updates};
-				consumedTaskPreIds.add(bestMatch.id);
+		if (item.type === 'hook' && item.data.toolUseId) {
+			const postEvent = postToolByUseId.get(item.data.toolUseId);
+			if (postEvent) {
+				item.data = {...item.data, postToolEvent: postEvent};
 			}
 		}
 	}
@@ -415,7 +318,7 @@ export function useContentOrdering({
 	}
 
 	const isStable = (item: ContentItem) =>
-		isStableContent(item, stoppedAgentIds, sessionEnded);
+		isStableContent(item, sessionEnded);
 
 	// Build append-only stableItems:
 	// 1. Keep existing stable items in their original order (skip removed ones)

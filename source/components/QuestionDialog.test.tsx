@@ -23,7 +23,6 @@ function makeRequest(
 
 	return {
 		id: 'test-q-1',
-		requestId: 'req-q-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'AskUserQuestion',
@@ -267,7 +266,6 @@ describe('QuestionDialog', () => {
 
 		const request: HookEventDisplay = {
 			id: 'test-q-empty',
-			requestId: 'req-q-empty',
 			timestamp: new Date('2024-01-15T10:30:45.000Z'),
 			hookName: 'PreToolUse',
 			toolName: 'AskUserQuestion',

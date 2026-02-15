@@ -32,7 +32,6 @@ function makeEvent(
 ): HookEventDisplay {
 	return {
 		id: overrides.id ?? 'evt-1',
-		requestId: overrides.requestId ?? 'req-1',
 		timestamp: overrides.timestamp ?? new Date('2024-01-15T10:00:00Z'),
 		hookName: overrides.hookName,
 		toolName: overrides.toolName,
@@ -47,7 +46,6 @@ function makeEvent(
 		parentSubagentId: overrides.parentSubagentId,
 		toolUseId: overrides.toolUseId,
 		postToolEvent: overrides.postToolEvent,
-		taskDescription: overrides.taskDescription,
 	};
 }
 
@@ -210,52 +208,38 @@ describe('isStableContent', () => {
 		});
 	});
 
-	describe('SubagentStart', () => {
-		it('unstable when not in stoppedAgentIds', () => {
+	describe('SubagentStop', () => {
+		it('unstable when pending', () => {
 			const item = {
 				type: 'hook' as const,
-				data: makeEvent({
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
+				data: makeEvent({hookName: 'SubagentStop', status: 'pending'}),
 			};
 			expect(isStableContent(item)).toBe(false);
 		});
 
-		it('stable when blocked', () => {
+		it('stable when transcriptSummary is present', () => {
 			const item = {
 				type: 'hook' as const,
-				data: makeEvent({hookName: 'SubagentStart', status: 'blocked'}),
+				data: makeEvent({
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					transcriptSummary: {
+						lastAssistantText: 'result',
+						lastAssistantTimestamp: null,
+						messageCount: 1,
+						toolCallCount: 0,
+					},
+				}),
 			};
 			expect(isStableContent(item)).toBe(true);
 		});
 
-		it('stable when agent_id is in stoppedAgentIds', () => {
+		it('stable when session ended even without transcriptSummary', () => {
 			const item = {
 				type: 'hook' as const,
-				data: makeEvent({
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
+				data: makeEvent({hookName: 'SubagentStop', status: 'passthrough'}),
 			};
-			const stoppedAgentIds = new Set(['a1']);
-			expect(isStableContent(item, stoppedAgentIds)).toBe(true);
+			expect(isStableContent(item, true)).toBe(true);
 		});
 	});
 
@@ -409,175 +393,8 @@ describe('useContentOrdering', () => {
 		expect(dynamicItems).toHaveLength(0);
 	});
 
-	describe('SubagentStart rendering paths', () => {
-		it('includes running SubagentStart in dynamicItems', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-running',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {dynamicItems} = callHook({messages: [], events});
-
-			const subagentInDynamic = dynamicItems.filter(
-				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
-			);
-			expect(subagentInDynamic).toHaveLength(1);
-		});
-
-		it('places completed SubagentStart in stableItems', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-done',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-				makeEvent({
-					id: 'sub-stop',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStop',
-						stop_hook_active: false,
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {stableItems} = callHook({messages: [], events});
-
-			const subagentInStable = stableItems.filter(
-				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
-			);
-			expect(subagentInStable).toHaveLength(1);
-		});
-
-		it('merges stopEvent data into completed SubagentStart items', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-done',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-				makeEvent({
-					id: 'sub-stop',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					transcriptSummary: {
-						lastAssistantText: 'Task completed successfully',
-						lastAssistantTimestamp: null,
-						messageCount: 5,
-						toolCallCount: 3,
-					},
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStop',
-						stop_hook_active: false,
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {stableItems} = callHook({messages: [], events});
-
-			const completedSubagent = stableItems.find(
-				i => i.type === 'hook' && i.data.hookName === 'SubagentStart',
-			);
-			expect(completedSubagent).toBeDefined();
-			expect(
-				completedSubagent?.type === 'hook' && completedSubagent.data.stopEvent,
-			).toBeDefined();
-			expect(
-				completedSubagent?.type === 'hook' &&
-					completedSubagent.data.stopEvent?.transcriptSummary
-						?.lastAssistantText,
-			).toBe('Task completed successfully');
-		});
-
-		it('excludes SubagentStop from hookItems (merged into SubagentStart)', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-start',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-				makeEvent({
-					id: 'sub-stop',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStop',
-						stop_hook_active: false,
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {stableItems, dynamicItems} = callHook({
-				messages: [],
-				events,
-			});
-
-			const allItems = [...stableItems, ...dynamicItems];
-			const subagentStopItems = allItems.filter(
-				i => i.type === 'hook' && i.data.hookName === 'SubagentStop',
-			);
-			expect(subagentStopItems).toHaveLength(0);
-		});
-
-		it('excludes PreToolUse for Task tool (merged into SubagentStart)', () => {
+	describe('Task PreToolUse and SubagentStop as feed items', () => {
+		it('includes Task PreToolUse in stream as agent start', () => {
 			const events = [
 				makeEvent({
 					id: 'task-pre',
@@ -611,61 +428,10 @@ describe('useContentOrdering', () => {
 					i.data.hookName === 'PreToolUse' &&
 					i.data.toolName === 'Task',
 			);
-			expect(taskPreToolUse).toHaveLength(0);
+			expect(taskPreToolUse).toHaveLength(1);
 		});
 
-		it('attaches taskDescription to SubagentStart from parent Task PreToolUse', () => {
-			const events = [
-				makeEvent({
-					id: 'task-pre',
-					hookName: 'PreToolUse',
-					toolName: 'Task',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'PreToolUse',
-						tool_name: 'Task',
-						tool_input: {
-							description: 'Explore the codebase',
-							subagent_type: 'Explore',
-						},
-					},
-				}),
-				makeEvent({
-					id: 'sub-start',
-					hookName: 'SubagentStart',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'a1',
-						agent_type: 'Explore',
-					},
-				}),
-			];
-
-			const {stableItems, dynamicItems} = callHook({
-				messages: [],
-				events,
-			});
-
-			const allItems = [...stableItems, ...dynamicItems];
-			const subagentItem = allItems.find(
-				i => i.type === 'hook' && i.data.id === 'sub-start',
-			);
-			expect(subagentItem).toBeDefined();
-			expect(
-				subagentItem?.type === 'hook' && subagentItem.data.taskDescription,
-			).toBe('Explore the codebase');
-		});
-
-		it('excludes PostToolUse for Task tool (content shown in subagent box)', () => {
+		it('excludes PostToolUse for Task tool from stream', () => {
 			const events = [
 				makeEvent({
 					id: 'task-result',
@@ -691,20 +457,19 @@ describe('useContentOrdering', () => {
 			expect(taskPostToolUse).toHaveLength(0);
 		});
 
-		it('excludes child SubagentStart (parentSubagentId set) from main stream', () => {
+		it('excludes SubagentStart from stream (redundant with Task PreToolUse)', () => {
 			const events = [
 				makeEvent({
-					id: 'sub-child',
+					id: 'sub-start',
 					hookName: 'SubagentStart',
 					status: 'passthrough',
 					timestamp: new Date(1000),
-					parentSubagentId: 'parent-agent',
 					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
 						cwd: '/project',
 						hook_event_name: 'SubagentStart',
-						agent_id: 'nested-a1',
+						agent_id: 'a1',
 						agent_type: 'Explore',
 					},
 				}),
@@ -713,27 +478,64 @@ describe('useContentOrdering', () => {
 			const {stableItems, dynamicItems} = callHook({messages: [], events});
 
 			const allIds = [...stableItems, ...dynamicItems].map(i => i.data.id);
-			expect(allIds).not.toContain('sub-child');
+			expect(allIds).not.toContain('sub-start');
+		});
+
+		it('includes SubagentStop in stream', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-stop',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					transcriptSummary: {
+						lastAssistantText: 'Done exploring',
+						lastAssistantTimestamp: null,
+						messageCount: 1,
+						toolCallCount: 0,
+					},
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'SubagentStop',
+						stop_hook_active: false,
+						agent_id: 'a1',
+						agent_type: 'Explore',
+					},
+				}),
+			];
+
+			const {stableItems} = callHook({messages: [], events});
+
+			const allHookNames = stableItems
+				.filter((i): i is {type: 'hook'; data: HookEventDisplay} => i.type === 'hook')
+				.map(i => i.data.hookName);
+			expect(allHookNames).toContain('SubagentStop');
 		});
 	});
 
 	describe('child event rendering in main stream', () => {
-		it('excludes child events (with parentSubagentId) from the main content stream', () => {
+		it('includes child events (with parentSubagentId) in the main content stream', () => {
 			const result = callHook({
 				messages: [],
 				events: [
 					makeEvent({
-						id: 'parent-start',
-						hookName: 'SubagentStart',
+						id: 'task-pre',
+						hookName: 'PreToolUse',
+						toolName: 'Task',
 						status: 'passthrough',
 						timestamp: new Date(1000),
 						payload: {
 							session_id: 's1',
 							transcript_path: '/tmp/t.jsonl',
 							cwd: '/project',
-							hook_event_name: 'SubagentStart',
-							agent_id: 'a1',
-							agent_type: 'Explore',
+							hook_event_name: 'PreToolUse',
+							tool_name: 'Task',
+							tool_input: {
+								description: 'Explore',
+								subagent_type: 'Explore',
+							},
 						},
 					}),
 					makeEvent({
@@ -753,24 +555,28 @@ describe('useContentOrdering', () => {
 			const allIds = [...result.stableItems, ...result.dynamicItems].map(
 				i => i.data.id,
 			);
-			expect(allIds).toContain('parent-start');
-			expect(allIds).not.toContain('child-tool');
+			expect(allIds).toContain('task-pre');
+			expect(allIds).toContain('child-tool');
 		});
 
-		it('excludes all child events regardless of status', () => {
+		it('includes all child events regardless of status', () => {
 			const events = [
 				makeEvent({
-					id: 'parent',
-					hookName: 'SubagentStart',
+					id: 'task-pre',
+					hookName: 'PreToolUse',
+					toolName: 'Task',
 					status: 'passthrough',
 					timestamp: new Date(1000),
 					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
 						cwd: '/project',
-						hook_event_name: 'SubagentStart',
-						agent_id: 'abc123',
-						agent_type: 'Explore',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Task',
+						tool_input: {
+							description: 'Explore',
+							subagent_type: 'Explore',
+						},
 					},
 				}),
 				makeEvent({
@@ -805,9 +611,9 @@ describe('useContentOrdering', () => {
 				...dynamicItems.map(i => i.data.id),
 			];
 
-			expect(allContentIds).toContain('parent');
-			expect(allContentIds).not.toContain('child-1');
-			expect(allContentIds).not.toContain('child-2');
+			expect(allContentIds).toContain('task-pre');
+			expect(allContentIds).toContain('child-1');
+			expect(allContentIds).toContain('child-2');
 		});
 	});
 
@@ -1683,56 +1489,4 @@ describe('useContentOrdering', () => {
 		});
 	});
 
-	describe('isStableContent with paired tool events', () => {
-		it('PreToolUse with postToolEvent is stable', () => {
-			const item = {
-				type: 'hook' as const,
-				data: makeEvent({
-					hookName: 'PreToolUse',
-					status: 'passthrough',
-					postToolEvent: makeEvent({
-						hookName: 'PostToolUse',
-						status: 'passthrough',
-					}),
-				}),
-			};
-			expect(isStableContent(item)).toBe(true);
-		});
-
-		it('passthrough PreToolUse with toolUseId but no postToolEvent is NOT stable (waiting for result)', () => {
-			const item = {
-				type: 'hook' as const,
-				data: makeEvent({
-					hookName: 'PreToolUse',
-					status: 'passthrough',
-					toolUseId: 'tu-waiting',
-				}),
-			};
-			expect(isStableContent(item)).toBe(false);
-		});
-
-		it('passthrough PreToolUse without toolUseId is stable (can never pair)', () => {
-			const item = {
-				type: 'hook' as const,
-				data: makeEvent({hookName: 'PreToolUse', status: 'passthrough'}),
-			};
-			expect(isStableContent(item)).toBe(true);
-		});
-
-		it('blocked PreToolUse (user rejected) is stable without postToolEvent', () => {
-			const item = {
-				type: 'hook' as const,
-				data: makeEvent({hookName: 'PreToolUse', status: 'blocked'}),
-			};
-			expect(isStableContent(item)).toBe(true);
-		});
-
-		it('pending PreToolUse is not stable', () => {
-			const item = {
-				type: 'hook' as const,
-				data: makeEvent({hookName: 'PreToolUse', status: 'pending'}),
-			};
-			expect(isStableContent(item)).toBe(false);
-		});
-	});
 });
