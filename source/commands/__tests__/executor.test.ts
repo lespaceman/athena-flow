@@ -45,7 +45,6 @@ function makeContext(
 		hook: {
 			args: {},
 			hookServer: {} as ExecuteCommandContext['hook']['hookServer'],
-			addMessage: vi.fn(),
 		},
 		prompt: {
 			spawn: vi.fn(),

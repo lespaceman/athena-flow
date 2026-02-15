@@ -1,7 +1,6 @@
 import {useEffect, useRef, useCallback, useState} from 'react';
 import {
-	resolveExpansionTarget,
-	findLastCompletedAgent,
+	findAllSubagents,
 	formatAgentSummary,
 	createNotificationEvent,
 } from './expansionResolver.js';
@@ -111,68 +110,23 @@ export function useHookServer(
 		setEvents([]);
 	}, []);
 
-	const expandToolOutput = useCallback((toolId: string) => {
-		const target = resolveExpansionTarget(eventsRef.current, toolId);
-		if (!target) return;
+	const expandAllSubagents = useCallback(() => {
+		const targets = findAllSubagents(eventsRef.current);
+		const newEvents: HookEventDisplay[] = [];
 
-		const targetId = target.type === 'tool' ? target.toolUseId : target.agentId;
-		if (expandedToolIdsRef.current.has(targetId)) return;
-		expandedToolIdsRef.current.add(targetId);
+		for (const target of targets) {
+			if (expandedToolIdsRef.current.has(target.agentId)) continue;
+			expandedToolIdsRef.current.add(target.agentId);
 
-		if (target.type === 'tool') {
-			const expansionEvent: HookEventDisplay = {
-				id: `expansion-${targetId}`,
-				requestId: `expansion-${targetId}`,
-				timestamp: new Date(),
-				hookName: 'Expansion' as HookEventDisplay['hookName'],
-				toolName: target.preEvent?.toolName,
-				payload:
-					target.postEvent?.payload ??
-					target.preEvent?.payload ??
-					({
-						session_id: '',
-						transcript_path: '',
-						cwd: '',
-						hook_event_name: 'Expansion',
-					} as unknown as HookEventDisplay['payload']),
-				status: 'passthrough',
-				toolUseId: targetId,
-			};
-			setEvents(prev => [...prev, expansionEvent]);
-		} else {
 			const message = formatAgentSummary(target);
-			const event = createNotificationEvent(`expansion-${targetId}`, message);
-			setEvents(prev => [...prev, event]);
-		}
-	}, []);
-
-	const expandedAgentIdRef = useRef<string | null>(null);
-
-	const toggleSubagentExpansion = useCallback(() => {
-		const target = findLastCompletedAgent(eventsRef.current);
-		if (!target) return;
-
-		const {agentId} = target;
-		const expansionId = `agent-expansion-${agentId}`;
-
-		// Toggle: if same agent is already expanded, collapse it
-		if (expandedAgentIdRef.current === agentId) {
-			expandedAgentIdRef.current = null;
-			setEvents(prev => prev.filter(e => e.id !== expansionId));
-			return;
+			newEvents.push(
+				createNotificationEvent(`agent-expansion-${target.agentId}`, message),
+			);
 		}
 
-		// Collapse previous if different agent
-		if (expandedAgentIdRef.current) {
-			const prevExpId = `agent-expansion-${expandedAgentIdRef.current}`;
-			setEvents(prev => prev.filter(e => e.id !== prevExpId));
+		if (newEvents.length > 0) {
+			setEvents(prev => [...prev, ...newEvents]);
 		}
-
-		expandedAgentIdRef.current = agentId;
-
-		const message = formatAgentSummary(target);
-		const event = createNotificationEvent(expansionId, message);
-		setEvents(prev => [...prev, event]);
 	}, []);
 
 	const printTaskSnapshot = useCallback(() => {
@@ -556,8 +510,7 @@ export function useHookServer(
 		currentQuestionRequest,
 		questionQueueCount,
 		resolveQuestion,
-		expandToolOutput,
-		toggleSubagentExpansion,
+		expandAllSubagents,
 		printTaskSnapshot,
 	};
 }

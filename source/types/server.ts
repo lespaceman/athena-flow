@@ -63,10 +63,8 @@ export type UseHookServerResult = {
 	questionQueueCount: number;
 	/** Resolve an AskUserQuestion request with the user's answers */
 	resolveQuestion: (requestId: string, answers: Record<string, string>) => void;
-	/** Expand a collapsed tool output into the event stream */
-	expandToolOutput: (toolId: string) => void;
-	/** Toggle expansion of the most recent completed subagent's child events */
-	toggleSubagentExpansion: () => void;
+	/** Expand all subagents' child events into the event stream */
+	expandAllSubagents: () => void;
 	/** Print full task list snapshot into the event stream */
 	printTaskSnapshot: () => void;
 };

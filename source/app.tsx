@@ -206,7 +206,6 @@ function AppContent({
 				hook: {
 					args: result.args,
 					hookServer,
-					addMessage: addMessageObj,
 				},
 				prompt: {
 					spawn: spawnClaude,
@@ -276,10 +275,10 @@ function AppContent({
 			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
-			// Ctrl+O toggles expansion of the most recent completed subagent
+			// Ctrl+O expands all subagents into the event stream
 			// Ink may not normalize Ctrl+O (0x0F) to 'o', so match both
 			if (key.ctrl && (_input === 'o' || _input === '\x0f')) {
-				hookServer.toggleSubagentExpansion();
+				hookServer.expandAllSubagents();
 			}
 		},
 		{isActive: !dialogActive},

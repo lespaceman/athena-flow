@@ -13,7 +13,6 @@ import {quitCommand} from './quit.js';
 import {statsCommand} from './stats.js';
 import {sessionsCommand} from './sessions.js';
 import {contextCommand} from './context.js';
-import {openCommand} from './open.js';
 import {tasksCommand} from './tasks.js';
 
 const builtins = [
@@ -23,7 +22,6 @@ const builtins = [
 	statsCommand,
 	contextCommand,
 	sessionsCommand,
-	openCommand,
 	tasksCommand,
 ];
 

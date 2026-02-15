@@ -1,7 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {
-	resolveExpansionTarget,
-	findLastCompletedAgent,
+	findAllSubagents,
 	formatAgentSummary,
 	createNotificationEvent,
 } from './expansionResolver.js';
@@ -42,131 +41,41 @@ function makeSubagentStartEvent(agentId: string, agentType = 'Explore') {
 	});
 }
 
-function makeSubagentStopEvent(agentId: string) {
-	return makeEvent({
-		hookName: 'SubagentStop',
-		payload: {
-			session_id: 's1',
-			transcript_path: '/tmp/t',
-			cwd: '/tmp',
-			hook_event_name: 'SubagentStop',
-			agent_id: agentId,
-		} as HookEventDisplay['payload'],
-	});
-}
-
-describe('resolveExpansionTarget', () => {
-	it('resolves a toolUseId to a tool expansion', () => {
-		const events: HookEventDisplay[] = [
-			makeEvent({hookName: 'PreToolUse', toolUseId: 't1', toolName: 'Bash'}),
-			makeEvent({hookName: 'PostToolUse', toolUseId: 't1', toolName: 'Bash'}),
-		];
-
-		const result = resolveExpansionTarget(events, 't1');
-		expect(result).not.toBeNull();
-		expect(result!.type).toBe('tool');
-	});
-
-	it('resolves an agent_id to an agent expansion with child events', () => {
+describe('findAllSubagents', () => {
+	it('returns all subagents regardless of completion status', () => {
 		const events: HookEventDisplay[] = [
 			makeSubagentStartEvent('a1', 'Explore'),
 			makeEvent({
 				hookName: 'PreToolUse',
-				toolUseId: 'child1',
 				toolName: 'Glob',
 				parentSubagentId: 'a1',
 			}),
-			makeEvent({
-				hookName: 'PostToolUse',
-				toolUseId: 'child1',
-				toolName: 'Glob',
-				parentSubagentId: 'a1',
-			}),
-		];
-
-		const result = resolveExpansionTarget(events, 'a1');
-		expect(result).not.toBeNull();
-		expect(result!.type).toBe('agent');
-		if (result!.type === 'agent') {
-			expect(result!.agentType).toBe('Explore');
-			expect(result!.childEvents).toHaveLength(2);
-		}
-	});
-
-	it('resolves "last" to the most recent toolUseId', () => {
-		const events: HookEventDisplay[] = [
-			makeEvent({hookName: 'PreToolUse', toolUseId: 't1', toolName: 'Bash'}),
-			makeEvent({hookName: 'PreToolUse', toolUseId: 't2', toolName: 'Read'}),
-		];
-
-		const result = resolveExpansionTarget(events, 'last');
-		expect(result).not.toBeNull();
-		expect(result!.type).toBe('tool');
-		if (result!.type === 'tool') {
-			expect(result!.toolUseId).toBe('t2');
-		}
-	});
-
-	it('returns null for unknown id', () => {
-		const result = resolveExpansionTarget([], 'nonexistent');
-		expect(result).toBeNull();
-	});
-
-	it('prefers tool match over agent match when id matches both', () => {
-		// Edge case: toolUseId and agent_id are different namespaces,
-		// but if somehow both match, tool takes priority
-		const events: HookEventDisplay[] = [
-			makeEvent({hookName: 'PreToolUse', toolUseId: 'x1', toolName: 'Bash'}),
-		];
-
-		const result = resolveExpansionTarget(events, 'x1');
-		expect(result!.type).toBe('tool');
-	});
-});
-
-describe('findLastCompletedAgent', () => {
-	it('returns the most recent completed agent', () => {
-		const events: HookEventDisplay[] = [
-			makeSubagentStartEvent('a1', 'Explore'),
-			makeSubagentStopEvent('a1'),
-			makeSubagentStartEvent('a2', 'Code'),
-			makeSubagentStopEvent('a2'),
-		];
-
-		const result = findLastCompletedAgent(events);
-		expect(result).not.toBeNull();
-		expect(result!.agentId).toBe('a2');
-		expect(result!.agentType).toBe('Code');
-	});
-
-	it('ignores agents without a stop event', () => {
-		const events: HookEventDisplay[] = [
-			makeSubagentStartEvent('a1', 'Explore'),
-			makeSubagentStopEvent('a1'),
 			makeSubagentStartEvent('a2', 'Code'),
 		];
 
-		const result = findLastCompletedAgent(events);
-		expect(result!.agentId).toBe('a1');
+		const result = findAllSubagents(events);
+		expect(result).toHaveLength(2);
+		expect(result[0]!.agentId).toBe('a1');
+		expect(result[0]!.childEvents).toHaveLength(1);
+		expect(result[1]!.agentId).toBe('a2');
+		expect(result[1]!.childEvents).toHaveLength(0);
 	});
 
-	it('returns null when no agents have completed', () => {
+	it('returns empty array when no subagents exist', () => {
 		const events: HookEventDisplay[] = [
-			makeSubagentStartEvent('a1', 'Explore'),
+			makeEvent({hookName: 'PreToolUse', toolName: 'Bash'}),
 		];
-
-		expect(findLastCompletedAgent(events)).toBeNull();
+		expect(findAllSubagents(events)).toHaveLength(0);
 	});
 
-	it('returns null for empty events', () => {
-		expect(findLastCompletedAgent([])).toBeNull();
+	it('returns empty array for empty events', () => {
+		expect(findAllSubagents([])).toHaveLength(0);
 	});
 });
 
 describe('formatAgentSummary', () => {
 	it('formats agent with child events', () => {
 		const result = formatAgentSummary({
-			type: 'agent',
 			agentId: 'a1',
 			agentType: 'Explore',
 			startEvent: makeSubagentStartEvent('a1'),
