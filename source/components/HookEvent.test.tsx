@@ -176,7 +176,6 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('hi');
-		expect(frame).toContain('Bash');
 	});
 
 	it('shows PostToolUseFailure error message', () => {
@@ -362,7 +361,8 @@ describe('HookEvent', () => {
 			};
 			const {lastFrame} = render(<HookEvent event={event} />);
 			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Bash');
+			// PostToolResult renders just the gutter, not the tool name
+			expect(frame).toContain('⎿');
 		},
 	);
 

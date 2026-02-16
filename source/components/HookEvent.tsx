@@ -15,6 +15,7 @@ import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStartEvent from './SubagentStartEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
+import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
 
 type Props = {
@@ -54,16 +55,21 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		return <TaskAgentEvent event={event} />;
 	}
 
-	// Unified tool call: PreToolUse/PermissionRequest (with paired post-tool result)
-	// or orphaned PostToolUse/PostToolUseFailure (no matching PreToolUse)
-	if (
-		isPreToolUseEvent(payload) ||
-		isPermissionRequestEvent(payload) ||
-		isPostToolUseEvent(payload) ||
-		isPostToolUseFailureEvent(payload)
-	) {
+	// PreToolUse/PermissionRequest → tool call header (● Tool params)
+	if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
 		return (
 			<UnifiedToolCallEvent
+				event={event}
+				verbose={verbose}
+				isNested={Boolean(event.parentSubagentId)}
+			/>
+		);
+	}
+
+	// PostToolUse/PostToolUseFailure → standalone result (⎿ output)
+	if (isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) {
+		return (
+			<PostToolResult
 				event={event}
 				verbose={verbose}
 				isNested={Boolean(event.parentSubagentId)}
