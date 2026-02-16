@@ -85,7 +85,8 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
 - **source/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
 - **source/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
-- **source/hooks/useContentOrdering.ts**: Pure transformation: events → stable/dynamic content split for Ink `<Static>`
+- **source/hooks/useContentOrdering.ts**: Pure transformation: events → stableItems (all items are immediately stable)
+- **source/components/PostToolResult.tsx**: Renders standalone PostToolUse/PostToolUseFailure as `⎿ result`
 - **source/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
 
 ## Tech Stack
@@ -119,7 +120,7 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 
 ## Rendering Paths
 
-- **Tool output rendering**: `UnifiedToolCallEvent` renders top-level tool results; `SubagentEvent` renders child tool results inside subagent boxes — both paths must be updated when changing tool output display
+- **Tool output rendering**: `UnifiedToolCallEvent` renders tool call headers (`● Tool(params)`); `PostToolResult` renders tool results (`⎿ output`). Each is an independent static line — no pairing between Pre and PostToolUse events.
 - **ToolResultContainer**: Wraps all tool results with a `⎿` gutter + content layout. Computes `availableWidth` from terminal width minus overhead (LEFT_MARGIN + GUTTER_WIDTH + RIGHT_PAD). When nested inside bordered boxes (e.g. SubagentEvent), pass `parentWidth` prop to avoid width overflow — border chars consume extra width not accounted for by default.
 - **Tool output extractors**: `source/utils/toolExtractors.ts` maps each tool's response to a `RenderableOutput` discriminated union (code/diff/list/text) with `maxLines`/`maxItems` truncation. Add new tool extractors to the `EXTRACTORS` registry.
 - **Markdown rendering**: `MarkdownText` uses `marked` + `marked-terminal` with custom renderers for compact headings, lists, HR, and tables. `m.parser(tokens)` renders token arrays (not `m.parser.parseInline` — `parser` is a function, not the Parser class).
@@ -132,7 +133,7 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **Flag registry**: Adding a new Claude CLI flag = add one `FlagDef` entry to `FLAG_REGISTRY`, no other changes needed
 - **Error boundaries**: Every `<HookEvent>` and dialog is wrapped in `<ErrorBoundary>` with recoverable fallbacks (Escape key)
 - **Settings isolation**: Always passes `--setting-sources ""` to Claude — athena fully controls what Claude sees
-- **Ink `<Static>` is write-once**: Items promoted to `stableItems` render once and never update — any state change (e.g., PostToolUse pairing) must happen BEFORE an item becomes stable
+- **Ink `<Static>` is write-once**: Every event is immediately stable — no waiting for PostToolUse before rendering
 - **Session lifecycle is per-message**: Each `spawnClaude()` creates a new session (SessionStart→Stop→SessionEnd). State flags like `sessionEnded` must reset on new `SessionStart` or they affect future sessions
 - **Ink border width overhead**: `borderStyle="round"` consumes 2 chars (left+right borders). Components computing width from `process.stdout.columns` inside bordered boxes must subtract border + padding overhead or content will overflow and break the border rendering.
-- **PreToolUse ↔ PostToolUse pairing**: `useContentOrdering` pairs by `toolUseId`; Claude Code may omit `tool_use_id` on PostToolUse (bug #13241), so temporal fallback pairing by tool_name exists
+- **Independent events**: Every hook event (PreToolUse, PostToolUse, SubagentStart, SubagentStop) is its own independent static line — no pairing, merging, or waiting
