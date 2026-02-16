@@ -14,6 +14,7 @@ import {
 import {
 	type TodoItem,
 	type TodoStatus,
+	type TodoWriteInput,
 	type TaskCreateInput,
 	type TaskUpdateInput,
 	TASK_TOOL_NAMES,
@@ -140,8 +141,29 @@ export function useContentOrdering({
 		.filter(e => !shouldExcludeFromMainStream(e))
 		.map(e => ({type: 'hook' as const, data: e}));
 
-	// Aggregate TaskCreate/TaskUpdate events into the task list.
-	const tasks = aggregateTaskEvents(events);
+	// Aggregate TaskCreate/TaskUpdate events, or fall back to legacy TodoWrite.
+	const aggregatedTasks = aggregateTaskEvents(events);
+	let tasks: TodoItem[];
+	if (aggregatedTasks.length > 0) {
+		tasks = aggregatedTasks;
+	} else {
+		// Legacy fallback: extract the latest TodoWrite PreToolUse event
+		const lastTodoWrite = events
+			.filter(
+				e =>
+					e.hookName === 'PreToolUse' &&
+					e.toolName === 'TodoWrite' &&
+					!e.parentSubagentId,
+			)
+			.at(-1);
+		if (lastTodoWrite && isPreToolUseEvent(lastTodoWrite.payload)) {
+			const input = lastTodoWrite.payload
+				.tool_input as unknown as TodoWriteInput;
+			tasks = Array.isArray(input.todos) ? input.todos : [];
+		} else {
+			tasks = [];
+		}
+	}
 
 	const stableItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),

@@ -690,6 +690,94 @@ describe('useContentOrdering', () => {
 			expect(tasks).toHaveLength(0);
 		});
 
+		it('falls back to legacy TodoWrite when no TaskCreate events exist', () => {
+			const events = [
+				makeEvent({
+					id: 'tw-1',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {
+							todos: [
+								{
+									content: 'First task',
+									status: 'completed',
+								},
+								{
+									content: 'Second task',
+									status: 'in_progress',
+									activeForm: 'Working on second',
+								},
+							],
+						},
+					},
+				}),
+			];
+
+			const {tasks} = callHook({messages: [], events});
+
+			expect(tasks).toHaveLength(2);
+			expect(tasks[0]).toEqual({content: 'First task', status: 'completed'});
+			expect(tasks[1]).toEqual({
+				content: 'Second task',
+				status: 'in_progress',
+				activeForm: 'Working on second',
+			});
+		});
+
+		it('prefers TaskCreate over TodoWrite when both exist', () => {
+			const events = [
+				makeEvent({
+					id: 'tw-1',
+					hookName: 'PreToolUse',
+					toolName: 'TodoWrite',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TodoWrite',
+						tool_input: {
+							todos: [{content: 'Legacy task', status: 'pending'}],
+						},
+					},
+				}),
+				makeEvent({
+					id: 'tc-1',
+					hookName: 'PreToolUse',
+					toolName: 'TaskCreate',
+					status: 'passthrough',
+					timestamp: new Date(2000),
+					payload: {
+						session_id: 's1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						hook_event_name: 'PreToolUse',
+						tool_name: 'TaskCreate',
+						tool_input: {
+							subject: 'New task',
+							description: 'New style',
+							activeForm: 'Creating',
+						},
+					},
+				}),
+			];
+
+			const {tasks} = callHook({messages: [], events});
+
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0]!.content).toBe('New task');
+		});
+
 		it('silently ignores TaskUpdate with nonexistent taskId', () => {
 			const events = [
 				makeEvent({

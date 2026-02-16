@@ -7,6 +7,9 @@ import {
 import {useTheme} from '../theme/index.js';
 import {truncateLine} from '../utils/truncate.js';
 import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
+import MarkdownText from './ToolOutput/MarkdownText.js';
+
+const DEFAULT_PREVIEW_LINES = 5;
 
 export default function SubagentStopEvent({
 	event,
@@ -34,9 +37,25 @@ export default function SubagentStopEvent({
 			</ToolResultContainer>
 		);
 	} else if (responseText) {
+		const lines = responseText.split('\n');
+		const totalLineCount = lines.length;
+		const previewLines =
+			totalLineCount > DEFAULT_PREVIEW_LINES
+				? lines.slice(0, DEFAULT_PREVIEW_LINES)
+				: undefined;
+
 		body = (
-			<ToolResultContainer>
-				<Text>{truncateLine(responseText, terminalWidth - 10)}</Text>
+			<ToolResultContainer
+				previewLines={previewLines}
+				totalLineCount={previewLines ? totalLineCount : undefined}
+				toolId={event.id}
+			>
+				{availableWidth => (
+					<MarkdownText
+						content={responseText}
+						availableWidth={availableWidth}
+					/>
+				)}
 			</ToolResultContainer>
 		);
 	}
