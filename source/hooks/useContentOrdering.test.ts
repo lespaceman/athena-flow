@@ -68,16 +68,12 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const result = callHook({messages, events});
-		const items = [
-			...result.stableItems,
-			...(result.dynamicItem ? [result.dynamicItem] : []),
-		];
+		const {stableItems} = callHook({messages, events});
 
 		// Ordered by time: e1 (500) → msg (1000) → e2 (1500)
-		expect(items[0]).toEqual({type: 'hook', data: events[0]});
-		expect(items[1]).toEqual({type: 'message', data: messages[0]});
-		expect(items[2]).toEqual({type: 'hook', data: events[1]});
+		expect(stableItems[0]).toEqual({type: 'hook', data: events[0]});
+		expect(stableItems[1]).toEqual({type: 'message', data: messages[0]});
+		expect(stableItems[2]).toEqual({type: 'hook', data: events[1]});
 	});
 
 	it('sorts messages by timestamp field, not by ID string parsing', () => {
@@ -89,16 +85,12 @@ describe('useContentOrdering', () => {
 			timestamp: new Date(1000),
 		};
 
-		const result = callHook({
+		const {stableItems} = callHook({
 			messages: [statsMsg, sessionEndMsg],
 			events: [],
 		});
-		const items = [
-			...result.stableItems,
-			...(result.dynamicItem ? [result.dynamicItem] : []),
-		];
 
-		const assistantItems = items.filter(
+		const assistantItems = stableItems.filter(
 			i => i.type === 'message' && i.data.role === 'assistant',
 		);
 		expect(assistantItems).toHaveLength(2);
@@ -128,20 +120,16 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const result = callHook({messages: [], events});
-		const items = [
-			...result.stableItems,
-			...(result.dynamicItem ? [result.dynamicItem] : []),
-		];
+		const {stableItems} = callHook({messages: [], events});
 
 		// Should NOT include SessionEnd as hook item (excluded from timeline)
-		const hookItems = items.filter(
+		const hookItems = stableItems.filter(
 			i => i.type === 'hook' && i.data.hookName === 'SessionEnd',
 		);
 		expect(hookItems).toHaveLength(0);
 
 		// Should include synthetic assistant message
-		const msgItems = items.filter(i => i.type === 'message');
+		const msgItems = stableItems.filter(i => i.type === 'message');
 		expect(msgItems).toHaveLength(1);
 		expect(msgItems[0]!.type === 'message' && msgItems[0]!.data.content).toBe(
 			'Done!',
@@ -165,24 +153,44 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const result = callHook({messages: [], events});
-		const items = [
-			...result.stableItems,
-			...(result.dynamicItem ? [result.dynamicItem] : []),
-		];
+		const {stableItems} = callHook({messages: [], events});
 
-		expect(items).toHaveLength(2);
-		expect(items[0]!.data.id).toBe('e-done');
-		expect(items[1]!.data.id).toBe('e-pending');
+		expect(stableItems).toHaveLength(2);
+		expect(stableItems[0]!.data.id).toBe('e-done');
+		expect(stableItems[1]!.data.id).toBe('e-pending');
 	});
 
 	it('returns empty items when no content', () => {
-		const result = callHook({messages: [], events: []});
-		const items = [
-			...result.stableItems,
-			...(result.dynamicItem ? [result.dynamicItem] : []),
+		const {stableItems} = callHook({messages: [], events: []});
+		expect(stableItems).toHaveLength(0);
+	});
+
+	it('includes PostToolUse for non-Task tools as own item in stream', () => {
+		const events = [
+			makeEvent({
+				id: 'post-bash',
+				hookName: 'PostToolUse',
+				toolName: 'Bash',
+				status: 'passthrough',
+				timestamp: new Date(1000),
+			}),
 		];
-		expect(items).toHaveLength(0);
+		const {stableItems} = callHook({messages: [], events});
+		expect(stableItems.map(i => i.data.id)).toContain('post-bash');
+	});
+
+	it('still excludes PostToolUse for Task tool', () => {
+		const events = [
+			makeEvent({
+				id: 'post-task',
+				hookName: 'PostToolUse',
+				toolName: 'Task',
+				status: 'passthrough',
+				timestamp: new Date(1000),
+			}),
+		];
+		const {stableItems} = callHook({messages: [], events});
+		expect(stableItems.map(i => i.data.id)).not.toContain('post-task');
 	});
 
 	describe('Task PreToolUse and SubagentStop as feed items', () => {
@@ -208,13 +216,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const taskPreToolUse = items.filter(
+			const taskPreToolUse = stableItems.filter(
 				i =>
 					i.type === 'hook' &&
 					i.data.hookName === 'PreToolUse' &&
@@ -234,13 +238,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const taskPostToolUse = items.filter(
+			const taskPostToolUse = stableItems.filter(
 				i =>
 					i.type === 'hook' &&
 					i.data.hookName === 'PostToolUse' &&
@@ -267,13 +267,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allIds = items.map(i => i.data.id);
+			const allIds = stableItems.map(i => i.data.id);
 			expect(allIds).toContain('sub-start');
 		});
 
@@ -302,13 +298,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allHookNames = items
+			const allHookNames = stableItems
 				.filter(
 					(i): i is {type: 'hook'; data: HookEventDisplay} => i.type === 'hook',
 				)
@@ -354,11 +346,7 @@ describe('useContentOrdering', () => {
 					}),
 				],
 			});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-			const allIds = items.map(i => i.data.id);
+			const allIds = result.stableItems.map(i => i.data.id);
 			expect(allIds).toContain('task-pre');
 			expect(allIds).toContain('child-tool');
 		});
@@ -405,13 +393,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allContentIds = items.map(i => i.data.id);
+			const allContentIds = stableItems.map(i => i.data.id);
 			expect(allContentIds).toContain('task-pre');
 			expect(allContentIds).toContain('child-1');
 			expect(allContentIds).toContain('child-2');
@@ -448,13 +432,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allContentIds = items.map(i => i.data.id);
+			const allContentIds = stableItems.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tc-1');
 			expect(allContentIds).toContain('notif-1');
 		});
@@ -478,13 +458,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allContentIds = items.map(i => i.data.id);
+			const allContentIds = stableItems.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tu-1');
 		});
 
@@ -506,13 +482,9 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
+			const {stableItems} = callHook({messages: [], events});
 
-			const allContentIds = items.map(i => i.data.id);
+			const allContentIds = stableItems.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tl-1');
 			expect(allContentIds).not.toContain('tg-1');
 		});
@@ -749,409 +721,6 @@ describe('useContentOrdering', () => {
 			const {tasks} = callHook({messages: [], events});
 
 			expect(tasks).toHaveLength(0);
-		});
-	});
-
-	describe('stable/dynamic split', () => {
-		it('messages are always stable', () => {
-			const {stableItems, dynamicItem} = callHook({
-				messages: [makeMessage('m1', 'user', new Date(1000))],
-				events: [],
-			});
-
-			expect(stableItems).toHaveLength(1);
-			expect(stableItems[0]!.type).toBe('message');
-			expect(dynamicItem).toBeNull();
-		});
-
-		it('completed tool events are stable', () => {
-			const postEvent = makeEvent({
-				id: 'post-1',
-				hookName: 'PostToolUse',
-				toolName: 'Bash',
-				toolUseId: 'tu-1',
-				status: 'passthrough',
-				timestamp: new Date(2000),
-			});
-			const events = [
-				makeEvent({
-					id: 'pre-1',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-1',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-				postEvent,
-			];
-
-			const {stableItems, dynamicItem} = callHook({messages: [], events});
-
-			// The PreToolUse with paired PostToolUse should be stable
-			const stableIds = stableItems.map(i => i.data.id);
-			expect(stableIds).toContain('pre-1');
-			expect(dynamicItem).toBeNull();
-		});
-
-		it('pending tool event is dynamic', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-pending',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					status: 'pending',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {stableItems, dynamicItem} = callHook({messages: [], events});
-
-			expect(stableItems).toHaveLength(0);
-			expect(dynamicItem).not.toBeNull();
-			expect(dynamicItem!.data.id).toBe('pre-pending');
-		});
-
-		it('blocked tool event is stable', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-blocked',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-blocked',
-					status: 'blocked',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {stableItems, dynamicItem} = callHook({messages: [], events});
-
-			const stableIds = stableItems.map(i => i.data.id);
-			expect(stableIds).toContain('pre-blocked');
-			expect(dynamicItem).toBeNull();
-		});
-
-		it('SubagentStop without transcript is dynamic', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-stop-no-transcript',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {stableItems, dynamicItem} = callHook({messages: [], events});
-
-			expect(stableItems).toHaveLength(0);
-			expect(dynamicItem).not.toBeNull();
-			expect(dynamicItem!.data.id).toBe('sub-stop-no-transcript');
-		});
-
-		it('SubagentStop with transcript is stable', () => {
-			const events = [
-				makeEvent({
-					id: 'sub-stop-with-transcript',
-					hookName: 'SubagentStop',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					transcriptSummary: {
-						lastAssistantText: 'done',
-						lastAssistantTimestamp: null,
-						messageCount: 1,
-						toolCallCount: 0,
-					},
-				}),
-			];
-
-			const {stableItems, dynamicItem} = callHook({messages: [], events});
-
-			const stableIds = stableItems.map(i => i.data.id);
-			expect(stableIds).toContain('sub-stop-with-transcript');
-			expect(dynamicItem).toBeNull();
-		});
-	});
-
-	describe('tool event pairing', () => {
-		it('merges PostToolUse onto matching PreToolUse by toolUseId', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-1',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-123',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						hook_event_name: 'PreToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo hi'},
-					},
-				}),
-				makeEvent({
-					id: 'post-1',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-123',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						hook_event_name: 'PostToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo hi'},
-						tool_response: 'hi',
-					},
-				}),
-			];
-
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-
-			// PostToolUse should NOT appear as its own item
-			expect(items.filter(i => i.data.id === 'post-1')).toHaveLength(0);
-
-			// PreToolUse should have postToolEvent merged
-			const preItem = items.find(i => i.data.id === 'pre-1');
-			expect(preItem).toBeDefined();
-			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
-				'post-1',
-			);
-		});
-
-		it('merges PostToolUseFailure onto matching PreToolUse by toolUseId', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-2',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-456',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						hook_event_name: 'PreToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'bad-cmd'},
-					},
-				}),
-				makeEvent({
-					id: 'post-2',
-					hookName: 'PostToolUseFailure',
-					toolName: 'Bash',
-					toolUseId: 'tu-456',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						hook_event_name: 'PostToolUseFailure',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'bad-cmd'},
-						error: 'command not found',
-					},
-				}),
-			];
-
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-
-			expect(items.filter(i => i.data.id === 'post-2')).toHaveLength(0);
-
-			const preItem = items.find(i => i.data.id === 'pre-2');
-			expect(preItem).toBeDefined();
-			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
-				'post-2',
-			);
-		});
-
-		it('pairs PostToolUse without toolUseId to PreToolUse by tool_name (temporal fallback)', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-no-id',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-abc',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						hook_event_name: 'PreToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo hi'},
-						tool_use_id: 'tu-abc',
-					},
-				}),
-				makeEvent({
-					id: 'post-no-id',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					// No toolUseId — simulates Claude Code bug
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						hook_event_name: 'PostToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo hi'},
-						tool_response: 'hi',
-					},
-				}),
-			];
-
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-
-			// PostToolUse should NOT appear as its own item (it was paired)
-			expect(items.filter(i => i.data.id === 'post-no-id')).toHaveLength(0);
-
-			// PreToolUse should have postToolEvent merged
-			const preItem = items.find(i => i.data.id === 'pre-no-id');
-			expect(preItem).toBeDefined();
-			expect(preItem?.type === 'hook' && preItem.data.postToolEvent?.id).toBe(
-				'post-no-id',
-			);
-		});
-
-		it('temporal pairing matches PostToolUse to correct PreToolUse when multiple exist', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-first',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-1',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						hook_event_name: 'PreToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo first'},
-						tool_use_id: 'tu-1',
-					},
-				}),
-				makeEvent({
-					id: 'post-first',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					status: 'passthrough',
-					timestamp: new Date(2000),
-					payload: {
-						hook_event_name: 'PostToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo first'},
-						tool_response: 'first',
-					},
-				}),
-				makeEvent({
-					id: 'pre-second',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-2',
-					status: 'passthrough',
-					timestamp: new Date(3000),
-					payload: {
-						hook_event_name: 'PreToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo second'},
-						tool_use_id: 'tu-2',
-					},
-				}),
-				makeEvent({
-					id: 'post-second',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					status: 'passthrough',
-					timestamp: new Date(4000),
-					payload: {
-						hook_event_name: 'PostToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo second'},
-						tool_response: 'second',
-					},
-				}),
-			];
-
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-
-			// Both PostToolUse events should be hidden (paired)
-			expect(items.filter(i => i.data.id === 'post-first')).toHaveLength(0);
-			expect(items.filter(i => i.data.id === 'post-second')).toHaveLength(0);
-
-			// Each PreToolUse should have its correct postToolEvent
-			const pre1 = items.find(i => i.data.id === 'pre-first');
-			const pre2 = items.find(i => i.data.id === 'pre-second');
-			expect(pre1?.type === 'hook' && pre1.data.postToolEvent?.id).toBe(
-				'post-first',
-			);
-			expect(pre2?.type === 'hook' && pre2.data.postToolEvent?.id).toBe(
-				'post-second',
-			);
-		});
-
-		it('renders PostToolUse standalone when no matching PreToolUse', () => {
-			const events = [
-				makeEvent({
-					id: 'orphan-post',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					toolUseId: 'tu-orphan',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-					payload: {
-						hook_event_name: 'PostToolUse',
-						session_id: 's1',
-						transcript_path: '/tmp/t.jsonl',
-						cwd: '/project',
-						tool_name: 'Bash',
-						tool_input: {command: 'echo hi'},
-						tool_response: 'hi',
-					},
-				}),
-			];
-
-			const result = callHook({messages: [], events});
-			const items = [
-				...result.stableItems,
-				...(result.dynamicItem ? [result.dynamicItem] : []),
-			];
-
-			expect(items.filter(i => i.data.id === 'orphan-post')).toHaveLength(1);
 		});
 	});
 });

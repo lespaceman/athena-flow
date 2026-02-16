@@ -103,30 +103,6 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 	return Array.from(tasks.values());
 }
 
-/**
- * Determines if a content item is "complete" — meaning it has its final
- * state and is safe for Ink's write-once <Static> component.
- */
-export function isItemComplete(item: ContentItem): boolean {
-	if (item.type === 'message') return true;
-	const e = item.data;
-	// Pending events haven't been resolved yet
-	if (e.status === 'pending') return false;
-	// PreToolUse/PermissionRequest needs its postToolEvent to be complete
-	// (unless it was blocked, which is a terminal state)
-	if (
-		(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-		e.toolUseId &&
-		!e.postToolEvent &&
-		e.status !== 'blocked'
-	)
-		return false;
-	// SubagentStop needs transcript to be loaded
-	if (e.hookName === 'SubagentStop' && e.transcriptSummary === undefined)
-		return false;
-	return true;
-}
-
 // ── Hook ─────────────────────────────────────────────────────────────
 
 type UseContentOrderingOptions = {
@@ -135,11 +111,8 @@ type UseContentOrderingOptions = {
 };
 
 type UseContentOrderingResult = {
-	/** Completed items — safe for Ink <Static>. Render once, never update. */
 	stableItems: ContentItem[];
-	/** The single in-progress item (if any) — renders in dynamic area. */
-	dynamicItem: ContentItem | null;
-/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
+	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
 	tasks: TodoItem[];
 };
 
@@ -163,109 +136,21 @@ export function useContentOrdering({
 			},
 		}));
 
-	// Build pairing maps for PreToolUse ↔ PostToolUse/PostToolUseFailure.
-	// Primary: pair by toolUseId (exact match).
-	// Fallback: when PostToolUse lacks toolUseId (Claude Code bug — see
-	// https://github.com/anthropics/claude-code/issues/13241), pair by tool_name
-	// in temporal order: each unmatched PostToolUse pairs with the earliest
-	// unmatched PreToolUse of the same tool_name that precedes it in time.
-	const preToolUseIds = new Set<string>();
-	const postToolByUseId = new Map<string, HookEventDisplay>();
-	const pairedPreIds = new Set<string>();
-
-	// Pass 1: exact toolUseId pairing
-	for (const e of events) {
-		if (
-			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-			e.toolUseId
-		) {
-			preToolUseIds.add(e.toolUseId);
-		}
-		if (
-			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-			e.toolUseId &&
-			preToolUseIds.has(e.toolUseId)
-		) {
-			postToolByUseId.set(e.toolUseId, e);
-			pairedPreIds.add(e.toolUseId);
-		}
-	}
-
-	// Pass 2: temporal fallback for PostToolUse events missing toolUseId.
-	// For each unmatched post, find the earliest unmatched pre with the same
-	// tool_name that precedes it in time.
-	const unmatchedPres = events.filter(
-		e =>
-			(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
-			e.toolUseId &&
-			!pairedPreIds.has(e.toolUseId),
-	);
-	const unmatchedPosts = events.filter(
-		e =>
-			(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-			!e.toolUseId,
-	);
-	const consumedPreIds = new Set<string>();
-	for (const post of unmatchedPosts) {
-		const match = unmatchedPres.find(
-			pre =>
-				!consumedPreIds.has(pre.toolUseId!) &&
-				pre.toolName === post.toolName &&
-				pre.timestamp.getTime() <= post.timestamp.getTime(),
-		);
-		if (match) {
-			postToolByUseId.set(match.toolUseId!, post);
-			pairedPreIds.add(match.toolUseId!);
-			consumedPreIds.add(match.toolUseId!);
-		}
-	}
-
-	// Build set of paired PostToolUse event IDs for filtering
-	const pairedPostIds = new Set([...postToolByUseId.values()].map(e => e.id));
-
-	// Interleave messages and hook events by timestamp.
-	// See shouldExcludeFromMainStream for the list of excluded event types.
-	// Also exclude PostToolUse/PostToolUseFailure when paired with a PreToolUse.
 	const hookItems: ContentItem[] = events
-		.filter(e => {
-			if (shouldExcludeFromMainStream(e)) return false;
-			if (
-				(e.hookName === 'PostToolUse' || e.hookName === 'PostToolUseFailure') &&
-				(pairedPostIds.has(e.id) ||
-					(e.toolUseId && preToolUseIds.has(e.toolUseId)))
-			)
-				return false;
-			return true;
-		})
+		.filter(e => !shouldExcludeFromMainStream(e))
 		.map(e => ({type: 'hook' as const, data: e}));
-
-	// Merge postToolEvent onto matching PreToolUse/PermissionRequest items
-	for (const item of hookItems) {
-		if (item.type === 'hook' && item.data.toolUseId) {
-			const postEvent = postToolByUseId.get(item.data.toolUseId);
-			if (postEvent) {
-				item.data = {...item.data, postToolEvent: postEvent};
-			}
-		}
-	}
 
 	// Aggregate TaskCreate/TaskUpdate events into the task list.
 	const tasks = aggregateTaskEvents(events);
 
-	const allItems: ContentItem[] = [
+	const stableItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	const stableItems = allItems.filter(isItemComplete);
-	const pendingItems = allItems.filter(i => !isItemComplete(i));
-	const dynamicItem =
-		pendingItems.length > 0 ? pendingItems[pendingItems.length - 1]! : null;
-
 	return {
 		stableItems,
-		dynamicItem,
 		tasks,
 	};
 }
