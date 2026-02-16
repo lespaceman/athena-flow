@@ -1,6 +1,6 @@
 import process from 'node:process';
 import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
-import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
+import {Box, Static, Text, useApp, useInput, useStdout} from 'ink';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
@@ -250,7 +250,7 @@ function AppContent({
 		resolveQuestion(currentQuestionRequest.id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {stableItems, dynamicItems, tasks} = useContentOrdering({
+	const {stableItems, dynamicItem, tasks} = useContentOrdering({
 		messages,
 		events,
 	});
@@ -279,13 +279,8 @@ function AppContent({
 		{isActive: !dialogActive},
 	);
 
-	const allStaticItems = stableItems;
-
 	return (
 		<Box flexDirection="column">
-			{allStaticItems.length > 0 && (
-				<Text dimColor>{'─'.repeat(Math.min(terminalWidth, 80))}</Text>
-			)}
 			{/* Header temporarily disabled
 			<Header
 				version={version}
@@ -299,8 +294,18 @@ function AppContent({
 				isServerRunning={isServerRunning}
 			/>
 			*/}
-			{/* Static items — stable events/messages */}
-			<Static items={allStaticItems}>
+
+			{/* Stats panel — toggled with Ctrl+E, shows detailed metrics */}
+			{statsExpanded && (
+				<StatsPanel
+					metrics={{...metrics, tokens: tokenUsage}}
+					elapsed={elapsed}
+					terminalWidth={terminalWidth}
+				/>
+			)}
+
+			{/* Completed items — rendered once via Static, never re-render */}
+			<Static items={stableItems}>
 				{item =>
 					item.type === 'message' ? (
 						<Message key={item.data.id} message={item.data} />
@@ -315,28 +320,18 @@ function AppContent({
 				}
 			</Static>
 
-			{/* Stats panel — toggled with Ctrl+s, shows detailed metrics */}
-			{statsExpanded && (
-				<StatsPanel
-					metrics={{...metrics, tokens: tokenUsage}}
-					elapsed={elapsed}
-					terminalWidth={terminalWidth}
-				/>
-			)}
-
-			{/* Dynamic items - can re-render when state changes */}
-			{dynamicItems.map(item =>
-				item.type === 'message' ? (
-					<Message key={item.data.id} message={item.data} />
+			{/* Single in-progress item — dynamic, re-renders as state changes */}
+			{dynamicItem &&
+				(dynamicItem.type === 'message' ? (
+					<Message key={dynamicItem.data.id} message={dynamicItem.data} />
 				) : (
 					<ErrorBoundary
-						key={item.data.id}
+						key={dynamicItem.data.id}
 						fallback={<Text color="red">[Error rendering event]</Text>}
 					>
-						<HookEvent event={item.data} verbose={verbose} />
+						<HookEvent event={dynamicItem.data} verbose={verbose} />
 					</ErrorBoundary>
-				),
-			)}
+				))}
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList
