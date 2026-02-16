@@ -68,7 +68,11 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {items} = callHook({messages, events});
+		const result = callHook({messages, events});
+		const items = [
+			...result.stableItems,
+			...(result.dynamicItem ? [result.dynamicItem] : []),
+		];
 
 		// Ordered by time: e1 (500) → msg (1000) → e2 (1500)
 		expect(items[0]).toEqual({type: 'hook', data: events[0]});
@@ -85,10 +89,14 @@ describe('useContentOrdering', () => {
 			timestamp: new Date(1000),
 		};
 
-		const {items} = callHook({
+		const result = callHook({
 			messages: [statsMsg, sessionEndMsg],
 			events: [],
 		});
+		const items = [
+			...result.stableItems,
+			...(result.dynamicItem ? [result.dynamicItem] : []),
+		];
 
 		const assistantItems = items.filter(
 			i => i.type === 'message' && i.data.role === 'assistant',
@@ -120,7 +128,11 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {items} = callHook({messages: [], events});
+		const result = callHook({messages: [], events});
+		const items = [
+			...result.stableItems,
+			...(result.dynamicItem ? [result.dynamicItem] : []),
+		];
 
 		// Should NOT include SessionEnd as hook item (excluded from timeline)
 		const hookItems = items.filter(
@@ -153,7 +165,11 @@ describe('useContentOrdering', () => {
 			}),
 		];
 
-		const {items} = callHook({messages: [], events});
+		const result = callHook({messages: [], events});
+		const items = [
+			...result.stableItems,
+			...(result.dynamicItem ? [result.dynamicItem] : []),
+		];
 
 		expect(items).toHaveLength(2);
 		expect(items[0]!.data.id).toBe('e-done');
@@ -161,7 +177,11 @@ describe('useContentOrdering', () => {
 	});
 
 	it('returns empty items when no content', () => {
-		const {items} = callHook({messages: [], events: []});
+		const result = callHook({messages: [], events: []});
+		const items = [
+			...result.stableItems,
+			...(result.dynamicItem ? [result.dynamicItem] : []),
+		];
 		expect(items).toHaveLength(0);
 	});
 
@@ -188,7 +208,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const taskPreToolUse = items.filter(
 				i =>
@@ -210,7 +234,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const taskPostToolUse = items.filter(
 				i =>
@@ -239,7 +267,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allIds = items.map(i => i.data.id);
 			expect(allIds).toContain('sub-start');
@@ -270,7 +302,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allHookNames = items
 				.filter(
@@ -318,7 +354,11 @@ describe('useContentOrdering', () => {
 					}),
 				],
 			});
-			const allIds = result.items.map(i => i.data.id);
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
+			const allIds = items.map(i => i.data.id);
 			expect(allIds).toContain('task-pre');
 			expect(allIds).toContain('child-tool');
 		});
@@ -365,7 +405,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allContentIds = items.map(i => i.data.id);
 			expect(allContentIds).toContain('task-pre');
@@ -404,7 +448,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allContentIds = items.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tc-1');
@@ -430,7 +478,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allContentIds = items.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tu-1');
@@ -454,7 +506,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			const allContentIds = items.map(i => i.data.id);
 			expect(allContentIds).not.toContain('tl-1');
@@ -853,7 +909,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			// PostToolUse should NOT appear as its own item
 			expect(items.filter(i => i.data.id === 'post-1')).toHaveLength(0);
@@ -903,7 +963,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			expect(items.filter(i => i.data.id === 'post-2')).toHaveLength(0);
 
@@ -952,7 +1016,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			// PostToolUse should NOT appear as its own item (it was paired)
 			expect(items.filter(i => i.data.id === 'post-no-id')).toHaveLength(0);
@@ -1035,7 +1103,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			// Both PostToolUse events should be hidden (paired)
 			expect(items.filter(i => i.data.id === 'post-first')).toHaveLength(0);
@@ -1073,7 +1145,11 @@ describe('useContentOrdering', () => {
 				}),
 			];
 
-			const {items} = callHook({messages: [], events});
+			const result = callHook({messages: [], events});
+			const items = [
+				...result.stableItems,
+				...(result.dynamicItem ? [result.dynamicItem] : []),
+			];
 
 			expect(items.filter(i => i.data.id === 'orphan-post')).toHaveLength(1);
 		});

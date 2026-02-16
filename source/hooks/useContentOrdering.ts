@@ -139,9 +139,7 @@ type UseContentOrderingResult = {
 	stableItems: ContentItem[];
 	/** The single in-progress item (if any) — renders in dynamic area. */
 	dynamicItem: ContentItem | null;
-	/** All items combined (stable + dynamic) for backward compatibility. */
-	items: ContentItem[];
-	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
+/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
 	tasks: TodoItem[];
 };
 
@@ -254,21 +252,20 @@ export function useContentOrdering({
 	// Aggregate TaskCreate/TaskUpdate events into the task list.
 	const tasks = aggregateTaskEvents(events);
 
-	const items: ContentItem[] = [
+	const allItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	const stableItems = items.filter(isItemComplete);
-	const pendingItems = items.filter(i => !isItemComplete(i));
+	const stableItems = allItems.filter(isItemComplete);
+	const pendingItems = allItems.filter(i => !isItemComplete(i));
 	const dynamicItem =
 		pendingItems.length > 0 ? pendingItems[pendingItems.length - 1]! : null;
 
 	return {
 		stableItems,
 		dynamicItem,
-		items,
 		tasks,
 	};
 }
