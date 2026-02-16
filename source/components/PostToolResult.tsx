@@ -17,14 +17,11 @@ import {useTheme} from '../theme/index.js';
 type Props = {
 	event: HookEventDisplay;
 	verbose?: boolean;
-	/** When true, adds left indentation to indicate this is a subagent child event. */
-	isNested?: boolean;
 };
 
 export default function PostToolResult({
 	event,
 	verbose,
-	isNested,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -72,7 +69,7 @@ export default function PostToolResult({
 	}
 
 	return (
-		<Box flexDirection="column" paddingLeft={isNested ? 2 : 0}>
+		<Box flexDirection="column">
 			{responseNode}
 			{verbose && (
 				<Box paddingLeft={3}>

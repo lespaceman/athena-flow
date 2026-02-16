@@ -1,11 +1,11 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 
-// Layout: [LEFT_MARGIN 3][GUTTER 2 ("⎿ ")][CONTENT...][RIGHT_PAD 1]
-const LEFT_MARGIN = 2;
+// Layout: [GUTTER 2 ("⎿ ")][CONTENT...][RIGHT_PAD 2]
+// Left margin is provided by the HookEvent container (EVENT_LEFT_MARGIN=2)
 const GUTTER_WIDTH = 2;
 const RIGHT_PAD = 2;
-const TOTAL_OVERHEAD = LEFT_MARGIN + GUTTER_WIDTH + RIGHT_PAD;
+const TOTAL_OVERHEAD = GUTTER_WIDTH + RIGHT_PAD;
 
 const DEFAULT_COLLAPSE_THRESHOLD = 5;
 
@@ -43,7 +43,7 @@ export default function ToolResultContainer({
 	if (shouldCollapse) {
 		const remaining = totalLineCount - previewLines.length;
 		return (
-			<Box paddingLeft={LEFT_MARGIN}>
+			<Box>
 				<Box width={GUTTER_WIDTH} flexShrink={0}>
 					<Text dimColor={dimGutter} color={gutterColor}>
 						{'\u23bf'}{' '}
@@ -67,7 +67,7 @@ export default function ToolResultContainer({
 	if (content == null) return null;
 
 	return (
-		<Box paddingLeft={LEFT_MARGIN}>
+		<Box>
 			<Box width={GUTTER_WIDTH} flexShrink={0}>
 				<Text dimColor={dimGutter} color={gutterColor}>
 					{'\u23bf'}{' '}

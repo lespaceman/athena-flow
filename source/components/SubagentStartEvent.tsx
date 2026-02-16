@@ -19,7 +19,7 @@ export default function SubagentStartEvent({event}: Props): React.ReactNode {
 	const terminalWidth = process.stdout.columns ?? 80;
 	const label = `▸ ${event.payload.agent_type ?? 'Agent'}`;
 	return (
-		<Box>
+		<Box marginTop={1}>
 			<Text color={theme.accentSecondary}>
 				{truncateLine(label, terminalWidth - 2)}
 			</Text>

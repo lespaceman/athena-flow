@@ -61,7 +61,7 @@ export default function SubagentStopEvent({
 	}
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" marginTop={1}>
 			<Box>
 				<Text color={theme.accentSecondary} bold>
 					● {headerText}

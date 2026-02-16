@@ -121,14 +121,14 @@ export function useHookServer(
 	}, []);
 
 	const printTaskSnapshot = useCallback(() => {
-		const hasTaskEvents = eventsRef.current.some(
+		const hasTasks = eventsRef.current.some(
 			e =>
 				e.hookName === 'PreToolUse' &&
-				(e.toolName === 'TaskCreate' || e.toolName === 'TaskUpdate') &&
+				e.toolName === 'TodoWrite' &&
 				!e.parentSubagentId,
 		);
 
-		if (!hasTaskEvents) return;
+		if (!hasTasks) return;
 
 		const event = createNotificationEvent(
 			`task-snapshot-${Date.now()}`,

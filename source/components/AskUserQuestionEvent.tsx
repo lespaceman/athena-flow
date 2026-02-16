@@ -44,7 +44,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 	// While pending, show minimal indicator (the dialog handles the full UI)
 	if (event.status === 'pending') {
 		return (
-			<Box marginBottom={1}>
+			<Box marginTop={1}>
 				<Text color={color}>{symbol} </Text>
 				<Text color={theme.accent} bold>
 					Question
@@ -61,7 +61,7 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 
 	// After answering, show questions with answers inline
 	return (
-		<Box flexDirection="column" marginBottom={1}>
+		<Box flexDirection="column" marginTop={1}>
 			<Box>
 				<Text color={color}>{symbol} </Text>
 				<Text color={theme.accent} bold>

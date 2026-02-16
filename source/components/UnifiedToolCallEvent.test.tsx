@@ -102,20 +102,6 @@ describe('UnifiedToolCallEvent', () => {
 		expect(lastFrame()).toBe('');
 	});
 
-	it('applies left padding when isNested is true', () => {
-		const event = makePreToolEvent();
-		const {lastFrame: nestedFrame} = render(
-			<UnifiedToolCallEvent event={event} isNested />,
-		);
-		const {lastFrame: normalFrame} = render(
-			<UnifiedToolCallEvent event={event} />,
-		);
-		// Nested should have more leading whitespace
-		const nestedLine = (nestedFrame() ?? '').split('\n')[0] ?? '';
-		const normalLine = (normalFrame() ?? '').split('\n')[0] ?? '';
-		expect(nestedLine.length).toBeGreaterThan(normalLine.length);
-	});
-
 	it('shows raw JSON in verbose mode', () => {
 		const event = makePreToolEvent();
 		const {lastFrame} = render(<UnifiedToolCallEvent event={event} verbose />);

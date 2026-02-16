@@ -13,10 +13,7 @@ import {
 } from '../types/hooks/index.js';
 import {
 	type TodoItem,
-	type TodoStatus,
 	type TodoWriteInput,
-	type TaskCreateInput,
-	type TaskUpdateInput,
 	TASK_TOOL_NAMES,
 } from '../types/todo.js';
 
@@ -35,15 +32,13 @@ function getItemTime(item: ContentItem): number {
 /**
  * Determines which events should be filtered out of the main content stream.
  *
- * Excluded events:
+ * Excluded:
  * - SessionEnd: rendered as synthetic assistant messages instead
- * - PostToolUse for Task: content already shown in subagent box
- * - Task tool events (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet):
- *   aggregated into the sticky bottom task widget
+ * - PostToolUse for Task: content already shown in SubagentStop
+ * - Task tool events (TodoWrite, TaskCreate, etc.): aggregated into sticky task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SessionEnd') return true;
-	// PostToolUse for Task is hidden — SubagentStop shows the response
 	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
 		return true;
 	if (
@@ -55,53 +50,27 @@ function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 }
 
 /**
- * Aggregate TaskCreate/TaskUpdate PreToolUse events into a TodoItem list.
- *
- * This implements event-sourcing: tasks are created sequentially (IDs assigned
- * 1, 2, 3, ...) by TaskCreate, then mutated by TaskUpdate referencing those IDs.
- * TaskUpdate with status "deleted" removes the task.
+ * Extract the task list from the most recent TodoWrite snapshot.
+ * TodoWrite delivers a full snapshot each time, so only the latest matters.
  */
-function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
-	const tasks = new Map<string, TodoItem>();
-	let nextId = 1;
-
-	const taskEvents = events
+function extractTasks(events: HookEventDisplay[]): TodoItem[] {
+	const lastTodoWrite = events
 		.filter(
 			e =>
 				e.hookName === 'PreToolUse' &&
-				(e.toolName === 'TaskCreate' || e.toolName === 'TaskUpdate') &&
+				e.toolName === 'TodoWrite' &&
 				!e.parentSubagentId,
 		)
-		.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+		.at(-1);
 
-	for (const event of taskEvents) {
-		if (!isPreToolUseEvent(event.payload)) continue;
-
-		if (event.payload.tool_name === 'TaskCreate') {
-			const input = event.payload.tool_input as unknown as TaskCreateInput;
-			const id = String(nextId++);
-			tasks.set(id, {
-				content: input.subject,
-				status: 'pending',
-				activeForm: input.activeForm,
-			});
-		} else if (event.payload.tool_name === 'TaskUpdate') {
-			const input = event.payload.tool_input as unknown as TaskUpdateInput;
-			const existing = tasks.get(input.taskId);
-			if (existing) {
-				if (input.status === 'deleted') {
-					tasks.delete(input.taskId);
-				} else {
-					if (input.status) existing.status = input.status as TodoStatus;
-					if (input.subject) existing.content = input.subject;
-					if (input.activeForm !== undefined)
-						existing.activeForm = input.activeForm;
-				}
-			}
-		}
+	if (!lastTodoWrite || !isPreToolUseEvent(lastTodoWrite.payload)) {
+		return [];
 	}
 
-	return Array.from(tasks.values());
+	const input = lastTodoWrite.payload.tool_input as unknown as
+		| TodoWriteInput
+		| undefined;
+	return Array.isArray(input?.todos) ? input.todos : [];
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────
@@ -113,7 +82,7 @@ type UseContentOrderingOptions = {
 
 type UseContentOrderingResult = {
 	stableItems: ContentItem[];
-	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
+	/** Task list extracted from the latest TodoWrite event. */
 	tasks: TodoItem[];
 };
 
@@ -121,7 +90,6 @@ export function useContentOrdering({
 	messages,
 	events,
 }: UseContentOrderingOptions): UseContentOrderingResult {
-	// Convert SessionEnd events with transcript text into synthetic assistant messages
 	const sessionEndMessages: ContentItem[] = events
 		.filter(
 			e =>
@@ -141,29 +109,7 @@ export function useContentOrdering({
 		.filter(e => !shouldExcludeFromMainStream(e))
 		.map(e => ({type: 'hook' as const, data: e}));
 
-	// Aggregate TaskCreate/TaskUpdate events, or fall back to legacy TodoWrite.
-	const aggregatedTasks = aggregateTaskEvents(events);
-	let tasks: TodoItem[];
-	if (aggregatedTasks.length > 0) {
-		tasks = aggregatedTasks;
-	} else {
-		// Legacy fallback: extract the latest TodoWrite PreToolUse event
-		const lastTodoWrite = events
-			.filter(
-				e =>
-					e.hookName === 'PreToolUse' &&
-					e.toolName === 'TodoWrite' &&
-					!e.parentSubagentId,
-			)
-			.at(-1);
-		if (lastTodoWrite && isPreToolUseEvent(lastTodoWrite.payload)) {
-			const input = lastTodoWrite.payload
-				.tool_input as unknown as TodoWriteInput;
-			tasks = Array.isArray(input.todos) ? input.todos : [];
-		} else {
-			tasks = [];
-		}
-	}
+	const tasks = extractTasks(events);
 
 	const stableItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
@@ -171,8 +117,5 @@ export function useContentOrdering({
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	return {
-		stableItems,
-		tasks,
-	};
+	return {stableItems, tasks};
 }

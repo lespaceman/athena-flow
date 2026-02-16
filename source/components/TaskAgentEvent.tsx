@@ -39,7 +39,7 @@ export default function TaskAgentEvent({
 		: '';
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" marginTop={1}>
 			<Box>
 				<Text color={statusColors.passthrough}>{BULLET} </Text>
 				<Text color={statusColors.passthrough} bold>

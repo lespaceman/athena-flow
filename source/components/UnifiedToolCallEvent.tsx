@@ -14,8 +14,6 @@ import {useTheme} from '../theme/index.js';
 type Props = {
 	event: HookEventDisplay;
 	verbose?: boolean;
-	/** When true, adds left indentation to indicate this is a subagent child event. */
-	isNested?: boolean;
 };
 
 const BULLET = '\u25cf'; // ●
@@ -23,7 +21,6 @@ const BULLET = '\u25cf'; // ●
 export default function UnifiedToolCallEvent({
 	event,
 	verbose,
-	isNested,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -54,7 +51,7 @@ export default function UnifiedToolCallEvent({
 			: statusColors.passthrough;
 
 	return (
-		<Box flexDirection="column" paddingLeft={isNested ? 2 : 0}>
+		<Box flexDirection="column" marginTop={1}>
 			<Box>
 				<Text color={bulletColor}>{BULLET} </Text>
 				<Text color={bulletColor} bold>
