@@ -8,8 +8,8 @@ import {
 	type HookResultPayload,
 	type HookEventDisplay,
 	type HookEventEnvelope,
-	createPreToolUseAllowResult,
-	createPreToolUseDenyResult,
+	createPermissionRequestAllowResult,
+	createPermissionRequestDenyResult,
 	createAskUserQuestionResult,
 	isValidHookEventEnvelope,
 	generateId,
@@ -215,10 +215,12 @@ export function useHookServer(
 				}
 			}
 
-			// Send explicit allow/deny so Claude Code skips its own permission prompt
+			// Send explicit allow/deny response to Claude Code's PermissionRequest
 			const result = isAllow
-				? createPreToolUseAllowResult()
-				: createPreToolUseDenyResult('Denied by user via permission dialog');
+				? createPermissionRequestAllowResult()
+				: createPermissionRequestDenyResult(
+						'Denied by user via permission dialog',
+					);
 
 			respond(requestId, result);
 			dequeuePermission(requestId);

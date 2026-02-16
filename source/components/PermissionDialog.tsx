@@ -1,12 +1,9 @@
 import React, {useCallback, useMemo} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {type HookEventDisplay} from '../types/hooks/display.js';
-import {isToolEvent} from '../types/hooks/events.js';
 import {type PermissionDecision} from '../types/server.js';
 import {parseToolName} from '../utils/toolNameParser.js';
-import {getRiskTier, RISK_TIER_CONFIG} from '../services/riskTier.js';
 import OptionList, {type OptionItem} from './OptionList.js';
-import TypeToConfirm from './TypeToConfirm.js';
 
 type Props = {
 	request: HookEventDisplay;
@@ -21,14 +18,6 @@ export default function PermissionDialog({
 }: Props) {
 	const rawToolName = request.toolName ?? 'Unknown';
 	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
-
-	const toolInput = isToolEvent(request.payload)
-		? request.payload.tool_input
-		: undefined;
-
-	const tier = getRiskTier(rawToolName, toolInput);
-	const requiresConfirmation =
-		RISK_TIER_CONFIG[tier].requiresConfirmation === true;
 
 	const options: OptionItem[] = useMemo(() => {
 		const items: OptionItem[] = [
@@ -47,14 +36,6 @@ export default function PermissionDialog({
 		return items;
 	}, [displayName, serverLabel, isMcp]);
 
-	const handleConfirm = useCallback(() => {
-		onDecision('allow');
-	}, [onDecision]);
-
-	const handleCancel = useCallback(() => {
-		onDecision('deny');
-	}, [onDecision]);
-
 	const handleSelect = useCallback(
 		(value: string) => {
 			onDecision(value as PermissionDecision);
@@ -62,14 +43,11 @@ export default function PermissionDialog({
 		[onDecision],
 	);
 
-	useInput(
-		(_input, key) => {
-			if (key.escape) {
-				onDecision('deny');
-			}
-		},
-		{isActive: !requiresConfirmation},
-	);
+	useInput((_input, key) => {
+		if (key.escape) {
+			onDecision('deny');
+		}
+	});
 
 	const title = serverLabel
 		? `Allow "${displayName}" (${serverLabel})?`
@@ -89,33 +67,23 @@ export default function PermissionDialog({
 				</Box>
 
 				<Box marginTop={1}>
-					{requiresConfirmation ? (
-						<TypeToConfirm
-							confirmText={displayName}
-							onConfirm={handleConfirm}
-							onCancel={handleCancel}
-						/>
-					) : (
-						<OptionList options={options} onSelect={handleSelect} />
-					)}
+					<OptionList options={options} onSelect={handleSelect} />
 				</Box>
 
-				{!requiresConfirmation && (
-					<Box marginTop={1} gap={2}>
-						<Text>
-							<Text dimColor>↑/↓</Text> Navigate
-						</Text>
-						<Text>
-							<Text dimColor>1-{options.length}</Text> Jump
-						</Text>
-						<Text>
-							<Text dimColor>Enter</Text> Select
-						</Text>
-						<Text>
-							<Text dimColor>Esc</Text> Cancel
-						</Text>
-					</Box>
-				)}
+				<Box marginTop={1} gap={2}>
+					<Text>
+						<Text dimColor>↑/↓</Text> Navigate
+					</Text>
+					<Text>
+						<Text dimColor>1-{options.length}</Text> Jump
+					</Text>
+					<Text>
+						<Text dimColor>Enter</Text> Select
+					</Text>
+					<Text>
+						<Text dimColor>Esc</Text> Cancel
+					</Text>
+				</Box>
 			</Box>
 		</Box>
 	);

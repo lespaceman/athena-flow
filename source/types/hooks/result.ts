@@ -106,3 +106,21 @@ export function createPermissionRequestAllowResult(
 		},
 	};
 }
+
+/**
+ * Helper to create a deny result for PermissionRequest hooks.
+ * This tells Claude Code to deny the tool and show the denial reason.
+ */
+export function createPermissionRequestDenyResult(
+	reason: string,
+): HookResultPayload {
+	return {
+		action: 'json_output',
+		stdout_json: {
+			hookSpecificOutput: {
+				hookEventName: 'PermissionRequest',
+				decision: {behavior: 'deny', reason},
+			},
+		},
+	};
+}
