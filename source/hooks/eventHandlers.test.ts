@@ -84,6 +84,26 @@ describe('handleSubagentStop', () => {
 		expect(cb.storeWithAutoPassthrough).toHaveBeenCalledWith(ctx);
 		expect(cb.addEvent).toHaveBeenCalledWith(ctx.displayEvent);
 	});
+
+	it('adds event synchronously even when transcript path is present', () => {
+		const ctx = makeCtx('SubagentStop', {
+			hook_event_name: 'SubagentStop',
+			session_id: 'sess-1',
+			transcript_path: '/tmp/t.jsonl',
+			cwd: '/project',
+			stop_hook_active: false,
+			agent_id: 'agent-1',
+			agent_type: 'Explore',
+			agent_transcript_path: '/tmp/transcript.jsonl',
+		});
+		const cb = makeCallbacks();
+
+		handleSubagentStop(ctx, cb);
+
+		// Event should be added synchronously, not deferred to .then()
+		expect(cb.addEvent).toHaveBeenCalledTimes(1);
+		expect(cb.addEvent).toHaveBeenCalledWith(ctx.displayEvent);
+	});
 });
 
 describe('handlePermissionRequest', () => {
