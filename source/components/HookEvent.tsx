@@ -5,6 +5,7 @@ import {
 	isPostToolUseEvent,
 	isPostToolUseFailureEvent,
 	isPermissionRequestEvent,
+	isSubagentStartEvent,
 	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
@@ -12,6 +13,7 @@ import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import TaskAgentEvent from './TaskAgentEvent.js';
+import SubagentStartEvent from './SubagentStartEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
 import GenericHookEvent from './GenericHookEvent.js';
 
@@ -67,6 +69,10 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 				isNested={Boolean(event.parentSubagentId)}
 			/>
 		);
+	}
+
+	if (isSubagentStartEvent(payload)) {
+		return <SubagentStartEvent event={event} />;
 	}
 
 	if (isSubagentStopEvent(payload)) {

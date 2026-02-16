@@ -1,12 +1,11 @@
 /**
- * Hook that derives the ordered, stable/dynamic split of display items
- * from raw messages and hook events.
+ * Hook that derives the ordered list of display items from raw messages
+ * and hook events.
  *
  * Extracted from app.tsx to keep rendering logic separate from content
- * ordering and to make the stability rules independently testable.
+ * ordering and to make the ordering rules independently testable.
  */
 
-import {useRef} from 'react';
 import {type Message} from '../types/common.js';
 import {
 	type HookEventDisplay,
@@ -15,7 +14,6 @@ import {
 import {
 	type TodoItem,
 	type TodoStatus,
-	type TodoWriteInput,
 	type TaskCreateInput,
 	type TaskUpdateInput,
 	TASK_TOOL_NAMES,
@@ -44,8 +42,6 @@ function getItemTime(item: ContentItem): number {
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SessionEnd') return true;
-	// SubagentStart is redundant — Task PreToolUse is the "agent start" item
-	if (event.hookName === 'SubagentStart') return true;
 	// PostToolUse for Task is hidden — SubagentStop shows the response
 	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
 		return true;
@@ -107,43 +103,6 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 	return Array.from(tasks.values());
 }
 
-/**
- * Determine whether a content item has reached a terminal state and can
- * be moved into the Ink `<Static>` list (rendered once, never updated).
- */
-export function isStableContent(
-	item: ContentItem,
-	sessionEnded?: boolean,
-): boolean {
-	if (item.type === 'message') return true;
-
-	switch (item.data.hookName) {
-		case 'SessionEnd':
-			// Stable once transcript data has loaded
-			return item.data.transcriptSummary !== undefined;
-		case 'PreToolUse':
-		case 'PermissionRequest':
-			// Blocked (user rejected) → stable immediately
-			if (item.data.status === 'blocked') return true;
-			// Pending → not stable
-			if (item.data.status === 'pending') return false;
-			// Non-pending with postToolEvent merged → stable
-			if (item.data.postToolEvent !== undefined) return true;
-			// Session ended or no toolUseId (can never pair) → stable
-			if (sessionEnded || !item.data.toolUseId) return true;
-			// Still waiting for PostToolUse to arrive
-			return false;
-		case 'SubagentStop':
-			// Stable once transcript response has loaded (or session ended)
-			if (item.data.status === 'pending') return false;
-			if (sessionEnded) return true;
-			return item.data.transcriptSummary !== undefined;
-		default:
-			// Others (Notification, etc.): stable when not pending
-			return item.data.status !== 'pending';
-	}
-}
-
 // ── Hook ─────────────────────────────────────────────────────────────
 
 type UseContentOrderingOptions = {
@@ -152,8 +111,7 @@ type UseContentOrderingOptions = {
 };
 
 type UseContentOrderingResult = {
-	stableItems: ContentItem[];
-	dynamicItems: ContentItem[];
+	items: ContentItem[];
 	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
 	tasks: TodoItem[];
 };
@@ -162,10 +120,6 @@ export function useContentOrdering({
 	messages,
 	events,
 }: UseContentOrderingOptions): UseContentOrderingResult {
-	// Track IDs that have been emitted as stable, in order.
-	// Once an item enters this list, its position is fixed.
-	const stableOrderRef = useRef<string[]>([]);
-
 	// Convert SessionEnd events with transcript text into synthetic assistant messages
 	const sessionEndMessages: ContentItem[] = events
 		.filter(
@@ -268,92 +222,17 @@ export function useContentOrdering({
 		}
 	}
 
-	// Extract the latest TodoWrite event for sticky bottom rendering (legacy).
-	const todoWriteEvents = events.filter(
-		e =>
-			e.hookName === 'PreToolUse' &&
-			e.toolName === 'TodoWrite' &&
-			!e.parentSubagentId,
-	);
-	const activeTodoList = todoWriteEvents.at(-1) ?? null;
+	// Aggregate TaskCreate/TaskUpdate events into the task list.
+	const tasks = aggregateTaskEvents(events);
 
-	// Aggregate new-style TaskCreate/TaskUpdate events, or fall back to legacy TodoWrite.
-	const aggregatedTasks = aggregateTaskEvents(events);
-	let tasks: TodoItem[];
-	if (aggregatedTasks.length > 0) {
-		tasks = aggregatedTasks;
-	} else if (activeTodoList && isPreToolUseEvent(activeTodoList.payload)) {
-		const input = activeTodoList.payload
-			.tool_input as unknown as TodoWriteInput;
-		tasks = Array.isArray(input.todos) ? input.todos : [];
-	} else {
-		tasks = [];
-	}
-
-	const contentItems: ContentItem[] = [
+	const items: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	// Build a lookup map from item ID → ContentItem for O(1) access
-	const itemById = new Map<string, ContentItem>();
-	for (const item of contentItems) {
-		itemById.set(item.data.id, item);
-	}
-
-	// Detect if the CURRENT session has ended. A new SessionStart after the
-	// last Stop/SessionEnd means a new session is active — sessionEnded must
-	// be false so new PreToolUse events stay dynamic until their PostToolUse
-	// arrives. Without this, events from the second message would be stamped
-	// as stable immediately (rendered once in Ink's <Static> as "Running…"
-	// and never updated).
-	let sessionEnded = false;
-	for (const e of events) {
-		if (e.hookName === 'Stop' || e.hookName === 'SessionEnd') {
-			sessionEnded = true;
-		} else if (e.hookName === 'SessionStart') {
-			sessionEnded = false;
-		}
-	}
-
-	const isStable = (item: ContentItem) =>
-		isStableContent(item, sessionEnded);
-
-	// Build append-only stableItems:
-	// 1. Keep existing stable items in their original order (skip removed ones)
-	// 2. Append new stable items that weren't in the previous list
-	const prevStableIds = new Set(stableOrderRef.current);
-	const stableItems: ContentItem[] = [];
-
-	// Retain existing order for previously-stable items
-	for (const id of stableOrderRef.current) {
-		const item = itemById.get(id);
-		if (item && isStable(item)) {
-			stableItems.push(item);
-		}
-	}
-
-	// Immediately promote newly-stable items (no deferred cycle)
-	for (const item of contentItems) {
-		if (isStable(item) && !prevStableIds.has(item.data.id)) {
-			stableItems.push(item);
-		}
-	}
-
-	// Update the ref with the current stable ID order
-	stableOrderRef.current = stableItems.map(i => i.data.id);
-
-	// Dynamic items: everything not yet promoted to stable
-	// (includes pending items so they remain visible during the delay)
-	const stableIdSet = new Set(stableItems.map(i => i.data.id));
-	const dynamicItems = contentItems.filter(
-		item => !stableIdSet.has(item.data.id),
-	);
-
 	return {
-		stableItems,
-		dynamicItems,
+		items,
 		tasks,
 	};
 }

@@ -8,6 +8,7 @@ import type {
 	PermissionRequestEvent,
 	PostToolUseEvent,
 	PostToolUseFailureEvent,
+	SubagentStartEvent,
 	SubagentStopEvent,
 } from '../types/hooks/index.js';
 
@@ -494,6 +495,7 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('Explore');
+		// Prompt is shown inline (truncated) next to agent type
 		expect(frame).toContain('Find all API endpoints');
 	});
 
@@ -530,7 +532,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Found 5 API endpoints');
 	});
 
-	it('renders pending Task PreToolUse with spinner and Running text', () => {
+	it('renders pending Task PreToolUse identically to completed — static bullet, no state change', () => {
 		const taskPayload: PreToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -552,7 +554,9 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
+		expect(frame).toContain('●');
 		expect(frame).toContain('Explore');
+		// Description shown inline as prompt fallback
 		expect(frame).toContain('Explore the codebase');
 	});
 
@@ -865,6 +869,30 @@ describe('HookEvent', () => {
 		// Child renders as a regular tool call with indentation
 		expect(frame).toContain('Bash');
 		expect(frame).toContain('command: "ls -la"');
+	});
+
+	it('renders SubagentStart with agent type marker', () => {
+		const startPayload: SubagentStartEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'SubagentStart',
+			agent_id: 'agent-abc',
+			agent_type: 'Explore',
+		};
+		const event: HookEventDisplay = {
+			...baseEvent,
+			hookName: 'SubagentStart',
+			toolName: undefined,
+			payload: startPayload,
+			status: 'passthrough',
+			result: {action: 'passthrough'},
+		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('▸');
 	});
 
 	it('renders SubagentStop loading state when no transcriptSummary', () => {
