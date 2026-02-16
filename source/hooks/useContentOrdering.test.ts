@@ -272,19 +272,13 @@ describe('useContentOrdering', () => {
 			expect(allIds).toContain('sub-start');
 		});
 
-		it('includes SubagentStop in stream', () => {
+		it('excludes SubagentStop from stream (result shown via PostToolUse Task)', () => {
 			const events = [
 				makeEvent({
 					id: 'sub-stop',
 					hookName: 'SubagentStop',
 					status: 'passthrough',
 					timestamp: new Date(2000),
-					transcriptSummary: {
-						lastAssistantText: 'Done exploring',
-						lastAssistantTimestamp: null,
-						messageCount: 1,
-						toolCallCount: 0,
-					},
 					payload: {
 						session_id: 's1',
 						transcript_path: '/tmp/t.jsonl',
@@ -304,7 +298,7 @@ describe('useContentOrdering', () => {
 					(i): i is {type: 'hook'; data: HookEventDisplay} => i.type === 'hook',
 				)
 				.map(i => i.data.hookName);
-			expect(allHookNames).toContain('SubagentStop');
+			expect(allHookNames).not.toContain('SubagentStop');
 		});
 	});
 

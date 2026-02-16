@@ -34,10 +34,12 @@ function getItemTime(item: ContentItem): number {
  *
  * Excluded:
  * - SessionEnd: rendered as synthetic assistant messages instead
+ * - SubagentStop: result is shown via PostToolUse(Task) which includes the "Done" header
  * - Task tool events (TodoWrite, TaskCreate, etc.): aggregated into sticky task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SessionEnd') return true;
+	if (event.hookName === 'SubagentStop') return true;
 	if (
 		(event.hookName === 'PreToolUse' || event.hookName === 'PostToolUse') &&
 		TASK_TOOL_NAMES.has(event.toolName ?? '')

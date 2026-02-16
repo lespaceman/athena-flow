@@ -1,5 +1,4 @@
 import React from 'react';
-import {Box} from 'ink';
 import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
@@ -16,11 +15,9 @@ import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStartEvent from './SubagentStartEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
+import SubagentResultEvent from './SubagentResultEvent.js';
 import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
-
-/** Consistent left margin applied to all hook events. */
-const EVENT_LEFT_MARGIN = 2;
 
 type Props = {
 	event: HookEventDisplay;
@@ -37,21 +34,13 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	}
 
 	if (event.hookName === 'SessionEnd') {
-		return (
-			<Box paddingLeft={EVENT_LEFT_MARGIN}>
-				<SessionEndEvent event={event} />
-			</Box>
-		);
+		return <SessionEndEvent event={event} />;
 	}
 
 	const payload = event.payload;
 
 	if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
-		return (
-			<Box paddingLeft={EVENT_LEFT_MARGIN}>
-				<AskUserQuestionEvent event={event} />
-			</Box>
-		);
+		return <AskUserQuestionEvent event={event} />;
 	}
 
 	// Task management tools (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet)
@@ -71,6 +60,12 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		// PreToolUse/PermissionRequest → tool call header (● Tool params)
 		content = <UnifiedToolCallEvent event={event} verbose={verbose} />;
 	} else if (
+		(isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) &&
+		payload.tool_name === 'Task'
+	) {
+		// PostToolUse(Task) → "Done" header + result body (combined Static item)
+		content = <SubagentResultEvent event={event} verbose={verbose} />;
+	} else if (
 		isPostToolUseEvent(payload) ||
 		isPostToolUseFailureEvent(payload)
 	) {
@@ -87,5 +82,5 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 
 	if (content == null) return null;
 
-	return <Box paddingLeft={EVENT_LEFT_MARGIN}>{content}</Box>;
+	return content;
 }
