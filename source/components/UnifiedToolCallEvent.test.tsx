@@ -8,7 +8,6 @@ import type {
 	HookEventDisplay,
 	PreToolUseEvent,
 	PostToolUseEvent,
-	PostToolUseFailureEvent,
 } from '../types/hooks/index.js';
 
 function makePreToolEvent(
@@ -33,90 +32,14 @@ function makePreToolEvent(
 	};
 }
 
-function makePostToolPayload(response: unknown): {
-	payload: PostToolUseEvent;
-	display: HookEventDisplay;
-} {
-	const payload: PostToolUseEvent = {
-		session_id: 'session-1',
-		transcript_path: '/tmp/transcript.jsonl',
-		cwd: '/project',
-		hook_event_name: 'PostToolUse',
-		tool_name: 'Bash',
-		tool_input: {command: 'echo "hello world"'},
-		tool_response: response,
-	};
-	return {
-		payload,
-		display: {
-			id: 'test-2',
-			timestamp: new Date('2024-01-15T10:30:46.000Z'),
-			hookName: 'PostToolUse',
-			toolName: 'Bash',
-			payload,
-			status: 'passthrough',
-		},
-	};
-}
-
-function makePostToolFailurePayload(): {
-	payload: PostToolUseFailureEvent;
-	display: HookEventDisplay;
-} {
-	const payload: PostToolUseFailureEvent = {
-		session_id: 'session-1',
-		transcript_path: '/tmp/transcript.jsonl',
-		cwd: '/project',
-		hook_event_name: 'PostToolUseFailure',
-		tool_name: 'Bash',
-		tool_input: {command: 'echo "hello world"'},
-		error: 'command not found',
-	};
-	return {
-		payload,
-		display: {
-			id: 'test-2',
-			timestamp: new Date('2024-01-15T10:30:46.000Z'),
-			hookName: 'PostToolUseFailure',
-			toolName: 'Bash',
-			payload,
-			status: 'passthrough',
-		},
-	};
-}
-
 describe('UnifiedToolCallEvent', () => {
-	it('renders pending state with tool name and Running', () => {
-		const event = makePreToolEvent({status: 'pending'});
+	it('renders header with bullet and tool name', () => {
+		const event = makePreToolEvent();
 		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('\u25cf'); // ● bullet
 		expect(frame).toContain('Bash');
-		expect(frame).toContain('Running');
-	});
-
-	it('renders success with response text', () => {
-		const post = makePostToolPayload('hello world');
-		const event = makePreToolEvent({postToolEvent: post.display});
-		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('\u25cf'); // ● bullet
-		expect(frame).toContain('Bash');
-		// Rich rendering: CodeBlock renders content directly (no ⎿ prefix)
-		expect(frame).toContain('hello world');
-	});
-
-	it('renders failure with error text', () => {
-		const post = makePostToolFailurePayload();
-		const event = makePreToolEvent({postToolEvent: post.display});
-		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('\u25cf');
-		expect(frame).toContain('Bash');
-		expect(frame).toContain('command not found');
 	});
 
 	it('renders blocked state with User rejected', () => {
@@ -126,31 +49,6 @@ describe('UnifiedToolCallEvent', () => {
 
 		expect(frame).toContain('\u25cf');
 		expect(frame).toContain('User rejected');
-	});
-
-	it('renders empty response without crashing', () => {
-		const post = makePostToolPayload('');
-		const event = makePreToolEvent({postToolEvent: post.display});
-		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		// Rich rendering: empty content renders nothing (no output indicator)
-		expect(frame).toContain('Bash');
-	});
-
-	it('renders ⎿ gutter prefix on tool result', () => {
-		const post = makePostToolPayload({
-			stdout: 'test output',
-			stderr: '',
-			interrupted: false,
-			isImage: false,
-			noOutputExpected: false,
-		});
-		const event = makePreToolEvent({postToolEvent: post.display});
-		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
-		const frame = lastFrame() ?? '';
-		expect(frame).toContain('\u23bf'); // ⎿
-		expect(frame).toContain('test output');
 	});
 
 	it('truncates header line to terminal width', () => {
@@ -181,17 +79,47 @@ describe('UnifiedToolCallEvent', () => {
 		});
 	});
 
-	it('renders standalone PostToolUse (orphaned)', () => {
-		const post = makePostToolPayload('orphaned result');
+	it('returns null for non-PreToolUse payloads', () => {
+		const postPayload: PostToolUseEvent = {
+			session_id: 'session-1',
+			transcript_path: '/tmp/transcript.jsonl',
+			cwd: '/project',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Bash',
+			tool_input: {command: 'echo "hello"'},
+			tool_response: 'hello',
+		};
 		const event: HookEventDisplay = {
-			...post.display,
+			id: 'test-2',
+			timestamp: new Date(),
 			hookName: 'PostToolUse',
+			toolName: 'Bash',
+			payload: postPayload,
+			status: 'passthrough',
 		};
 		const {lastFrame} = render(<UnifiedToolCallEvent event={event} />);
-		const frame = lastFrame() ?? '';
+		// Should render nothing
+		expect(lastFrame()).toBe('');
+	});
 
-		expect(frame).toContain('\u25cf');
-		expect(frame).toContain('Bash');
-		expect(frame).toContain('orphaned result');
+	it('applies left padding when isNested is true', () => {
+		const event = makePreToolEvent();
+		const {lastFrame: nestedFrame} = render(
+			<UnifiedToolCallEvent event={event} isNested />,
+		);
+		const {lastFrame: normalFrame} = render(
+			<UnifiedToolCallEvent event={event} />,
+		);
+		// Nested should have more leading whitespace
+		const nestedLine = (nestedFrame() ?? '').split('\n')[0] ?? '';
+		const normalLine = (normalFrame() ?? '').split('\n')[0] ?? '';
+		expect(nestedLine.length).toBeGreaterThan(normalLine.length);
+	});
+
+	it('shows raw JSON in verbose mode', () => {
+		const event = makePreToolEvent();
+		const {lastFrame} = render(<UnifiedToolCallEvent event={event} verbose />);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('echo "hello world"');
 	});
 });
