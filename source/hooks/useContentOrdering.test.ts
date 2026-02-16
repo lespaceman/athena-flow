@@ -178,7 +178,7 @@ describe('useContentOrdering', () => {
 		expect(stableItems.map(i => i.data.id)).toContain('post-bash');
 	});
 
-	it('still excludes PostToolUse for Task tool', () => {
+	it('includes PostToolUse for Task tool in stream', () => {
 		const events = [
 			makeEvent({
 				id: 'post-task',
@@ -189,7 +189,7 @@ describe('useContentOrdering', () => {
 			}),
 		];
 		const {stableItems} = callHook({messages: [], events});
-		expect(stableItems.map(i => i.data.id)).not.toContain('post-task');
+		expect(stableItems.map(i => i.data.id)).toContain('post-task');
 	});
 
 	describe('Task PreToolUse and SubagentStop as feed items', () => {
@@ -226,7 +226,7 @@ describe('useContentOrdering', () => {
 			expect(taskPreToolUse).toHaveLength(1);
 		});
 
-		it('excludes PostToolUse for Task tool from stream', () => {
+		it('includes PostToolUse for Task tool in stream', () => {
 			const events = [
 				makeEvent({
 					id: 'task-result',
@@ -245,7 +245,7 @@ describe('useContentOrdering', () => {
 					i.data.hookName === 'PostToolUse' &&
 					i.data.toolName === 'Task',
 			);
-			expect(taskPostToolUse).toHaveLength(0);
+			expect(taskPostToolUse).toHaveLength(1);
 		});
 
 		it('includes SubagentStart in stream', () => {

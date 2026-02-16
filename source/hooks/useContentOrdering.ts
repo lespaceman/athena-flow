@@ -34,13 +34,10 @@ function getItemTime(item: ContentItem): number {
  *
  * Excluded:
  * - SessionEnd: rendered as synthetic assistant messages instead
- * - PostToolUse for Task: content already shown in SubagentStop
  * - Task tool events (TodoWrite, TaskCreate, etc.): aggregated into sticky task widget
  */
 function shouldExcludeFromMainStream(event: HookEventDisplay): boolean {
 	if (event.hookName === 'SessionEnd') return true;
-	if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
-		return true;
 	if (
 		(event.hookName === 'PreToolUse' || event.hookName === 'PostToolUse') &&
 		TASK_TOOL_NAMES.has(event.toolName ?? '')
