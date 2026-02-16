@@ -19,7 +19,6 @@ const createSessionEndEvent = (
 	overrides: Partial<HookEventDisplay> = {},
 ): HookEventDisplay => ({
 	id: 'test-id',
-	requestId: 'req-123',
 	timestamp: new Date('2025-01-25T10:30:00Z'),
 	hookName: 'SessionEnd',
 	payload: defaultPayload,

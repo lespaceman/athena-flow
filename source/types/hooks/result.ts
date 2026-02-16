@@ -30,35 +30,6 @@ export type PreToolUseOutput = {
 };
 
 /**
- * Helper to create a passthrough result.
- */
-export function createPassthroughResult(): HookResultPayload {
-	return {action: 'passthrough'};
-}
-
-/**
- * Helper to create a block result with stderr message.
- */
-export function createBlockResult(reason: string): HookResultPayload {
-	return {
-		action: 'block_with_stderr',
-		stderr: reason,
-	};
-}
-
-/**
- * Helper to create a JSON output result.
- */
-export function createJsonOutputResult(
-	json: Record<string, unknown>,
-): HookResultPayload {
-	return {
-		action: 'json_output',
-		stdout_json: json,
-	};
-}
-
-/**
  * Helper to create an allow result for PreToolUse hooks.
  * This explicitly tells Claude Code to skip its own permission prompt.
  */

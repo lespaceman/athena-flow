@@ -22,7 +22,6 @@ export type HookEventStatus =
  */
 export type HookEventDisplay = {
 	id: string;
-	requestId: string;
 	timestamp: Date;
 	hookName: HookEventName;
 	toolName?: string;
@@ -33,16 +32,4 @@ export type HookEventDisplay = {
 	toolUseId?: string;
 	/** agent_id of the parent subagent this event belongs to */
 	parentSubagentId?: string;
-	/**
-	 * For SubagentStart events: holds the corresponding SubagentStop event data
-	 * when the subagent completes. Used to render the completion response in a
-	 * single unified subagent box instead of separate Start/Stop boxes.
-	 */
-	stopEvent?: HookEventDisplay;
-	/**
-	 * For PreToolUse/PermissionRequest events: holds the corresponding
-	 * PostToolUse or PostToolUseFailure event data when the tool completes.
-	 * Used to render tool call and result as a single unified entry.
-	 */
-	postToolEvent?: HookEventDisplay;
 };

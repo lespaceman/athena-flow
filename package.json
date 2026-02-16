@@ -14,6 +14,8 @@
 		"build": "tsc",
 		"dev": "tsc --watch",
 		"start": "tsc && node dist/cli.js",
+		"dev:debug": "tsc && DEV=true node dist/cli.js",
+		"devtools": "ELECTRON_DISABLE_SANDBOX=1 react-devtools",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
@@ -25,7 +27,7 @@
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
 		"cli-highlight": "^2.1.11",
-		"ink": "^6.0.0",
+		"ink": "^6.7.0",
 		"marked": "^15.0.12",
 		"marked-terminal": "^7.3.0",
 		"meow": "^13.0.0",
@@ -45,6 +47,8 @@
 		"ink-testing-library": "^4.0.0",
 		"jsdom": "^27.4.0",
 		"prettier": "^3.0.0",
+		"react-devtools": "^6.1.5",
+		"react-devtools-core": "^6.1.5",
 		"typescript": "^5.7.0",
 		"typescript-eslint": "^8.0.0",
 		"vitest": "^3.0.0"

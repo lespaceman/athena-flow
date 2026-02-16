@@ -1,62 +1,73 @@
-/**
- * Renders a SubagentStop event as a first-class timeline entry.
- *
- * Shows agent type, agent_id, completion status, and transcript summary
- * when available.
- */
-
 import React from 'react';
 import {Box, Text} from 'ink';
 import {
 	type HookEventDisplay,
 	isSubagentStopEvent,
 } from '../types/hooks/index.js';
-import {
-	SUBAGENT_SYMBOLS,
-	ResponseBlock,
-	StderrBlock,
-} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
+import {truncateLine} from '../utils/truncate.js';
+import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
+import MarkdownText from './ToolOutput/MarkdownText.js';
 
-type Props = {
-	event: HookEventDisplay;
-	verbose?: boolean;
-};
+const DEFAULT_PREVIEW_LINES = 5;
 
 export default function SubagentStopEvent({
 	event,
-	verbose,
-}: Props): React.ReactNode {
+}: {
+	event: HookEventDisplay;
+}): React.ReactNode {
 	const theme = useTheme();
-	const payload = event.payload;
-	if (!isSubagentStopEvent(payload)) return null;
+	if (!isSubagentStopEvent(event.payload)) return null;
 
-	const subSymbol = SUBAGENT_SYMBOLS[event.status];
+	const terminalWidth = process.stdout.columns ?? 80;
+	const headerText = truncateLine(
+		`${event.payload.agent_type} — Done`,
+		terminalWidth - 4,
+	);
 
-	const responseText = event.transcriptSummary?.lastAssistantText ?? '';
+	const responseText = event.transcriptSummary?.lastAssistantText;
+	const isLoading =
+		event.status !== 'pending' && event.transcriptSummary === undefined;
+
+	let body: React.ReactNode = null;
+	if (isLoading) {
+		body = (
+			<ToolResultContainer>
+				<Text dimColor>Loading…</Text>
+			</ToolResultContainer>
+		);
+	} else if (responseText) {
+		const lines = responseText.split('\n');
+		const totalLineCount = lines.length;
+		const previewLines =
+			totalLineCount > DEFAULT_PREVIEW_LINES
+				? lines.slice(0, DEFAULT_PREVIEW_LINES)
+				: undefined;
+
+		body = (
+			<ToolResultContainer
+				previewLines={previewLines}
+				totalLineCount={previewLines ? totalLineCount : undefined}
+				toolId={event.id}
+			>
+				{availableWidth => (
+					<MarkdownText
+						content={responseText}
+						availableWidth={availableWidth}
+					/>
+				)}
+			</ToolResultContainer>
+		);
+	}
 
 	return (
-		<Box flexDirection="column" marginBottom={1}>
-			<Box
-				borderStyle="round"
-				borderColor={theme.accentSecondary}
-				flexDirection="column"
-			>
-				<Box>
-					<Text color={theme.accentSecondary}>{subSymbol} </Text>
-					<Text color={theme.accentSecondary} bold>
-						Task({payload.agent_type})
-					</Text>
-					<Text dimColor> {payload.agent_id} (completed)</Text>
-				</Box>
-				<ResponseBlock response={responseText} isFailed={false} />
-				{verbose && payload.agent_transcript_path && (
-					<Box paddingLeft={3}>
-						<Text dimColor>transcript: {payload.agent_transcript_path}</Text>
-					</Box>
-				)}
+		<Box flexDirection="column" marginTop={1}>
+			<Box>
+				<Text color={theme.accentSecondary} bold>
+					● {headerText}
+				</Text>
 			</Box>
-			<StderrBlock result={event.result} />
+			{body}
 		</Box>
 	);
 }

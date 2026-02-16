@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, vi} from 'vitest';
 import {renderHook} from '@testing-library/react';
 import {useHeaderMetrics} from './useHeaderMetrics.js';
 import type {HookEventDisplay} from '../types/hooks/index.js';
@@ -11,7 +11,6 @@ function makeEvent(
 ): HookEventDisplay {
 	return {
 		id: overrides.id ?? 'evt-1',
-		requestId: overrides.requestId ?? 'req-1',
 		timestamp: overrides.timestamp ?? new Date('2024-01-15T10:00:00Z'),
 		hookName: overrides.hookName,
 		toolName: overrides.toolName,
@@ -201,6 +200,48 @@ describe('useHeaderMetrics', () => {
 		const {result} = renderHook(() => useHeaderMetrics(events));
 		expect(result.current.sessionStartTime).toEqual(ts);
 		expect(result.current.modelName).toBeNull();
+	});
+
+	it('throttles recomputation within 1s window', () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
+
+		const events1 = [
+			makeEvent({
+				hookName: 'SessionStart',
+				payload: {
+					session_id: 's1',
+					transcript_path: '/tmp/t.jsonl',
+					cwd: '/project',
+					hook_event_name: 'SessionStart',
+					source: 'startup',
+				},
+			}),
+		];
+		const events2 = [
+			...events1,
+			makeEvent({id: 't1', hookName: 'PreToolUse', toolName: 'Bash'}),
+		];
+
+		const {result, rerender} = renderHook(
+			({events}) => useHeaderMetrics(events),
+			{initialProps: {events: events1}},
+		);
+
+		const first = result.current;
+
+		// Advance only 500ms (within throttle window)
+		vi.advanceTimersByTime(500);
+		rerender({events: events2});
+		expect(result.current).toBe(first);
+
+		// Advance past throttle window, pass new array reference to trigger useMemo
+		vi.advanceTimersByTime(600);
+		rerender({events: [...events2]});
+		expect(result.current).not.toBe(first);
+		expect(result.current.toolCallCount).toBe(1);
+
+		vi.useRealTimers();
 	});
 
 	it('all token fields are null (data not yet available)', () => {

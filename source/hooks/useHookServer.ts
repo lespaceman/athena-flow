@@ -4,12 +4,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import {
-	PROTOCOL_VERSION,
 	type HookResultEnvelope,
 	type HookResultPayload,
 	type HookEventDisplay,
 	type HookEventEnvelope,
-	createPassthroughResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
@@ -29,8 +27,7 @@ import {
 	logHookResponded,
 	closeHookLogger,
 } from '../utils/hookLogger.js';
-import {usePermissionQueue} from './usePermissionQueue.js';
-import {useQuestionQueue} from './useQuestionQueue.js';
+import {useRequestQueue} from './useRequestQueue.js';
 import {
 	dispatchEvent,
 	tagSubagentEvents,
@@ -45,6 +42,25 @@ export {matchRule};
 const AUTO_PASSTHROUGH_MS = 4000; // Auto-passthrough before forwarder timeout (5000ms)
 const MAX_EVENTS = 100; // Maximum events to keep in memory
 
+function createNotificationEvent(
+	id: string,
+	message: string,
+): HookEventDisplay {
+	return {
+		id,
+		timestamp: new Date(),
+		hookName: 'Notification',
+		payload: {
+			session_id: '',
+			transcript_path: '',
+			cwd: '',
+			hook_event_name: 'Notification',
+			message,
+		} as unknown as HookEventDisplay['payload'],
+		status: 'passthrough',
+	};
+}
+
 export function useHookServer(
 	projectDir: string,
 	instanceId: number,
@@ -52,6 +68,7 @@ export function useHookServer(
 	const serverRef = useRef<net.Server | null>(null);
 	const pendingRequestsRef = useRef<Map<string, PendingRequest>>(new Map());
 	const activeSubagentStackRef = useRef<string[]>([]);
+	const eventsRef = useRef<HookEventDisplay[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
 	const [isServerRunning, setIsServerRunning] = useState(false);
@@ -60,24 +77,25 @@ export function useHookServer(
 	const [rules, setRules] = useState<HookRule[]>([]);
 	const rulesRef = useRef<HookRule[]>([]);
 
-	// Keep ref in sync so the socket handler sees current rules
+	// Keep refs in sync so callbacks see current state
 	rulesRef.current = rules;
+	eventsRef.current = events;
 
 	// --- Extracted queues ---
 	const {
-		currentPermissionRequest,
-		permissionQueueCount,
+		current: currentPermissionRequest,
+		count: permissionQueueCount,
 		enqueue: enqueuePermission,
 		dequeue: dequeuePermission,
 		removeAll: removeAllPermissions,
-	} = usePermissionQueue(events);
+	} = useRequestQueue(events);
 	const {
-		currentQuestionRequest,
-		questionQueueCount,
+		current: currentQuestionRequest,
+		count: questionQueueCount,
 		enqueue: enqueueQuestion,
 		dequeue: dequeueQuestion,
 		removeAll: removeAllQuestions,
-	} = useQuestionQueue(events);
+	} = useRequestQueue(events);
 
 	// Reset session to start fresh conversation
 	const resetSession = useCallback(() => {
@@ -102,6 +120,23 @@ export function useHookServer(
 		setEvents([]);
 	}, []);
 
+	const printTaskSnapshot = useCallback(() => {
+		const hasTasks = eventsRef.current.some(
+			e =>
+				e.hookName === 'PreToolUse' &&
+				e.toolName === 'TodoWrite' &&
+				!e.parentSubagentId,
+		);
+
+		if (!hasTasks) return;
+
+		const event = createNotificationEvent(
+			`task-snapshot-${Date.now()}`,
+			'\u{1F4CB} Task list snapshot requested via :tasks command',
+		);
+		setEvents(prev => [...prev, event]);
+	}, []);
+
 	// Respond to a hook event
 	const respond = useCallback(
 		(requestId: string, result: HookResultPayload) => {
@@ -117,8 +152,6 @@ export function useHookServer(
 
 			// Send response
 			const envelope: HookResultEnvelope = {
-				v: PROTOCOL_VERSION,
-				kind: 'hook_result',
 				request_id: requestId,
 				ts: Date.now(),
 				payload: result,
@@ -142,7 +175,7 @@ export function useHookServer(
 				result.action === 'block_with_stderr' ? 'blocked' : result.action;
 
 			setEvents(prev =>
-				prev.map(e => (e.requestId === requestId ? {...e, status, result} : e)),
+				prev.map(e => (e.id === requestId ? {...e, status, result} : e)),
 			);
 		},
 		[],
@@ -249,7 +282,7 @@ export function useHookServer(
 			timeoutId: ReturnType<typeof setTimeout>,
 		): void {
 			pendingRequestsRef.current.set(requestId, {
-				requestId,
+				id: requestId,
 				socket,
 				timeoutId,
 				event: displayEvent,
@@ -266,7 +299,7 @@ export function useHookServer(
 				getRules: () => rulesRef.current,
 				storeWithAutoPassthrough: (ctx: HandlerContext) => {
 					const timeoutId = setTimeout(() => {
-						respond(ctx.envelope.request_id, createPassthroughResult());
+						respond(ctx.envelope.request_id, {action: 'passthrough'});
 					}, AUTO_PASSTHROUGH_MS);
 					storePending(
 						ctx.envelope.request_id,
@@ -334,8 +367,7 @@ export function useHookServer(
 					const ctx: HandlerContext = {
 						envelope,
 						displayEvent: {
-							id: generateId(),
-							requestId: envelope.request_id,
+							id: envelope.request_id,
 							timestamp: new Date(envelope.ts),
 							hookName: envelope.hook_event_name,
 							toolName: isToolEvent(payload) ? payload.tool_name : undefined,
@@ -466,5 +498,6 @@ export function useHookServer(
 		currentQuestionRequest,
 		questionQueueCount,
 		resolveQuestion,
+		printTaskSnapshot,
 	};
 }

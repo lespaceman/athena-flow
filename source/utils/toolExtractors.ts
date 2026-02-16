@@ -1,4 +1,8 @@
-import {type RenderableOutput, type ListItem} from '../types/toolOutput.js';
+import {
+	type RenderableOutput,
+	type RawOutput,
+	type ListItem,
+} from '../types/toolOutput.js';
 import {
 	formatToolResponse,
 	isBashToolResponse,
@@ -79,15 +83,40 @@ function extractTextContent(response: unknown): string {
 	return formatToolResponse(response);
 }
 
+const DEFAULT_PREVIEW_LINES = 5;
+
+function withPreview(output: RawOutput): RenderableOutput {
+	let lines: string[];
+	switch (output.type) {
+		case 'code':
+		case 'text':
+			lines = output.content.split('\n');
+			break;
+		case 'diff':
+			lines = output.newText.split('\n');
+			break;
+		case 'list':
+			lines = output.items.map(i => i.primary);
+			break;
+		default:
+			lines = [];
+	}
+	return {
+		...output,
+		previewLines: lines.slice(0, DEFAULT_PREVIEW_LINES),
+		totalLineCount: lines.length,
+	};
+}
+
 type Extractor = (
 	toolInput: Record<string, unknown>,
 	toolResponse: unknown,
-) => RenderableOutput;
+) => RawOutput;
 
 function extractBash(
 	_input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	if (isBashToolResponse(response)) {
 		const out = response.stdout.trim();
 		const err = response.stderr.trim();
@@ -108,7 +137,7 @@ function extractFileContent(block: unknown): string | undefined {
 function extractRead(
 	input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	// PostToolUse shape: content-block array [{type:"text", file:{content, ...}}] or single object
 	const blocks = Array.isArray(response) ? response : [response];
 	let content: string | undefined;
@@ -128,7 +157,7 @@ function extractRead(
 function extractEdit(
 	input: Record<string, unknown>,
 	_response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const oldText =
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newText =
@@ -139,7 +168,7 @@ function extractEdit(
 function extractWrite(
 	input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const text = extractTextContent(response);
 	if (text && typeof response !== 'object')
 		return {type: 'text', content: text};
@@ -152,7 +181,7 @@ function extractWrite(
 function extractGrep(
 	_input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const text = extractTextContent(response);
 	const lines = text.split('\n').filter(Boolean);
 
@@ -173,7 +202,7 @@ function extractGrep(
 function extractGlob(
 	_input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const filenames = prop(response, 'filenames');
 	if (Array.isArray(filenames)) {
 		const items: ListItem[] = filenames
@@ -192,7 +221,7 @@ function extractGlob(
 function extractWebFetch(
 	_input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const result = prop(response, 'result');
 	const content =
 		typeof result === 'string' ? result : extractTextContent(response);
@@ -209,7 +238,7 @@ function formatSearchLink(item: unknown): string | null {
 function extractWebSearch(
 	_input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	// PostToolUse shape: {query, results: [{tool_use_id, content: [{title, url}...]}], durationSeconds}
 	const results = prop(response, 'results');
 	if (Array.isArray(results)) {
@@ -233,7 +262,7 @@ function extractWebSearch(
 function extractNotebookEdit(
 	input: Record<string, unknown>,
 	_response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const path =
 		typeof input['notebook_path'] === 'string' ? input['notebook_path'] : '';
 	const mode =
@@ -252,7 +281,7 @@ function extractNotebookEdit(
 function extractTask(
 	input: Record<string, unknown>,
 	response: unknown,
-): RenderableOutput {
+): RawOutput {
 	const text = extractTextContent(response);
 	if (text) return {type: 'text', content: text, maxLines: 10};
 	const desc =
@@ -281,16 +310,16 @@ export function extractToolOutput(
 	const extractor = EXTRACTORS[toolName];
 	if (extractor) {
 		try {
-			return extractor(toolInput, toolResponse);
+			return withPreview(extractor(toolInput, toolResponse));
 		} catch {
 			// fall through to generic text
 		}
 	}
-	return {
+	return withPreview({
 		type: 'text',
 		content: extractTextContent(toolResponse),
 		maxLines: 20,
-	};
+	});
 }
 
 export {detectLanguage};

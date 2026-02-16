@@ -16,7 +16,6 @@ import {
 	isToolEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
-	createBlockResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createPermissionRequestAllowResult,
@@ -48,7 +47,7 @@ export type HandlerCallbacks = {
 	signal?: AbortSignal;
 };
 
-/** Handle SubagentStop: add as first-class event and parse transcript. */
+/** Handle SubagentStop: parse transcript first, then add event with data. */
 export function handleSubagentStop(
 	ctx: HandlerContext,
 	cb: HandlerCallbacks,
@@ -57,15 +56,22 @@ export function handleSubagentStop(
 	if (!isSubagentStopEvent(envelope.payload)) return false;
 
 	cb.storeWithAutoPassthrough(ctx);
-	cb.addEvent(displayEvent);
 
 	const transcriptPath = envelope.payload.agent_transcript_path;
 	if (transcriptPath) {
+		// Delay adding the event until transcript is parsed so the Static
+		// item renders with content (Static items are write-once).
 		parseTranscriptFile(transcriptPath, cb.signal)
-			.then(summary => cb.onTranscriptParsed(displayEvent.id, summary))
+			.then(summary => {
+				displayEvent.transcriptSummary = summary;
+				cb.addEvent(displayEvent);
+			})
 			.catch(err => {
 				console.error('[SubagentStop] Failed to parse transcript:', err);
+				cb.addEvent(displayEvent);
 			});
+	} else {
+		cb.addEvent(displayEvent);
 	}
 
 	return true;
@@ -85,10 +91,10 @@ export function handlePermissionRequest(
 	if (matchedRule?.action === 'deny') {
 		cb.storeWithoutPassthrough(ctx);
 		cb.addEvent(ctx.displayEvent);
-		cb.respond(
-			envelope.request_id,
-			createBlockResult(`Blocked by rule: ${matchedRule.addedBy}`),
-		);
+		cb.respond(envelope.request_id, {
+			action: 'block_with_stderr',
+			stderr: `Blocked by rule: ${matchedRule.addedBy}`,
+		});
 		return true;
 	}
 

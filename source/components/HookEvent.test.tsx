@@ -24,7 +24,6 @@ describe('HookEvent', () => {
 
 	const baseEvent: HookEventDisplay = {
 		id: 'test-1',
-		requestId: 'req-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',
@@ -177,7 +176,6 @@ describe('HookEvent', () => {
 		const frame = lastFrame() ?? '';
 
 		expect(frame).toContain('hi');
-		expect(frame).toContain('Bash');
 	});
 
 	it('shows PostToolUseFailure error message', () => {
@@ -363,7 +361,8 @@ describe('HookEvent', () => {
 			};
 			const {lastFrame} = render(<HookEvent event={event} />);
 			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Bash');
+			// PostToolResult renders just the gutter, not the tool name
+			expect(frame).toContain('⎿');
 		},
 	);
 
@@ -472,35 +471,35 @@ describe('HookEvent', () => {
 		expect(frame).toContain('command: "rm -rf /"');
 	});
 
-	it('renders SubagentStart with Task header and agent_id', () => {
-		const subagentPayload: SubagentStartEvent = {
+	it('renders Task PreToolUse as agent start with subagent_type', () => {
+		const taskPayload: PreToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
 			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-abc',
-			agent_type: 'Explore',
+			hook_event_name: 'PreToolUse',
+			tool_name: 'Task',
+			tool_input: {
+				description: 'Explore the codebase',
+				subagent_type: 'Explore',
+				prompt: 'Find all API endpoints',
+			},
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
+			hookName: 'PreToolUse',
+			toolName: 'Task',
+			payload: taskPayload,
 			status: 'passthrough',
-			result: {action: 'passthrough'},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('agent-abc');
-		expect(frame).toContain('\u25c6'); // ◆ filled diamond
-		expect(frame).not.toContain('\u25cf'); // ● no circle
-		expect(frame).toContain('\u256d'); // ╭ round border
-		expect(frame).toContain('\u2502'); // │ border side
+		expect(frame).toContain('Explore');
+		// Prompt is shown inline (truncated) next to agent type
+		expect(frame).toContain('Find all API endpoints');
 	});
 
-	it('renders SubagentStop with transcript text', () => {
+	it('renders SubagentStop with done header and response text', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -509,7 +508,6 @@ describe('HookEvent', () => {
 			stop_hook_active: false,
 			agent_id: 'agent-abc',
 			agent_type: 'Explore',
-			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
@@ -519,107 +517,47 @@ describe('HookEvent', () => {
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 			transcriptSummary: {
-				lastAssistantText: 'Found 3 matching files in the codebase.',
+				lastAssistantText: 'Found 5 API endpoints',
 				lastAssistantTimestamp: null,
-				messageCount: 4,
+				messageCount: 3,
 				toolCallCount: 2,
 			},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('Found 3 matching files in the codebase.');
-		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
-		expect(frame).toContain('\u25c6'); // ◆ filled diamond
-		expect(frame).not.toContain('\u25cf'); // ● no circle
-		expect(frame).toContain('\u256d'); // ╭ round border
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('Done');
+		expect(frame).toContain('●');
+		expect(frame).toContain('Found 5 API endpoints');
 	});
 
-	it('renders SubagentStop showing completed when no transcript', () => {
-		const stopPayload: SubagentStopEvent = {
+	it('renders pending Task PreToolUse identically to completed — static bullet, no state change', () => {
+		const taskPayload: PreToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
 			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-abc',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStop',
-			toolName: undefined,
-			payload: stopPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('completed');
-		expect(frame).toContain('\u25c6'); // ◆ filled diamond
-		expect(frame).not.toContain('\u25cf'); // ● no circle
-		expect(frame).toContain('\u256d'); // ╭ round border
-	});
-
-	it('renders SubagentStop with null lastAssistantText as completed', () => {
-		const stopPayload: SubagentStopEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-null-text',
-			agent_type: 'Explore',
-			agent_transcript_path: '/tmp/subagent-transcript.jsonl',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStop',
-			toolName: undefined,
-			payload: stopPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			transcriptSummary: {
-				lastAssistantText: null,
-				lastAssistantTimestamp: null,
-				messageCount: 2,
-				toolCallCount: 0,
+			hook_event_name: 'PreToolUse',
+			tool_name: 'Task',
+			tool_input: {
+				description: 'Explore the codebase',
+				subagent_type: 'Explore',
 			},
 		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('completed');
-		expect(frame).not.toContain('/tmp/subagent-transcript.jsonl');
-	});
-
-	it('renders pending SubagentStart with open diamond and no duration', () => {
-		const subagentPayload: SubagentStartEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-pending',
-			agent_type: 'Explore',
-		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
+			hookName: 'PreToolUse',
+			toolName: 'Task',
+			payload: taskPayload,
 			status: 'pending',
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u25c7'); // ◇ open diamond
-		expect(frame).not.toContain('\u25cb'); // ○ no circle
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
+		expect(frame).toContain('●');
+		expect(frame).toContain('Explore');
+		// Description shown inline as prompt fallback
+		expect(frame).toContain('Explore the codebase');
 	});
 
 	// "renders SubagentStart with bordered box" removed - border chars already checked in SubagentStart header test
@@ -874,26 +812,36 @@ describe('HookEvent', () => {
 		expect(frame).not.toContain('/9j/');
 	});
 
-	it('renders SubagentStart with child tool calls inside border', () => {
-		const subagentPayload: SubagentStartEvent = {
+	it('renders Task PreToolUse without borders', () => {
+		const taskPayload: PreToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
 			cwd: '/project',
-			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-children',
-			agent_type: 'Explore',
+			hook_event_name: 'PreToolUse',
+			tool_name: 'Task',
+			tool_input: {
+				description: 'Explore the codebase',
+				subagent_type: 'Explore',
+			},
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStart',
-			toolName: undefined,
-			payload: subagentPayload,
+			hookName: 'PreToolUse',
+			toolName: 'Task',
+			payload: taskPayload,
 			status: 'passthrough',
-			result: {action: 'passthrough'},
 		};
+		const {lastFrame} = render(<HookEvent event={event} />);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Explore');
+		expect(frame).not.toContain('\u256d'); // ╭ no border
+		expect(frame).not.toContain('\u2502'); // │ no border
+	});
+
+	it('renders child event with nesting indentation', () => {
 		const childEvent: HookEventDisplay = {
 			id: 'child-1',
-			requestId: 'req-child-1',
 			timestamp: new Date('2024-01-15T10:30:46.000Z'),
 			hookName: 'PreToolUse',
 			toolName: 'Bash',
@@ -910,98 +858,39 @@ describe('HookEvent', () => {
 			result: {action: 'passthrough'},
 			parentSubagentId: 'agent-children',
 		};
-		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
-			['agent-children', [childEvent]],
-		]);
-		const {lastFrame} = render(
-			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
-		);
+		const {lastFrame} = render(<HookEvent event={childEvent} />);
 		const frame = lastFrame() ?? '';
 
-		// Child tool call should be inside the bordered box
-		expect(frame).toContain('Task(Explore)');
+		// Child renders as a regular tool call with indentation
 		expect(frame).toContain('Bash');
 		expect(frame).toContain('command: "ls -la"');
-		// Should still have border chars
-		expect(frame).toContain('\u256d'); // ╭
-		expect(frame).toContain('\u2502'); // │
-		expect(frame).toContain('\u2570'); // ╰
 	});
 
-	it('renders child PostToolUse response inside subagent border', () => {
-		const subagentPayload: SubagentStartEvent = {
+	it('renders SubagentStart with agent type marker', () => {
+		const startPayload: SubagentStartEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
 			cwd: '/project',
 			hook_event_name: 'SubagentStart',
-			agent_id: 'agent-resp',
+			agent_id: 'agent-abc',
 			agent_type: 'Explore',
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
 			hookName: 'SubagentStart',
 			toolName: undefined,
-			payload: subagentPayload,
+			payload: startPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
-		const childPreEvent: HookEventDisplay = {
-			id: 'child-resp-1',
-			requestId: 'req-child-resp',
-			timestamp: new Date('2024-01-15T10:30:46.000Z'),
-			hookName: 'PreToolUse',
-			toolName: 'Bash',
-			payload: {
-				session_id: 'session-1',
-				transcript_path:
-					'/home/user/.claude/projects/abc/subagents/agent-resp.jsonl',
-				cwd: '/project',
-				hook_event_name: 'PreToolUse',
-				tool_name: 'Bash',
-				tool_input: {command: 'echo hello'},
-			} as PreToolUseEvent,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			parentSubagentId: 'agent-resp',
-		};
-		const childPostEvent: HookEventDisplay = {
-			id: 'child-resp-2',
-			requestId: 'req-post-child',
-			timestamp: new Date('2024-01-15T10:30:47.000Z'),
-			hookName: 'PostToolUse',
-			toolName: 'Bash',
-			payload: {
-				session_id: 'session-1',
-				transcript_path:
-					'/home/user/.claude/projects/abc/subagents/agent-resp.jsonl',
-				cwd: '/project',
-				hook_event_name: 'PostToolUse',
-				tool_name: 'Bash',
-				tool_input: {command: 'echo hello'},
-				tool_response: 'hello',
-			} as PostToolUseEvent,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-			parentSubagentId: 'agent-resp',
-		};
-		const childEventsByAgent = new Map<string, HookEventDisplay[]>([
-			['agent-resp', [childPreEvent, childPostEvent]],
-		]);
-		const {lastFrame} = render(
-			<HookEvent event={event} childEventsByAgent={childEventsByAgent} />,
-		);
+		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('Bash');
-		expect(frame).toContain('hello');
-		expect(frame).toContain('(response)');
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('▸');
 	});
 
-	// "renders SubagentStart with children" removed - similar to "child tool calls inside border" test
-	// "renders SubagentStart with empty childEventsByAgent" removed - low-value edge case
-
-	it('renders orphan SubagentStop with border and diamond, no duration', () => {
+	it('renders SubagentStop loading state when no transcriptSummary', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -1022,12 +911,9 @@ describe('HookEvent', () => {
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
 
-		expect(frame).toContain('\u25c6'); // ◆ filled diamond
-		expect(frame).not.toContain('\u25cf'); // ● no circle
-		expect(frame).toContain('\u256d'); // ╭ round border
-		expect(frame).toContain('\u2502'); // │ border side
-		expect(frame).toContain('Task(Explore)');
-		expect(frame).toContain('(completed)');
-		expect(frame).not.toMatch(/\(\d+\.\d+s\)/); // no duration
+		expect(frame).toContain('●');
+		expect(frame).toContain('Explore');
+		expect(frame).toContain('Done');
+		expect(frame).toContain('Loading');
 	});
 });

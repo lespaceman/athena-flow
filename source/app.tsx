@@ -1,6 +1,6 @@
 import process from 'node:process';
 import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
-import {Box, Text, Static, useApp, useInput, useStdout} from 'ink';
+import {Box, Static, Text, useApp, useInput, useStdout} from 'ink';
 import Message from './components/Message.js';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
@@ -9,7 +9,7 @@ import ErrorBoundary from './components/ErrorBoundary.js';
 import HookEvent from './components/HookEvent.js';
 import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
-import StatusLine from './components/Header/StatusLine.js';
+
 import StatsPanel from './components/Header/StatsPanel.js';
 import Header from './components/Header/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
@@ -232,7 +232,7 @@ function AppContent({
 	const handlePermissionDecision = useCallback(
 		(decision: PermissionDecision) => {
 			if (!currentPermissionRequest) return;
-			resolvePermission(currentPermissionRequest.requestId, decision);
+			resolvePermission(currentPermissionRequest.id, decision);
 		},
 		[currentPermissionRequest, resolvePermission],
 	);
@@ -240,23 +240,17 @@ function AppContent({
 	const handleQuestionAnswer = useCallback(
 		(answers: Record<string, string>) => {
 			if (!currentQuestionRequest) return;
-			resolveQuestion(currentQuestionRequest.requestId, answers);
+			resolveQuestion(currentQuestionRequest.id, answers);
 		},
 		[currentQuestionRequest, resolveQuestion],
 	);
 
 	const handleQuestionSkip = useCallback(() => {
 		if (!currentQuestionRequest) return;
-		resolveQuestion(currentQuestionRequest.requestId, {});
+		resolveQuestion(currentQuestionRequest.id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {
-		stableItems,
-		dynamicItems,
-		activeSubagents,
-		childEventsByAgent,
-		tasks,
-	} = useContentOrdering({
+	const {stableItems, tasks} = useContentOrdering({
 		messages,
 		events,
 	});
@@ -277,53 +271,31 @@ function AppContent({
 
 	useInput(
 		(_input, key) => {
-			if (key.ctrl && _input === 's') {
+			// Ctrl+E toggles stats panel (avoids Ctrl+S XOFF flow control conflict)
+			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
 		},
 		{isActive: !dialogActive},
 	);
 
-	type StaticItem = {type: 'header'; id: string} | (typeof stableItems)[number];
-	const allStaticItems: StaticItem[] = [
-		{type: 'header', id: 'header'},
-		...stableItems,
-	];
-
 	return (
 		<Box flexDirection="column">
-			{/* Static items — header identity + stable events/messages */}
-			<Static items={allStaticItems}>
-				{item => {
-					if (item.type === 'header') {
-						return (
-							<Header
-								key="header"
-								version={version}
-								modelName={modelName}
-								projectDir={projectDir}
-								terminalWidth={terminalWidth}
-							/>
-						);
-					}
-					return item.type === 'message' ? (
-						<Message key={item.data.id} message={item.data} />
-					) : (
-						<ErrorBoundary
-							key={item.data.id}
-							fallback={<Text color="red">[Error rendering event]</Text>}
-						>
-							<HookEvent
-								event={item.data}
-								verbose={verbose}
-								childEventsByAgent={childEventsByAgent}
-							/>
-						</ErrorBoundary>
-					);
-				}}
-			</Static>
+			{/* Header temporarily disabled
+			<Header
+				version={version}
+				modelName={metrics.modelName || modelName}
+				projectDir={projectDir}
+				terminalWidth={terminalWidth}
+				claudeState={claudeState}
+				spinnerFrame={spinnerFrame}
+				toolCallCount={metrics.totalToolCallCount}
+				contextSize={tokenUsage.contextSize}
+				isServerRunning={isServerRunning}
+			/>
+			*/}
 
-			{/* Stats panel — toggled with Ctrl+s, shows detailed metrics */}
+			{/* Stats panel — toggled with Ctrl+E, shows detailed metrics */}
 			{statsExpanded && (
 				<StatsPanel
 					metrics={{...metrics, tokens: tokenUsage}}
@@ -332,37 +304,21 @@ function AppContent({
 				/>
 			)}
 
-			{/* Dynamic items - can re-render when state changes */}
-			{dynamicItems.map(item =>
-				item.type === 'message' ? (
-					<Message key={item.data.id} message={item.data} />
-				) : (
-					<ErrorBoundary
-						key={item.data.id}
-						fallback={<Text color="red">[Error rendering event]</Text>}
-					>
-						<HookEvent
-							event={item.data}
-							verbose={verbose}
-							childEventsByAgent={childEventsByAgent}
-						/>
-					</ErrorBoundary>
-				),
-			)}
-
-			{/* Active subagents - always dynamic, updates with child events */}
-			{activeSubagents.map(event => (
-				<ErrorBoundary
-					key={event.id}
-					fallback={<Text color="red">[Error rendering event]</Text>}
-				>
-					<HookEvent
-						event={event}
-						verbose={verbose}
-						childEventsByAgent={childEventsByAgent}
-					/>
-				</ErrorBoundary>
-			))}
+			{/* Completed items — rendered once via Static, never re-render */}
+			<Static items={stableItems}>
+				{item =>
+					item.type === 'message' ? (
+						<Message key={item.data.id} message={item.data} />
+					) : (
+						<ErrorBoundary
+							key={item.data.id}
+							fallback={<Text color="red">[Error rendering event]</Text>}
+						>
+							<HookEvent event={item.data} verbose={verbose} />
+						</ErrorBoundary>
+					)
+				}
+			</Static>
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList
@@ -376,7 +332,7 @@ function AppContent({
 				<StreamingResponse text={streamingText} isStreaming={isClaudeRunning} />
 			)}
 
-			{appMode.type === 'permission' && currentPermissionRequest ? (
+			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
 					fallback={
 						<PermissionErrorFallback
@@ -390,7 +346,8 @@ function AppContent({
 						onDecision={handlePermissionDecision}
 					/>
 				</ErrorBoundary>
-			) : appMode.type === 'question' && currentQuestionRequest ? (
+			)}
+			{appMode.type === 'question' && currentQuestionRequest && (
 				<ErrorBoundary
 					fallback={<QuestionErrorFallback onSkip={handleQuestionSkip} />}
 				>
@@ -401,34 +358,21 @@ function AppContent({
 						onSkip={handleQuestionSkip}
 					/>
 				</ErrorBoundary>
-			) : (
-				<>
-					<CommandInput
-						onSubmit={handleSubmit}
-						disabled={dialogActive}
-						disabledMessage={
-							appMode.type === 'question'
-								? 'Waiting for your input...'
-								: undefined
-						}
-						onEscape={isClaudeRunning ? sendInterrupt : undefined}
-						onArrowUp={inputHistory.back}
-						onArrowDown={inputHistory.forward}
-					/>
-
-					<StatusLine
-						isServerRunning={isServerRunning}
-						socketPath={socketPath ?? null}
-						claudeState={claudeState}
-						verbose={verbose ?? false}
-						spinnerFrame={spinnerFrame}
-						modelName={metrics.modelName || modelName}
-						toolCallCount={metrics.totalToolCallCount}
-						contextSize={tokenUsage.contextSize}
-						projectDir={projectDir}
-					/>
-				</>
 			)}
+			<CommandInput
+				onSubmit={handleSubmit}
+				disabled={dialogActive}
+				disabledMessage={
+					appMode.type === 'question'
+						? 'Waiting for your input...'
+						: appMode.type === 'permission'
+							? 'Respond to permission request above...'
+							: undefined
+				}
+				onEscape={isClaudeRunning ? sendInterrupt : undefined}
+				onArrowUp={inputHistory.back}
+				onArrowDown={inputHistory.forward}
+			/>
 		</Box>
 	);
 }

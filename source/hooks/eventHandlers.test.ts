@@ -23,8 +23,6 @@ function makeCtx(
 ): HandlerContext {
 	return {
 		envelope: {
-			v: 1,
-			kind: 'hook_event',
 			request_id: 'req-1',
 			ts: Date.now(),
 			session_id: 'sess-1',
@@ -32,8 +30,7 @@ function makeCtx(
 			payload: payload as HookEventEnvelope['payload'],
 		},
 		displayEvent: {
-			id: 'evt-1',
-			requestId: 'req-1',
+			id: 'req-1',
 			timestamp: new Date(),
 			hookName: hookEventName as HookEventDisplay['hookName'],
 			payload: payload as HookEventDisplay['payload'],

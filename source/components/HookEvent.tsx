@@ -1,4 +1,5 @@
 import React from 'react';
+import {Box} from 'ink';
 import {
 	type HookEventDisplay,
 	isPreToolUseEvent,
@@ -12,21 +13,21 @@ import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
-import SubagentEvent from './SubagentEvent.js';
+import TaskAgentEvent from './TaskAgentEvent.js';
+import SubagentStartEvent from './SubagentStartEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
+import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
+
+/** Consistent left margin applied to all hook events. */
+const EVENT_LEFT_MARGIN = 2;
 
 type Props = {
 	event: HookEventDisplay;
 	verbose?: boolean;
-	childEventsByAgent?: Map<string, HookEventDisplay[]>;
 };
 
-export default function HookEvent({
-	event,
-	verbose,
-	childEventsByAgent,
-}: Props): React.ReactNode {
+export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	// Skip noise events in non-verbose mode
 	if (
 		!verbose &&
@@ -36,13 +37,21 @@ export default function HookEvent({
 	}
 
 	if (event.hookName === 'SessionEnd') {
-		return <SessionEndEvent event={event} />;
+		return (
+			<Box paddingLeft={EVENT_LEFT_MARGIN}>
+				<SessionEndEvent event={event} />
+			</Box>
+		);
 	}
 
 	const payload = event.payload;
 
 	if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
-		return <AskUserQuestionEvent event={event} />;
+		return (
+			<Box paddingLeft={EVENT_LEFT_MARGIN}>
+				<AskUserQuestionEvent event={event} />
+			</Box>
+		);
 	}
 
 	// Task management tools (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet)
@@ -53,27 +62,30 @@ export default function HookEvent({
 		return null;
 	}
 
-	// Unified tool call: PreToolUse/PermissionRequest (with paired post-tool result)
-	// or orphaned PostToolUse/PostToolUseFailure (no matching PreToolUse)
-	if (
-		isPreToolUseEvent(payload) ||
-		isPermissionRequestEvent(payload) ||
+	let content: React.ReactNode = null;
+
+	// Task PreToolUse → agent start marker (shows subagent_type + prompt)
+	if (isPreToolUseEvent(payload) && payload.tool_name === 'Task') {
+		content = <TaskAgentEvent event={event} />;
+	} else if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
+		// PreToolUse/PermissionRequest → tool call header (● Tool params)
+		content = <UnifiedToolCallEvent event={event} verbose={verbose} />;
+	} else if (
 		isPostToolUseEvent(payload) ||
 		isPostToolUseFailureEvent(payload)
 	) {
-		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
+		// PostToolUse/PostToolUseFailure → standalone result (⎿ output)
+		content = <PostToolResult event={event} verbose={verbose} />;
+	} else if (isSubagentStartEvent(payload)) {
+		content = <SubagentStartEvent event={event} />;
+	} else if (isSubagentStopEvent(payload)) {
+		content = <SubagentStopEvent event={event} />;
+	} else {
+		// GenericHookEvent — only for truly unrecognized event types
+		content = <GenericHookEvent event={event} verbose={verbose} />;
 	}
 
-	if (isSubagentStartEvent(payload)) {
-		return (
-			<SubagentEvent event={event} childEventsByAgent={childEventsByAgent} />
-		);
-	}
+	if (content == null) return null;
 
-	if (isSubagentStopEvent(payload)) {
-		return <SubagentStopEvent event={event} verbose={verbose} />;
-	}
-
-	// GenericHookEvent — only for truly unrecognized event types
-	return <GenericHookEvent event={event} verbose={verbose} />;
+	return <Box paddingLeft={EVENT_LEFT_MARGIN}>{content}</Box>;
 }

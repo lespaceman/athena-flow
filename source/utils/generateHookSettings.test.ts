@@ -127,38 +127,19 @@ describe('generateHookSettings', () => {
 		expect(() => result.cleanup()).not.toThrow();
 	});
 
-	it('should set extended timeout for PreToolUse hooks', () => {
+	it('should not set custom timeout (relies on Claude Code defaults)', () => {
 		const result = generateHookSettings();
 		createdFiles.push(result.settingsPath);
 
 		const content = fs.readFileSync(result.settingsPath, 'utf8');
 		const settings = JSON.parse(content);
 
-		const preToolUseTimeout = settings.hooks.PreToolUse[0].hooks[0].timeout;
-		expect(preToolUseTimeout).toBe(300);
-	});
-
-	it('should set extended timeout for PermissionRequest hooks', () => {
-		const result = generateHookSettings();
-		createdFiles.push(result.settingsPath);
-
-		const content = fs.readFileSync(result.settingsPath, 'utf8');
-		const settings = JSON.parse(content);
-
-		const permReqTimeout = settings.hooks.PermissionRequest[0].hooks[0].timeout;
-		expect(permReqTimeout).toBe(300);
-	});
-
-	it('should use default timeout for non-PreToolUse hooks', () => {
-		const result = generateHookSettings();
-		createdFiles.push(result.settingsPath);
-
-		const content = fs.readFileSync(result.settingsPath, 'utf8');
-		const settings = JSON.parse(content);
-
-		// Non-PreToolUse hooks use the default 60s timeout
-		const stopTimeout = settings.hooks.Stop[0].hooks[0].timeout;
-		expect(stopTimeout).toBe(60);
+		// No custom timeouts — Claude Code default (600s) applies
+		expect(settings.hooks.PreToolUse[0].hooks[0].timeout).toBeUndefined();
+		expect(
+			settings.hooks.PermissionRequest[0].hooks[0].timeout,
+		).toBeUndefined();
+		expect(settings.hooks.Stop[0].hooks[0].timeout).toBeUndefined();
 	});
 
 	it('should write valid JSON', () => {

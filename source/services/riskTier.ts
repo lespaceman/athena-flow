@@ -90,7 +90,6 @@ const MODERATE_TOOLS: readonly string[] = [
 	'Task',
 	'WebFetch',
 	'Skill',
-	'TodoWrite',
 	'TaskCreate',
 	'TaskUpdate',
 ];
