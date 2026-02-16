@@ -9,7 +9,6 @@ import type {
 	PostToolUseEvent,
 	PostToolUseFailureEvent,
 	SubagentStartEvent,
-	SubagentStopEvent,
 } from '../types/hooks/index.js';
 
 describe('HookEvent', () => {
@@ -499,21 +498,27 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Find all API endpoints');
 	});
 
-	it('renders SubagentStop as header-only marker', () => {
-		const stopPayload: SubagentStopEvent = {
+	it('renders PostToolUse(Task) as combined Done header + result via SubagentResultEvent', () => {
+		const taskPostPayload: PostToolUseEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
 			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-abc',
-			agent_type: 'Explore',
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Task',
+			tool_input: {
+				description: 'Count files',
+				subagent_type: 'Explore',
+			},
+			tool_response: {
+				status: 'completed',
+				content: [{type: 'text', text: 'Found 23 files'}],
+			},
 		};
 		const event: HookEventDisplay = {
 			...baseEvent,
-			hookName: 'SubagentStop',
-			toolName: undefined,
-			payload: stopPayload,
+			hookName: 'PostToolUse',
+			toolName: 'Task',
+			payload: taskPostPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
 		};
@@ -523,8 +528,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Explore');
 		expect(frame).toContain('Done');
 		expect(frame).toContain('●');
-		// No body — result comes via PostToolUse(Task) → PostToolResult
-		expect(frame).not.toContain('Loading');
+		expect(frame).toContain('Found 23 files');
 	});
 
 	it('renders pending Task PreToolUse identically to completed — static bullet, no state change', () => {
@@ -883,32 +887,5 @@ describe('HookEvent', () => {
 
 		expect(frame).toContain('Explore');
 		expect(frame).toContain('▸');
-	});
-
-	it('renders SubagentStop without loading state (header-only)', () => {
-		const stopPayload: SubagentStopEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'SubagentStop',
-			stop_hook_active: false,
-			agent_id: 'agent-orphan',
-			agent_type: 'Explore',
-		};
-		const event: HookEventDisplay = {
-			...baseEvent,
-			hookName: 'SubagentStop',
-			toolName: undefined,
-			payload: stopPayload,
-			status: 'passthrough',
-			result: {action: 'passthrough'},
-		};
-		const {lastFrame} = render(<HookEvent event={event} />);
-		const frame = lastFrame() ?? '';
-
-		expect(frame).toContain('●');
-		expect(frame).toContain('Explore');
-		expect(frame).toContain('Done');
-		expect(frame).not.toContain('Loading');
 	});
 });

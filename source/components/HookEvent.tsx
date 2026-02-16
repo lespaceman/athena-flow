@@ -6,7 +6,6 @@ import {
 	isPostToolUseFailureEvent,
 	isPermissionRequestEvent,
 	isSubagentStartEvent,
-	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
@@ -14,7 +13,6 @@ import {TASK_TOOL_NAMES} from '../types/todo.js';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStartEvent from './SubagentStartEvent.js';
-import SubagentStopEvent from './SubagentStopEvent.js';
 import SubagentResultEvent from './SubagentResultEvent.js';
 import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
@@ -73,8 +71,6 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		content = <PostToolResult event={event} verbose={verbose} />;
 	} else if (isSubagentStartEvent(payload)) {
 		content = <SubagentStartEvent event={event} />;
-	} else if (isSubagentStopEvent(payload)) {
-		content = <SubagentStopEvent event={event} />;
 	} else {
 		// GenericHookEvent — only for truly unrecognized event types
 		content = <GenericHookEvent event={event} verbose={verbose} />;
