@@ -72,83 +72,6 @@ function extractTasks(events: HookEventDisplay[]): TodoItem[] {
 	return Array.isArray(input?.todos) ? input.todos : [];
 }
 
-/**
- * Post-sort grouping: moves PostToolUse/PostToolUseFailure results directly
- * after their matching PreToolUse event (matched by toolUseId).
- *
- * This fixes visual misplacement when parallel tool calls produce results
- * that, by timestamp alone, appear under the wrong tool call header.
- */
-function isPostToolResult(item: ContentItem): boolean {
-	return (
-		item.type === 'hook' &&
-		(item.data.hookName === 'PostToolUse' ||
-			item.data.hookName === 'PostToolUseFailure') &&
-		!!item.data.toolUseId
-	);
-}
-
-export function groupToolResults(items: ContentItem[]): ContentItem[] {
-	// Build map: toolUseId → index of PreToolUse in the sorted array
-	const preToolIndexByUseId = new Map<string, number>();
-	for (let i = 0; i < items.length; i++) {
-		const item = items[i]!;
-		if (
-			item.type === 'hook' &&
-			item.data.hookName === 'PreToolUse' &&
-			item.data.toolUseId
-		) {
-			preToolIndexByUseId.set(item.data.toolUseId, i);
-		}
-	}
-
-	// Collect post-tool results keyed by their PreToolUse's toolUseId
-	const pendingResults = new Map<string, ContentItem[]>();
-	const orphans: ContentItem[] = [];
-
-	for (const item of items) {
-		if (isPostToolResult(item)) {
-			const useId = (item as {type: 'hook'; data: HookEventDisplay}).data
-				.toolUseId!;
-			if (preToolIndexByUseId.has(useId)) {
-				let arr = pendingResults.get(useId);
-				if (!arr) {
-					arr = [];
-					pendingResults.set(useId, arr);
-				}
-				arr.push(item);
-			} else {
-				orphans.push(item);
-			}
-		}
-	}
-
-	// If nothing to regroup, return as-is
-	if (pendingResults.size === 0 && orphans.length === 0) return items;
-
-	// Rebuild: for each non-result item, emit it, then any matching results
-	const result: ContentItem[] = [];
-	for (const item of items) {
-		if (isPostToolResult(item)) continue; // skip — will be inserted after PreToolUse
-		result.push(item);
-
-		if (
-			item.type === 'hook' &&
-			item.data.hookName === 'PreToolUse' &&
-			item.data.toolUseId
-		) {
-			const matched = pendingResults.get(item.data.toolUseId);
-			if (matched) {
-				result.push(...matched);
-			}
-		}
-	}
-
-	// Append orphans at end
-	result.push(...orphans);
-	return result;
-}
-
 // ── Hook ─────────────────────────────────────────────────────────────
 
 type UseContentOrderingOptions = {
@@ -193,5 +116,5 @@ export function useContentOrdering({
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	return {stableItems: groupToolResults(stableItems), tasks};
+	return {stableItems, tasks};
 }
