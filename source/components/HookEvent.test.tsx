@@ -830,11 +830,6 @@ describe('HookEvent', () => {
 			toolName: 'Task',
 			payload: taskPayload,
 			status: 'passthrough',
-			postToolEvent: {
-				...baseEvent,
-				hookName: 'PostToolUse',
-				status: 'passthrough',
-			},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';

@@ -44,7 +44,6 @@ function makeEvent(
 		transcriptSummary: overrides.transcriptSummary,
 		parentSubagentId: overrides.parentSubagentId,
 		toolUseId: overrides.toolUseId,
-		postToolEvent: overrides.postToolEvent,
 	};
 }
 
@@ -339,10 +338,6 @@ describe('useContentOrdering', () => {
 						parentSubagentId: 'a1',
 						status: 'passthrough',
 						timestamp: new Date(1500),
-						postToolEvent: makeEvent({
-							hookName: 'PostToolUse',
-							status: 'passthrough',
-						}),
 					}),
 				],
 			});
@@ -378,10 +373,6 @@ describe('useContentOrdering', () => {
 					status: 'passthrough',
 					timestamp: new Date(1500),
 					parentSubagentId: 'abc123',
-					postToolEvent: makeEvent({
-						hookName: 'PostToolUse',
-						status: 'passthrough',
-					}),
 				}),
 				makeEvent({
 					id: 'child-2',

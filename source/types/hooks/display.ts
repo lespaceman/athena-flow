@@ -32,10 +32,4 @@ export type HookEventDisplay = {
 	toolUseId?: string;
 	/** agent_id of the parent subagent this event belongs to */
 	parentSubagentId?: string;
-	/**
-	 * For PreToolUse/PermissionRequest events: holds the corresponding
-	 * PostToolUse or PostToolUseFailure event data when the tool completes.
-	 * Used to render tool call and result as a single unified entry.
-	 */
-	postToolEvent?: HookEventDisplay;
 };

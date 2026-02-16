@@ -250,7 +250,7 @@ function AppContent({
 		resolveQuestion(currentQuestionRequest.id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {stableItems, dynamicItem, tasks} = useContentOrdering({
+	const {stableItems, tasks} = useContentOrdering({
 		messages,
 		events,
 	});
@@ -319,19 +319,6 @@ function AppContent({
 					)
 				}
 			</Static>
-
-			{/* Single in-progress item — dynamic, re-renders as state changes */}
-			{dynamicItem &&
-				(dynamicItem.type === 'message' ? (
-					<Message key={dynamicItem.data.id} message={dynamicItem.data} />
-				) : (
-					<ErrorBoundary
-						key={dynamicItem.data.id}
-						fallback={<Text color="red">[Error rendering event]</Text>}
-					>
-						<HookEvent event={dynamicItem.data} verbose={verbose} />
-					</ErrorBoundary>
-				))}
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList
