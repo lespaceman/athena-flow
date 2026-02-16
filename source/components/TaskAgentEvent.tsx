@@ -5,9 +5,8 @@ import {
 	isPreToolUseEvent,
 } from '../types/hooks/index.js';
 import {useTheme} from '../theme/index.js';
-import {useSpinner} from '../hooks/useSpinner.js';
+import {getStatusColors} from './hookEventUtils.js';
 import {truncateLine} from '../utils/truncate.js';
-import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
 
 const BULLET = '\u25cf'; // ●
 
@@ -17,8 +16,7 @@ export default function TaskAgentEvent({
 	event: HookEventDisplay;
 }): React.ReactNode {
 	const theme = useTheme();
-	const isPending = !event.postToolEvent;
-	const spinnerFrame = useSpinner(isPending);
+	const statusColors = getStatusColors(theme);
 
 	if (!isPreToolUseEvent(event.payload)) return null;
 
@@ -27,37 +25,26 @@ export default function TaskAgentEvent({
 		(toolInput.subagent_type as string) ??
 		(toolInput.description as string) ??
 		'Agent';
-	const prompt = (toolInput.prompt as string) ?? '';
-	const description = (toolInput.description as string) ?? '';
+	const prompt =
+		(toolInput.prompt as string) ?? (toolInput.description as string) ?? '';
 
 	const terminalWidth = process.stdout.columns ?? 80;
-	const headerIcon = isPending ? spinnerFrame : BULLET;
-	const headerText = truncateLine(agentType, terminalWidth - 4);
-	const bodyText = prompt || description;
-
-	let body: React.ReactNode = null;
-	if (isPending && !bodyText) {
-		body = (
-			<ToolResultContainer>
-				<Text dimColor>Running…</Text>
-			</ToolResultContainer>
-		);
-	} else if (bodyText) {
-		body = (
-			<ToolResultContainer>
-				<Text>{truncateLine(bodyText, terminalWidth - 10)}</Text>
-			</ToolResultContainer>
-		);
-	}
+	const bulletWidth = 2; // "● "
+	const nameWidth = agentType.length;
+	const availableForPrompt = terminalWidth - bulletWidth - nameWidth;
+	const truncatedPrompt = prompt
+		? truncateLine(` ${prompt}`, Math.max(availableForPrompt, 10))
+		: '';
 
 	return (
-		<Box flexDirection="column">
+		<Box flexDirection="column" marginBottom={1}>
 			<Box>
-				<Text color={theme.accentSecondary} bold>
-					{headerIcon} {headerText}
+				<Text color={statusColors.passthrough}>{BULLET} </Text>
+				<Text color={statusColors.passthrough} bold>
+					{agentType}
 				</Text>
+				{truncatedPrompt ? <Text dimColor>{truncatedPrompt}</Text> : null}
 			</Box>
-			{body}
 		</Box>
 	);
 }

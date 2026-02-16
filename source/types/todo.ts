@@ -6,10 +6,6 @@ export type TodoItem = {
 	activeForm?: string;
 };
 
-export type TodoWriteInput = {
-	todos?: TodoItem[];
-};
-
 // ── New CRUD task tool types (replaced TodoWrite in Claude Code) ─────
 
 /** Tool names that represent task management tools (both legacy and new). */

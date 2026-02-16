@@ -1,3 +1,4 @@
+import process from 'node:process';
 import React from 'react';
 import {Box, Text} from 'ink';
 import {
@@ -7,11 +8,11 @@ import {
 import {useTheme} from '../theme/index.js';
 import {truncateLine} from '../utils/truncate.js';
 
-export default function SubagentStartEvent({
-	event,
-}: {
+type Props = {
 	event: HookEventDisplay;
-}): React.ReactNode {
+};
+
+export default function SubagentStartEvent({event}: Props): React.ReactNode {
 	const theme = useTheme();
 	if (!isSubagentStartEvent(event.payload)) return null;
 
