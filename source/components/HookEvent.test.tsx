@@ -499,7 +499,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Find all API endpoints');
 	});
 
-	it('renders SubagentStop with done header and response text', () => {
+	it('renders SubagentStop as header-only marker', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -516,12 +516,6 @@ describe('HookEvent', () => {
 			payload: stopPayload,
 			status: 'passthrough',
 			result: {action: 'passthrough'},
-			transcriptSummary: {
-				lastAssistantText: 'Found 5 API endpoints',
-				lastAssistantTimestamp: null,
-				messageCount: 3,
-				toolCallCount: 2,
-			},
 		};
 		const {lastFrame} = render(<HookEvent event={event} />);
 		const frame = lastFrame() ?? '';
@@ -529,7 +523,8 @@ describe('HookEvent', () => {
 		expect(frame).toContain('Explore');
 		expect(frame).toContain('Done');
 		expect(frame).toContain('●');
-		expect(frame).toContain('Found 5 API endpoints');
+		// No body — result comes via PostToolUse(Task) → PostToolResult
+		expect(frame).not.toContain('Loading');
 	});
 
 	it('renders pending Task PreToolUse identically to completed — static bullet, no state change', () => {
@@ -890,7 +885,7 @@ describe('HookEvent', () => {
 		expect(frame).toContain('▸');
 	});
 
-	it('renders SubagentStop loading state when no transcriptSummary', () => {
+	it('renders SubagentStop without loading state (header-only)', () => {
 		const stopPayload: SubagentStopEvent = {
 			session_id: 'session-1',
 			transcript_path: '/tmp/transcript.jsonl',
@@ -914,6 +909,6 @@ describe('HookEvent', () => {
 		expect(frame).toContain('●');
 		expect(frame).toContain('Explore');
 		expect(frame).toContain('Done');
-		expect(frame).toContain('Loading');
+		expect(frame).not.toContain('Loading');
 	});
 });
