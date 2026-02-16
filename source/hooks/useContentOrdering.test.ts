@@ -696,6 +696,125 @@ describe('useContentOrdering', () => {
 		});
 	});
 
+	describe('stable/dynamic split', () => {
+		it('messages are always stable', () => {
+			const {stableItems, dynamicItem} = callHook({
+				messages: [makeMessage('m1', 'user', new Date(1000))],
+				events: [],
+			});
+
+			expect(stableItems).toHaveLength(1);
+			expect(stableItems[0]!.type).toBe('message');
+			expect(dynamicItem).toBeNull();
+		});
+
+		it('completed tool events are stable', () => {
+			const postEvent = makeEvent({
+				id: 'post-1',
+				hookName: 'PostToolUse',
+				toolName: 'Bash',
+				toolUseId: 'tu-1',
+				status: 'passthrough',
+				timestamp: new Date(2000),
+			});
+			const events = [
+				makeEvent({
+					id: 'pre-1',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-1',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+				postEvent,
+			];
+
+			const {stableItems, dynamicItem} = callHook({messages: [], events});
+
+			// The PreToolUse with paired PostToolUse should be stable
+			const stableIds = stableItems.map(i => i.data.id);
+			expect(stableIds).toContain('pre-1');
+			expect(dynamicItem).toBeNull();
+		});
+
+		it('pending tool event is dynamic', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-pending',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					status: 'pending',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {stableItems, dynamicItem} = callHook({messages: [], events});
+
+			expect(stableItems).toHaveLength(0);
+			expect(dynamicItem).not.toBeNull();
+			expect(dynamicItem!.data.id).toBe('pre-pending');
+		});
+
+		it('blocked tool event is stable', () => {
+			const events = [
+				makeEvent({
+					id: 'pre-blocked',
+					hookName: 'PreToolUse',
+					toolName: 'Bash',
+					toolUseId: 'tu-blocked',
+					status: 'blocked',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {stableItems, dynamicItem} = callHook({messages: [], events});
+
+			const stableIds = stableItems.map(i => i.data.id);
+			expect(stableIds).toContain('pre-blocked');
+			expect(dynamicItem).toBeNull();
+		});
+
+		it('SubagentStop without transcript is dynamic', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-stop-no-transcript',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+				}),
+			];
+
+			const {stableItems, dynamicItem} = callHook({messages: [], events});
+
+			expect(stableItems).toHaveLength(0);
+			expect(dynamicItem).not.toBeNull();
+			expect(dynamicItem!.data.id).toBe('sub-stop-no-transcript');
+		});
+
+		it('SubagentStop with transcript is stable', () => {
+			const events = [
+				makeEvent({
+					id: 'sub-stop-with-transcript',
+					hookName: 'SubagentStop',
+					status: 'passthrough',
+					timestamp: new Date(1000),
+					transcriptSummary: {
+						lastAssistantText: 'done',
+						lastAssistantTimestamp: null,
+						messageCount: 1,
+						toolCallCount: 0,
+					},
+				}),
+			];
+
+			const {stableItems, dynamicItem} = callHook({messages: [], events});
+
+			const stableIds = stableItems.map(i => i.data.id);
+			expect(stableIds).toContain('sub-stop-with-transcript');
+			expect(dynamicItem).toBeNull();
+		});
+	});
+
 	describe('tool event pairing', () => {
 		it('merges PostToolUse onto matching PreToolUse by toolUseId', () => {
 			const events = [

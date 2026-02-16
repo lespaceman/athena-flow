@@ -103,6 +103,30 @@ function aggregateTaskEvents(events: HookEventDisplay[]): TodoItem[] {
 	return Array.from(tasks.values());
 }
 
+/**
+ * Determines if a content item is "complete" — meaning it has its final
+ * state and is safe for Ink's write-once <Static> component.
+ */
+export function isItemComplete(item: ContentItem): boolean {
+	if (item.type === 'message') return true;
+	const e = item.data;
+	// Pending events haven't been resolved yet
+	if (e.status === 'pending') return false;
+	// PreToolUse/PermissionRequest needs its postToolEvent to be complete
+	// (unless it was blocked, which is a terminal state)
+	if (
+		(e.hookName === 'PreToolUse' || e.hookName === 'PermissionRequest') &&
+		e.toolUseId &&
+		!e.postToolEvent &&
+		e.status !== 'blocked'
+	)
+		return false;
+	// SubagentStop needs transcript to be loaded
+	if (e.hookName === 'SubagentStop' && e.transcriptSummary === undefined)
+		return false;
+	return true;
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────
 
 type UseContentOrderingOptions = {
@@ -111,6 +135,11 @@ type UseContentOrderingOptions = {
 };
 
 type UseContentOrderingResult = {
+	/** Completed items — safe for Ink <Static>. Render once, never update. */
+	stableItems: ContentItem[];
+	/** The single in-progress item (if any) — renders in dynamic area. */
+	dynamicItem: ContentItem | null;
+	/** All items combined (stable + dynamic) for backward compatibility. */
 	items: ContentItem[];
 	/** Aggregated task list from TaskCreate/TaskUpdate or legacy TodoWrite events. */
 	tasks: TodoItem[];
@@ -231,7 +260,14 @@ export function useContentOrdering({
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
+	const stableItems = items.filter(isItemComplete);
+	const pendingItems = items.filter(i => !isItemComplete(i));
+	const dynamicItem =
+		pendingItems.length > 0 ? pendingItems[pendingItems.length - 1]! : null;
+
 	return {
+		stableItems,
+		dynamicItem,
 		items,
 		tasks,
 	};
