@@ -3,6 +3,7 @@
 ## Problem
 
 The Ink terminal UI suffers from multiple sources of visual instability:
+
 1. Terminal-level frame tearing during rapid re-renders
 2. High-frequency re-renders from spinners/timers/pulse effects
 3. Layout shifts when permission/question dialogs mount/unmount
@@ -24,11 +25,11 @@ Ink v6.7.0 added synchronized terminal updates — output is wrapped in DCS sequ
 
 Three timers cause independent re-renders:
 
-| Timer | Current | Change |
-|-------|---------|--------|
-| `useSpinner` | 80ms (12.5 FPS) | Slow to 120ms (8.3 FPS) |
-| Pulse (`UnifiedToolCallEvent`) | 500ms | Remove entirely — use static pending color |
-| `useDuration` | 1000ms | Keep as-is |
+| Timer                          | Current         | Change                                     |
+| ------------------------------ | --------------- | ------------------------------------------ |
+| `useSpinner`                   | 80ms (12.5 FPS) | Slow to 120ms (8.3 FPS)                    |
+| Pulse (`UnifiedToolCallEvent`) | 500ms           | Remove entirely — use static pending color |
+| `useDuration`                  | 1000ms          | Keep as-is                                 |
 
 Files: `source/hooks/useSpinner.ts`, `source/components/UnifiedToolCallEvent.tsx`
 
@@ -36,7 +37,7 @@ Files: `source/hooks/useSpinner.ts`, `source/components/UnifiedToolCallEvent.tsx
 
 Currently `app.tsx` conditionally renders either a dialog OR CommandInput. This causes the live region height to jump.
 
-Fix: Always render CommandInput (it already has `disabled` prop). Render dialogs *above* it instead of *instead of* it. This keeps the bottom of the screen stable.
+Fix: Always render CommandInput (it already has `disabled` prop). Render dialogs _above_ it instead of _instead of_ it. This keeps the bottom of the screen stable.
 
 File: `source/app.tsx`
 

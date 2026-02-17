@@ -21,18 +21,18 @@ describe('useSpinner', () => {
 		expect(result.current).toBe(BRAILLE_FRAMES[0]);
 	});
 
-	it('cycles through braille frames at 80ms intervals', () => {
+	it('cycles through braille frames at 120ms intervals', () => {
 		const {result} = renderHook(() => useSpinner(true));
 
 		expect(result.current).toBe('⠋');
 
 		act(() => {
-			vi.advanceTimersByTime(80);
+			vi.advanceTimersByTime(120);
 		});
 		expect(result.current).toBe('⠙');
 
 		act(() => {
-			vi.advanceTimersByTime(80);
+			vi.advanceTimersByTime(120);
 		});
 		expect(result.current).toBe('⠹');
 	});
@@ -40,9 +40,9 @@ describe('useSpinner', () => {
 	it('wraps around after last frame', () => {
 		const {result} = renderHook(() => useSpinner(true));
 
-		// Advance through all 10 frames (10 * 80ms = 800ms)
+		// Advance through all 10 frames (10 * 120ms = 1200ms)
 		act(() => {
-			vi.advanceTimersByTime(800);
+			vi.advanceTimersByTime(1200);
 		});
 		expect(result.current).toBe('⠋'); // Back to first
 	});
@@ -63,7 +63,7 @@ describe('useSpinner', () => {
 		});
 
 		act(() => {
-			vi.advanceTimersByTime(160); // Advance 2 frames
+			vi.advanceTimersByTime(240); // Advance 2 frames
 		});
 		expect(result.current).toBe('⠹');
 

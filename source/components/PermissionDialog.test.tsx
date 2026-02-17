@@ -10,7 +10,6 @@ function makePermissionEvent(
 ): HookEventDisplay {
 	return {
 		id: 'test-id',
-		requestId: 'req-123',
 		timestamp: new Date('2025-01-01T12:00:00'),
 		hookName: 'PreToolUse',
 		toolName,
@@ -102,7 +101,7 @@ describe('PermissionDialog', () => {
 			expect(lastFrame()).not.toContain('Always allow all from');
 		});
 
-		it('shows type-to-confirm for DESTRUCTIVE tier', () => {
+		it('shows option list for all tools (no type-to-confirm)', () => {
 			const event = makePermissionEvent('Bash', {command: 'rm -rf /'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -113,11 +112,12 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Type');
-			expect(frame).toContain('yes');
+			expect(frame).toContain('Allow');
+			expect(frame).toContain('Deny');
+			expect(frame).toContain('Navigate');
 		});
 
-		it('shows footer hint for non-destructive tools', () => {
+		it('shows footer hint', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog

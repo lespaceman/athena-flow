@@ -13,6 +13,7 @@ import {quitCommand} from './quit.js';
 import {statsCommand} from './stats.js';
 import {sessionsCommand} from './sessions.js';
 import {contextCommand} from './context.js';
+import {tasksCommand} from './tasks.js';
 
 const builtins = [
 	helpCommand,
@@ -21,6 +22,7 @@ const builtins = [
 	statsCommand,
 	contextCommand,
 	sessionsCommand,
+	tasksCommand,
 ];
 
 let registered = false;

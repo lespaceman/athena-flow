@@ -40,7 +40,7 @@ export default function GenericHookEvent({
 	});
 
 	return (
-		<Box flexDirection="column" marginBottom={1}>
+		<Box flexDirection="column" marginTop={1}>
 			<Box>
 				<Text color={color}>
 					{symbol} [{time}]{' '}

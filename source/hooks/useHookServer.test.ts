@@ -5,13 +5,10 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 import {
-	PROTOCOL_VERSION,
 	type HookEventEnvelope,
 	type HookResultEnvelope,
 	type HookResultPayload,
 	generateId,
-	createBlockResult,
-	createPassthroughResult,
 	createPermissionRequestAllowResult,
 } from '../types/hooks/index.js';
 import {matchRule, type HookRule} from '../types/rules.js';
@@ -54,8 +51,6 @@ function makeEnvelope(
 	payload: Record<string, unknown>,
 ): HookEventEnvelope {
 	return {
-		v: PROTOCOL_VERSION,
-		kind: 'hook_event',
 		request_id: generateId(),
 		ts: Date.now(),
 		session_id: 'test-session',
@@ -146,20 +141,21 @@ function startTestServer(
 				if (toolName) {
 					const matched = matchRule(fullRules, toolName);
 					if (matched?.action === 'deny') {
-						result = createBlockResult(`Blocked by rule: ${matched.addedBy}`);
+						result = {
+							action: 'block_with_stderr',
+							stderr: `Blocked by rule: ${matched.addedBy}`,
+						};
 					} else {
 						result = createPermissionRequestAllowResult();
 					}
 				} else {
-					result = createPassthroughResult();
+					result = {action: 'passthrough'};
 				}
 			} else {
-				result = createPassthroughResult();
+				result = {action: 'passthrough'};
 			}
 
 			const response: HookResultEnvelope = {
-				v: PROTOCOL_VERSION,
-				kind: 'hook_result',
 				request_id: envelope.request_id,
 				ts: Date.now(),
 				payload: result,

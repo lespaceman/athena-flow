@@ -179,10 +179,6 @@ export function isNotificationEvent(
 	return event.hook_event_name === 'Notification';
 }
 
-export function isStopEvent(event: ClaudeHookEvent): event is StopEvent {
-	return event.hook_event_name === 'Stop';
-}
-
 export function isSubagentStartEvent(
 	event: ClaudeHookEvent,
 ): event is SubagentStartEvent {
@@ -193,22 +189,6 @@ export function isSubagentStopEvent(
 	event: ClaudeHookEvent,
 ): event is SubagentStopEvent {
 	return event.hook_event_name === 'SubagentStop';
-}
-
-export function isUserPromptSubmitEvent(
-	event: ClaudeHookEvent,
-): event is UserPromptSubmitEvent {
-	return event.hook_event_name === 'UserPromptSubmit';
-}
-
-export function isPreCompactEvent(
-	event: ClaudeHookEvent,
-): event is PreCompactEvent {
-	return event.hook_event_name === 'PreCompact';
-}
-
-export function isSetupEvent(event: ClaudeHookEvent): event is SetupEvent {
-	return event.hook_event_name === 'Setup';
 }
 
 export function isSessionStartEvent(

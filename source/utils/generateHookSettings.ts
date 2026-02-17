@@ -40,7 +40,6 @@ const NON_TOOL_HOOK_EVENTS = [
 type HookCommand = {
 	type: 'command';
 	command: string;
-	/** Timeout in seconds (Claude Code default is 60) */
 	timeout?: number;
 };
 
@@ -117,13 +116,6 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 	const hookCommand: HookCommand = {
 		type: 'command',
 		command: hookForwarderPath,
-		timeout: 60, // 60 seconds - matching Claude Code's default
-	};
-
-	const preToolUseHookCommand: HookCommand = {
-		type: 'command',
-		command: hookForwarderPath,
-		timeout: 300, // Extended timeout for permission dialog
 	};
 
 	// Build hooks configuration for all event types
@@ -134,11 +126,7 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 		hooks[event] = [
 			{
 				matcher: '*',
-				hooks: [
-					event === 'PreToolUse' || event === 'PermissionRequest'
-						? preToolUseHookCommand
-						: hookCommand,
-				],
+				hooks: [hookCommand],
 			},
 		];
 	}

@@ -22,5 +22,5 @@ export const LOGO_LINES = [' ▄██████▄ ', ' █ ◂  ▸ █ ', '
 export const TIPS = [
 	'Type a prompt to start a session',
 	'Use /help for available commands',
-	'Press Ctrl+S for session stats',
+	'Press Ctrl+E for session stats',
 ];

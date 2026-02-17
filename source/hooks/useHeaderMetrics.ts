@@ -1,4 +1,4 @@
-import {useMemo} from 'react';
+import {useMemo, useRef} from 'react';
 import type {HookEventDisplay} from '../types/hooks/index.js';
 import type {SessionMetrics, TokenUsage} from '../types/headerMetrics.js';
 import {
@@ -21,8 +21,21 @@ const NULL_TOKENS: TokenUsage = {
  * Pure computation (useMemo only) — no side effects.
  * Token fields are always null until a data source becomes available.
  */
+const THROTTLE_MS = 1000;
+
 export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
+	const lastComputeRef = useRef<number>(0);
+	const cachedRef = useRef<SessionMetrics | null>(null);
+
 	return useMemo(() => {
+		const now = Date.now();
+		if (
+			cachedRef.current !== null &&
+			now - lastComputeRef.current < THROTTLE_MS
+		) {
+			return cachedRef.current;
+		}
+
 		let modelName: string | null = null;
 		let sessionStartTime: Date | null = null;
 		let toolCallCount = 0;
@@ -97,7 +110,7 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 			0,
 		);
 
-		return {
+		const result: SessionMetrics = {
 			modelName,
 			toolCallCount,
 			totalToolCallCount: toolCallCount + subagentToolTotal,
@@ -110,5 +123,8 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 			sessionStartTime,
 			tokens: NULL_TOKENS,
 		};
+		cachedRef.current = result;
+		lastComputeRef.current = now;
+		return result;
 	}, [events]);
 }

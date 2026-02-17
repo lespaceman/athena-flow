@@ -26,12 +26,8 @@ export {
 	isPostToolUseEvent,
 	isPostToolUseFailureEvent,
 	isNotificationEvent,
-	isStopEvent,
 	isSubagentStartEvent,
 	isSubagentStopEvent,
-	isUserPromptSubmitEvent,
-	isPreCompactEvent,
-	isSetupEvent,
 	isSessionStartEvent,
 	isSessionEndEvent,
 	isToolEvent,
@@ -39,10 +35,8 @@ export {
 
 // Protocol envelope types
 export {
-	PROTOCOL_VERSION,
 	type HookEventEnvelope,
 	type HookResultEnvelope,
-	VALID_HOOK_EVENT_NAMES,
 	isValidHookEventEnvelope,
 	generateId,
 } from './envelope.js';
@@ -52,13 +46,11 @@ export {
 	type HookAction,
 	type HookResultPayload,
 	type PreToolUseOutput,
-	createPassthroughResult,
-	createBlockResult,
-	createJsonOutputResult,
 	createPreToolUseAllowResult,
 	createPreToolUseDenyResult,
 	createAskUserQuestionResult,
 	createPermissionRequestAllowResult,
+	createPermissionRequestDenyResult,
 } from './result.js';
 
 // Display types

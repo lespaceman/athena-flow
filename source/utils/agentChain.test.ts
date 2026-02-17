@@ -15,7 +15,6 @@ describe('getAgentChain', () => {
 		const events: HookEventDisplay[] = [
 			{
 				id: '1',
-				requestId: 'r1',
 				timestamp: new Date(),
 				hookName: 'SubagentStart',
 				payload: {
@@ -39,7 +38,6 @@ describe('getAgentChain', () => {
 		const events: HookEventDisplay[] = [
 			{
 				id: '1',
-				requestId: 'r1',
 				timestamp: new Date(),
 				hookName: 'SubagentStart',
 				payload: {
@@ -59,7 +57,6 @@ describe('getAgentChain', () => {
 		const events: HookEventDisplay[] = [
 			{
 				id: '1',
-				requestId: 'r1',
 				timestamp: new Date(),
 				hookName: 'PreToolUse',
 				toolName: 'Bash',
@@ -75,7 +72,6 @@ describe('getAgentChain', () => {
 			},
 			{
 				id: '2',
-				requestId: 'r2',
 				timestamp: new Date(),
 				hookName: 'SubagentStart',
 				payload: {
@@ -90,7 +86,6 @@ describe('getAgentChain', () => {
 			},
 			{
 				id: '3',
-				requestId: 'r3',
 				timestamp: new Date(),
 				hookName: 'SubagentStart',
 				payload: {

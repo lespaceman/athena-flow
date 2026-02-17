@@ -26,12 +26,14 @@ describe('extractToolOutput', () => {
 					noOutputExpected: false,
 				},
 			);
-			expect(result).toEqual({
-				type: 'code',
-				content: 'hello world',
-				language: 'bash',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'code',
+					content: 'hello world',
+					language: 'bash',
+					maxLines: 10,
+				}),
+			);
 		});
 
 		it('combines stdout and stderr', () => {
@@ -68,12 +70,14 @@ describe('extractToolOutput', () => {
 					},
 				},
 			]);
-			expect(result).toEqual({
-				type: 'code',
-				content: 'const x = 1;',
-				language: 'typescript',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'code',
+					content: 'const x = 1;',
+					language: 'typescript',
+					maxLines: 10,
+				}),
+			);
 		});
 
 		it('extracts content from single object with file field', () => {
@@ -91,12 +95,14 @@ describe('extractToolOutput', () => {
 					},
 				},
 			);
-			expect(result).toEqual({
-				type: 'code',
-				content: 'print("hi")',
-				language: 'python',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'code',
+					content: 'print("hi")',
+					language: 'python',
+					maxLines: 10,
+				}),
+			);
 		});
 
 		it('falls back to string response', () => {
@@ -105,12 +111,14 @@ describe('extractToolOutput', () => {
 				{file_path: 'src/app.tsx'},
 				'const x = 1;',
 			);
-			expect(result).toEqual({
-				type: 'code',
-				content: 'const x = 1;',
-				language: 'typescript',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'code',
+					content: 'const x = 1;',
+					language: 'typescript',
+					maxLines: 10,
+				}),
+			);
 		});
 	});
 
@@ -125,12 +133,14 @@ describe('extractToolOutput', () => {
 				},
 				'File updated',
 			);
-			expect(result).toEqual({
-				type: 'diff',
-				oldText: 'const a = 1;',
-				newText: 'const a = 2;',
-				maxLines: 20,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'diff',
+					oldText: 'const a = 1;',
+					newText: 'const a = 2;',
+					maxLines: 20,
+				}),
+			);
 		});
 	});
 
@@ -222,20 +232,24 @@ describe('extractToolOutput', () => {
 					url: 'https://example.com',
 				},
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'This is the page content summary.',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'This is the page content summary.',
+					maxLines: 10,
+				}),
+			);
 		});
 
 		it('falls back to text for string response', () => {
 			const result = extractToolOutput('WebFetch', {}, 'Some summary text');
-			expect(result).toEqual({
-				type: 'text',
-				content: 'Some summary text',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'Some summary text',
+					maxLines: 10,
+				}),
+			);
 		});
 	});
 
@@ -283,11 +297,13 @@ describe('extractToolOutput', () => {
 
 		it('falls back to text for non-structured response', () => {
 			const result = extractToolOutput('WebSearch', {}, 'Some summary text');
-			expect(result).toEqual({
-				type: 'text',
-				content: 'Some summary text',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'Some summary text',
+					maxLines: 10,
+				}),
+			);
 		});
 	});
 
@@ -328,27 +344,33 @@ describe('extractToolOutput', () => {
 				{description: 'search code'},
 				'Found 3 results',
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'Found 3 results',
-				maxLines: 10,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'Found 3 results',
+					maxLines: 10,
+				}),
+			);
 		});
 	});
 
 	describe('unknown tool', () => {
 		it('falls back to text', () => {
 			const result = extractToolOutput('SomeMCPTool', {}, 'response text');
-			expect(result).toEqual({
-				type: 'text',
-				content: 'response text',
-				maxLines: 20,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'response text',
+					maxLines: 20,
+				}),
+			);
 		});
 
 		it('handles null response', () => {
 			const result = extractToolOutput('Unknown', {}, null);
-			expect(result).toEqual({type: 'text', content: '', maxLines: 20});
+			expect(result).toEqual(
+				expect.objectContaining({type: 'text', content: '', maxLines: 20}),
+			);
 		});
 
 		it('extracts content field from MCP-style wrapped response', () => {
@@ -357,11 +379,13 @@ describe('extractToolOutput', () => {
 				{},
 				{content: 'useful output'},
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'useful output',
-				maxLines: 20,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'useful output',
+					maxLines: 20,
+				}),
+			);
 		});
 
 		it('extracts result field from structured response', () => {
@@ -370,11 +394,13 @@ describe('extractToolOutput', () => {
 				{},
 				{result: 'query output', durationMs: 42},
 			);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'query output',
-				maxLines: 20,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'query output',
+					maxLines: 20,
+				}),
+			);
 		});
 
 		it('extracts text from content-block array', () => {
@@ -382,11 +408,61 @@ describe('extractToolOutput', () => {
 				{type: 'text', text: 'line one'},
 				{type: 'text', text: 'line two'},
 			]);
-			expect(result).toEqual({
-				type: 'text',
-				content: 'line one\nline two',
-				maxLines: 20,
-			});
+			expect(result).toEqual(
+				expect.objectContaining({
+					type: 'text',
+					content: 'line one\nline two',
+					maxLines: 20,
+				}),
+			);
+		});
+	});
+
+	describe('preview metadata', () => {
+		it('returns previewLines and totalLineCount for code output', () => {
+			const output = extractToolOutput(
+				'Bash',
+				{command: 'ls'},
+				{
+					stdout: 'line1\nline2\nline3\nline4\nline5\nline6\nline7',
+					stderr: '',
+					interrupted: false,
+					exitCode: 0,
+				},
+			);
+			expect(output.previewLines).toHaveLength(5);
+			expect(output.totalLineCount).toBe(7);
+		});
+
+		it('returns previewLines for list output', () => {
+			const output = extractToolOutput(
+				'Glob',
+				{},
+				{
+					filenames: ['a.ts', 'b.ts', 'c.ts'],
+				},
+			);
+			expect(output.previewLines).toEqual(['a.ts', 'b.ts', 'c.ts']);
+			expect(output.totalLineCount).toBe(3);
+		});
+
+		it('returns previewLines for diff output', () => {
+			const output = extractToolOutput(
+				'Edit',
+				{
+					old_string: 'old',
+					new_string: 'line1\nline2\nline3\nline4\nline5\nline6',
+				},
+				{},
+			);
+			expect(output.previewLines).toHaveLength(5);
+			expect(output.totalLineCount).toBe(6);
+		});
+
+		it('returns previewLines for text output', () => {
+			const output = extractToolOutput('SomeTool', {}, 'hello\nworld');
+			expect(output.previewLines).toEqual(['hello', 'world']);
+			expect(output.totalLineCount).toBe(2);
 		});
 	});
 });
