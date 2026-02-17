@@ -6,10 +6,13 @@ import * as path from 'node:path';
  * Boundary enforcement: UI code must not import from Claude adapter
  * or protocol type modules. This test catches regressions.
  *
- * NOTE: Skipped until Task 11 completes the UI migration.
+ * HookContext.tsx is excluded — it is the bridge between adapter and UI.
  */
 
 const SOURCE_DIR = path.resolve(import.meta.dirname, '../..');
+
+// Files that are allowed to cross the boundary (bridge modules)
+const EXCLUDED_FILES = new Set(['HookContext.tsx']);
 
 // UI directories that should NOT import protocol types
 const UI_DIRS = ['components', 'context'];
@@ -45,10 +48,12 @@ function collectFiles(dir: string, ext: string[]): string[] {
 	return results;
 }
 
-describe.skip('runtime boundary enforcement', () => {
+describe('runtime boundary enforcement', () => {
 	for (const uiDir of UI_DIRS) {
 		const dirPath = path.join(SOURCE_DIR, uiDir);
-		const files = collectFiles(dirPath, ['.ts', '.tsx']);
+		const files = collectFiles(dirPath, ['.ts', '.tsx']).filter(
+			f => !EXCLUDED_FILES.has(path.basename(f)),
+		);
 
 		for (const file of files) {
 			const relPath = path.relative(SOURCE_DIR, file);

@@ -27,13 +27,11 @@ export default tseslint.config(
 		},
 	},
 	{
-		files: [
-			'source/components/**/*.{ts,tsx}',
-			'source/context/**/*.{ts,tsx}',
-		],
+		files: ['source/components/**/*.{ts,tsx}', 'source/context/**/*.{ts,tsx}'],
+		ignores: ['source/context/HookContext.tsx'],
 		rules: {
 			'no-restricted-imports': [
-				'warn',
+				'error',
 				{
 					patterns: [
 						{
