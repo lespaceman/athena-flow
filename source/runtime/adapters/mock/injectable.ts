@@ -8,6 +8,7 @@ import type {
 	RuntimeEvent,
 	RuntimeDecision,
 	RuntimeEventHandler,
+	RuntimeDecisionHandler,
 } from '../../types.js';
 import {fillDefaults} from './helpers.js';
 
@@ -22,6 +23,7 @@ export type InjectableMockRuntime = Runtime & {
 
 export function createInjectableMockRuntime(): InjectableMockRuntime {
 	const handlers = new Set<RuntimeEventHandler>();
+	const decisionHandlers = new Set<RuntimeDecisionHandler>();
 	const decisions: DecisionRecord[] = [];
 	let status: 'stopped' | 'running' = 'stopped';
 	let lastEventId = '';
@@ -55,8 +57,20 @@ export function createInjectableMockRuntime(): InjectableMockRuntime {
 			return () => handlers.delete(handler);
 		},
 
+		onDecision(handler: RuntimeDecisionHandler) {
+			decisionHandlers.add(handler);
+			return () => decisionHandlers.delete(handler);
+		},
+
 		sendDecision(eventId: string, decision: RuntimeDecision) {
 			decisions.push({eventId, decision});
+			for (const handler of decisionHandlers) {
+				try {
+					handler(eventId, decision);
+				} catch {
+					// ignore
+				}
+			}
 		},
 
 		emit(partial: Partial<RuntimeEvent>) {

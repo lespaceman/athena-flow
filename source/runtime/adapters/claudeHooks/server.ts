@@ -16,6 +16,7 @@ import type {
 	RuntimeEvent,
 	RuntimeDecision,
 	RuntimeEventHandler,
+	RuntimeDecisionHandler,
 } from '../../types.js';
 import {mapEnvelopeToRuntimeEvent} from './mapper.js';
 import {mapDecisionToResult} from './decisionMapper.js';
@@ -35,6 +36,7 @@ export function createServer(opts: ServerOptions) {
 	const {projectDir, instanceId} = opts;
 	const pending = new Map<string, PendingRequest>();
 	const handlers = new Set<RuntimeEventHandler>();
+	const decisionHandlers = new Set<RuntimeDecisionHandler>();
 	let server: net.Server | null = null;
 	let status: 'stopped' | 'running' = 'stopped';
 	let socketPath = '';
@@ -43,6 +45,16 @@ export function createServer(opts: ServerOptions) {
 		for (const handler of handlers) {
 			try {
 				handler(event);
+			} catch {
+				// Handler errors should not crash the server
+			}
+		}
+	}
+
+	function notifyDecision(eventId: string, decision: RuntimeDecision): void {
+		for (const handler of decisionHandlers) {
+			try {
+				handler(eventId, decision);
 			} catch {
 				// Handler errors should not crash the server
 			}
@@ -124,6 +136,7 @@ export function createServer(opts: ServerOptions) {
 									timeoutDecision,
 								);
 								respondToForwarder(runtimeEvent.id, result);
+								notifyDecision(runtimeEvent.id, timeoutDecision);
 							}, runtimeEvent.interaction.defaultTimeoutMs);
 						}
 
@@ -196,12 +209,18 @@ export function createServer(opts: ServerOptions) {
 			return () => handlers.delete(handler);
 		},
 
+		onDecision(handler: RuntimeDecisionHandler): () => void {
+			decisionHandlers.add(handler);
+			return () => decisionHandlers.delete(handler);
+		},
+
 		sendDecision(eventId: string, decision: RuntimeDecision): void {
 			const req = pending.get(eventId);
 			if (!req) return; // Late decision — request already timed out or responded
 
 			const result = mapDecisionToResult(req.event, decision);
 			respondToForwarder(eventId, result);
+			notifyDecision(eventId, decision);
 		},
 
 		_getPendingCount(): number {

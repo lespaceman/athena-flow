@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {matchRule} from './useHookServer.js';
+import {matchRule} from '../types/rules.js';
 import {type HookRule} from '../types/rules.js';
 
 function makeRule(

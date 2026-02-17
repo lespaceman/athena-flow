@@ -12,7 +12,10 @@ import type {PermissionDecision} from '../types/server.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
 import {mapToDisplay} from './mapToDisplay.js';
 import {useRequestQueue} from './useRequestQueue.js';
-import {generateId} from '../types/hooks/envelope.js';
+/** Generate unique IDs for rules (inlined to avoid protocol imports). */
+function generateId(): string {
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 const MAX_EVENTS = 100;
 
@@ -235,11 +238,23 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 			}
 		});
 
+		const unsubDecision = runtime.onDecision((eventId, decision) => {
+			if (abortRef.current.signal.aborted) return;
+			const status =
+				decision.type === 'block'
+					? 'blocked'
+					: decision.type === 'json'
+						? 'json_output'
+						: 'passthrough';
+			updateEvent(eventId, {status});
+		});
+
 		runtime.start();
 
 		return () => {
 			abortRef.current.abort();
 			unsub();
+			unsubDecision();
 			runtime.stop();
 		};
 	}, [runtime, enqueuePermission, enqueueQuestion, updateEvent]);

@@ -15,7 +15,7 @@ const SOURCE_DIR = path.resolve(import.meta.dirname, '../..');
 const EXCLUDED_FILES = new Set(['HookContext.tsx']);
 
 // UI directories that should NOT import protocol types
-const UI_DIRS = ['components', 'context'];
+const UI_DIRS = ['components', 'context', 'hooks'];
 
 // Forbidden import paths (substrings)
 const FORBIDDEN_PATHS = [

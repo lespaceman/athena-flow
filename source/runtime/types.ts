@@ -72,6 +72,10 @@ export type RuntimeDecision = {
 // ── Runtime Interface ────────────────────────────────────
 
 export type RuntimeEventHandler = (event: RuntimeEvent) => void;
+export type RuntimeDecisionHandler = (
+	eventId: string,
+	decision: RuntimeDecision,
+) => void;
 
 export type Runtime = {
 	start(): void;
@@ -79,6 +83,8 @@ export type Runtime = {
 	getStatus(): 'stopped' | 'running';
 	/** Subscribe to events. Returns unsubscribe function. */
 	onEvent(handler: RuntimeEventHandler): () => void;
+	/** Subscribe to decisions (user, rule, or timeout). Returns unsubscribe function. */
+	onDecision(handler: RuntimeDecisionHandler): () => void;
 	/** Send a decision for a pending event. eventId must match RuntimeEvent.id */
 	sendDecision(eventId: string, decision: RuntimeDecision): void;
 };
