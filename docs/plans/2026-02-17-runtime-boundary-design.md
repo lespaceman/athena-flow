@@ -26,34 +26,34 @@ The Ink UI currently imports `HookEventEnvelope`, `HookResultPayload`, `ClaudeHo
 // ── Runtime Event (adapter → UI) ─────────────────────────
 
 export type RuntimeEvent = {
-  id: string;                // opaque correlation ID (= request_id internally)
-  timestamp: number;         // unix ms
-  hookName: string;          // hook_event_name as-is (open string, forward compatible)
-  sessionId: string;
+	id: string; // opaque correlation ID (= request_id internally)
+	timestamp: number; // unix ms
+	hookName: string; // hook_event_name as-is (open string, forward compatible)
+	sessionId: string;
 
-  // Cross-event derived fields (never tool-specific)
-  toolName?: string;
-  toolUseId?: string;
-  agentId?: string;
-  agentType?: string;
+	// Cross-event derived fields (never tool-specific)
+	toolName?: string;
+	toolUseId?: string;
+	agentId?: string;
+	agentType?: string;
 
-  // Base context present on all hook events
-  context: {
-    cwd: string;
-    transcriptPath: string;
-    permissionMode?: string;
-  };
+	// Base context present on all hook events
+	context: {
+		cwd: string;
+		transcriptPath: string;
+		permissionMode?: string;
+	};
 
-  // Interaction hints — does the runtime expect a decision?
-  interaction: {
-    expectsDecision: boolean;    // whether runtime waits for sendDecision
-    defaultTimeoutMs?: number;   // adapter-enforced timeout
-    canBlock?: boolean;          // protocol capability (not current UI behavior)
-  };
+	// Interaction hints — does the runtime expect a decision?
+	interaction: {
+		expectsDecision: boolean; // whether runtime waits for sendDecision
+		defaultTimeoutMs?: number; // adapter-enforced timeout
+		canBlock?: boolean; // protocol capability (not current UI behavior)
+	};
 
-  // Opaque payload — adapter enforces it's always an object
-  // UI renderers may deep-access fields but must not import protocol types
-  payload: unknown;
+	// Opaque payload — adapter enforces it's always an object
+	// UI renderers may deep-access fields but must not import protocol types
+	payload: unknown;
 };
 
 // ── Runtime Decision (UI → adapter) ──────────────────────
@@ -61,31 +61,31 @@ export type RuntimeEvent = {
 export type RuntimeDecisionType = 'passthrough' | 'block' | 'json';
 
 export type RuntimeDecision = {
-  type: RuntimeDecisionType;
-  source: 'user' | 'timeout' | 'rule';
-  intent?: RuntimeIntent;      // semantic intent for 'json' decisions
-  reason?: string;             // for 'block' decisions
-  data?: unknown;              // raw data (e.g., answers for AskUserQuestion)
+	type: RuntimeDecisionType;
+	source: 'user' | 'timeout' | 'rule';
+	intent?: RuntimeIntent; // semantic intent for 'json' decisions
+	reason?: string; // for 'block' decisions
+	data?: unknown; // raw data (e.g., answers for AskUserQuestion)
 };
 
 // Typed intent union — small and stable
 export type RuntimeIntent =
-  | { kind: 'permission_allow' }
-  | { kind: 'permission_deny'; reason: string }
-  | { kind: 'question_answer'; answers: Record<string, string> }
-  | { kind: 'pre_tool_allow' }
-  | { kind: 'pre_tool_deny'; reason: string };
+	| {kind: 'permission_allow'}
+	| {kind: 'permission_deny'; reason: string}
+	| {kind: 'question_answer'; answers: Record<string, string>}
+	| {kind: 'pre_tool_allow'}
+	| {kind: 'pre_tool_deny'; reason: string};
 
 // ── Runtime Interface ────────────────────────────────────
 
 export type RuntimeEventHandler = (event: RuntimeEvent) => void;
 
 export type Runtime = {
-  start(): void;
-  stop(): void;
-  getStatus(): 'stopped' | 'running';
-  onEvent(handler: RuntimeEventHandler): () => void;  // returns unsubscribe
-  sendDecision(eventId: string, decision: RuntimeDecision): void;
+	start(): void;
+	stop(): void;
+	getStatus(): 'stopped' | 'running';
+	onEvent(handler: RuntimeEventHandler): () => void; // returns unsubscribe
+	sendDecision(eventId: string, decision: RuntimeDecision): void;
 };
 ```
 
@@ -120,6 +120,7 @@ Factory function. Creates UDS server, manages pending requests, handles timeouts
 ### `mapper.ts`
 
 The **only** file that imports `HookEventEnvelope`, `ClaudeHookEvent`, type guards. Responsibilities:
+
 - Extract derived fields (`toolName`, `agentId`, etc.) from typed payload
 - Build `context` from `BaseHookEvent` fields (`cwd`, `transcript_path`, `permission_mode`)
 - Look up `interaction` hints from `interactionRules`
@@ -131,15 +132,15 @@ Signature: `decisionMapper(event: RuntimeEvent, decision: RuntimeDecision): Hook
 
 Takes the full `RuntimeEvent` (for `hookName` + any payload fields needed) and translates `RuntimeIntent` into Claude-specific JSON stdout shapes:
 
-| Intent | hookName | HookResultPayload |
-|--------|----------|--------------------|
+| Intent             | hookName          | HookResultPayload                                                                                                    |
+| ------------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `permission_allow` | PermissionRequest | `json_output` with `{ hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow' } } }` |
-| `permission_deny` | PermissionRequest | `json_output` with `{ ..., decision: { behavior: 'deny', reason } }` |
-| `question_answer` | PreToolUse | `json_output` with `{ ..., permissionDecision: 'allow', updatedInput: { answers } }` |
-| `pre_tool_allow` | PreToolUse | `json_output` with `{ ..., permissionDecision: 'allow' }` |
-| `pre_tool_deny` | PreToolUse | `json_output` with `{ ..., permissionDecision: 'deny', reason }` |
-| (no intent) | any | `passthrough` = no stdout, exit 0 |
-| block | any | `block_with_stderr` with reason |
+| `permission_deny`  | PermissionRequest | `json_output` with `{ ..., decision: { behavior: 'deny', reason } }`                                                 |
+| `question_answer`  | PreToolUse        | `json_output` with `{ ..., permissionDecision: 'allow', updatedInput: { answers } }`                                 |
+| `pre_tool_allow`   | PreToolUse        | `json_output` with `{ ..., permissionDecision: 'allow' }`                                                            |
+| `pre_tool_deny`    | PreToolUse        | `json_output` with `{ ..., permissionDecision: 'deny', reason }`                                                     |
+| (no intent)        | any               | `passthrough` = no stdout, exit 0                                                                                    |
+| block              | any               | `block_with_stderr` with reason                                                                                      |
 
 **Critical invariant**: `passthrough` means "no output, exit 0" (Claude continues with its own permission system). Never accidentally map passthrough into explicit allow JSON for PreToolUse — that changes semantics.
 
@@ -148,28 +149,65 @@ Takes the full `RuntimeEvent` (for `hookName` + any payload fields needed) and t
 Declarative map with safe defaults for unknown events:
 
 ```typescript
-const DEFAULT_RULE = { expectsDecision: false, defaultTimeoutMs: 4000, canBlock: false };
+const DEFAULT_RULE = {
+	expectsDecision: false,
+	defaultTimeoutMs: 4000,
+	canBlock: false,
+};
 
 const RULES: Record<string, InteractionRule> = {
-  PermissionRequest: { expectsDecision: true, defaultTimeoutMs: 300_000, canBlock: true },
-  PreToolUse:        { expectsDecision: true, defaultTimeoutMs: 4000,    canBlock: true },
-  PostToolUse:       { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  PostToolUseFailure:{ expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  Stop:              { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: true },
-  SubagentStop:      { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: true },
-  SubagentStart:     { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  Notification:      { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  SessionStart:      { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  SessionEnd:        { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  PreCompact:        { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: false },
-  UserPromptSubmit:  { expectsDecision: false, defaultTimeoutMs: 4000,   canBlock: true },
-  // Unknown events: never wait, passthrough immediately
+	PermissionRequest: {
+		expectsDecision: true,
+		defaultTimeoutMs: 300_000,
+		canBlock: true,
+	},
+	PreToolUse: {expectsDecision: true, defaultTimeoutMs: 4000, canBlock: true},
+	PostToolUse: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: false,
+	},
+	PostToolUseFailure: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: false,
+	},
+	Stop: {expectsDecision: false, defaultTimeoutMs: 4000, canBlock: true},
+	SubagentStop: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: true,
+	},
+	SubagentStart: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: false,
+	},
+	Notification: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: false,
+	},
+	SessionStart: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: false,
+	},
+	SessionEnd: {expectsDecision: false, defaultTimeoutMs: 4000, canBlock: false},
+	PreCompact: {expectsDecision: false, defaultTimeoutMs: 4000, canBlock: false},
+	UserPromptSubmit: {
+		expectsDecision: false,
+		defaultTimeoutMs: 4000,
+		canBlock: true,
+	},
+	// Unknown events: never wait, passthrough immediately
 };
 ```
 
 ### Timeout handling
 
 When timeout fires, the adapter:
+
 1. Generates `RuntimeDecision { type: 'passthrough', source: 'timeout' }`
 2. Runs it through `decisionMapper` to produce `HookResultPayload`
 3. Sends `HookResultEnvelope` back over UDS
@@ -180,14 +218,18 @@ Late decisions (UI sends after timeout fired) are logged and ignored.
 ### Pending request map
 
 ```typescript
-pendingByRequestId: Map<string, {
-  event: RuntimeEvent;
-  timer: ReturnType<typeof setTimeout>;
-  socket: net.Socket;
-}>
+pendingByRequestId: Map<
+	string,
+	{
+		event: RuntimeEvent;
+		timer: ReturnType<typeof setTimeout>;
+		socket: net.Socket;
+	}
+>;
 ```
 
 `sendDecision(eventId, decision)`:
+
 - Validates request exists and is still pending
 - Cancels timeout timer
 - Sends `HookResultEnvelope` via socket
@@ -203,17 +245,17 @@ Evolves from current `eventHandlers.ts`. Receives `RuntimeEvent`s, returns `Cont
 
 ```typescript
 export type ControllerCallbacks = {
-  getRules: () => HookRule[];
-  enqueuePermission: (eventId: string) => void;
-  enqueueQuestion: (eventId: string) => void;
-  setCurrentSessionId: (sessionId: string) => void;
-  onTranscriptParsed: (eventId: string, summary: unknown) => void;
-  signal?: AbortSignal;
+	getRules: () => HookRule[];
+	enqueuePermission: (eventId: string) => void;
+	enqueueQuestion: (eventId: string) => void;
+	setCurrentSessionId: (sessionId: string) => void;
+	onTranscriptParsed: (eventId: string, summary: unknown) => void;
+	signal?: AbortSignal;
 };
 
 export type ControllerResult =
-  | { handled: true; decision?: RuntimeDecision }  // decided immediately (rule match)
-  | { handled: false };                             // default path — adapter handles timeout
+	| {handled: true; decision?: RuntimeDecision} // decided immediately (rule match)
+	| {handled: false}; // default path — adapter handles timeout
 ```
 
 ### Dispatch chain (same first-match-wins logic)
@@ -299,9 +341,9 @@ source/runtime/adapters/mock/
 
 ```typescript
 type MockScriptEntry = {
-  delayMs: number;
-  event: Partial<RuntimeEvent>;    // fillDefaults() supplies context, interaction, id, timestamp
-  awaitDecisionForId?: string;     // pause script until this event gets a decision
+	delayMs: number;
+	event: Partial<RuntimeEvent>; // fillDefaults() supplies context, interaction, id, timestamp
+	awaitDecisionForId?: string; // pause script until this event gets a decision
 };
 ```
 
@@ -314,6 +356,7 @@ type MockScriptEntry = {
 `createInjectableMockRuntime(): InjectableMockRuntime`
 
 Extends `Runtime` with:
+
 - `emit(event: RuntimeEvent)` — push event to subscribers
 - `getDecisions()` — return all decisions received
 - `getDecision(eventId)` — return decision for specific event
@@ -327,6 +370,7 @@ Used in vitest tests for deterministic controller/UI testing.
 ### Primary: ESLint `no-restricted-imports`
 
 UI files (`source/components/**`, `source/hooks/**`, `source/context/**`) cannot import from:
+
 - `source/runtime/adapters/claudeHooks/` (adapter internals)
 - `source/types/hooks/envelope` (wire protocol)
 - `source/types/hooks/result` (transport actions)
@@ -348,19 +392,19 @@ Added **immediately after** the runtime is wired in (step 6 of migration), **bef
 
 Incremental steps — app compiles at every step:
 
-| Step | Action | Risk |
-|------|--------|------|
-| 1 | Create `source/runtime/types.ts` — boundary types only | None (new file) |
-| 2 | Create `source/runtime/adapters/claudeHooks/` — adapter implementing `Runtime` | None (new files, imports existing protocol types) |
-| 3 | Create `source/hooks/mapToDisplay.ts` — thin RuntimeEvent → HookEventDisplay mapper | None (new file) |
-| 4 | Create `source/hooks/hookController.ts` — rewrite eventHandlers to accept RuntimeEvent, return ControllerResult with RuntimeIntent | Low (new file, old file still exists) |
-| 5 | Create `source/hooks/useRuntime.ts` — new hook wrapping Runtime | None (new file) |
-| 6 | Update `source/context/HookContext.tsx` — swap useHookServer for useRuntime(createClaudeHookRuntime(...)) | **Medium** (integration point — app now uses runtime) |
-| 7 | **Add boundary enforcement** — ESLint rules + vitest boundary test | None (catches violations) |
-| 8 | Update `HookEventDisplay` — change `payload` to `unknown`, `hookName` to `string`, `result` to `unknown` | Medium (type errors surface) |
-| 9 | Update UI components — remove type guard imports, switch to string matching + casts | Medium (many files touched, but mechanical) |
-| 10 | Create mock adapter (scripted replay + injectable) | None (new files) |
-| 11 | Remove dead code — unused protocol imports, old `useHookServer` if fully replaced, old `eventHandlers.ts` | Low (cleanup) |
+| Step | Action                                                                                                                             | Risk                                                  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 1    | Create `source/runtime/types.ts` — boundary types only                                                                             | None (new file)                                       |
+| 2    | Create `source/runtime/adapters/claudeHooks/` — adapter implementing `Runtime`                                                     | None (new files, imports existing protocol types)     |
+| 3    | Create `source/hooks/mapToDisplay.ts` — thin RuntimeEvent → HookEventDisplay mapper                                                | None (new file)                                       |
+| 4    | Create `source/hooks/hookController.ts` — rewrite eventHandlers to accept RuntimeEvent, return ControllerResult with RuntimeIntent | Low (new file, old file still exists)                 |
+| 5    | Create `source/hooks/useRuntime.ts` — new hook wrapping Runtime                                                                    | None (new file)                                       |
+| 6    | Update `source/context/HookContext.tsx` — swap useHookServer for useRuntime(createClaudeHookRuntime(...))                          | **Medium** (integration point — app now uses runtime) |
+| 7    | **Add boundary enforcement** — ESLint rules + vitest boundary test                                                                 | None (catches violations)                             |
+| 8    | Update `HookEventDisplay` — change `payload` to `unknown`, `hookName` to `string`, `result` to `unknown`                           | Medium (type errors surface)                          |
+| 9    | Update UI components — remove type guard imports, switch to string matching + casts                                                | Medium (many files touched, but mechanical)           |
+| 10   | Create mock adapter (scripted replay + injectable)                                                                                 | None (new files)                                      |
+| 11   | Remove dead code — unused protocol imports, old `useHookServer` if fully replaced, old `eventHandlers.ts`                          | Low (cleanup)                                         |
 
 **Critical invariant**: after step 6, the app behaves identically to before. Steps 7-9 are the "break old imports" pass with enforcement already in place. Step 8 is done incrementally — change types first with `as unknown` casts, then clean up component by component.
 

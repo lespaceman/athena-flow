@@ -12,8 +12,7 @@ function makeEnvelope(
 		request_id: 'req-1',
 		ts: 1000,
 		session_id: 'sess-1',
-		hook_event_name:
-			'PreToolUse' as HookEventEnvelope['hook_event_name'],
+		hook_event_name: 'PreToolUse' as HookEventEnvelope['hook_event_name'],
 		...rest,
 		payload: {
 			hook_event_name: 'PreToolUse',
@@ -49,8 +48,7 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 
 	it('extracts subagent derived fields', () => {
 		const envelope = makeEnvelope({
-			hook_event_name:
-				'SubagentStart' as HookEventEnvelope['hook_event_name'],
+			hook_event_name: 'SubagentStart' as HookEventEnvelope['hook_event_name'],
 			payload: {
 				hook_event_name: 'SubagentStart',
 				session_id: 'sess-1',
@@ -93,8 +91,7 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 
 	it('handles unknown hook names with safe defaults', () => {
 		const envelope = makeEnvelope({
-			hook_event_name:
-				'FutureEvent' as HookEventEnvelope['hook_event_name'],
+			hook_event_name: 'FutureEvent' as HookEventEnvelope['hook_event_name'],
 			payload: {
 				hook_event_name: 'FutureEvent',
 				session_id: 'sess-1',

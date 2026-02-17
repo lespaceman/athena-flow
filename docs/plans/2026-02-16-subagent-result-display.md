@@ -24,6 +24,7 @@ The PostToolUse(Task) `tool_response` has structure: `{status, content: [{type: 
 ### Task 1: Write failing test for PostToolUse(Task) appearing in content stream
 
 **Files:**
+
 - Modify: `source/hooks/useContentOrdering.test.ts`
 
 **Step 1: Write the failing test**
@@ -32,24 +33,27 @@ Add a test that verifies PostToolUse(Task) events are NOT excluded from the main
 
 ```typescript
 it('includes PostToolUse for Task in main stream', () => {
-  const postToolUseTask = makeHookEvent({
-    hookName: 'PostToolUse',
-    toolName: 'Task',
-    payload: {
-      hook_event_name: 'PostToolUse',
-      tool_name: 'Task',
-      tool_input: {prompt: 'do something', subagent_type: 'Explore'},
-      tool_response: {status: 'completed', content: [{type: 'text', text: 'result'}]},
-    },
-  });
+	const postToolUseTask = makeHookEvent({
+		hookName: 'PostToolUse',
+		toolName: 'Task',
+		payload: {
+			hook_event_name: 'PostToolUse',
+			tool_name: 'Task',
+			tool_input: {prompt: 'do something', subagent_type: 'Explore'},
+			tool_response: {
+				status: 'completed',
+				content: [{type: 'text', text: 'result'}],
+			},
+		},
+	});
 
-  const {stableItems} = useContentOrderingHelper({
-    events: [postToolUseTask],
-  });
+	const {stableItems} = useContentOrderingHelper({
+		events: [postToolUseTask],
+	});
 
-  const hookItems = stableItems.filter(i => i.type === 'hook');
-  expect(hookItems).toHaveLength(1);
-  expect(hookItems[0]!.data).toBe(postToolUseTask);
+	const hookItems = stableItems.filter(i => i.type === 'hook');
+	expect(hookItems).toHaveLength(1);
+	expect(hookItems[0]!.data).toBe(postToolUseTask);
 });
 ```
 
@@ -63,6 +67,7 @@ Expected: FAIL — PostToolUse(Task) is currently excluded by `shouldExcludeFrom
 **Step 3: Fix `shouldExcludeFromMainStream` in `useContentOrdering.ts`**
 
 Remove the PostToolUse(Task) exclusion (line 42-43):
+
 ```typescript
 // REMOVE these lines:
 // if (event.hookName === 'PostToolUse' && event.toolName === 'Task')
@@ -88,6 +93,7 @@ git commit -m "feat: un-exclude PostToolUse(Task) from content stream"
 ### Task 2: Write failing test for SubagentStop handler — no transcript parsing
 
 **Files:**
+
 - Modify: `source/hooks/eventHandlers.ts` (tests are inline or in a separate test file)
 
 **Step 1: Find existing `handleSubagentStop` tests**
@@ -98,23 +104,23 @@ Write a test verifying that `handleSubagentStop` calls `addEvent` immediately (n
 
 ```typescript
 it('adds SubagentStop event synchronously without transcript parsing', () => {
-  const addEvent = vi.fn();
-  const ctx = makeHandlerContext({
-    hook_event_name: 'SubagentStop',
-    agent_id: 'a123',
-    agent_type: 'Explore',
-    agent_transcript_path: '/some/path.jsonl',
-  });
+	const addEvent = vi.fn();
+	const ctx = makeHandlerContext({
+		hook_event_name: 'SubagentStop',
+		agent_id: 'a123',
+		agent_type: 'Explore',
+		agent_transcript_path: '/some/path.jsonl',
+	});
 
-  const handled = handleSubagentStop(ctx, {
-    ...mockCallbacks,
-    addEvent,
-  });
+	const handled = handleSubagentStop(ctx, {
+		...mockCallbacks,
+		addEvent,
+	});
 
-  expect(handled).toBe(true);
-  // Event should be added synchronously, not after async parse
-  expect(addEvent).toHaveBeenCalledTimes(1);
-  expect(addEvent).toHaveBeenCalledWith(ctx.displayEvent);
+	expect(handled).toBe(true);
+	// Event should be added synchronously, not after async parse
+	expect(addEvent).toHaveBeenCalledTimes(1);
+	expect(addEvent).toHaveBeenCalledWith(ctx.displayEvent);
 });
 ```
 
@@ -128,15 +134,15 @@ Replace the async transcript parsing with immediate event add:
 
 ```typescript
 export function handleSubagentStop(
-  ctx: HandlerContext,
-  cb: HandlerCallbacks,
+	ctx: HandlerContext,
+	cb: HandlerCallbacks,
 ): boolean {
-  const {envelope, displayEvent} = ctx;
-  if (!isSubagentStopEvent(envelope.payload)) return false;
+	const {envelope, displayEvent} = ctx;
+	if (!isSubagentStopEvent(envelope.payload)) return false;
 
-  cb.storeWithAutoPassthrough(ctx);
-  cb.addEvent(displayEvent);
-  return true;
+	cb.storeWithAutoPassthrough(ctx);
+	cb.addEvent(displayEvent);
+	return true;
 }
 ```
 
@@ -159,6 +165,7 @@ git commit -m "refactor: remove transcript parsing from SubagentStop handler"
 ### Task 3: Simplify SubagentStopEvent to header-only
 
 **Files:**
+
 - Modify: `source/components/SubagentStopEvent.tsx`
 
 **Step 1: Write/update test for SubagentStopEvent**
@@ -182,33 +189,33 @@ Remove transcript body rendering, loading state, MarkdownText, ToolResultContain
 import React from 'react';
 import {Box, Text} from 'ink';
 import {
-  type HookEventDisplay,
-  isSubagentStopEvent,
+	type HookEventDisplay,
+	isSubagentStopEvent,
 } from '../types/hooks/index.js';
 import {useTheme} from '../theme/index.js';
 import {truncateLine} from '../utils/truncate.js';
 
 export default function SubagentStopEvent({
-  event,
+	event,
 }: {
-  event: HookEventDisplay;
+	event: HookEventDisplay;
 }): React.ReactNode {
-  const theme = useTheme();
-  if (!isSubagentStopEvent(event.payload)) return null;
+	const theme = useTheme();
+	if (!isSubagentStopEvent(event.payload)) return null;
 
-  const terminalWidth = process.stdout.columns ?? 80;
-  const headerText = truncateLine(
-    `${event.payload.agent_type} — Done`,
-    terminalWidth - 4,
-  );
+	const terminalWidth = process.stdout.columns ?? 80;
+	const headerText = truncateLine(
+		`${event.payload.agent_type} — Done`,
+		terminalWidth - 4,
+	);
 
-  return (
-    <Box marginTop={1}>
-      <Text color={theme.accentSecondary} bold>
-        ● {headerText}
-      </Text>
-    </Box>
-  );
+	return (
+		<Box marginTop={1}>
+			<Text color={theme.accentSecondary} bold>
+				● {headerText}
+			</Text>
+		</Box>
+	);
 }
 ```
 
@@ -229,6 +236,7 @@ git commit -m "refactor: simplify SubagentStopEvent to header-only marker"
 ### Task 4: Remove `onTranscriptParsed` callback from SubagentStop path (cleanup)
 
 **Files:**
+
 - Modify: `source/hooks/eventHandlers.ts` — verify `onTranscriptParsed` is only used by `handleSessionTracking`
 - Modify: `source/types/hooks/display.ts` — `transcriptSummary` field is still needed for SessionEnd
 
@@ -264,6 +272,7 @@ Expected: Clean build, no errors
 **Step 2: Manual verification**
 
 Start athena-cli and trigger a subagent run. Verify:
+
 - SubagentStop shows `● AgentType — Done` (header only)
 - PostToolUse(Task) renders below with `⎿ [actual result text]`
 - No duplicate content between SubagentStop and PostToolUse(Task)

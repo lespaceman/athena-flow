@@ -64,10 +64,7 @@ export function handleEvent(
 	}
 
 	// ── AskUserQuestion hijack ──
-	if (
-		event.hookName === 'PreToolUse' &&
-		event.toolName === 'AskUserQuestion'
-	) {
+	if (event.hookName === 'PreToolUse' && event.toolName === 'AskUserQuestion') {
 		cb.enqueueQuestion(event.id);
 		return {handled: true};
 	}
@@ -83,10 +80,7 @@ export function handleEvent(
 			parseTranscriptFile(transcriptPath, cb.signal)
 				.then(summary => cb.onTranscriptParsed(event.id, summary))
 				.catch(err => {
-					console.error(
-						'[SessionEnd] Failed to parse transcript:',
-						err,
-					);
+					console.error('[SessionEnd] Failed to parse transcript:', err);
 				});
 		} else {
 			cb.onTranscriptParsed(event.id, {

@@ -46,9 +46,7 @@ export function mapEnvelopeToRuntimeEvent(
 
 	// Build context from base fields (always present on all hook events)
 	const context: RuntimeEvent['context'] = {
-		cwd:
-			((payload as Record<string, unknown>).cwd as string | undefined) ??
-			'',
+		cwd: ((payload as Record<string, unknown>).cwd as string | undefined) ?? '',
 		transcriptPath:
 			((payload as Record<string, unknown>).transcript_path as
 				| string

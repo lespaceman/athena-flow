@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript, React 19, Ink, vitest, ESLint 9 (flat config)
 
 **Reference docs:**
+
 - Design: `docs/plans/2026-02-17-runtime-boundary-design.md`
 - Hook protocol: `docs/hook-signatures.md`
 
@@ -17,6 +18,7 @@
 ### Task 1: Define Runtime Boundary Types
 
 **Files:**
+
 - Create: `source/runtime/types.ts`
 
 **Step 1: Write the types file**
@@ -127,6 +129,7 @@ git commit -m "feat: add runtime boundary types (RuntimeEvent, RuntimeDecision, 
 ### Task 2: Create Interaction Rules
 
 **Files:**
+
 - Create: `source/runtime/adapters/claudeHooks/interactionRules.ts`
 - Create: `source/runtime/adapters/claudeHooks/__tests__/interactionRules.test.ts`
 
@@ -278,6 +281,7 @@ git commit -m "feat: add interaction rules for hook event types"
 ### Task 3: Create Event Mapper (HookEventEnvelope → RuntimeEvent)
 
 **Files:**
+
 - Create: `source/runtime/adapters/claudeHooks/mapper.ts`
 - Create: `source/runtime/adapters/claudeHooks/__tests__/mapper.test.ts`
 
@@ -289,7 +293,9 @@ import {describe, it, expect} from 'vitest';
 import {mapEnvelopeToRuntimeEvent} from '../mapper.js';
 import type {HookEventEnvelope} from '../../../../types/hooks/envelope.js';
 
-function makeEnvelope(overrides: Partial<HookEventEnvelope> & {payload: Record<string, unknown>}): HookEventEnvelope {
+function makeEnvelope(
+	overrides: Partial<HookEventEnvelope> & {payload: Record<string, unknown>},
+): HookEventEnvelope {
 	return {
 		request_id: 'req-1',
 		ts: 1000,
@@ -448,9 +454,12 @@ export function mapEnvelopeToRuntimeEvent(
 
 	// Build context from base fields (always present on all hook events)
 	const context: RuntimeEvent['context'] = {
-		cwd: (payload as Record<string, unknown>).cwd as string ?? '',
-		transcriptPath: (payload as Record<string, unknown>).transcript_path as string ?? '',
-		permissionMode: (payload as Record<string, unknown>).permission_mode as string | undefined,
+		cwd: ((payload as Record<string, unknown>).cwd as string) ?? '',
+		transcriptPath:
+			((payload as Record<string, unknown>).transcript_path as string) ?? '',
+		permissionMode: (payload as Record<string, unknown>).permission_mode as
+			| string
+			| undefined,
 	};
 
 	return {
@@ -486,6 +495,7 @@ git commit -m "feat: add event mapper (HookEventEnvelope → RuntimeEvent)"
 ### Task 4: Create Decision Mapper (RuntimeDecision → HookResultPayload)
 
 **Files:**
+
 - Create: `source/runtime/adapters/claudeHooks/decisionMapper.ts`
 - Create: `source/runtime/adapters/claudeHooks/__tests__/decisionMapper.test.ts`
 
@@ -511,29 +521,31 @@ function makeEvent(hookName: string): RuntimeEvent {
 
 describe('mapDecisionToResult', () => {
 	it('maps passthrough to exit 0 with no output', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PreToolUse'),
-			{type: 'passthrough', source: 'timeout'},
-		);
+		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
+			type: 'passthrough',
+			source: 'timeout',
+		});
 		expect(result.action).toBe('passthrough');
 		expect(result.stdout_json).toBeUndefined();
 		expect(result.stderr).toBeUndefined();
 	});
 
 	it('maps block to block_with_stderr', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PreToolUse'),
-			{type: 'block', source: 'user', reason: 'Blocked by user'},
-		);
+		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
+			type: 'block',
+			source: 'user',
+			reason: 'Blocked by user',
+		});
 		expect(result.action).toBe('block_with_stderr');
 		expect(result.stderr).toBe('Blocked by user');
 	});
 
 	it('maps permission_allow intent for PermissionRequest', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PermissionRequest'),
-			{type: 'json', source: 'user', intent: {kind: 'permission_allow'}},
-		);
+		const result = mapDecisionToResult(makeEvent('PermissionRequest'), {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+		});
 		expect(result.action).toBe('json_output');
 		expect(result.stdout_json).toEqual({
 			hookSpecificOutput: {
@@ -544,10 +556,11 @@ describe('mapDecisionToResult', () => {
 	});
 
 	it('maps permission_deny intent for PermissionRequest', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PermissionRequest'),
-			{type: 'json', source: 'rule', intent: {kind: 'permission_deny', reason: 'Denied by rule'}},
-		);
+		const result = mapDecisionToResult(makeEvent('PermissionRequest'), {
+			type: 'json',
+			source: 'rule',
+			intent: {kind: 'permission_deny', reason: 'Denied by rule'},
+		});
 		expect(result.action).toBe('json_output');
 		const output = result.stdout_json as Record<string, unknown>;
 		const hso = output.hookSpecificOutput as Record<string, unknown>;
@@ -559,10 +572,11 @@ describe('mapDecisionToResult', () => {
 	it('maps question_answer intent for PreToolUse AskUserQuestion', () => {
 		const event = makeEvent('PreToolUse');
 		(event.payload as Record<string, unknown>).tool_name = 'AskUserQuestion';
-		const result = mapDecisionToResult(
-			event,
-			{type: 'json', source: 'user', intent: {kind: 'question_answer', answers: {q1: 'a1'}}},
-		);
+		const result = mapDecisionToResult(event, {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'question_answer', answers: {q1: 'a1'}},
+		});
 		expect(result.action).toBe('json_output');
 		const output = result.stdout_json as Record<string, unknown>;
 		const hso = output.hookSpecificOutput as Record<string, unknown>;
@@ -571,10 +585,11 @@ describe('mapDecisionToResult', () => {
 	});
 
 	it('maps pre_tool_allow intent', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PreToolUse'),
-			{type: 'json', source: 'user', intent: {kind: 'pre_tool_allow'}},
-		);
+		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'pre_tool_allow'},
+		});
 		expect(result.action).toBe('json_output');
 		const output = result.stdout_json as Record<string, unknown>;
 		const hso = output.hookSpecificOutput as Record<string, unknown>;
@@ -582,10 +597,11 @@ describe('mapDecisionToResult', () => {
 	});
 
 	it('maps pre_tool_deny intent', () => {
-		const result = mapDecisionToResult(
-			makeEvent('PreToolUse'),
-			{type: 'json', source: 'user', intent: {kind: 'pre_tool_deny', reason: 'No'}},
-		);
+		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'pre_tool_deny', reason: 'No'},
+		});
 		expect(result.action).toBe('json_output');
 		const output = result.stdout_json as Record<string, unknown>;
 		const hso = output.hookSpecificOutput as Record<string, unknown>;
@@ -728,6 +744,7 @@ git commit -m "feat: add decision mapper (RuntimeDecision → HookResultPayload)
 ### Task 5: Create Claude Hook Runtime Adapter
 
 **Files:**
+
 - Create: `source/runtime/adapters/claudeHooks/server.ts`
 - Create: `source/runtime/adapters/claudeHooks/index.ts`
 - Create: `source/runtime/adapters/claudeHooks/__tests__/server.test.ts`
@@ -899,10 +916,17 @@ Expected: FAIL (module not found)
 import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type {HookEventEnvelope, HookResultEnvelope} from '../../../types/hooks/envelope.js';
+import type {
+	HookEventEnvelope,
+	HookResultEnvelope,
+} from '../../../types/hooks/envelope.js';
 import {isValidHookEventEnvelope} from '../../../types/hooks/envelope.js';
 import type {HookResultPayload} from '../../../types/hooks/result.js';
-import type {RuntimeEvent, RuntimeDecision, RuntimeEventHandler} from '../../types.js';
+import type {
+	RuntimeEvent,
+	RuntimeDecision,
+	RuntimeEventHandler,
+} from '../../types.js';
 import {mapEnvelopeToRuntimeEvent} from './mapper.js';
 import {mapDecisionToResult} from './decisionMapper.js';
 
@@ -935,7 +959,10 @@ export function createServer(opts: ServerOptions) {
 		}
 	}
 
-	function respondToForwarder(requestId: string, resultPayload: HookResultPayload): void {
+	function respondToForwarder(
+		requestId: string,
+		resultPayload: HookResultPayload,
+	): void {
 		const req = pending.get(requestId);
 		if (!req) return;
 
@@ -962,8 +989,16 @@ export function createServer(opts: ServerOptions) {
 			const socketDir = path.join(projectDir, '.claude', 'run');
 			socketPath = path.join(socketDir, `ink-${instanceId}.sock`);
 
-			try { fs.mkdirSync(socketDir, {recursive: true}); } catch { /* exists */ }
-			try { fs.unlinkSync(socketPath); } catch { /* doesn't exist */ }
+			try {
+				fs.mkdirSync(socketDir, {recursive: true});
+			} catch {
+				/* exists */
+			}
+			try {
+				fs.unlinkSync(socketPath);
+			} catch {
+				/* doesn't exist */
+			}
 
 			server = net.createServer((socket: net.Socket) => {
 				let data = '';
@@ -994,7 +1029,10 @@ export function createServer(opts: ServerOptions) {
 									type: 'passthrough',
 									source: 'timeout',
 								};
-								const result = mapDecisionToResult(runtimeEvent, timeoutDecision);
+								const result = mapDecisionToResult(
+									runtimeEvent,
+									timeoutDecision,
+								);
 								respondToForwarder(runtimeEvent.id, result);
 							}, runtimeEvent.interaction.defaultTimeoutMs);
 						}
@@ -1006,7 +1044,9 @@ export function createServer(opts: ServerOptions) {
 					}
 				});
 
-				socket.on('error', () => { /* handled by close */ });
+				socket.on('error', () => {
+					/* handled by close */
+				});
 
 				socket.on('close', () => {
 					for (const [reqId, req] of pending) {
@@ -1018,11 +1058,19 @@ export function createServer(opts: ServerOptions) {
 				});
 			});
 
-			server.on('listening', () => { status = 'running'; });
-			server.on('error', () => { status = 'stopped'; });
+			server.on('listening', () => {
+				status = 'running';
+			});
+			server.on('error', () => {
+				status = 'stopped';
+			});
 
 			server.listen(socketPath, () => {
-				try { fs.chmodSync(socketPath, 0o600); } catch { /* best effort */ }
+				try {
+					fs.chmodSync(socketPath, 0o600);
+				} catch {
+					/* best effort */
+				}
 			});
 		},
 
@@ -1038,7 +1086,11 @@ export function createServer(opts: ServerOptions) {
 			}
 			status = 'stopped';
 
-			try { fs.unlinkSync(socketPath); } catch { /* best effort */ }
+			try {
+				fs.unlinkSync(socketPath);
+			} catch {
+				/* best effort */
+			}
 		},
 
 		getStatus(): 'stopped' | 'running' {
@@ -1085,7 +1137,9 @@ export type ClaudeHookRuntimeOptions = {
 	instanceId: number;
 };
 
-export function createClaudeHookRuntime(opts: ClaudeHookRuntimeOptions): Runtime {
+export function createClaudeHookRuntime(
+	opts: ClaudeHookRuntimeOptions,
+): Runtime {
 	return createServer(opts);
 }
 ```
@@ -1112,6 +1166,7 @@ git commit -m "feat: add Claude hook runtime adapter (UDS + NDJSON)"
 ### Task 6: Add Boundary Enforcement (Early)
 
 **Files:**
+
 - Create: `source/runtime/__tests__/boundary.test.ts`
 - Modify: `eslint.config.js`
 
@@ -1232,6 +1287,7 @@ git commit -m "feat: add boundary enforcement (ESLint + vitest)"
 ### Task 7: Create Hook Controller
 
 **Files:**
+
 - Create: `source/hooks/hookController.ts`
 - Create: `source/hooks/hookController.test.ts`
 
@@ -1244,7 +1300,10 @@ import {handleEvent, type ControllerCallbacks} from './hookController.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 import type {HookRule} from '../types/rules.js';
 
-function makeEvent(hookName: string, extra?: Partial<RuntimeEvent>): RuntimeEvent {
+function makeEvent(
+	hookName: string,
+	extra?: Partial<RuntimeEvent>,
+): RuntimeEvent {
 	return {
 		id: 'req-1',
 		timestamp: Date.now(),
@@ -1267,7 +1326,9 @@ function makeEvent(hookName: string, extra?: Partial<RuntimeEvent>): RuntimeEven
 function makeCallbacks(): ControllerCallbacks & {_rules: HookRule[]} {
 	return {
 		_rules: [],
-		getRules() { return this._rules; },
+		getRules() {
+			return this._rules;
+		},
 		enqueuePermission: vi.fn(),
 		enqueueQuestion: vi.fn(),
 		setCurrentSessionId: vi.fn(),
@@ -1287,7 +1348,9 @@ describe('hookController handleEvent', () => {
 
 	it('returns immediate allow decision when approve rule matches', () => {
 		const cb = makeCallbacks();
-		cb._rules = [{id: '1', toolName: 'Bash', action: 'approve', addedBy: 'test'}];
+		cb._rules = [
+			{id: '1', toolName: 'Bash', action: 'approve', addedBy: 'test'},
+		];
 		const result = handleEvent(makeEvent('PermissionRequest'), cb);
 
 		expect(result.handled).toBe(true);
@@ -1303,7 +1366,10 @@ describe('hookController handleEvent', () => {
 		const result = handleEvent(makeEvent('PermissionRequest'), cb);
 
 		expect(result.handled).toBe(true);
-		expect(result.decision!.intent).toEqual({kind: 'permission_deny', reason: 'Blocked by rule: test'});
+		expect(result.decision!.intent).toEqual({
+			kind: 'permission_deny',
+			reason: 'Blocked by rule: test',
+		});
 	});
 
 	it('enqueues AskUserQuestion PreToolUse events', () => {
@@ -1389,7 +1455,10 @@ export function handleEvent(
 				decision: {
 					type: 'json',
 					source: 'rule',
-					intent: {kind: 'permission_deny', reason: `Blocked by rule: ${rule.addedBy}`},
+					intent: {
+						kind: 'permission_deny',
+						reason: `Blocked by rule: ${rule.addedBy}`,
+					},
 				},
 			};
 		}
@@ -1462,6 +1531,7 @@ git commit -m "feat: add hook controller (RuntimeEvent → ControllerResult)"
 ### Task 8: Create Display Mapper and useRuntime Hook
 
 **Files:**
+
 - Create: `source/hooks/mapToDisplay.ts`
 - Create: `source/hooks/useRuntime.ts`
 - Create: `source/hooks/mapToDisplay.test.ts`
@@ -1636,10 +1706,13 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 	const clearEvents = useCallback(() => setEvents([]), []);
 
 	// Update an existing display event by id
-	const updateEvent = useCallback((id: string, patch: Partial<HookEventDisplay>) => {
-		if (abortRef.current.signal.aborted) return;
-		setEvents(prev => prev.map(e => e.id === id ? {...e, ...patch} : e));
-	}, []);
+	const updateEvent = useCallback(
+		(id: string, patch: Partial<HookEventDisplay>) => {
+			if (abortRef.current.signal.aborted) return;
+			setEvents(prev => prev.map(e => (e.id === id ? {...e, ...patch} : e)));
+		},
+		[],
+	);
 
 	const resolvePermission = useCallback(
 		(requestId: string, decision: PermissionDecision) => {
@@ -1656,7 +1729,11 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 				} else if (decision === 'always-allow-server') {
 					const serverMatch = /^(mcp__[^_]+(?:_[^_]+)*__)/.exec(toolName);
 					if (serverMatch) {
-						addRule({toolName: serverMatch[1] + '*', action: 'approve', addedBy: 'permission-dialog'});
+						addRule({
+							toolName: serverMatch[1] + '*',
+							action: 'approve',
+							addedBy: 'permission-dialog',
+						});
 					}
 				}
 			}
@@ -1666,7 +1743,10 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 				source: 'user',
 				intent: isAllow
 					? {kind: 'permission_allow'}
-					: {kind: 'permission_deny', reason: 'Denied by user via permission dialog'},
+					: {
+							kind: 'permission_deny',
+							reason: 'Denied by user via permission dialog',
+						},
 			};
 
 			runtime.sendDecision(requestId, runtimeDecision);
@@ -1692,7 +1772,10 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 
 	const printTaskSnapshot = useCallback(() => {
 		const hasTasks = eventsRef.current.some(
-			e => e.hookName === 'PreToolUse' && e.toolName === 'TodoWrite' && !e.parentSubagentId,
+			e =>
+				e.hookName === 'PreToolUse' &&
+				e.toolName === 'TodoWrite' &&
+				!e.parentSubagentId,
 		);
 		if (!hasTasks) return;
 
@@ -1730,7 +1813,9 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 			setCurrentSessionId,
 			onTranscriptParsed: (eventId: string, summary: unknown) => {
 				if (!abortRef.current.signal.aborted) {
-					updateEvent(eventId, {transcriptSummary: summary as HookEventDisplay['transcriptSummary']});
+					updateEvent(eventId, {
+						transcriptSummary: summary as HookEventDisplay['transcriptSummary'],
+					});
 				}
 			},
 			signal: abortRef.current.signal,
@@ -1746,16 +1831,20 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 				// Immediate decision (rule match) — send and update status
 				runtime.sendDecision(runtimeEvent.id, result.decision);
 				displayEvent.status =
-					result.decision.type === 'block' ? 'blocked' :
-					result.decision.type === 'json' ? 'json_output' :
-					'passthrough';
+					result.decision.type === 'block'
+						? 'blocked'
+						: result.decision.type === 'json'
+							? 'json_output'
+							: 'passthrough';
 			}
 
 			// Append to events
 			if (!abortRef.current.signal.aborted) {
 				setEvents(prev => {
 					const updated = [...prev, displayEvent];
-					return updated.length > MAX_EVENTS ? updated.slice(-MAX_EVENTS) : updated;
+					return updated.length > MAX_EVENTS
+						? updated.slice(-MAX_EVENTS)
+						: updated;
 				});
 			}
 		});
@@ -1767,7 +1856,14 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 			unsub();
 			runtime.stop();
 		};
-	}, [runtime, enqueuePermission, enqueueQuestion, removeAllPermissions, removeAllQuestions, updateEvent]);
+	}, [
+		runtime,
+		enqueuePermission,
+		enqueueQuestion,
+		removeAllPermissions,
+		removeAllQuestions,
+		updateEvent,
+	]);
 
 	const pendingEvents = events.filter(e => e.status === 'pending');
 
@@ -1817,6 +1913,7 @@ git commit -m "feat: add mapToDisplay + useRuntime hook (runtime → UI bridge)"
 ### Task 9: Wire Runtime Into HookContext
 
 **Files:**
+
 - Modify: `source/context/HookContext.tsx`
 - Modify: `source/types/context.ts`
 
@@ -1912,6 +2009,7 @@ git commit -m "feat: wire runtime into HookContext (swap useHookServer for useRu
 ### Task 10: Update HookEventDisplay Types
 
 **Files:**
+
 - Modify: `source/types/hooks/display.ts`
 
 **Step 1: Loosen the types**
@@ -1970,6 +2068,7 @@ git commit -m "refactor: loosen HookEventDisplay types (hookName: string, payloa
 ### Task 11: Update UI Components to Use String Matching
 
 **Files:**
+
 - Modify: `source/components/HookEvent.tsx`
 - Modify: `source/components/hookEventUtils.tsx`
 - Modify: `source/components/PermissionDialog.tsx`
@@ -1997,6 +2096,7 @@ This is a large mechanical refactor. For each file:
 **Example transformation for HookEvent.tsx:**
 
 Before:
+
 ```typescript
 import {isPreToolUseEvent, isPostToolUseEvent, ...} from '../types/hooks/index.js';
 // ...
@@ -2004,6 +2104,7 @@ if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
 ```
 
 After:
+
 ```typescript
 import type {HookEventDisplay} from '../types/hooks/display.js';
 // ...
@@ -2039,6 +2140,7 @@ git commit -m "refactor: remove protocol type imports from UI hooks"
 ### Task 12: Update Barrel Exports and Remove Dead Imports
 
 **Files:**
+
 - Modify: `source/types/hooks/index.ts` — remove re-exports of types only used by adapter
 - Modify: `source/types/hooks/display.ts` — verify no protocol imports remain
 
@@ -2065,6 +2167,7 @@ git commit -m "refactor: clean up barrel exports after boundary extraction"
 ### Task 13: Enable Boundary Enforcement
 
 **Files:**
+
 - Modify: `source/runtime/__tests__/boundary.test.ts` — remove `.skip`/`.todo`
 - Modify: `eslint.config.js` — change `'warn'` to `'error'` if it was set to warn
 
@@ -2094,6 +2197,7 @@ git commit -m "feat: enable boundary enforcement (ESLint error + vitest)"
 ### Task 14: Create Mock Runtime Adapter
 
 **Files:**
+
 - Create: `source/runtime/adapters/mock/index.ts`
 - Create: `source/runtime/adapters/mock/scriptedReplay.ts`
 - Create: `source/runtime/adapters/mock/injectable.ts`
@@ -2134,7 +2238,11 @@ describe('createMockRuntime (scripted)', () => {
 		runtime.start();
 
 		await new Promise(r => setTimeout(r, 50));
-		const decision: RuntimeDecision = {type: 'json', source: 'user', intent: {kind: 'permission_allow'}};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+		};
 		runtime.sendDecision(runtime._getLastEventId(), decision);
 
 		// Verify via injectable-style API
@@ -2164,10 +2272,16 @@ describe('createInjectableMockRuntime', () => {
 		mock.start();
 
 		mock.emit({hookName: 'PermissionRequest', toolName: 'Bash'});
-		mock.sendDecision(mock.getLastEventId(), {type: 'json', source: 'user', intent: {kind: 'permission_allow'}});
+		mock.sendDecision(mock.getLastEventId(), {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+		});
 
 		expect(mock.getDecisions()).toHaveLength(1);
-		expect(mock.getDecision(mock.getLastEventId())?.intent?.kind).toBe('permission_allow');
+		expect(mock.getDecision(mock.getLastEventId())?.intent?.kind).toBe(
+			'permission_allow',
+		);
 
 		mock.stop();
 	});

@@ -2,9 +2,7 @@ import {describe, it, expect} from 'vitest';
 import {mapToDisplay} from './mapToDisplay.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 
-function makeRuntimeEvent(
-	overrides?: Partial<RuntimeEvent>,
-): RuntimeEvent {
+function makeRuntimeEvent(overrides?: Partial<RuntimeEvent>): RuntimeEvent {
 	return {
 		id: 'req-1',
 		timestamp: 1000,
@@ -43,9 +41,7 @@ describe('mapToDisplay', () => {
 	});
 
 	it('handles unknown hook names without error', () => {
-		const display = mapToDisplay(
-			makeRuntimeEvent({hookName: 'FutureEvent'}),
-		);
+		const display = mapToDisplay(makeRuntimeEvent({hookName: 'FutureEvent'}));
 		expect(display.hookName).toBe('FutureEvent');
 	});
 });

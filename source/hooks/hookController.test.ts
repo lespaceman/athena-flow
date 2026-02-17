@@ -66,9 +66,7 @@ describe('hookController handleEvent', () => {
 
 	it('returns immediate deny decision when deny rule matches', () => {
 		const cb = makeCallbacks();
-		cb._rules = [
-			{id: '1', toolName: 'Bash', action: 'deny', addedBy: 'test'},
-		];
+		cb._rules = [{id: '1', toolName: 'Bash', action: 'deny', addedBy: 'test'}];
 		const result = handleEvent(makeEvent('PermissionRequest'), cb);
 
 		expect(result.handled).toBe(true);
