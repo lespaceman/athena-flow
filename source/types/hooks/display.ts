@@ -4,8 +4,6 @@
  * These types are used by the Ink UI to render and track hook events.
  */
 
-import {type ClaudeHookEvent, type HookEventName} from './events.js';
-import {type HookResultPayload} from './result.js';
 import {type ParsedTranscriptSummary} from '../transcript.js';
 
 /**
@@ -19,15 +17,19 @@ export type HookEventStatus =
 
 /**
  * UI display state for a hook event.
+ *
+ * This type is UI-internal. hookName is an open string (forward compatible
+ * with unknown event types). payload is unknown (UI renderers may deep-access
+ * but must not import protocol types for type narrowing).
  */
 export type HookEventDisplay = {
 	id: string;
 	timestamp: Date;
-	hookName: HookEventName;
+	hookName: string;
 	toolName?: string;
-	payload: ClaudeHookEvent;
+	payload: unknown;
 	status: HookEventStatus;
-	result?: HookResultPayload;
+	result?: unknown;
 	transcriptSummary?: ParsedTranscriptSummary;
 	toolUseId?: string;
 	/** agent_id of the parent subagent this event belongs to */
