@@ -27,6 +27,41 @@ export default tseslint.config(
 		},
 	},
 	{
+		files: [
+			'source/components/**/*.{ts,tsx}',
+			'source/context/**/*.{ts,tsx}',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'warn',
+				{
+					patterns: [
+						{
+							group: ['**/runtime/adapters/claudeHooks/**'],
+							message:
+								'UI must not import from Claude adapter. Use runtime boundary types instead.',
+						},
+						{
+							group: ['**/types/hooks/envelope*'],
+							message:
+								'UI must not import protocol envelope types. Use runtime boundary types instead.',
+						},
+						{
+							group: ['**/types/hooks/result*'],
+							message:
+								'UI must not import protocol result types. Use runtime boundary types instead.',
+						},
+						{
+							group: ['**/types/hooks/events*'],
+							message:
+								'UI must not import protocol event types. Use runtime boundary types instead.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		ignores: ['dist/**'],
 	},
 );
