@@ -11,12 +11,9 @@ import {useContentOrdering} from './useContentOrdering.js';
  */
 function callHook(opts: {messages: Message[]; events: HookEventDisplay[]}) {
 	const {result} = renderHook(() => useContentOrdering(opts));
-	const {staticItems, activeItems, tasks} = result.current;
-	// Combine for tests that only care about total ordering
+	const {stableItems, tasks} = result.current;
 	return {
-		stableItems: [...staticItems, ...activeItems],
-		staticItems,
-		activeItems,
+		stableItems,
 		tasks,
 	};
 }
@@ -394,8 +391,8 @@ describe('useContentOrdering', () => {
 		});
 	});
 
-	describe('groupToolResults — parallel tool call pairing', () => {
-		it('groups PostToolUse directly after its matching PreToolUse by toolUseId', () => {
+	describe('tool event ordering (pure timestamp)', () => {
+		it('orders parallel tool events by timestamp (no grouping)', () => {
 			const events = [
 				makeEvent({
 					id: 'pre-A',
@@ -434,8 +431,8 @@ describe('useContentOrdering', () => {
 			const {stableItems} = callHook({messages: [], events});
 			const ids = stableItems.map(i => i.data.id);
 
-			// post-A should follow pre-A, not pre-B
-			expect(ids).toEqual(['pre-A', 'post-A', 'pre-B', 'post-B']);
+			// Pure timestamp order — no reordering to group results with headers
+			expect(ids).toEqual(['pre-A', 'pre-B', 'post-A', 'post-B']);
 		});
 
 		it('preserves order when tool calls are already sequential', () => {
@@ -504,7 +501,7 @@ describe('useContentOrdering', () => {
 			expect(ids).toEqual(['pre-A', 'post-orphan']);
 		});
 
-		it('preserves messages interleaved with tool events', () => {
+		it('preserves messages interleaved with tool events in timestamp order', () => {
 			const messages = [makeMessage('msg-1', 'assistant', new Date(1001))];
 			const events = [
 				makeEvent({
@@ -544,11 +541,11 @@ describe('useContentOrdering', () => {
 			const {stableItems} = callHook({messages, events});
 			const ids = stableItems.map(i => i.data.id);
 
-			// pre-A, post-A grouped; message stays between; pre-B, post-B grouped
-			expect(ids).toEqual(['pre-A', 'post-A', 'msg-1', 'pre-B', 'post-B']);
+			// Pure timestamp order — message at ts=1001 between pre-A(1000) and pre-B(1002)
+			expect(ids).toEqual(['pre-A', 'msg-1', 'pre-B', 'post-A', 'post-B']);
 		});
 
-		it('leaves events without toolUseId unaffected', () => {
+		it('leaves events without toolUseId in timestamp order', () => {
 			const events = [
 				makeEvent({
 					id: 'notif-1',
@@ -582,10 +579,11 @@ describe('useContentOrdering', () => {
 
 			const {stableItems} = callHook({messages: [], events});
 			const ids = stableItems.map(i => i.data.id);
-			expect(ids).toEqual(['notif-1', 'pre-A', 'post-A', 'notif-2']);
+			// Pure timestamp order — notif-2 stays at ts=1002, not regrouped
+			expect(ids).toEqual(['notif-1', 'pre-A', 'notif-2', 'post-A']);
 		});
 
-		it('groups PostToolUseFailure after matching PreToolUse', () => {
+		it('orders PostToolUseFailure by timestamp (no grouping)', () => {
 			const events = [
 				makeEvent({
 					id: 'pre-A',
@@ -623,114 +621,13 @@ describe('useContentOrdering', () => {
 
 			const {stableItems} = callHook({messages: [], events});
 			const ids = stableItems.map(i => i.data.id);
-			expect(ids).toEqual(['pre-A', 'fail-A', 'pre-B', 'post-B']);
+			// Pure timestamp order — fail-A at ts=1002 comes after pre-B at ts=1001
+			expect(ids).toEqual(['pre-A', 'pre-B', 'fail-A', 'post-B']);
 		});
 	});
 
-	describe('static/active split (findStableCutoff)', () => {
-		it('puts all items in staticItems when every PreToolUse has a matching PostToolUse', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-A',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'A',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-				makeEvent({
-					id: 'post-A',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					toolUseId: 'A',
-					status: 'passthrough',
-					timestamp: new Date(1001),
-				}),
-			];
-
-			const {staticItems, activeItems} = callHook({messages: [], events});
-			expect(staticItems).toHaveLength(2);
-			expect(activeItems).toHaveLength(0);
-		});
-
-		it('moves unmatched PreToolUse and everything after into activeItems', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-A',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					toolUseId: 'A',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-				makeEvent({
-					id: 'post-A',
-					hookName: 'PostToolUse',
-					toolName: 'Bash',
-					toolUseId: 'A',
-					status: 'passthrough',
-					timestamp: new Date(1001),
-				}),
-				makeEvent({
-					id: 'pre-B',
-					hookName: 'PreToolUse',
-					toolName: 'Glob',
-					toolUseId: 'B',
-					status: 'passthrough',
-					timestamp: new Date(1002),
-				}),
-				makeEvent({
-					id: 'notif-1',
-					hookName: 'Notification',
-					status: 'passthrough',
-					timestamp: new Date(1003),
-				}),
-			];
-
-			const {staticItems, activeItems} = callHook({messages: [], events});
-			expect(staticItems.map(i => i.data.id)).toEqual(['pre-A', 'post-A']);
-			expect(activeItems.map(i => i.data.id)).toEqual(['pre-B', 'notif-1']);
-		});
-
-		it('all items are active when first PreToolUse is unmatched', () => {
-			const events = [
-				makeEvent({
-					id: 'pre-A',
-					hookName: 'PreToolUse',
-					toolName: 'Glob',
-					toolUseId: 'A',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-			];
-
-			const {staticItems, activeItems} = callHook({messages: [], events});
-			expect(staticItems).toHaveLength(0);
-			expect(activeItems).toHaveLength(1);
-		});
-
-		it('events without toolUseId are always stable', () => {
-			const events = [
-				makeEvent({
-					id: 'notif-1',
-					hookName: 'Notification',
-					status: 'passthrough',
-					timestamp: new Date(1000),
-				}),
-				makeEvent({
-					id: 'pre-no-id',
-					hookName: 'PreToolUse',
-					toolName: 'Bash',
-					status: 'passthrough',
-					timestamp: new Date(1001),
-				}),
-			];
-
-			const {staticItems, activeItems} = callHook({messages: [], events});
-			expect(staticItems).toHaveLength(2);
-			expect(activeItems).toHaveLength(0);
-		});
-	});
+	// static/active split was removed — all items are now immediately stable
+	// (stableItems only, no activeItems). See commit b1fd8ea.
 
 	describe('task extraction (TodoWrite)', () => {
 		it('excludes task tool events from main stream', () => {

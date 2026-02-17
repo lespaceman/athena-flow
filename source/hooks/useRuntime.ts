@@ -9,10 +9,7 @@ import type {Runtime, RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
 import type {HookEventDisplay} from '../types/hooks/display.js';
 import type {HookRule} from '../types/rules.js';
 import type {PermissionDecision} from '../types/server.js';
-import {
-	handleEvent,
-	type ControllerCallbacks,
-} from './hookController.js';
+import {handleEvent, type ControllerCallbacks} from './hookController.js';
 import {mapToDisplay} from './mapToDisplay.js';
 import {useRequestQueue} from './useRequestQueue.js';
 import {generateId} from '../types/hooks/envelope.js';
@@ -32,16 +29,10 @@ export type UseRuntimeResult = {
 	clearEvents: () => void;
 	currentPermissionRequest: HookEventDisplay | null;
 	permissionQueueCount: number;
-	resolvePermission: (
-		requestId: string,
-		decision: PermissionDecision,
-	) => void;
+	resolvePermission: (requestId: string, decision: PermissionDecision) => void;
 	currentQuestionRequest: HookEventDisplay | null;
 	questionQueueCount: number;
-	resolveQuestion: (
-		requestId: string,
-		answers: Record<string, string>,
-	) => void;
+	resolveQuestion: (requestId: string, answers: Record<string, string>) => void;
 	printTaskSnapshot: () => void;
 	respond: (requestId: string, result: unknown) => void;
 	pendingEvents: HookEventDisplay[];
@@ -49,9 +40,7 @@ export type UseRuntimeResult = {
 
 export function useRuntime(runtime: Runtime): UseRuntimeResult {
 	const [events, setEvents] = useState<HookEventDisplay[]>([]);
-	const [currentSessionId, setCurrentSessionId] = useState<string | null>(
-		null,
-	);
+	const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 	const [rules, setRules] = useState<HookRule[]>([]);
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
@@ -92,9 +81,7 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 	const updateEvent = useCallback(
 		(id: string, patch: Partial<HookEventDisplay>) => {
 			if (abortRef.current.signal.aborted) return;
-			setEvents(prev =>
-				prev.map(e => (e.id === id ? {...e, ...patch} : e)),
-			);
+			setEvents(prev => prev.map(e => (e.id === id ? {...e, ...patch} : e)));
 		},
 		[],
 	);
@@ -120,8 +107,7 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 						addedBy: 'permission-dialog',
 					});
 				} else if (decision === 'always-allow-server') {
-					const serverMatch =
-						/^(mcp__[^_]+(?:_[^_]+)*__)/.exec(toolName);
+					const serverMatch = /^(mcp__[^_]+(?:_[^_]+)*__)/.exec(toolName);
 					if (serverMatch) {
 						addRule({
 							toolName: serverMatch[1] + '*',
@@ -184,16 +170,16 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 				transcript_path: '',
 				cwd: '',
 				hook_event_name: 'Notification',
-				message:
-					'\u{1F4CB} Task list snapshot requested via :tasks command',
+				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
 			} as unknown as HookEventDisplay['payload'],
 			status: 'passthrough',
 		};
 		setEvents(prev => [...prev, event]);
 	}, []);
 
-	// Backwards-compat respond
+	// Backwards-compat respond — ignores result, sends passthrough
 	const respond = useCallback(
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		(requestId: string, _result: unknown) => {
 			runtime.sendDecision(requestId, {
 				type: 'passthrough',
@@ -214,8 +200,7 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 			onTranscriptParsed: (eventId: string, summary: unknown) => {
 				if (!abortRef.current.signal.aborted) {
 					updateEvent(eventId, {
-						transcriptSummary:
-							summary as HookEventDisplay['transcriptSummary'],
+						transcriptSummary: summary as HookEventDisplay['transcriptSummary'],
 					});
 				}
 			},
