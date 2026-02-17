@@ -270,7 +270,7 @@ function AppContent({
 		resolveQuestion(currentQuestionRequest.id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {staticItems, activeItems, tasks} = useContentOrdering({
+	const {stableItems, tasks} = useContentOrdering({
 		messages,
 		events,
 	});
@@ -324,17 +324,10 @@ function AppContent({
 				/>
 			)}
 
-			{/* Settled items — committed to scrollback, never re-rendered */}
-			<Static items={staticItems}>
-				{item => renderContentItem(item, verbose)}
+			{/* All items — committed to scrollback, never re-rendered */}
+			<Static items={stableItems}>
+				{(item: ContentItem) => renderContentItem(item, verbose)}
 			</Static>
-
-			{/* Active zone — may still be reordered by incoming PostToolUse results */}
-			{activeItems.length > 0 && (
-				<Box flexDirection="column">
-					{activeItems.map(item => renderContentItem(item, verbose))}
-				</Box>
-			)}
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList
