@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-	type HookEventDisplay,
-	isPreToolUseEvent,
-	isPostToolUseEvent,
-	isPostToolUseFailureEvent,
-	isPermissionRequestEvent,
-	isSubagentStartEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
@@ -35,44 +28,40 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		return <SessionEndEvent event={event} />;
 	}
 
-	const payload = event.payload;
-
-	if (isPreToolUseEvent(payload) && payload.tool_name === 'AskUserQuestion') {
+	if (event.hookName === 'PreToolUse' && event.toolName === 'AskUserQuestion') {
 		return <AskUserQuestionEvent event={event} />;
 	}
 
-	// Task management tools (TodoWrite, TaskCreate, TaskUpdate, TaskList, TaskGet)
-	// are excluded from the main timeline and aggregated into the sticky bottom
-	// widget. When they appear as child events inside a subagent box, skip them
-	// since they're internal state management.
-	if (isPreToolUseEvent(payload) && TASK_TOOL_NAMES.has(payload.tool_name)) {
+	if (
+		event.hookName === 'PreToolUse' &&
+		TASK_TOOL_NAMES.has(event.toolName ?? '')
+	) {
 		return null;
 	}
 
 	let content: React.ReactNode = null;
 
-	// Task PreToolUse → agent start marker (shows subagent_type + prompt)
-	if (isPreToolUseEvent(payload) && payload.tool_name === 'Task') {
+	if (event.hookName === 'PreToolUse' && event.toolName === 'Task') {
 		content = <TaskAgentEvent event={event} />;
-	} else if (isPreToolUseEvent(payload) || isPermissionRequestEvent(payload)) {
-		// PreToolUse/PermissionRequest → tool call header (● Tool params)
+	} else if (
+		event.hookName === 'PreToolUse' ||
+		event.hookName === 'PermissionRequest'
+	) {
 		content = <UnifiedToolCallEvent event={event} verbose={verbose} />;
 	} else if (
-		(isPostToolUseEvent(payload) || isPostToolUseFailureEvent(payload)) &&
-		payload.tool_name === 'Task'
+		(event.hookName === 'PostToolUse' ||
+			event.hookName === 'PostToolUseFailure') &&
+		event.toolName === 'Task'
 	) {
-		// PostToolUse(Task) → "Done" header + result body (combined Static item)
 		content = <SubagentResultEvent event={event} verbose={verbose} />;
 	} else if (
-		isPostToolUseEvent(payload) ||
-		isPostToolUseFailureEvent(payload)
+		event.hookName === 'PostToolUse' ||
+		event.hookName === 'PostToolUseFailure'
 	) {
-		// PostToolUse/PostToolUseFailure → standalone result (⎿ output)
 		content = <PostToolResult event={event} verbose={verbose} />;
-	} else if (isSubagentStartEvent(payload)) {
+	} else if (event.hookName === 'SubagentStart') {
 		content = <SubagentStartEvent event={event} />;
 	} else {
-		// GenericHookEvent — only for truly unrecognized event types
 		content = <GenericHookEvent event={event} verbose={verbose} />;
 	}
 

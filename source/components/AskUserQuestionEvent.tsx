@@ -8,10 +8,7 @@
 
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isPreToolUseEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {getStatusColors, STATUS_SYMBOLS} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
@@ -24,22 +21,20 @@ export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 	const statusColors = getStatusColors(theme);
 	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
-	const payload = event.payload;
+	const payload = event.payload as Record<string, unknown>;
 
-	if (!isPreToolUseEvent(payload)) return null;
+	if (event.hookName !== 'PreToolUse') return null;
 
-	const questions = (
-		payload.tool_input as {
-			questions?: Array<{question: string; header: string}>;
-		}
-	).questions;
-	const answers = (
-		event.result?.stdout_json as {
-			hookSpecificOutput?: {
-				updatedInput?: {answers?: Record<string, string>};
-			};
-		}
-	)?.hookSpecificOutput?.updatedInput?.answers;
+	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const questions = toolInput.questions as
+		| Array<{question: string; header: string}>
+		| undefined;
+
+	const result = event.result as Record<string, unknown> | undefined;
+	const hso = (result?.stdout_json as Record<string, unknown>)
+		?.hookSpecificOutput as Record<string, unknown> | undefined;
+	const updatedInput = hso?.updatedInput as Record<string, unknown> | undefined;
+	const answers = updatedInput?.answers as Record<string, string> | undefined;
 
 	// While pending, show minimal indicator (the dialog handles the full UI)
 	if (event.status === 'pending') {

@@ -5,10 +5,7 @@
 
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isNotificationEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {
 	getStatusColors,
 	STATUS_SYMBOLS,
@@ -30,7 +27,7 @@ export default function GenericHookEvent({
 	const statusColors = getStatusColors(theme);
 	const color = statusColors[event.status];
 	const symbol = STATUS_SYMBOLS[event.status];
-	const payload = event.payload;
+	const payload = event.payload as Record<string, unknown>;
 
 	const time = event.timestamp.toLocaleTimeString('en-US', {
 		hour12: false,
@@ -55,9 +52,10 @@ export default function GenericHookEvent({
 					<Text dimColor>{JSON.stringify(payload, null, 2)}</Text>
 				</Box>
 			) : (
-				isNotificationEvent(payload) && (
+				event.hookName === 'Notification' &&
+				typeof payload.message === 'string' && (
 					<Box paddingLeft={2}>
-						<Text dimColor>{truncateStr(payload.message, 200)}</Text>
+						<Text dimColor>{truncateStr(payload.message as string, 200)}</Text>
 					</Box>
 				)
 			)}

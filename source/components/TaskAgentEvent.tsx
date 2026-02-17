@@ -1,9 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isPreToolUseEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {useTheme} from '../theme/index.js';
 import {getStatusColors} from './hookEventUtils.js';
 import {truncateLine} from '../utils/truncate.js';
@@ -20,9 +17,10 @@ export default function TaskAgentEvent({
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
 
-	if (!isPreToolUseEvent(event.payload)) return null;
+	if (event.hookName !== 'PreToolUse') return null;
 
-	const toolInput = event.payload.tool_input as Record<string, unknown>;
+	const payload = event.payload as Record<string, unknown>;
+	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
 	const agentType =
 		(toolInput.subagent_type as string) ??
 		(toolInput.description as string) ??

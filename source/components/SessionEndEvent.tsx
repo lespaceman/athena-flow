@@ -1,9 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isSessionEndEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {getStatusColors} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
@@ -34,8 +31,11 @@ export default function SessionEndEvent({event}: Props) {
 	});
 
 	const summary = event.transcriptSummary;
-	const payload = event.payload;
-	const reason = isSessionEndEvent(payload) ? payload.reason : 'unknown';
+	const payload = event.payload as Record<string, unknown>;
+	const reason =
+		event.hookName === 'SessionEnd'
+			? ((payload.reason as string) ?? 'unknown')
+			: 'unknown';
 
 	return (
 		<Box

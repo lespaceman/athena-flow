@@ -1,10 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isPostToolUseEvent,
-	isPostToolUseFailureEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {
 	getStatusColors,
 	getPostToolText,
@@ -25,15 +21,18 @@ export default function PostToolResult({
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
-	const payload = event.payload;
+	const payload = event.payload as Record<string, unknown>;
 
-	if (!isPostToolUseEvent(payload) && !isPostToolUseFailureEvent(payload)) {
+	if (
+		event.hookName !== 'PostToolUse' &&
+		event.hookName !== 'PostToolUseFailure'
+	) {
 		return null;
 	}
 
-	const toolName = payload.tool_name;
-	const toolInput = payload.tool_input;
-	const isFailed = isPostToolUseFailureEvent(payload);
+	const toolName = (payload.tool_name as string) ?? '';
+	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const isFailed = event.hookName === 'PostToolUseFailure';
 
 	let responseNode: React.ReactNode;
 
@@ -45,11 +44,8 @@ export default function PostToolResult({
 			</ToolResultContainer>
 		);
 	} else {
-		const outputMeta = extractToolOutput(
-			toolName,
-			toolInput,
-			payload.tool_response,
-		);
+		const toolResponse = payload.tool_response;
+		const outputMeta = extractToolOutput(toolName, toolInput, toolResponse);
 		responseNode = (
 			<ToolResultContainer
 				previewLines={outputMeta?.previewLines}
@@ -60,7 +56,7 @@ export default function PostToolResult({
 					<ToolOutputRenderer
 						toolName={toolName}
 						toolInput={toolInput}
-						toolResponse={payload.tool_response}
+						toolResponse={toolResponse}
 						availableWidth={availableWidth}
 					/>
 				)}

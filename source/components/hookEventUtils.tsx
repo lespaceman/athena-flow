@@ -1,11 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	type PostToolUseEvent,
-	type PostToolUseFailureEvent,
-	isPostToolUseFailureEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {type Theme} from '../theme/index.js';
 import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
 
@@ -106,26 +101,27 @@ export function isBashToolResponse(
 	);
 }
 
-export function getPostToolText(
-	payload: PostToolUseEvent | PostToolUseFailureEvent,
-): string {
-	if (isPostToolUseFailureEvent(payload)) {
-		return payload.error;
+export function getPostToolText(payload: unknown): string {
+	const p = payload as Record<string, unknown>;
+
+	// PostToolUseFailure has 'error' field
+	if (p.hook_event_name === 'PostToolUseFailure') {
+		return (p.error as string) ?? '';
 	}
 
+	const toolName = p.tool_name as string | undefined;
+	const toolResponse = p.tool_response;
+
 	// Bash tool returns {stdout, stderr, interrupted, ...} — extract text content
-	if (
-		payload.tool_name === 'Bash' &&
-		isBashToolResponse(payload.tool_response)
-	) {
-		const {stdout, stderr} = payload.tool_response;
+	if (toolName === 'Bash' && isBashToolResponse(toolResponse)) {
+		const {stdout, stderr} = toolResponse;
 		const out = stdout.trim();
 		const err = stderr.trim();
 		if (err) return out ? `${out}\n${err}` : err;
 		return out;
 	}
 
-	return formatToolResponse(payload.tool_response);
+	return formatToolResponse(toolResponse);
 }
 
 export function ResponseBlock({
@@ -153,10 +149,11 @@ export function StderrBlock({
 }: {
 	result: HookEventDisplay['result'];
 }): React.ReactNode {
-	if (!result?.stderr) return null;
+	const r = result as Record<string, unknown> | undefined;
+	if (!r?.stderr) return null;
 	return (
 		<Box paddingLeft={3}>
-			<Text color="red">{result.stderr}</Text>
+			<Text color="red">{r.stderr as string}</Text>
 		</Box>
 	);
 }

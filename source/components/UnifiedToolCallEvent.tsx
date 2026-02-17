@@ -1,10 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {
-	type HookEventDisplay,
-	isPreToolUseEvent,
-	isPermissionRequestEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {truncateLine} from '../utils/truncate.js';
 import {getStatusColors, StderrBlock} from './hookEventUtils.js';
@@ -24,14 +20,13 @@ export default function UnifiedToolCallEvent({
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
-	const payload = event.payload;
+	const payload = event.payload as Record<string, unknown>;
 
-	if (!isPreToolUseEvent(payload) && !isPermissionRequestEvent(payload))
+	if (event.hookName !== 'PreToolUse' && event.hookName !== 'PermissionRequest')
 		return null;
 
-	const toolName = (payload as {tool_name: string}).tool_name;
-	const toolInput = (payload as {tool_input: Record<string, unknown>})
-		.tool_input;
+	const toolName = (payload.tool_name as string) ?? '';
+	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
 
 	const parsed = parseToolName(toolName);
 	const inlineParams = formatInlineParams(toolInput);

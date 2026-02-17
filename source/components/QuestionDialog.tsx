@@ -2,7 +2,6 @@ import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
 import {type HookEventDisplay} from '../types/hooks/display.js';
-import {isToolEvent} from '../types/hooks/events.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 import MultiOptionList from './MultiOptionList.js';
 import QuestionKeybindingBar from './QuestionKeybindingBar.js';
@@ -45,9 +44,11 @@ function buildOptions(options: QuestionOption[]): OptionItem[] {
 }
 
 function extractQuestions(request: HookEventDisplay): Question[] {
-	if (!isToolEvent(request.payload)) return [];
-	const input = request.payload.tool_input as {questions?: Question[]};
-	return Array.isArray(input.questions) ? input.questions : [];
+	const payload = request.payload as Record<string, unknown>;
+	const toolInput = payload.tool_input as Record<string, unknown> | undefined;
+	if (!toolInput) return [];
+	const questions = toolInput.questions as Question[] | undefined;
+	return Array.isArray(questions) ? questions : [];
 }
 
 function QuestionTabs({
