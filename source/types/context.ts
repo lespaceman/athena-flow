@@ -5,12 +5,12 @@
  */
 
 import {type ReactNode} from 'react';
-import {type UseHookServerResult} from './server.js';
+import {type UseRuntimeResult} from '../hooks/useRuntime.js';
 
 /**
  * Value provided by the HookContext.
  */
-export type HookContextValue = UseHookServerResult;
+export type HookContextValue = UseRuntimeResult;
 
 /**
  * Props for the HookProvider component.

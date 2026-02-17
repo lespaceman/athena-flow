@@ -1,5 +1,6 @@
-import React, {createContext, useContext} from 'react';
-import {useHookServer} from '../hooks/useHookServer.js';
+import React, {createContext, useContext, useMemo} from 'react';
+import {useRuntime} from '../hooks/useRuntime.js';
+import {createClaudeHookRuntime} from '../runtime/adapters/claudeHooks/index.js';
 import {
 	type HookContextValue,
 	type HookProviderProps,
@@ -12,7 +13,12 @@ export function HookProvider({
 	instanceId,
 	children,
 }: HookProviderProps) {
-	const hookServer = useHookServer(projectDir, instanceId);
+	// Runtime must be stable (memoized) — useRuntime assumes it doesn't change
+	const runtime = useMemo(
+		() => createClaudeHookRuntime({projectDir, instanceId}),
+		[projectDir, instanceId],
+	);
+	const hookServer = useRuntime(runtime);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>
