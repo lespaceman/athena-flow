@@ -160,51 +160,10 @@ type UseContentOrderingOptions = {
 };
 
 type UseContentOrderingResult = {
-	/** Items safe for Static scrollback — won't be reordered by future events. */
-	staticItems: ContentItem[];
-	/** Active tail that may still be reordered as PostToolUse results arrive. */
-	activeItems: ContentItem[];
+	stableItems: ContentItem[];
 	/** Task list extracted from the latest TodoWrite event. */
 	tasks: TodoItem[];
 };
-
-/**
- * Find the index of the first PreToolUse that has no matching PostToolUse/
- * PostToolUseFailure in the grouped items. Everything before this index is
- * "stable" — no future event can cause reordering there. Everything from
- * this index onward is the "active zone" that may still be reordered.
- *
- * Returns items.length if all items are stable (no unmatched PreToolUse).
- */
-export function findStableCutoff(items: ContentItem[]): number {
-	// Collect all toolUseIds that have a PostToolUse/PostToolUseFailure
-	const resolvedIds = new Set<string>();
-	for (const item of items) {
-		if (
-			item.type === 'hook' &&
-			(item.data.hookName === 'PostToolUse' ||
-				item.data.hookName === 'PostToolUseFailure') &&
-			item.data.toolUseId
-		) {
-			resolvedIds.add(item.data.toolUseId);
-		}
-	}
-
-	// Find first PreToolUse with toolUseId that is NOT resolved
-	for (let i = 0; i < items.length; i++) {
-		const item = items[i]!;
-		if (
-			item.type === 'hook' &&
-			item.data.hookName === 'PreToolUse' &&
-			item.data.toolUseId &&
-			!resolvedIds.has(item.data.toolUseId)
-		) {
-			return i;
-		}
-	}
-
-	return items.length;
-}
 
 export function useContentOrdering({
 	messages,
@@ -231,18 +190,15 @@ export function useContentOrdering({
 
 	const tasks = extractTasks(events);
 
-	const allItems: ContentItem[] = [
+	// Pure timestamp sort — the only ordering compatible with Ink's <Static>,
+	// which is append-only (tracks by array length, not keys). Reordering
+	// items would cause duplicates. Parallel tool results appear in arrival
+	// order rather than grouped under their headers — a known limitation.
+	const stableItems: ContentItem[] = [
 		...messages.map(m => ({type: 'message' as const, data: m})),
 		...hookItems,
 		...sessionEndMessages,
 	].sort((a, b) => getItemTime(a) - getItemTime(b));
 
-	const grouped = groupToolResults(allItems);
-	const cutoff = findStableCutoff(grouped);
-
-	return {
-		staticItems: grouped.slice(0, cutoff),
-		activeItems: grouped.slice(cutoff),
-		tasks,
-	};
+	return {stableItems, tasks};
 }
