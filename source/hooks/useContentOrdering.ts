@@ -7,10 +7,7 @@
  */
 
 import {type Message} from '../types/common.js';
-import {
-	type HookEventDisplay,
-	isPreToolUseEvent,
-} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import {
 	type TodoItem,
 	type TodoWriteInput,
@@ -62,13 +59,12 @@ function extractTasks(events: HookEventDisplay[]): TodoItem[] {
 		)
 		.at(-1);
 
-	if (!lastTodoWrite || !isPreToolUseEvent(lastTodoWrite.payload)) {
+	if (!lastTodoWrite) {
 		return [];
 	}
 
-	const input = lastTodoWrite.payload.tool_input as unknown as
-		| TodoWriteInput
-		| undefined;
+	const payload = lastTodoWrite.payload as Record<string, unknown>;
+	const input = payload.tool_input as unknown as TodoWriteInput | undefined;
 	return Array.isArray(input?.todos) ? input.todos : [];
 }
 

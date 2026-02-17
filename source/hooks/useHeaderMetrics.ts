@@ -1,10 +1,6 @@
 import {useMemo, useRef} from 'react';
-import type {HookEventDisplay} from '../types/hooks/index.js';
+import type {HookEventDisplay} from '../types/hooks/display.js';
 import type {SessionMetrics, TokenUsage} from '../types/headerMetrics.js';
-import {
-	isSessionStartEvent,
-	isSubagentStartEvent,
-} from '../types/hooks/index.js';
 
 const NULL_TOKENS: TokenUsage = {
 	input: null,
@@ -49,18 +45,20 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 		>();
 
 		for (const event of events) {
+			const payload = event.payload as Record<string, unknown>;
+
 			// Extract session start time from first SessionStart event
-			if (sessionStartTime === null && isSessionStartEvent(event.payload)) {
+			if (sessionStartTime === null && event.hookName === 'SessionStart') {
 				sessionStartTime = event.timestamp;
 			}
 
 			// Extract model from first SessionStart event with model field
 			if (
 				modelName === null &&
-				isSessionStartEvent(event.payload) &&
-				event.payload.model
+				event.hookName === 'SessionStart' &&
+				typeof payload.model === 'string'
 			) {
-				modelName = event.payload.model;
+				modelName = payload.model;
 			}
 
 			// Count top-level tool uses (PreToolUse, not child events)
@@ -77,10 +75,12 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 			}
 
 			// Track subagents from SubagentStart (top-level only)
-			if (isSubagentStartEvent(event.payload) && !event.parentSubagentId) {
-				if (!subagentMap.has(event.payload.agent_id)) {
-					subagentMap.set(event.payload.agent_id, {
-						agentType: event.payload.agent_type,
+			if (event.hookName === 'SubagentStart' && !event.parentSubagentId) {
+				const agentId = payload.agent_id as string;
+				const agentType = payload.agent_type as string;
+				if (agentId && !subagentMap.has(agentId)) {
+					subagentMap.set(agentId, {
+						agentType: agentType ?? 'Agent',
 						toolCallCount: 0,
 					});
 				}
