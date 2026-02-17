@@ -1,5 +1,4 @@
 import type {AppMode} from '../types/headerMetrics.js';
-import type {HookEventDisplay} from '../types/hooks/display.js';
 
 /**
  * Derive the current app mode from runtime state.
@@ -10,8 +9,8 @@ import type {HookEventDisplay} from '../types/hooks/display.js';
  */
 export function useAppMode(
 	isClaudeRunning: boolean,
-	currentPermissionRequest: HookEventDisplay | null,
-	currentQuestionRequest: HookEventDisplay | null,
+	currentPermissionRequest: unknown | null,
+	currentQuestionRequest: unknown | null,
 ): AppMode {
 	if (!isClaudeRunning) return {type: 'idle'};
 	if (currentPermissionRequest) return {type: 'permission'};
