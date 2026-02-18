@@ -471,6 +471,14 @@ function formatFeedLine(
 	return fit(`${prefix}${fit(base, bodyWidth)}${suffix}`, width);
 }
 
+function formatFeedHeaderLine(width: number): string {
+	const time = fit('TIME', 8);
+	const run = fit('RUN', 5);
+	const op = fit('OP', 10);
+	const actor = fit('ACTOR', 8);
+	return fit(`${time} ${run} ${op} ${actor} SUMMARY`, width);
+}
+
 function toRunStatus(event: Extract<FeedEvent, {kind: 'run.end'}>): RunStatus {
 	switch (event.data.status) {
 		case 'completed':
@@ -1245,7 +1253,9 @@ function AppContent({
 	);
 	remainingRows -= runOverlayRows;
 	const feedRows = expandedEntry ? 0 : Math.max(1, remainingRows);
-	const pageStep = Math.max(1, Math.floor(feedRows / 2));
+	const feedHeaderRows = feedRows > 1 ? 1 : 0;
+	const feedContentRows = Math.max(0, feedRows - feedHeaderRows);
+	const pageStep = Math.max(1, Math.floor(Math.max(1, feedContentRows) / 2));
 	const scrollDetail = useCallback(
 		(delta: number) => {
 			setDetailScroll(prev =>
@@ -1257,25 +1267,30 @@ function AppContent({
 
 	const feedViewportStart = useMemo(() => {
 		const total = filteredEntries.length;
-		if (feedRows <= 0) return 0;
-		if (total <= feedRows) return 0;
+		if (feedContentRows <= 0) return 0;
+		if (total <= feedContentRows) return 0;
 
 		let start = tailFollow
-			? total - feedRows
+			? total - feedContentRows
 			: Math.max(
 					0,
-					Math.min(feedCursor - Math.floor(feedRows / 2), total - feedRows),
+					Math.min(
+						feedCursor - Math.floor(feedContentRows / 2),
+						total - feedContentRows,
+					),
 				);
 
 		if (feedCursor < start) start = feedCursor;
-		if (feedCursor >= start + feedRows) start = feedCursor - feedRows + 1;
+		if (feedCursor >= start + feedContentRows) {
+			start = feedCursor - feedContentRows + 1;
+		}
 
-		return Math.max(0, Math.min(start, total - feedRows));
-	}, [filteredEntries.length, feedCursor, feedRows, tailFollow]);
+		return Math.max(0, Math.min(start, total - feedContentRows));
+	}, [filteredEntries.length, feedCursor, feedContentRows, tailFollow]);
 
 	const feedViewportEnd = Math.min(
 		filteredEntries.length,
-		feedViewportStart + feedRows,
+		feedViewportStart + feedContentRows,
 	);
 	const feedRenderStart = Math.max(0, feedViewportStart - FEED_OVERSCAN);
 	const feedRenderEnd = Math.min(
@@ -1579,97 +1594,102 @@ function AppContent({
 	const inputLine = fit(`${inputPrefix}${inputBuffer}${badgeText}`, innerWidth);
 
 	const bodyLines: string[] = [];
-
-	if (todoRows > 0) {
-		const todoHeader = `[TODO] (${runLabel}) ${openCount} open / ${doingCount} doing / ${doneCount} done${blockedCount > 0 ? ` / ${blockedCount} blocked` : ''}${todoShowDone ? ' [all]' : ' [open]'}`;
-		bodyLines.push(fit(todoHeader, innerWidth));
-
-		for (let i = 0; i < todoRows - 1; i++) {
-			const todo = visibleTodoItems[todoScroll + i];
-			if (!todo) {
-				bodyLines.push(fit('', innerWidth));
-				continue;
-			}
-			const focused = focusMode === 'todo' && todoCursor === todoScroll + i;
-			const link = todo.linkedEventId ? ` <- ${todo.linkedEventId}` : '';
-			const owner = todo.owner ? ` @${todo.owner}` : '';
-			const line = `${focused ? '>' : ' '} ${symbolForTodoStatus(todo.status)} ${todo.priority} ${compactText(todo.text, 48)}${link}${owner}`;
-			bodyLines.push(fit(line, innerWidth));
-		}
-	}
-
-	if (runOverlayRows > 0) {
-		bodyLines.push(fit('[RUNS] :run <id>  :run all', innerWidth));
-		const listRows = runOverlayRows - 1;
-		const start = Math.max(0, runSummaries.length - listRows);
-		for (let i = 0; i < runOverlayRows - 1; i++) {
-			const summary = runSummaries[start + i];
-			if (!summary) {
-				bodyLines.push(fit('', innerWidth));
-				continue;
-			}
-			const active =
-				runFilter !== 'all' && runFilter === summary.runId ? '*' : ' ';
-			const line = `${active} ${formatRunLabel(summary.runId)} ${summary.status.padEnd(9, ' ')} ${compactText(summary.title, 48)}`;
-			bodyLines.push(fit(line, innerWidth));
-		}
-	}
-
-	const visibleIndexSet = new Set<number>();
-	for (let i = feedRenderStart; i < feedRenderEnd; i++) {
-		visibleIndexSet.add(i);
-	}
-
-	if (visibleFeedEntries.length === 0) {
-		bodyLines.push(fit('(no feed events)', innerWidth));
-		for (let i = 1; i < feedRows; i++) {
-			bodyLines.push(fit('', innerWidth));
-		}
-	} else {
-		for (let i = 0; i < feedRows; i++) {
-			const idx = feedViewportStart + i;
-			const entry = filteredEntries[idx];
-			if (!entry) {
-				bodyLines.push(fit('', innerWidth));
-				continue;
-			}
-			if (!visibleIndexSet.has(idx)) {
-				bodyLines.push(fit('', innerWidth));
-				continue;
-			}
-			bodyLines.push(
-				formatFeedLine(
-					entry,
-					innerWidth,
-					focusMode === 'feed' && idx === feedCursor,
-					expandedId === entry.id,
-					searchMatchSet.has(idx),
-				),
-			);
-		}
-	}
-
-	if (drawerRows > 0 && expandedEntry) {
+	if (expandedEntry) {
+		const start = Math.min(detailScroll, maxDetailScroll);
+		const end = Math.min(detailLines.length, start + detailContentRows);
+		const lineNumberWidth = String(Math.max(1, detailLines.length)).length;
+		const rangeLabel =
+			detailLines.length === 0 ? '0/0' : `${start + 1}-${end}/${detailLines.length}`;
 		bodyLines.push(
 			fit(
-				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor})`,
+				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor}) ${rangeLabel}`,
 				innerWidth,
 			),
 		);
-		const rawLines = expandedEntry.details
-			.split(/\r?\n/)
-			.map(line => toAscii(line));
-		const capacity = Math.max(0, drawerRows - 1);
-		const shown = rawLines.slice(0, capacity);
-		for (const line of shown) {
-			bodyLines.push(fit(`  ${line}`, innerWidth));
+		for (let i = 0; i < detailContentRows; i++) {
+			const line = detailLines[start + i];
+			if (line === undefined) {
+				bodyLines.push(fit('', innerWidth));
+				continue;
+			}
+			const lineNo = String(start + i + 1).padStart(lineNumberWidth, ' ');
+			bodyLines.push(fit(`${lineNo} | ${line}`, innerWidth));
 		}
-		if (rawLines.length > capacity && bodyLines.length > 0) {
-			bodyLines[bodyLines.length - 1] = fit(
-				`  ... (${rawLines.length - capacity} more lines)`,
-				innerWidth,
-			);
+	} else {
+		if (todoRows > 0) {
+			const todoHeader = `[TODO] (${runLabel}) ${openCount} open / ${doingCount} doing / ${doneCount} done${blockedCount > 0 ? ` / ${blockedCount} blocked` : ''}${todoShowDone ? ' [all]' : ' [open]'}`;
+			bodyLines.push(fit(todoHeader, innerWidth));
+
+			for (let i = 0; i < todoRows - 1; i++) {
+				const todo = visibleTodoItems[todoScroll + i];
+				if (!todo) {
+					bodyLines.push(fit('', innerWidth));
+					continue;
+				}
+				const focused = focusMode === 'todo' && todoCursor === todoScroll + i;
+				const link = todo.linkedEventId ? ` <- ${todo.linkedEventId}` : '';
+				const owner = todo.owner ? ` @${todo.owner}` : '';
+				const line = `${focused ? '>' : ' '} ${symbolForTodoStatus(todo.status)} ${todo.priority} ${compactText(todo.text, 48)}${link}${owner}`;
+				bodyLines.push(fit(line, innerWidth));
+			}
 		}
+
+		if (runOverlayRows > 0) {
+			bodyLines.push(fit('[RUNS] :run <id>  :run all', innerWidth));
+			const listRows = runOverlayRows - 1;
+			const start = Math.max(0, runSummaries.length - listRows);
+			for (let i = 0; i < runOverlayRows - 1; i++) {
+				const summary = runSummaries[start + i];
+				if (!summary) {
+					bodyLines.push(fit('', innerWidth));
+					continue;
+				}
+				const active =
+					runFilter !== 'all' && runFilter === summary.runId ? '*' : ' ';
+				const line = `${active} ${formatRunLabel(summary.runId)} ${summary.status.padEnd(9, ' ')} ${compactText(summary.title, 48)}`;
+				bodyLines.push(fit(line, innerWidth));
+			}
+		}
+
+		const visibleIndexSet = new Set<number>();
+		for (let i = feedRenderStart; i < feedRenderEnd; i++) {
+			visibleIndexSet.add(i);
+		}
+
+	if (feedHeaderRows > 0) {
+		bodyLines.push(formatFeedHeaderLine(innerWidth));
+	}
+
+	if (feedContentRows > 0) {
+		if (visibleFeedEntries.length === 0) {
+			bodyLines.push(fit('(no feed events)', innerWidth));
+			for (let i = 1; i < feedContentRows; i++) {
+				bodyLines.push(fit('', innerWidth));
+			}
+		} else {
+			for (let i = 0; i < feedContentRows; i++) {
+				const idx = feedViewportStart + i;
+				const entry = filteredEntries[idx];
+				if (!entry) {
+					bodyLines.push(fit('', innerWidth));
+					continue;
+				}
+				if (!visibleIndexSet.has(idx)) {
+					bodyLines.push(fit('', innerWidth));
+					continue;
+				}
+				bodyLines.push(
+					formatFeedLine(
+						entry,
+						innerWidth,
+						focusMode === 'feed' && idx === feedCursor,
+						expandedId === entry.id,
+						searchMatchSet.has(idx),
+					),
+				);
+			}
+		}
+	}
 	}
 
 	const clippedBodyLines = bodyLines.slice(0, bodyHeight);
