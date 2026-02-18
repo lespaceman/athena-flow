@@ -22,10 +22,10 @@ function makeEvent(
 }
 
 describe('shouldExcludeFromFeed', () => {
-	it('excludes session.end (rendered as synthetic messages)', () => {
+	it('does not exclude session.end (rendered collapsed, pairs with run.end)', () => {
 		expect(
 			shouldExcludeFromFeed(makeEvent('session.end', {reason: 'clear'})),
-		).toBe(true);
+		).toBe(false);
 	});
 
 	it('excludes subagent.stop (result via tool.post Task)', () => {

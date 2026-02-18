@@ -35,25 +35,28 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 		return null;
 	}
 
-	let content: React.ReactNode = null;
-
 	if (event.kind === 'tool.pre' && event.data.tool_name === 'Task') {
-		content = <TaskAgentEvent event={event} />;
-	} else if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
-		content = <UnifiedToolCallEvent event={event} verbose={verbose} />;
-	} else if (
+		return <TaskAgentEvent event={event} />;
+	}
+
+	if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
+		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
+	}
+
+	if (
 		(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
 		event.data.tool_name === 'Task'
 	) {
-		content = <SubagentResultEvent event={event} verbose={verbose} />;
-	} else if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
-		content = <PostToolResult event={event} verbose={verbose} />;
-	} else if (event.kind === 'subagent.start') {
-		content = <SubagentStartEvent event={event} />;
-	} else {
-		content = <GenericHookEvent event={event} verbose={verbose} />;
+		return <SubagentResultEvent event={event} verbose={verbose} />;
 	}
 
-	if (content == null) return null;
-	return content;
+	if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
+		return <PostToolResult event={event} verbose={verbose} />;
+	}
+
+	if (event.kind === 'subagent.start') {
+		return <SubagentStartEvent event={event} />;
+	}
+
+	return <GenericHookEvent event={event} verbose={verbose} />;
 }

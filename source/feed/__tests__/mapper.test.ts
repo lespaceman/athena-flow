@@ -46,7 +46,37 @@ describe('FeedMapper', () => {
 			expect(sessionStart!.actor_id).toBe('system');
 		});
 
-		it('maps SessionEnd to session.end + run.end', () => {
+		it('maps SessionEnd to session.end + run.end when run is active', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('SessionStart', {
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'resume',
+					},
+				}),
+			);
+
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SessionEnd', {
+					payload: {
+						hook_event_name: 'SessionEnd',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						reason: 'clear',
+					},
+				}),
+			);
+
+			expect(results.some(r => r.kind === 'session.end')).toBe(true);
+			expect(results.some(r => r.kind === 'run.end')).toBe(true);
+		});
+
+		it('maps SessionEnd to session.end without run.end when no active run', () => {
 			const mapper = createFeedMapper();
 			mapper.mapEvent(
 				makeRuntimeEvent('SessionStart', {
@@ -73,7 +103,7 @@ describe('FeedMapper', () => {
 			);
 
 			expect(results.some(r => r.kind === 'session.end')).toBe(true);
-			expect(results.some(r => r.kind === 'run.end')).toBe(true);
+			expect(results.some(r => r.kind === 'run.end')).toBe(false);
 		});
 	});
 
@@ -349,6 +379,104 @@ describe('FeedMapper', () => {
 				source: 'timeout',
 			});
 			expect(result).toBeNull();
+		});
+	});
+
+	describe('bug fixes', () => {
+		it('SessionStart(startup) does NOT emit run.start', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SessionStart', {
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'startup',
+					},
+				}),
+			);
+
+			expect(results.some(r => r.kind === 'run.start')).toBe(false);
+			expect(results.some(r => r.kind === 'session.start')).toBe(true);
+			expect(mapper.getCurrentRun()).toBeNull();
+		});
+
+		it('SessionStart(resume) DOES emit run.start', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SessionStart', {
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'resume',
+					},
+				}),
+			);
+
+			expect(results.some(r => r.kind === 'run.start')).toBe(true);
+			expect(results.some(r => r.kind === 'session.start')).toBe(true);
+			expect(mapper.getCurrentRun()).not.toBeNull();
+		});
+
+		it('correlation indexes are cleared on run boundaries', () => {
+			const mapper = createFeedMapper();
+
+			// Run 1: PreToolUse with tu-1
+			mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					id: 'req-run1-pre',
+					toolName: 'Read',
+					toolUseId: 'tu-1',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						tool_use_id: 'tu-1',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+
+			// New run via UserPromptSubmit (closes run 1, opens run 2)
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'next',
+					},
+				}),
+			);
+
+			// Run 2: PostToolUse with same tu-1 should NOT correlate to run 1's PreToolUse
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PostToolUse', {
+					toolName: 'Read',
+					toolUseId: 'tu-1',
+					payload: {
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						tool_use_id: 'tu-1',
+						tool_response: {content: 'x'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+
+			const toolPost = results.find(r => r.kind === 'tool.post');
+			expect(toolPost).toBeDefined();
+			// parent_event_id should be undefined — the PreToolUse was in a different run
+			expect(toolPost!.cause?.parent_event_id).toBeUndefined();
 		});
 	});
 

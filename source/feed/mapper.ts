@@ -115,6 +115,9 @@ export function createFeedMapper(): FeedMapper {
 
 		runSeq++;
 		seq = 0;
+		toolPreIndex.clear();
+		eventIdByRequestId.clear();
+		eventKindByRequestId.clear();
 		currentRun = {
 			run_id: getRunId(),
 			session_id: runtimeEvent.sessionId,
@@ -154,6 +157,23 @@ export function createFeedMapper(): FeedMapper {
 		return 'agent:root';
 	}
 
+	function resolveToolUseId(
+		event: RuntimeEvent,
+		p: Record<string, unknown>,
+	): string | undefined {
+		return event.toolUseId ?? (p.tool_use_id as string | undefined);
+	}
+
+	function toolUseCause(
+		toolUseId: string | undefined,
+		parentId: string | undefined,
+	): Partial<FeedEventCause> {
+		return {
+			...(toolUseId ? {tool_use_id: toolUseId} : {}),
+			...(parentId ? {parent_event_id: parentId} : {}),
+		};
+	}
+
 	function mapEvent(event: RuntimeEvent): FeedEvent[] {
 		const p = event.payload as Record<string, unknown>;
 		const results: FeedEvent[] = [];
@@ -167,9 +187,9 @@ export function createFeedMapper(): FeedMapper {
 					model: p.model as string | undefined,
 					agent_type: p.agent_type as string | undefined,
 				};
-				const triggerType =
-					p.source === 'resume' ? ('resume' as const) : ('other' as const);
-				results.push(...ensureRunArray(event, triggerType));
+				if (p.source === 'resume') {
+					results.push(...ensureRunArray(event, 'resume'));
+				}
 				results.push(
 					makeEvent(
 						'session.start',
@@ -233,8 +253,7 @@ export function createFeedMapper(): FeedMapper {
 			case 'PreToolUse': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_uses++;
-				const toolUseId =
-					event.toolUseId ?? (p.tool_use_id as string | undefined);
+				const toolUseId = resolveToolUseId(event, p);
 				const fe = makeEvent(
 					'tool.pre',
 					'info',
@@ -256,53 +275,47 @@ export function createFeedMapper(): FeedMapper {
 
 			case 'PostToolUse': {
 				results.push(...ensureRunArray(event));
-				const toolUseId =
-					event.toolUseId ?? (p.tool_use_id as string | undefined);
+				const toolUseId = resolveToolUseId(event, p);
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
-				const fe = makeEvent(
-					'tool.post',
-					'info',
-					getActorForTool(event),
-					{
-						tool_name: event.toolName ?? (p.tool_name as string),
-						tool_input: (p.tool_input as Record<string, unknown>) ?? {},
-						tool_use_id: toolUseId,
-						tool_response: p.tool_response,
-					} satisfies import('./types.js').ToolPostData,
-					event,
-					{
-						...(toolUseId ? {tool_use_id: toolUseId} : {}),
-						...(parentId ? {parent_event_id: parentId} : {}),
-					},
+				results.push(
+					makeEvent(
+						'tool.post',
+						'info',
+						getActorForTool(event),
+						{
+							tool_name: event.toolName ?? (p.tool_name as string),
+							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+							tool_use_id: toolUseId,
+							tool_response: p.tool_response,
+						} satisfies import('./types.js').ToolPostData,
+						event,
+						toolUseCause(toolUseId, parentId),
+					),
 				);
-				results.push(fe);
 				break;
 			}
 
 			case 'PostToolUseFailure': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_failures++;
-				const toolUseId =
-					event.toolUseId ?? (p.tool_use_id as string | undefined);
+				const toolUseId = resolveToolUseId(event, p);
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
-				const fe = makeEvent(
-					'tool.failure',
-					'error',
-					getActorForTool(event),
-					{
-						tool_name: event.toolName ?? (p.tool_name as string),
-						tool_input: (p.tool_input as Record<string, unknown>) ?? {},
-						tool_use_id: toolUseId,
-						error: (p.error as string) ?? 'Unknown error',
-						is_interrupt: p.is_interrupt as boolean | undefined,
-					} satisfies import('./types.js').ToolFailureData,
-					event,
-					{
-						...(toolUseId ? {tool_use_id: toolUseId} : {}),
-						...(parentId ? {parent_event_id: parentId} : {}),
-					},
+				results.push(
+					makeEvent(
+						'tool.failure',
+						'error',
+						getActorForTool(event),
+						{
+							tool_name: event.toolName ?? (p.tool_name as string),
+							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+							tool_use_id: toolUseId,
+							error: (p.error as string) ?? 'Unknown error',
+							is_interrupt: p.is_interrupt as boolean | undefined,
+						} satisfies import('./types.js').ToolFailureData,
+						event,
+						toolUseCause(toolUseId, parentId),
+					),
 				);
-				results.push(fe);
 				break;
 			}
 
@@ -317,8 +330,7 @@ export function createFeedMapper(): FeedMapper {
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
 							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
-							tool_use_id:
-								event.toolUseId ?? (p.tool_use_id as string | undefined),
+							tool_use_id: resolveToolUseId(event, p),
 							permission_suggestions: p.permission_suggestions as
 								| Array<{type: string; tool: string}>
 								| undefined,
@@ -475,6 +487,28 @@ export function createFeedMapper(): FeedMapper {
 
 		const originalKind = eventKindByRequestId.get(requestId);
 
+		function makeDecisionEvent(kind: FeedEventKind, data: unknown): FeedEvent {
+			const s = nextSeq();
+			const fe = {
+				event_id: `${getRunId()}:E${s}`,
+				seq: s,
+				ts: Date.now(),
+				session_id: currentSession?.session_id ?? 'unknown',
+				run_id: getRunId(),
+				kind,
+				level: 'info' as const,
+				actor_id: decision.source === 'user' ? 'user' : 'system',
+				cause: {
+					parent_event_id: parentEventId,
+					hook_request_id: requestId,
+				},
+				title: '',
+				data,
+			} as FeedEvent;
+			fe.title = generateTitle(fe);
+			return fe;
+		}
+
 		if (originalKind === 'permission.request') {
 			let data: import('./types.js').PermissionDecisionData;
 
@@ -493,26 +527,7 @@ export function createFeedMapper(): FeedMapper {
 				data = {decision_type: 'no_opinion', reason: 'unknown'};
 			}
 
-			const s = nextSeq();
-			const eventId = `${getRunId()}:E${s}`;
-			const fe = {
-				event_id: eventId,
-				seq: s,
-				ts: Date.now(),
-				session_id: currentSession?.session_id ?? 'unknown',
-				run_id: getRunId(),
-				kind: 'permission.decision' as const,
-				level: 'info' as const,
-				actor_id: decision.source === 'user' ? 'user' : 'system',
-				cause: {
-					parent_event_id: parentEventId,
-					hook_request_id: requestId,
-				},
-				title: '',
-				data,
-			} as FeedEvent;
-			fe.title = generateTitle(fe);
-			return fe;
+			return makeDecisionEvent('permission.decision', data);
 		}
 
 		if (originalKind === 'stop.request') {
@@ -529,26 +544,7 @@ export function createFeedMapper(): FeedMapper {
 				data = {decision_type: 'allow', reason: decision.reason};
 			}
 
-			const s = nextSeq();
-			const eventId = `${getRunId()}:E${s}`;
-			const fe = {
-				event_id: eventId,
-				seq: s,
-				ts: Date.now(),
-				session_id: currentSession?.session_id ?? 'unknown',
-				run_id: getRunId(),
-				kind: 'stop.decision' as const,
-				level: 'info' as const,
-				actor_id: decision.source === 'user' ? 'user' : 'system',
-				cause: {
-					parent_event_id: parentEventId,
-					hook_request_id: requestId,
-				},
-				title: '',
-				data,
-			} as FeedEvent;
-			fe.title = generateTitle(fe);
-			return fe;
+			return makeDecisionEvent('stop.decision', data);
 		}
 
 		return null;

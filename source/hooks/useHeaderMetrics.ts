@@ -45,18 +45,13 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 		>();
 
 		for (const event of events) {
-			// Extract session start time from first session.start event
-			if (sessionStartTime === null && event.kind === 'session.start') {
-				sessionStartTime = new Date(event.ts);
-			}
-
-			// Extract model from first session.start event with model field
-			if (
-				modelName === null &&
-				event.kind === 'session.start' &&
-				typeof event.data.model === 'string'
-			) {
-				modelName = event.data.model;
+			if (event.kind === 'session.start') {
+				if (sessionStartTime === null) {
+					sessionStartTime = new Date(event.ts);
+				}
+				if (modelName === null && typeof event.data.model === 'string') {
+					modelName = event.data.model;
+				}
 			}
 
 			// Count top-level tool uses (tool.pre, not subagent events)
