@@ -11,6 +11,8 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
+import {parseTranscriptTail} from '../utils/parseTranscriptTail.js';
+import type {AgentMessageData} from '../feed/types.js';
 
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -45,6 +47,48 @@ export function extractPermissionSnapshot(
 		tool_use_id: event.toolUseId ?? (p.tool_use_id as string | undefined),
 		suggestions: p.permission_suggestions,
 	};
+}
+
+export async function enrichStopEvent(
+	stopEvent: FeedEvent,
+	signal?: AbortSignal,
+): Promise<FeedEvent | null> {
+	const transcriptPath = stopEvent.cause?.transcript_path;
+	if (!transcriptPath) return null;
+
+	const message = await parseTranscriptTail(transcriptPath, signal);
+	if (!message) return null;
+
+	const isSubagent = stopEvent.kind === 'subagent.stop';
+	const scope = isSubagent ? 'subagent' : 'root';
+	const actorId = isSubagent ? stopEvent.actor_id : 'agent:root';
+
+	const data: AgentMessageData = {
+		message,
+		source: 'transcript',
+		scope,
+	};
+
+	return {
+		event_id: `${stopEvent.event_id}:msg`,
+		seq: stopEvent.seq + 0.5,
+		ts: stopEvent.ts + 1,
+		session_id: stopEvent.session_id,
+		run_id: stopEvent.run_id,
+		kind: 'agent.message',
+		level: 'info',
+		actor_id: actorId,
+		title:
+			scope === 'subagent'
+				? '\u{1F4AC} Subagent response'
+				: '\u{1F4AC} Agent response',
+		body: message,
+		cause: {
+			parent_event_id: stopEvent.event_id,
+			transcript_path: transcriptPath,
+		},
+		data,
+	} as FeedEvent;
 }
 
 export type UseFeedResult = {
@@ -274,6 +318,25 @@ export function useFeed(
 						? updated.slice(-MAX_EVENTS)
 						: updated;
 				});
+			}
+
+			// Async enrichment: extract agent final message on stop/subagent.stop
+			for (const fe of newFeedEvents) {
+				if (
+					(fe.kind === 'stop.request' || fe.kind === 'subagent.stop') &&
+					fe.cause?.transcript_path
+				) {
+					enrichStopEvent(fe, abortRef.current.signal).then(msgEvent => {
+						if (msgEvent && !abortRef.current.signal.aborted) {
+							setFeedEvents(prev => {
+								const updated = [...prev, msgEvent];
+								return updated.length > MAX_EVENTS
+									? updated.slice(-MAX_EVENTS)
+									: updated;
+							});
+						}
+					});
+				}
 			}
 		});
 
