@@ -1,7 +1,7 @@
 import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
-import {type HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 import MultiOptionList from './MultiOptionList.js';
 import QuestionKeybindingBar from './QuestionKeybindingBar.js';
@@ -20,7 +20,7 @@ type Question = {
 };
 
 type Props = {
-	request: HookEventDisplay;
+	request: FeedEvent;
 	queuedCount: number;
 	onAnswer: (answers: Record<string, string>) => void;
 	onSkip: () => void;
@@ -43,9 +43,10 @@ function buildOptions(options: QuestionOption[]): OptionItem[] {
 	];
 }
 
-function extractQuestions(request: HookEventDisplay): Question[] {
-	const payload = request.payload as Record<string, unknown>;
-	const toolInput = payload.tool_input as Record<string, unknown> | undefined;
+function extractQuestions(request: FeedEvent): Question[] {
+	if (request.kind !== 'tool.pre' && request.kind !== 'permission.request')
+		return [];
+	const toolInput = request.data.tool_input;
 	if (!toolInput) return [];
 	const questions = toolInput.questions as Question[] | undefined;
 	return Array.isArray(questions) ? questions : [];

@@ -2,7 +2,7 @@ import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
 import QuestionDialog from './QuestionDialog.js';
-import type {HookEventDisplay, PreToolUseEvent} from '../types/hooks/index.js';
+import type {FeedEvent} from '../feed/types.js';
 
 function makeRequest(
 	questions: Array<{
@@ -11,25 +11,22 @@ function makeRequest(
 		options: Array<{label: string; description: string}>;
 		multiSelect: boolean;
 	}>,
-): HookEventDisplay {
-	const payload: PreToolUseEvent = {
-		session_id: 'session-1',
-		transcript_path: '/tmp/transcript.jsonl',
-		cwd: '/project',
-		hook_event_name: 'PreToolUse',
-		tool_name: 'AskUserQuestion',
-		tool_input: {questions},
-	};
-
+): FeedEvent {
 	return {
-		id: 'test-q-1',
 		event_id: 'test-q-1',
-		timestamp: new Date('2024-01-15T10:30:45.000Z'),
-		hookName: 'PreToolUse',
-		toolName: 'AskUserQuestion',
-		payload,
-		status: 'pending',
-	};
+		seq: 1,
+		ts: Date.now(),
+		session_id: 's1',
+		run_id: 's1:R1',
+		kind: 'tool.pre',
+		level: 'info',
+		actor_id: 'agent:root',
+		title: 'test',
+		data: {
+			tool_name: 'AskUserQuestion',
+			tool_input: {questions},
+		},
+	} as FeedEvent;
 }
 
 describe('QuestionDialog', () => {
@@ -107,9 +104,7 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		// Focused option description visible
 		expect(frame).toContain('Popular UI library');
-		// Non-focused description hidden
 		expect(frame).not.toContain('Progressive framework');
 	});
 
@@ -256,24 +251,21 @@ describe('QuestionDialog', () => {
 	});
 
 	it('shows message when no questions found', () => {
-		const payload: PreToolUseEvent = {
-			session_id: 'session-1',
-			transcript_path: '/tmp/transcript.jsonl',
-			cwd: '/project',
-			hook_event_name: 'PreToolUse',
-			tool_name: 'AskUserQuestion',
-			tool_input: {},
-		};
-
-		const request: HookEventDisplay = {
-			id: 'test-q-empty',
+		const request: FeedEvent = {
 			event_id: 'test-q-empty',
-			timestamp: new Date('2024-01-15T10:30:45.000Z'),
-			hookName: 'PreToolUse',
-			toolName: 'AskUserQuestion',
-			payload,
-			status: 'pending',
-		};
+			seq: 1,
+			ts: Date.now(),
+			session_id: 's1',
+			run_id: 's1:R1',
+			kind: 'tool.pre',
+			level: 'info',
+			actor_id: 'agent:root',
+			title: 'test',
+			data: {
+				tool_name: 'AskUserQuestion',
+				tool_input: {},
+			},
+		} as FeedEvent;
 
 		const {lastFrame} = render(
 			<QuestionDialog
@@ -306,7 +298,6 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		// Dashed separator at top, no border box
 		expect(frame).toContain('╌');
 		expect(frame).not.toContain('\u256d'); // no ╭
 		expect(frame).not.toContain('\u256f'); // no ╯
@@ -332,7 +323,6 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 
-		// Press Escape
 		stdin.write('\x1B');
 
 		expect(onSkip).toHaveBeenCalled();

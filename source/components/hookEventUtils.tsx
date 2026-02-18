@@ -1,8 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
 import {type Theme} from '../theme/index.js';
 import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
+
+export type StatusKey = 'pending' | 'passthrough' | 'blocked' | 'json_output';
 
 export function getStatusColors(theme: Theme) {
 	return {
@@ -144,11 +145,7 @@ export function ResponseBlock({
 	);
 }
 
-export function StderrBlock({
-	result,
-}: {
-	result: HookEventDisplay['result'];
-}): React.ReactNode {
+export function StderrBlock({result}: {result: unknown}): React.ReactNode {
 	const r = result as Record<string, unknown> | undefined;
 	if (!r?.stderr) return null;
 	return (

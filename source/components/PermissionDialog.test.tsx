@@ -2,28 +2,27 @@ import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
 import PermissionDialog from './PermissionDialog.js';
-import {type HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 
 function makePermissionEvent(
 	toolName: string,
 	toolInput: Record<string, unknown> = {},
-): HookEventDisplay {
+): FeedEvent {
 	return {
-		id: 'test-id',
 		event_id: 'test-id',
-		timestamp: new Date('2025-01-01T12:00:00'),
-		hookName: 'PreToolUse',
-		toolName,
-		payload: {
-			session_id: 'sess-1',
-			transcript_path: '/path',
-			cwd: '/project',
-			hook_event_name: 'PreToolUse' as const,
+		seq: 1,
+		ts: Date.now(),
+		session_id: 's1',
+		run_id: 's1:R1',
+		kind: 'permission.request',
+		level: 'info',
+		actor_id: 'agent:root',
+		title: 'test',
+		data: {
 			tool_name: toolName,
 			tool_input: toolInput,
 		},
-		status: 'pending',
-	};
+	} as FeedEvent;
 }
 
 describe('PermissionDialog', () => {

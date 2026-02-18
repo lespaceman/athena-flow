@@ -1,81 +1,46 @@
 /**
  * Renders an AskUserQuestion event.
  *
- * When pending, shows a minimal "Question (N questions)" indicator since
- * the QuestionDialog handles the full UI. After the user answers, renders
- * the questions with their answers inline.
+ * Shows a minimal "Question (N questions)" indicator. The QuestionDialog
+ * handles the full interactive UI. After the user answers, a separate
+ * decision event handles that state.
  */
 
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import {getStatusColors, STATUS_SYMBOLS} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
-	event: HookEventDisplay;
+	event: FeedEvent;
 };
 
 export default function AskUserQuestionEvent({event}: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
-	const color = statusColors[event.status];
-	const symbol = STATUS_SYMBOLS[event.status];
-	const payload = event.payload as Record<string, unknown>;
+	const color = statusColors.passthrough;
+	const symbol = STATUS_SYMBOLS.passthrough;
 
-	if (event.hookName !== 'PreToolUse') return null;
+	if (event.kind !== 'tool.pre') return null;
 
-	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const toolInput = event.data.tool_input ?? {};
 	const questions = toolInput.questions as
 		| Array<{question: string; header: string}>
 		| undefined;
 
-	const result = event.result as Record<string, unknown> | undefined;
-	const hso = (result?.stdout_json as Record<string, unknown>)
-		?.hookSpecificOutput as Record<string, unknown> | undefined;
-	const updatedInput = hso?.updatedInput as Record<string, unknown> | undefined;
-	const answers = updatedInput?.answers as Record<string, string> | undefined;
-
-	// While pending, show minimal indicator (the dialog handles the full UI)
-	if (event.status === 'pending') {
-		return (
-			<Box marginTop={1}>
-				<Text color={color}>{symbol} </Text>
-				<Text color={theme.accent} bold>
-					Question
-				</Text>
-				{questions && questions.length > 0 && (
-					<Text dimColor>
-						{' '}
-						({questions.length} question{questions.length > 1 ? 's' : ''})
-					</Text>
-				)}
-			</Box>
-		);
-	}
-
-	// After answering, show questions with answers inline
 	return (
-		<Box flexDirection="column" marginTop={1}>
-			<Box>
-				<Text color={color}>{symbol} </Text>
-				<Text color={theme.accent} bold>
-					Question
+		<Box marginTop={1}>
+			<Text color={color}>{symbol} </Text>
+			<Text color={theme.accent} bold>
+				Question
+			</Text>
+			{questions && questions.length > 0 && (
+				<Text dimColor>
+					{' '}
+					({questions.length} question{questions.length > 1 ? 's' : ''})
 				</Text>
-			</Box>
-			{questions?.map((q, i) => (
-				<Box key={`${i}-${q.header}`} paddingLeft={3} flexDirection="column">
-					<Text>
-						<Text bold>[{q.header}]</Text> {q.question}
-					</Text>
-					{answers?.[q.question] && (
-						<Text color={theme.status.success}>
-							{'\u23bf  '}
-							{answers[q.question]}
-						</Text>
-					)}
-				</Box>
-			))}
+			)}
 		</Box>
 	);
 }
