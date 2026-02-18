@@ -16,11 +16,14 @@ type Props = {
 
 const VIEWPORT_RESERVE = 10;
 
+export const FEEDLIST_ROW_OVERHEAD = 4;
+
 function renderItem(
 	item: FeedItem,
 	focusedId: string | undefined,
 	expandedSet: ReadonlySet<string>,
 	verbose?: boolean,
+	parentWidth?: number,
 ): React.ReactNode {
 	if (item.type === 'message') {
 		return <Message key={item.data.id} message={item.data} />;
@@ -38,7 +41,7 @@ function renderItem(
 				<ErrorBoundary
 					fallback={<Text color="red">[Error rendering event]</Text>}
 				>
-					<HookEvent event={event} verbose={verbose} expanded={expandedSet.has(event.event_id)} />
+					<HookEvent event={event} verbose={verbose} expanded={expandedSet.has(event.event_id)} parentWidth={parentWidth} />
 				</ErrorBoundary>
 			</Box>
 			{/* Expand affordance */}
@@ -57,6 +60,8 @@ export default function FeedList({
 	dialogActive,
 }: Props): React.ReactNode {
 	const {stdout} = useStdout();
+	const terminalWidth = stdout?.columns ?? 80;
+	const contentWidth = terminalWidth - FEEDLIST_ROW_OVERHEAD;
 	const viewportSize = Math.max(10, (stdout?.rows ?? 24) - VIEWPORT_RESERVE);
 
 	// Find the index of the focused item to ensure it's in the viewport
@@ -96,7 +101,7 @@ export default function FeedList({
 		<Box flexDirection="column">
 			{/* Scrollback: write-once, no cursor indicators */}
 			<Static items={scrollbackItems}>
-				{(item: FeedItem) => renderItem(item, undefined, expandedSet, verbose)}
+				{(item: FeedItem) => renderItem(item, undefined, expandedSet, verbose, contentWidth)}
 			</Static>
 			{/* Viewport: dynamic, cursor indicators update here */}
 			{viewportItems.map(item =>
@@ -105,6 +110,7 @@ export default function FeedList({
 					dialogActive ? undefined : focusedId,
 					expandedSet,
 					verbose,
+					contentWidth,
 				),
 			)}
 		</Box>

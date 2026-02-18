@@ -22,7 +22,7 @@ describe('DashboardFrame', () => {
 						summary: 'run checkout flow tests',
 					},
 				]}
-					footerLine="/help /todo /sessions  up/down scroll  ctrl+p/n history  enter send"
+				footerLine="/help /todo /sessions  up/down scroll  ctrl+p/n history  enter send"
 				renderInput={innerWidth => (
 					<Text>{`input> ${''.padEnd(Math.max(0, innerWidth - 13), ' ')}[RUN]`}</Text>
 				)}
@@ -71,5 +71,33 @@ describe('DashboardFrame', () => {
 		for (const line of lines) {
 			expect(line.length).toBeLessThanOrEqual(width);
 		}
+	});
+
+	it('shows wider event ids when terminal is wide', () => {
+		const {lastFrame} = render(
+			<DashboardFrame
+				width={140}
+				headerLine1="ATHENA"
+				headerLine2="RUNNING"
+				todoHeader="[TODO]"
+				todoLines={['  (no tasks)']}
+				timelineRows={[
+					{
+						time: '21:14:03',
+						eventId: 'evt-1234567890abcdef',
+						type: 'tool.result ERR',
+						actor: 'SA-UIScout',
+						summary: 'selector lookup timeout',
+					},
+				]}
+				footerLine="/help /todo"
+				renderInput={innerWidth => (
+					<Text>{`input> ${''.padEnd(Math.max(0, innerWidth - 14), ' ')}[SEND]`}</Text>
+				)}
+			/>,
+		);
+
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('evt-1234567890abcdef');
 	});
 });

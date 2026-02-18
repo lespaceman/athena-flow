@@ -9,11 +9,13 @@ import {useTheme} from '../theme/index.js';
 type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
+	parentWidth?: number;
 };
 
 export default function PostToolResult({
 	event,
 	verbose,
+	parentWidth,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -32,7 +34,7 @@ export default function PostToolResult({
 		const errorText =
 			event.kind === 'tool.failure' ? event.data.error : 'Unknown error';
 		responseNode = (
-			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
+			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false} parentWidth={parentWidth}>
 				<Text color={statusColors.blocked}>{errorText}</Text>
 			</ToolResultContainer>
 		);
@@ -45,6 +47,7 @@ export default function PostToolResult({
 				previewLines={outputMeta?.previewLines}
 				totalLineCount={outputMeta?.totalLineCount}
 				toolId={event.data.tool_use_id}
+				parentWidth={parentWidth}
 			>
 				{availableWidth => (
 					<ToolOutputRenderer

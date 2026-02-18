@@ -10,6 +10,7 @@ type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
 	expanded?: boolean;
+	parentWidth?: number;
 };
 
 const BULLET = '\u25cf'; // ●
@@ -19,6 +20,7 @@ export default function UnifiedToolCallEvent({
 	event,
 	verbose,
 	expanded,
+	parentWidth,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -32,7 +34,7 @@ export default function UnifiedToolCallEvent({
 	const parsed = parseToolName(toolName);
 	const inlineParams = formatInlineParams(toolInput);
 
-	const terminalWidth = process.stdout.columns ?? 80;
+	const terminalWidth = parentWidth ?? process.stdout.columns ?? 80;
 	const bulletWidth = 2; // "● "
 	const nameWidth = parsed.displayName.length;
 	const availableForParams = terminalWidth - bulletWidth - nameWidth;

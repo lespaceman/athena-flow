@@ -14,12 +14,14 @@ type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
 	expanded?: boolean;
+	parentWidth?: number;
 };
 
 export default function HookEvent({
 	event,
 	verbose,
 	expanded,
+	parentWidth,
 }: Props): React.ReactNode {
 	if (
 		!verbose &&
@@ -50,6 +52,7 @@ export default function HookEvent({
 				event={event}
 				verbose={verbose}
 				expanded={expanded}
+				parentWidth={parentWidth}
 			/>
 		);
 	}
@@ -62,7 +65,7 @@ export default function HookEvent({
 	}
 
 	if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
-		return <PostToolResult event={event} verbose={verbose} />;
+		return <PostToolResult event={event} verbose={verbose} parentWidth={parentWidth} />;
 	}
 
 	if (event.kind === 'subagent.start') {

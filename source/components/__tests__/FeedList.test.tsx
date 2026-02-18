@@ -28,6 +28,13 @@ function toFeedItems(events: FeedEvent[]): FeedItem[] {
 	return events.map(e => ({type: 'feed' as const, data: e}));
 }
 
+describe('FEEDLIST_ROW_OVERHEAD', () => {
+	it('exports FEEDLIST_ROW_OVERHEAD constant', async () => {
+		const {FEEDLIST_ROW_OVERHEAD} = await import('../FeedList.js');
+		expect(FEEDLIST_ROW_OVERHEAD).toBe(4);
+	});
+});
+
 describe('FeedList', () => {
 	it('renders feed events', () => {
 		const events = [

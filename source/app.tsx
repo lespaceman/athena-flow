@@ -1423,6 +1423,10 @@ function AppContent({
 			}
 
 			if (expandedEntry) {
+				if (key.return || input === 'q' || input === 'Q') {
+					setExpandedId(null);
+					return;
+				}
 				if (key.home) {
 					setDetailScroll(0);
 					return;
@@ -1452,6 +1456,14 @@ function AppContent({
 					return;
 				}
 				if (key.downArrow) {
+					scrollDetail(1);
+					return;
+				}
+				if (input === 'k' || input === 'K') {
+					scrollDetail(-1);
+					return;
+				}
+				if (input === 'j' || input === 'J') {
 					scrollDetail(1);
 					return;
 				}
@@ -1548,7 +1560,7 @@ function AppContent({
 			return 'INPUT: Enter send  Esc back  Tab focus  Ctrl+P/N history';
 		}
 		if (expandedEntry) {
-			return 'DETAILS: Up/Down scroll  PgUp/PgDn jump  Home/End edge  Esc back';
+			return 'DETAILS: Up/Down or j/k scroll  PgUp/PgDn jump  Enter/Esc back';
 		}
 		const searchPart =
 			searchQuery && searchMatches.length > 0
@@ -1602,7 +1614,7 @@ function AppContent({
 			detailLines.length === 0 ? '0/0' : `${start + 1}-${end}/${detailLines.length}`;
 		bodyLines.push(
 			fit(
-				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor}) ${rangeLabel}`,
+				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor}) ${rangeLabel} [Esc back]`,
 				innerWidth,
 			),
 		);

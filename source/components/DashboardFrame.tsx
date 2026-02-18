@@ -37,40 +37,97 @@ function renderLine(content: string, innerWidth: number): string {
 	return `|${fit(content, innerWidth)}|`;
 }
 
+type TimelineColumns = {
+	timeWidth: number;
+	eventWidth: number;
+	typeWidth: number;
+	actorWidth: number;
+	summaryWidth: number;
+};
+
+function maxLen(values: string[]): number {
+	let max = 0;
+	for (const value of values) {
+		if (value.length > max) max = value.length;
+	}
+	return max;
+}
+
+function computeTimelineColumns(
+	rows: DashboardTimelineRow[],
+	innerWidth: number,
+): TimelineColumns | null {
+	const gapWidth = 8; // four "  " separators
+	const timeWidth = innerWidth < 70 ? 6 : 8;
+	const min = {event: 5, type: 9, actor: 7, summary: 8};
+	const max = {event: 24, type: 24, actor: 18};
+
+	const eventTarget = Math.max(
+		min.event,
+		Math.min(max.event, maxLen(rows.map(row => row.eventId))),
+	);
+	const typeTarget = Math.max(
+		min.type,
+		Math.min(max.type, maxLen(rows.map(row => row.type))),
+	);
+	const actorTarget = Math.max(
+		min.actor,
+		Math.min(max.actor, maxLen(rows.map(row => row.actor))),
+	);
+
+	let eventWidth = eventTarget;
+	let typeWidth = typeTarget;
+	let actorWidth = actorTarget;
+
+	while (
+		timeWidth + eventWidth + typeWidth + actorWidth + gapWidth + min.summary >
+		innerWidth
+	) {
+		if (
+			eventWidth >= typeWidth &&
+			eventWidth >= actorWidth &&
+			eventWidth > min.event
+		) {
+			eventWidth--;
+			continue;
+		}
+		if (typeWidth >= actorWidth && typeWidth > min.type) {
+			typeWidth--;
+			continue;
+		}
+		if (actorWidth > min.actor) {
+			actorWidth--;
+			continue;
+		}
+		return null;
+	}
+
+	const summaryWidth =
+		innerWidth - (timeWidth + eventWidth + typeWidth + actorWidth + gapWidth);
+	if (summaryWidth < min.summary) return null;
+
+	return {
+		timeWidth,
+		eventWidth,
+		typeWidth,
+		actorWidth,
+		summaryWidth,
+	};
+}
+
 function formatTimelineRow(
 	row: DashboardTimelineRow,
 	innerWidth: number,
+	columns: TimelineColumns | null,
 ): string {
-	let timeWidth = 8;
-	let eventWidth = 8;
-	let typeWidth = 16;
-	let actorWidth = 12;
-
-	if (innerWidth < 88) {
-		timeWidth = 8;
-		eventWidth = 6;
-		typeWidth = 12;
-		actorWidth = 9;
-	}
-
-	if (innerWidth < 66) {
-		timeWidth = 6;
-		eventWidth = 5;
-		typeWidth = 10;
-		actorWidth = 7;
-	}
-
-	const fixedWidth =
-		timeWidth + 2 + eventWidth + 2 + typeWidth + 2 + actorWidth + 2;
-
-	if (innerWidth <= fixedWidth + 8) {
+	if (!columns) {
 		return fit(
 			`${row.time} ${row.eventId} ${row.type} ${row.actor} ${row.summary}`,
 			innerWidth,
 		);
 	}
 
-	const summaryWidth = innerWidth - fixedWidth;
+	const {timeWidth, eventWidth, typeWidth, actorWidth, summaryWidth} = columns;
 	return (
 		fit(row.time, timeWidth) +
 		'  ' +
@@ -98,6 +155,7 @@ export default function DashboardFrame({
 	const innerWidth = frameWidth - 2;
 	const border = `+${'-'.repeat(innerWidth)}+`;
 	const separator = `|${'-'.repeat(innerWidth)}|`;
+	const timelineColumns = computeTimelineColumns(timelineRows, innerWidth);
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
@@ -115,7 +173,10 @@ export default function DashboardFrame({
 			) : (
 				timelineRows.map(row => (
 					<Text key={row.eventId}>
-						{renderLine(formatTimelineRow(row, innerWidth), innerWidth)}
+						{renderLine(
+							formatTimelineRow(row, innerWidth, timelineColumns),
+							innerWidth,
+						)}
 					</Text>
 				))
 			)}
