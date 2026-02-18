@@ -32,6 +32,8 @@ export type SessionMetrics = {
 	permissions: PermissionMetrics;
 	sessionStartTime: Date | null;
 	tokens: TokenUsage;
+	failures: number;
+	blocks: number;
 };
 
 export type SessionStatsSnapshot = {

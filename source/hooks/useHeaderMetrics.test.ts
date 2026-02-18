@@ -43,6 +43,8 @@ describe('useHeaderMetrics', () => {
 				total: null,
 				contextSize: null,
 			},
+			failures: 0,
+			blocks: 0,
 		});
 	});
 

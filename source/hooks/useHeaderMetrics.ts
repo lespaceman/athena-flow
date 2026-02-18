@@ -37,6 +37,8 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 		let toolCallCount = 0;
 		let permissionsAllowed = 0;
 		let permissionsDenied = 0;
+		let failures = 0;
+		let blocks = 0;
 
 		// Track subagents by agent_id
 		const subagentMap = new Map<
@@ -90,6 +92,7 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 			if (event.kind === 'permission.decision') {
 				if (event.data.decision_type === 'deny') {
 					permissionsDenied++;
+					blocks++;
 				} else if (
 					event.data.decision_type === 'allow' ||
 					event.data.decision_type === 'no_opinion'
@@ -97,6 +100,16 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 					permissionsAllowed++;
 				}
 				// 'ask' is like pending — not counted
+			}
+
+			if (event.kind === 'tool.failure') {
+				failures++;
+			}
+			if (
+				event.kind === 'stop.decision' &&
+				event.data.decision_type === 'block'
+			) {
+				blocks++;
 			}
 		}
 
@@ -126,6 +139,8 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 			},
 			sessionStartTime,
 			tokens: NULL_TOKENS,
+			failures,
+			blocks,
 		};
 		cachedRef.current = result;
 		lastComputeRef.current = now;
