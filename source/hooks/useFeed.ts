@@ -24,6 +24,15 @@ export type FeedItem =
 	| {type: 'message'; data: Message}
 	| {type: 'feed'; data: FeedEvent};
 
+export type PermissionQueueItem = {
+	request_id: string;
+	ts: number;
+	tool_name: string;
+	tool_input: Record<string, unknown>;
+	tool_use_id?: string;
+	suggestions?: unknown;
+};
+
 export type UseFeedResult = {
 	items: FeedItem[];
 	feedEvents: FeedEvent[];
