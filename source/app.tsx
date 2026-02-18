@@ -449,11 +449,8 @@ function AppContent({
 
 	const handlePermissionDecision = useCallback(
 		(decision: PermissionDecision) => {
-			if (!currentPermissionRequest?.cause?.hook_request_id) return;
-			resolvePermission(
-				currentPermissionRequest.cause.hook_request_id,
-				decision,
-			);
+			if (!currentPermissionRequest) return;
+			resolvePermission(currentPermissionRequest.request_id, decision);
 		},
 		[currentPermissionRequest, resolvePermission],
 	);

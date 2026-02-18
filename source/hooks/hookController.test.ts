@@ -47,7 +47,9 @@ describe('hookController handleEvent', () => {
 
 		expect(result.handled).toBe(true);
 		expect(result.decision).toBeUndefined();
-		expect(cb.enqueuePermission).toHaveBeenCalledWith('req-1');
+		expect(cb.enqueuePermission).toHaveBeenCalledWith(
+			expect.objectContaining({id: 'req-1', hookName: 'PermissionRequest'}),
+		);
 	});
 
 	it('returns immediate allow decision when approve rule matches', () => {

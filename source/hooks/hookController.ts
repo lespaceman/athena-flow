@@ -14,7 +14,7 @@ import {parseTranscriptFile} from '../utils/transcriptParser.js';
 
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];
-	enqueuePermission: (eventId: string) => void;
+	enqueuePermission: (event: RuntimeEvent) => void;
 	enqueueQuestion: (eventId: string) => void;
 	setCurrentSessionId: (sessionId: string) => void;
 	onTranscriptParsed: (eventId: string, summary: unknown) => void;
@@ -59,7 +59,7 @@ export function handleEvent(
 		}
 
 		// No rule — enqueue for user dialog
-		cb.enqueuePermission(event.id);
+		cb.enqueuePermission(event);
 		return {handled: true};
 	}
 

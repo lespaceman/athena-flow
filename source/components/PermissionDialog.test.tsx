@@ -2,27 +2,18 @@ import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
 import PermissionDialog from './PermissionDialog.js';
-import type {FeedEvent} from '../feed/types.js';
+import type {PermissionQueueItem} from '../hooks/useFeed.js';
 
 function makePermissionEvent(
 	toolName: string,
 	toolInput: Record<string, unknown> = {},
-): FeedEvent {
+): PermissionQueueItem {
 	return {
-		event_id: 'test-id',
-		seq: 1,
+		request_id: 'test-id',
 		ts: Date.now(),
-		session_id: 's1',
-		run_id: 's1:R1',
-		kind: 'permission.request',
-		level: 'info',
-		actor_id: 'agent:root',
-		title: 'test',
-		data: {
-			tool_name: toolName,
-			tool_input: toolInput,
-		},
-	} as FeedEvent;
+		tool_name: toolName,
+		tool_input: toolInput,
+	};
 }
 
 describe('PermissionDialog', () => {

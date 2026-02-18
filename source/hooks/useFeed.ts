@@ -33,6 +33,20 @@ export type PermissionQueueItem = {
 	suggestions?: unknown;
 };
 
+export function extractPermissionSnapshot(
+	event: RuntimeEvent,
+): PermissionQueueItem {
+	const p = event.payload as Record<string, unknown>;
+	return {
+		request_id: event.id,
+		ts: event.timestamp,
+		tool_name: event.toolName ?? (p.tool_name as string) ?? 'Unknown',
+		tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+		tool_use_id: event.toolUseId ?? (p.tool_use_id as string | undefined),
+		suggestions: p.permission_suggestions,
+	};
+}
+
 export type UseFeedResult = {
 	items: FeedItem[];
 	feedEvents: FeedEvent[];
@@ -42,7 +56,7 @@ export type UseFeedResult = {
 	actors: Actor[];
 	isServerRunning: boolean;
 
-	currentPermissionRequest: FeedEvent | null;
+	currentPermissionRequest: PermissionQueueItem | null;
 	permissionQueueCount: number;
 	resolvePermission: (eventId: string, decision: PermissionDecision) => void;
 
@@ -67,7 +81,9 @@ export function useFeed(
 ): UseFeedResult {
 	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
 	const [rules, setRules] = useState<HookRule[]>([]);
-	const [permissionQueue, setPermissionQueue] = useState<string[]>([]);
+	const [permissionQueue, setPermissionQueue] = useState<PermissionQueueItem[]>(
+		[],
+	);
 	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
 	const mapperRef = useRef<FeedMapper>(createFeedMapper());
@@ -96,12 +112,15 @@ export function useFeed(
 	const clearEvents = useCallback(() => setFeedEvents([]), []);
 
 	// Queue helpers
-	const enqueuePermission = useCallback((requestId: string) => {
-		setPermissionQueue(prev => [...prev, requestId]);
+	const enqueuePermission = useCallback((event: RuntimeEvent) => {
+		const snapshot = extractPermissionSnapshot(event);
+		setPermissionQueue(prev => [...prev, snapshot]);
 	}, []);
 
 	const dequeuePermission = useCallback((requestId: string) => {
-		setPermissionQueue(prev => prev.filter(id => id !== requestId));
+		setPermissionQueue(prev =>
+			prev.filter(item => item.request_id !== requestId),
+		);
 	}, []);
 
 	const enqueueQuestion = useCallback((requestId: string) => {
@@ -112,19 +131,10 @@ export function useFeed(
 		setQuestionQueue(prev => prev.filter(id => id !== requestId));
 	}, []);
 
-	// Derive current request from queue + feed events.
-	// The queue stores RuntimeEvent.id (hook request_id). FeedEvent has
-	// cause.hook_request_id that maps back to it.
-	const currentPermissionRequest = useMemo(() => {
-		if (permissionQueue.length === 0) return null;
-		return (
-			feedEvents.find(
-				e =>
-					e.kind === 'permission.request' &&
-					e.cause?.hook_request_id === permissionQueue[0],
-			) ?? null
-		);
-	}, [feedEvents, permissionQueue]);
+	const currentPermissionRequest = useMemo(
+		() => (permissionQueue.length > 0 ? permissionQueue[0]! : null),
+		[permissionQueue],
+	);
 
 	const currentQuestionRequest = useMemo(() => {
 		if (questionQueue.length === 0) return null;
@@ -142,27 +152,15 @@ export function useFeed(
 		(requestId: string, decision: PermissionDecision) => {
 			const isAllow = decision !== 'deny' && decision !== 'always-deny';
 
-			// Persist "always" decisions as rules
-			const event = feedEventsRef.current.find(
-				e =>
-					e.kind === 'permission.request' &&
-					e.cause?.hook_request_id === requestId,
+			const queueItem = permissionQueue.find(
+				item => item.request_id === requestId,
 			);
-			const toolName =
-				event?.kind === 'permission.request' ? event.data.tool_name : undefined;
+			const toolName = queueItem?.tool_name;
 			if (toolName) {
 				if (decision === 'always-allow') {
-					addRule({
-						toolName,
-						action: 'approve',
-						addedBy: 'permission-dialog',
-					});
+					addRule({toolName, action: 'approve', addedBy: 'permission-dialog'});
 				} else if (decision === 'always-deny') {
-					addRule({
-						toolName,
-						action: 'deny',
-						addedBy: 'permission-dialog',
-					});
+					addRule({toolName, action: 'deny', addedBy: 'permission-dialog'});
 				} else if (decision === 'always-allow-server') {
 					const serverMatch = /^(mcp__[^_]+(?:_[^_]+)*__)/.exec(toolName);
 					if (serverMatch) {
@@ -189,7 +187,7 @@ export function useFeed(
 			runtime.sendDecision(requestId, runtimeDecision);
 			dequeuePermission(requestId);
 		},
-		[runtime, addRule, dequeuePermission],
+		[runtime, permissionQueue, addRule, dequeuePermission],
 	);
 
 	const resolveQuestion = useCallback(
