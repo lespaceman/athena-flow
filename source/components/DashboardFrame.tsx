@@ -2,6 +2,17 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {fit} from '../utils/format.js';
 
+const BOX = {
+	topLeft: '┌',
+	topRight: '┐',
+	bottomLeft: '└',
+	bottomRight: '┘',
+	horizontal: '─',
+	vertical: '│',
+	teeRight: '├',
+	teeLeft: '┤',
+} as const;
+
 export type DashboardTimelineRow = {
 	time: string;
 	eventId: string;
@@ -22,7 +33,7 @@ type Props = {
 };
 
 function renderLine(content: string, innerWidth: number): string {
-	return `|${fit(content, innerWidth)}|`;
+	return `${BOX.vertical}${fit(content, innerWidth)}${BOX.vertical}`;
 }
 
 type TimelineColumns = {
@@ -141,13 +152,14 @@ export default function DashboardFrame({
 }: Props) {
 	const frameWidth = Math.max(4, width);
 	const innerWidth = frameWidth - 2;
-	const border = `+${'-'.repeat(innerWidth)}+`;
-	const separator = `|${'-'.repeat(innerWidth)}|`;
+	const topBorder = `${BOX.topLeft}${BOX.horizontal.repeat(innerWidth)}${BOX.topRight}`;
+	const bottomBorder = `${BOX.bottomLeft}${BOX.horizontal.repeat(innerWidth)}${BOX.bottomRight}`;
+	const separator = `${BOX.teeRight}${BOX.horizontal.repeat(innerWidth)}${BOX.teeLeft}`;
 	const timelineColumns = computeTimelineColumns(timelineRows, innerWidth);
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
-			<Text>{border}</Text>
+			<Text>{topBorder}</Text>
 			<Text>{renderLine(headerLine1, innerWidth)}</Text>
 			<Text>{renderLine(headerLine2, innerWidth)}</Text>
 			<Text>{separator}</Text>
@@ -171,11 +183,11 @@ export default function DashboardFrame({
 			<Text>{separator}</Text>
 			<Text>{renderLine(footerLine, innerWidth)}</Text>
 			<Box>
-				<Text>|</Text>
+				<Text>{BOX.vertical}</Text>
 				{renderInput(innerWidth)}
-				<Text>|</Text>
+				<Text>{BOX.vertical}</Text>
 			</Box>
-			<Text>{border}</Text>
+			<Text>{bottomBorder}</Text>
 		</Box>
 	);
 }

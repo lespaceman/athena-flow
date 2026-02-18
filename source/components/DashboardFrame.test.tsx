@@ -5,7 +5,7 @@ import {describe, expect, it} from 'vitest';
 import DashboardFrame from './DashboardFrame.js';
 
 describe('DashboardFrame', () => {
-	it('renders ascii frame sections', () => {
+	it('renders box-drawing frame sections', () => {
 		const {lastFrame} = render(
 			<DashboardFrame
 				width={72}
@@ -30,7 +30,12 @@ describe('DashboardFrame', () => {
 		);
 
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('+');
+		expect(frame).toContain('┌');
+		expect(frame).toContain('└');
+		expect(frame).toContain('│');
+		// Frame corners should not use ASCII '+'
+		expect(frame).not.toMatch(/^\+/m);
+		expect(frame).not.toMatch(/\+$/m);
 		expect(frame).toContain('ATHENA | session');
 		expect(frame).toContain('[TODO]');
 		expect(frame).toContain('E101');

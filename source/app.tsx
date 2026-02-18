@@ -32,7 +32,7 @@ import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
 import {deriveRunTitle} from './feed/timeline.js';
-import {fit, formatRunLabel} from './utils/format.js';
+import {fit, fitAnsi, formatRunLabel} from './utils/format.js';
 
 type Props = {
 	projectDir: string;
@@ -260,10 +260,11 @@ function AppContent({
 		expandedEntry,
 	} = layout;
 
-	const topBorder = `+${'-'.repeat(innerWidth)}+`;
-	const sectionBorder = `|${'-'.repeat(innerWidth)}|`;
+	const topBorder = `┌${'─'.repeat(innerWidth)}┐`;
+	const bottomBorder = `└${'─'.repeat(innerWidth)}┘`;
+	const sectionBorder = `├${'─'.repeat(innerWidth)}┤`;
 	const frameLine = (content: string): string =>
-		`|${fit(content, innerWidth)}|`;
+		`│${fitAnsi(content, innerWidth)}│`;
 
 	// ── Refs for callbacks ──────────────────────────────────
 
@@ -642,7 +643,7 @@ function AppContent({
 			<Text>{sectionBorder}</Text>
 			<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>
 			<Text>{frameLine(frame.inputLine)}</Text>
-			<Text>{topBorder}</Text>
+			<Text>{bottomBorder}</Text>
 			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
 					fallback={
