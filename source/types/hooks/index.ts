@@ -54,4 +54,4 @@ export {
 } from './result.js';
 
 // Display types
-export {type HookEventStatus, type HookEventDisplay} from './display.js';
+export {type HookEventStatus} from './display.js';
