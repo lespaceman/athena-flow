@@ -1,22 +1,18 @@
 import {useState, useCallback} from 'react';
-import type {HookEventDisplay} from '../types/hooks/display.js';
 
-export type UseRequestQueueResult = {
-	/** Current request (first in queue) */
-	current: HookEventDisplay | null;
-	/** Number of queued requests */
+type QueueableEvent = {event_id: string};
+
+export type UseRequestQueueResult<T> = {
+	current: T | null;
 	count: number;
-	/** Add a request ID to the queue */
 	enqueue: (requestId: string) => void;
-	/** Remove a request ID from the queue */
 	dequeue: (requestId: string) => void;
-	/** Remove multiple request IDs at once (e.g., on socket close) */
 	removeAll: (requestIds: string[]) => void;
 };
 
-export function useRequestQueue(
-	events: HookEventDisplay[],
-): UseRequestQueueResult {
+export function useRequestQueue<T extends QueueableEvent>(
+	events: T[],
+): UseRequestQueueResult<T> {
 	const [queue, setQueue] = useState<string[]>([]);
 
 	const enqueue = useCallback((requestId: string) => {
@@ -32,7 +28,9 @@ export function useRequestQueue(
 	}, []);
 
 	const current =
-		queue.length > 0 ? (events.find(e => e.id === queue[0]) ?? null) : null;
+		queue.length > 0
+			? (events.find(e => e.event_id === queue[0]) ?? null)
+			: null;
 
 	return {
 		current,

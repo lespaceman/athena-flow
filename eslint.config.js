@@ -31,6 +31,7 @@ export default tseslint.config(
 			'source/components/**/*.{ts,tsx}',
 			'source/context/**/*.{ts,tsx}',
 			'source/hooks/**/*.{ts,tsx}',
+			'source/feed/**/*.{ts,tsx}',
 		],
 		ignores: ['source/context/HookContext.tsx'],
 		rules: {

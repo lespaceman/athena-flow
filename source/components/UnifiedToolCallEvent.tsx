@@ -1,14 +1,13 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {truncateLine} from '../utils/truncate.js';
-import {getStatusColors, StderrBlock} from './hookEventUtils.js';
-import {ToolResultContainer} from './ToolOutput/index.js';
+import {getStatusColors} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
-	event: HookEventDisplay;
+	event: FeedEvent;
 	verbose?: boolean;
 };
 
@@ -20,13 +19,12 @@ export default function UnifiedToolCallEvent({
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
-	const payload = event.payload as Record<string, unknown>;
 
-	if (event.hookName !== 'PreToolUse' && event.hookName !== 'PermissionRequest')
+	if (event.kind !== 'tool.pre' && event.kind !== 'permission.request')
 		return null;
 
-	const toolName = (payload.tool_name as string) ?? '';
-	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const toolName = event.data.tool_name;
+	const toolInput = event.data.tool_input ?? {};
 
 	const parsed = parseToolName(toolName);
 	const inlineParams = formatInlineParams(toolInput);
@@ -40,10 +38,7 @@ export default function UnifiedToolCallEvent({
 		Math.max(availableForParams, 10),
 	);
 
-	const bulletColor =
-		event.status === 'blocked'
-			? statusColors.blocked
-			: statusColors.passthrough;
+	const bulletColor = statusColors.passthrough;
 
 	return (
 		<Box flexDirection="column" marginTop={1}>
@@ -59,15 +54,6 @@ export default function UnifiedToolCallEvent({
 					<Text dimColor>{JSON.stringify(toolInput, null, 2)}</Text>
 				</Box>
 			)}
-			{event.status === 'blocked' && (
-				<ToolResultContainer
-					gutterColor={statusColors.blocked}
-					dimGutter={false}
-				>
-					<Text color={statusColors.blocked}>User rejected</Text>
-				</ToolResultContainer>
-			)}
-			<StderrBlock result={event.result} />
 		</Box>
 	);
 }

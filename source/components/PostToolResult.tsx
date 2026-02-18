@@ -1,17 +1,13 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
-import {
-	getStatusColors,
-	getPostToolText,
-	StderrBlock,
-} from './hookEventUtils.js';
+import type {FeedEvent} from '../feed/types.js';
+import {getStatusColors, getPostToolText} from './hookEventUtils.js';
 import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index.js';
 import {extractToolOutput} from '../utils/toolExtractors.js';
 import {useTheme} from '../theme/index.js';
 
 type Props = {
-	event: HookEventDisplay;
+	event: FeedEvent;
 	verbose?: boolean;
 };
 
@@ -21,36 +17,34 @@ export default function PostToolResult({
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
-	const payload = event.payload as Record<string, unknown>;
 
-	if (
-		event.hookName !== 'PostToolUse' &&
-		event.hookName !== 'PostToolUseFailure'
-	) {
+	if (event.kind !== 'tool.post' && event.kind !== 'tool.failure') {
 		return null;
 	}
 
-	const toolName = (payload.tool_name as string) ?? '';
-	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
-	const isFailed = event.hookName === 'PostToolUseFailure';
+	const toolName = event.data.tool_name;
+	const toolInput = event.data.tool_input ?? {};
+	const isFailed = event.kind === 'tool.failure';
 
 	let responseNode: React.ReactNode;
 
 	if (isFailed) {
-		const errorText = getPostToolText(payload) || 'Unknown error';
+		const errorText =
+			event.kind === 'tool.failure' ? event.data.error : 'Unknown error';
 		responseNode = (
 			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false}>
 				<Text color={statusColors.blocked}>{errorText}</Text>
 			</ToolResultContainer>
 		);
 	} else {
-		const toolResponse = payload.tool_response;
+		const toolResponse =
+			event.kind === 'tool.post' ? event.data.tool_response : undefined;
 		const outputMeta = extractToolOutput(toolName, toolInput, toolResponse);
 		responseNode = (
 			<ToolResultContainer
 				previewLines={outputMeta?.previewLines}
 				totalLineCount={outputMeta?.totalLineCount}
-				toolId={event.toolUseId}
+				toolId={event.data.tool_use_id}
 			>
 				{availableWidth => (
 					<ToolOutputRenderer
@@ -69,10 +63,9 @@ export default function PostToolResult({
 			{responseNode}
 			{verbose && (
 				<Box paddingLeft={3}>
-					<Text dimColor>{getPostToolText(payload)}</Text>
+					<Text dimColor>{getPostToolText(event.raw ?? event.data)}</Text>
 				</Box>
 			)}
-			<StderrBlock result={event.result} />
 		</Box>
 	);
 }

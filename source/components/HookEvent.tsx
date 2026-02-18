@@ -1,5 +1,5 @@
 import React from 'react';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import SessionEndEvent from './SessionEndEvent.js';
 import AskUserQuestionEvent from './AskUserQuestionEvent.js';
 import {TASK_TOOL_NAMES} from '../types/todo.js';
@@ -11,61 +11,49 @@ import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
 
 type Props = {
-	event: HookEventDisplay;
+	event: FeedEvent;
 	verbose?: boolean;
 };
 
 export default function HookEvent({event, verbose}: Props): React.ReactNode {
-	// Skip noise events in non-verbose mode
 	if (
 		!verbose &&
-		(event.hookName === 'SessionStart' || event.hookName === 'UserPromptSubmit')
+		(event.kind === 'session.start' || event.kind === 'user.prompt')
 	) {
 		return null;
 	}
 
-	if (event.hookName === 'SessionEnd') {
+	if (event.kind === 'session.end') {
 		return <SessionEndEvent event={event} />;
 	}
 
-	if (event.hookName === 'PreToolUse' && event.toolName === 'AskUserQuestion') {
+	if (event.kind === 'tool.pre' && event.data.tool_name === 'AskUserQuestion') {
 		return <AskUserQuestionEvent event={event} />;
 	}
 
-	if (
-		event.hookName === 'PreToolUse' &&
-		TASK_TOOL_NAMES.has(event.toolName ?? '')
-	) {
+	if (event.kind === 'tool.pre' && TASK_TOOL_NAMES.has(event.data.tool_name)) {
 		return null;
 	}
 
 	let content: React.ReactNode = null;
 
-	if (event.hookName === 'PreToolUse' && event.toolName === 'Task') {
+	if (event.kind === 'tool.pre' && event.data.tool_name === 'Task') {
 		content = <TaskAgentEvent event={event} />;
-	} else if (
-		event.hookName === 'PreToolUse' ||
-		event.hookName === 'PermissionRequest'
-	) {
+	} else if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
 		content = <UnifiedToolCallEvent event={event} verbose={verbose} />;
 	} else if (
-		(event.hookName === 'PostToolUse' ||
-			event.hookName === 'PostToolUseFailure') &&
-		event.toolName === 'Task'
+		(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
+		event.data.tool_name === 'Task'
 	) {
 		content = <SubagentResultEvent event={event} verbose={verbose} />;
-	} else if (
-		event.hookName === 'PostToolUse' ||
-		event.hookName === 'PostToolUseFailure'
-	) {
+	} else if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
 		content = <PostToolResult event={event} verbose={verbose} />;
-	} else if (event.hookName === 'SubagentStart') {
+	} else if (event.kind === 'subagent.start') {
 		content = <SubagentStartEvent event={event} />;
 	} else {
 		content = <GenericHookEvent event={event} verbose={verbose} />;
 	}
 
 	if (content == null) return null;
-
 	return content;
 }

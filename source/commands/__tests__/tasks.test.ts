@@ -7,12 +7,12 @@ describe('tasks command', () => {
 		expect(tasksCommand.category).toBe('hook');
 	});
 
-	it('calls hookServer.printTaskSnapshot', () => {
+	it('calls feed.printTaskSnapshot', () => {
 		const printTaskSnapshot = vi.fn();
 		tasksCommand.execute({
 			args: {},
-			hookServer: {printTaskSnapshot} as any,
-		});
+			feed: {printTaskSnapshot},
+		} as unknown as Parameters<typeof tasksCommand.execute>[0]);
 		expect(printTaskSnapshot).toHaveBeenCalled();
 	});
 });

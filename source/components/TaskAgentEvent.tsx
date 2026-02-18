@@ -1,6 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import {useTheme} from '../theme/index.js';
 import {getStatusColors} from './hookEventUtils.js';
 import {truncateLine} from '../utils/truncate.js';
@@ -12,15 +12,14 @@ const BULLET = '\u25cf'; // ●
 export default function TaskAgentEvent({
 	event,
 }: {
-	event: HookEventDisplay;
+	event: FeedEvent;
 }): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
 
-	if (event.hookName !== 'PreToolUse') return null;
+	if (event.kind !== 'tool.pre') return null;
 
-	const payload = event.payload as Record<string, unknown>;
-	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const toolInput = event.data.tool_input ?? {};
 	const agentType =
 		(toolInput.subagent_type as string) ??
 		(toolInput.description as string) ??

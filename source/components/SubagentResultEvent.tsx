@@ -1,12 +1,12 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import {useTheme} from '../theme/index.js';
 import {truncateLine} from '../utils/truncate.js';
 import PostToolResult from './PostToolResult.js';
 
 type Props = {
-	event: HookEventDisplay;
+	event: FeedEvent;
 	verbose?: boolean;
 };
 
@@ -20,16 +20,12 @@ export default function SubagentResultEvent({
 	verbose,
 }: Props): React.ReactNode {
 	const theme = useTheme();
-	const payload = event.payload as Record<string, unknown>;
 
-	if (
-		event.hookName !== 'PostToolUse' &&
-		event.hookName !== 'PostToolUseFailure'
-	) {
+	if (event.kind !== 'tool.post' && event.kind !== 'tool.failure') {
 		return null;
 	}
 
-	const toolInput = (payload.tool_input as Record<string, unknown>) ?? {};
+	const toolInput = event.data.tool_input ?? {};
 	const agentType =
 		typeof toolInput.subagent_type === 'string'
 			? toolInput.subagent_type

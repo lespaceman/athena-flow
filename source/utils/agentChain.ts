@@ -1,29 +1,24 @@
-import {type HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 
 /**
  * Build the agent chain from event history.
  * Returns array like ['main', 'web-explorer'] for a subagent context.
  */
 export function getAgentChain(
-	events: HookEventDisplay[],
-	parentSubagentId: string | undefined,
+	events: FeedEvent[],
+	parentActorId: string | undefined,
 ): string[] {
-	if (!parentSubagentId) return [];
+	if (!parentActorId || !parentActorId.startsWith('subagent:')) return [];
 
 	const chain: string[] = ['main'];
+	const agentId = parentActorId.replace('subagent:', '');
 
-	// Find the SubagentStart event for this parent
 	const startEvent = events.find(
-		e =>
-			e.hookName === 'SubagentStart' &&
-			(e.payload as {agent_id?: string}).agent_id === parentSubagentId,
+		e => e.kind === 'subagent.start' && e.data.agent_id === agentId,
 	);
 
-	if (startEvent) {
-		const agentType = (startEvent.payload as {agent_type?: string}).agent_type;
-		if (agentType) {
-			chain.push(agentType);
-		}
+	if (startEvent && startEvent.kind === 'subagent.start') {
+		chain.push(startEvent.data.agent_type);
 	}
 
 	return chain;

@@ -1,12 +1,12 @@
 import React, {useCallback, useMemo} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
-import {type HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import {type PermissionDecision} from '../types/server.js';
 import {parseToolName} from '../utils/toolNameParser.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 
 type Props = {
-	request: HookEventDisplay;
+	request: FeedEvent;
 	queuedCount: number;
 	onDecision: (decision: PermissionDecision) => void;
 };
@@ -16,7 +16,10 @@ export default function PermissionDialog({
 	queuedCount,
 	onDecision,
 }: Props) {
-	const rawToolName = request.toolName ?? 'Unknown';
+	const rawToolName =
+		request.kind === 'permission.request' || request.kind === 'tool.pre'
+			? request.data.tool_name
+			: 'Unknown';
 	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
 
 	const options: OptionItem[] = useMemo(() => {

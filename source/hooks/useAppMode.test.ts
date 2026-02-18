@@ -1,8 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import {useAppMode} from './useAppMode.js';
-import type {HookEventDisplay} from '../types/hooks/display.js';
 
-const fakeEvent = {id: 'test'} as HookEventDisplay;
+const fakeEvent = {event_id: 'test'};
 
 describe('useAppMode', () => {
 	it('derives app mode from runtime state with correct priority', () => {

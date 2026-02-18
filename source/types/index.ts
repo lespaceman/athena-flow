@@ -38,11 +38,7 @@ export {
 export {type RuleAction, type HookRule, matchRule} from './rules.js';
 
 // Server types
-export {
-	type PendingRequest,
-	type UseHookServerResult,
-	type PermissionDecision,
-} from './server.js';
+export {type PermissionDecision} from './server.js';
 
 // Header metrics types
 export * from './headerMetrics.js';

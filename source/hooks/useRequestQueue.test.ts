@@ -2,17 +2,11 @@
 import {describe, it, expect} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
 import {useRequestQueue} from './useRequestQueue.js';
-import type {HookEventDisplay} from '../types/hooks/display.js';
 
-function makeEvent(requestId: string): HookEventDisplay {
-	return {
-		id: requestId,
-		timestamp: new Date(),
-		hookName: 'PreToolUse',
-		toolName: 'Bash',
-		payload: {} as HookEventDisplay['payload'],
-		status: 'pending',
-	};
+type TestEvent = {event_id: string; label: string};
+
+function makeEvent(requestId: string): TestEvent {
+	return {event_id: requestId, label: `event-${requestId}`};
 }
 
 describe('useRequestQueue', () => {
@@ -30,7 +24,7 @@ describe('useRequestQueue', () => {
 		act(() => result.current.enqueue('req-2'));
 
 		expect(result.current.count).toBe(2);
-		expect(result.current.current?.id).toBe('req-1');
+		expect(result.current.current?.event_id).toBe('req-1');
 	});
 
 	it('dequeue removes from queue', () => {
@@ -42,7 +36,7 @@ describe('useRequestQueue', () => {
 		act(() => result.current.dequeue('req-1'));
 
 		expect(result.current.count).toBe(1);
-		expect(result.current.current?.id).toBe('req-2');
+		expect(result.current.current?.event_id).toBe('req-2');
 	});
 
 	it('removeAll removes specified request IDs', () => {
@@ -55,6 +49,6 @@ describe('useRequestQueue', () => {
 		act(() => result.current.removeAll(['req-1', 'req-3']));
 
 		expect(result.current.count).toBe(1);
-		expect(result.current.current?.id).toBe('req-2');
+		expect(result.current.current?.event_id).toBe('req-2');
 	});
 });
