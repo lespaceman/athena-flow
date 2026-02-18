@@ -33,7 +33,7 @@ export default tseslint.config(
 			'source/hooks/**/*.{ts,tsx}',
 			'source/feed/**/*.{ts,tsx}',
 		],
-		ignores: ['source/context/HookContext.tsx'],
+		ignores: ['source/context/HookContext.tsx', 'source/hooks/useFeed.ts'],
 		rules: {
 			'no-restricted-imports': [
 				'error',
@@ -58,6 +58,15 @@ export default tseslint.config(
 							group: ['**/types/hooks/events*'],
 							message:
 								'UI must not import protocol event types. Use runtime boundary types instead.',
+						},
+						{
+							group: [
+								'**/feed/mapper*',
+								'**/feed/filter*',
+								'**/feed/entities*',
+							],
+							message:
+								'Components may only import from feed/types.ts and feed/expandable.ts. Do not import stateful feed internals.',
 						},
 					],
 				},
