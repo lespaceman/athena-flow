@@ -11,6 +11,7 @@ import type {HookEventDisplay} from '../types/hooks/display.js';
 export function mapToDisplay(event: RuntimeEvent): HookEventDisplay {
 	return {
 		id: event.id,
+		event_id: event.id,
 		timestamp: new Date(event.timestamp),
 		hookName: event.hookName as HookEventDisplay['hookName'],
 		toolName: event.toolName,

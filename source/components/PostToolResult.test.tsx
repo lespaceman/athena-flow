@@ -26,6 +26,7 @@ function makePostToolEvent(
 	};
 	return {
 		id: 'post-1',
+		event_id: 'post-1',
 		timestamp: new Date('2024-01-15T10:30:46.000Z'),
 		hookName: 'PostToolUse',
 		toolName: 'Bash',
@@ -49,6 +50,7 @@ function makePostToolFailureEvent(
 	};
 	return {
 		id: 'post-fail-1',
+		event_id: 'post-fail-1',
 		timestamp: new Date('2024-01-15T10:30:46.000Z'),
 		hookName: 'PostToolUseFailure',
 		toolName: 'Bash',
@@ -69,6 +71,7 @@ function makePreToolEvent(): HookEventDisplay {
 	};
 	return {
 		id: 'pre-1',
+		event_id: 'pre-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',

@@ -24,6 +24,7 @@ export type HookEventStatus =
  */
 export type HookEventDisplay = {
 	id: string;
+	event_id: string;
 	timestamp: Date;
 	hookName: string;
 	toolName?: string;

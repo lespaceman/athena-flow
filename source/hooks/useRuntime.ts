@@ -164,8 +164,10 @@ export function useRuntime(runtime: Runtime): UseRuntimeResult {
 		);
 		if (!hasTasks) return;
 
+		const eventId = `task-snapshot-${Date.now()}`;
 		const event: HookEventDisplay = {
-			id: `task-snapshot-${Date.now()}`,
+			id: eventId,
+			event_id: eventId,
 			timestamp: new Date(),
 			hookName: 'Notification' as HookEventDisplay['hookName'],
 			payload: {

@@ -23,6 +23,7 @@ describe('HookEvent', () => {
 
 	const baseEvent: HookEventDisplay = {
 		id: 'test-1',
+		event_id: 'test-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',
@@ -841,6 +842,7 @@ describe('HookEvent', () => {
 	it('renders child event with nesting indentation', () => {
 		const childEvent: HookEventDisplay = {
 			id: 'child-1',
+			event_id: 'child-1',
 			timestamp: new Date('2024-01-15T10:30:46.000Z'),
 			hookName: 'PreToolUse',
 			toolName: 'Bash',

@@ -23,6 +23,7 @@ function makePreToolEvent(
 	};
 	return {
 		id: 'test-1',
+		event_id: 'test-1',
 		timestamp: new Date('2024-01-15T10:30:45.000Z'),
 		hookName: 'PreToolUse',
 		toolName: 'Bash',
@@ -91,6 +92,7 @@ describe('UnifiedToolCallEvent', () => {
 		};
 		const event: HookEventDisplay = {
 			id: 'test-2',
+			event_id: 'test-2',
 			timestamp: new Date(),
 			hookName: 'PostToolUse',
 			toolName: 'Bash',
