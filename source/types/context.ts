@@ -18,5 +18,6 @@ export type HookContextValue = UseFeedResult;
 export type HookProviderProps = {
 	projectDir: string;
 	instanceId: number;
+	allowedTools?: string[];
 	children: ReactNode;
 };

@@ -56,6 +56,7 @@ describe('extractPermissionSnapshot', () => {
 		expect(snapshot).toEqual({
 			request_id: 'req-1',
 			ts: 1000,
+			hookName: 'PermissionRequest',
 			tool_name: 'Bash',
 			tool_input: {command: 'rm -rf /'},
 			tool_use_id: 'tu-1',

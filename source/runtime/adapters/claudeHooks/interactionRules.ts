@@ -13,7 +13,7 @@ const RULES: Record<string, InteractionHints> = {
 	},
 	PreToolUse: {
 		expectsDecision: true,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
 		canBlock: true,
 	},
 	PostToolUse: {

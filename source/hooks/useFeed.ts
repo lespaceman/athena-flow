@@ -29,6 +29,7 @@ export type FeedItem =
 export type PermissionQueueItem = {
 	request_id: string;
 	ts: number;
+	hookName: string;
 	tool_name: string;
 	tool_input: Record<string, unknown>;
 	tool_use_id?: string;
@@ -42,6 +43,7 @@ export function extractPermissionSnapshot(
 	return {
 		request_id: event.id,
 		ts: event.timestamp,
+		hookName: event.hookName,
 		tool_name: event.toolName ?? (p.tool_name as string) ?? 'Unknown',
 		tool_input: (p.tool_input as Record<string, unknown>) ?? {},
 		tool_use_id: event.toolUseId ?? (p.tool_use_id as string | undefined),
@@ -119,12 +121,25 @@ export type UseFeedResult = {
 
 // ── Hook ─────────────────────────────────────────────────
 
+function buildInitialRules(allowedTools?: string[]): HookRule[] {
+	if (!allowedTools || allowedTools.length === 0) return [];
+	return allowedTools.map((toolName, i) => ({
+		id: `init-${i}`,
+		toolName,
+		action: 'approve' as const,
+		addedBy: 'allowedTools',
+	}));
+}
+
 export function useFeed(
 	runtime: Runtime,
 	messages: Message[] = [],
+	initialAllowedTools?: string[],
 ): UseFeedResult {
 	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
-	const [rules, setRules] = useState<HookRule[]>([]);
+	const [rules, setRules] = useState<HookRule[]>(() =>
+		buildInitialRules(initialAllowedTools),
+	);
 	const [permissionQueue, setPermissionQueue] = useState<PermissionQueueItem[]>(
 		[],
 	);
@@ -217,13 +232,15 @@ export function useFeed(
 				}
 			}
 
+			// Use PreToolUse intents for PreToolUse events, PermissionRequest intents otherwise
+			const isPreToolUse = queueItem?.hookName === 'PreToolUse';
 			const runtimeDecision: RuntimeDecision = {
 				type: 'json',
 				source: 'user',
 				intent: isAllow
-					? {kind: 'permission_allow'}
+					? {kind: isPreToolUse ? 'pre_tool_allow' : 'permission_allow'}
 					: {
-							kind: 'permission_deny',
+							kind: isPreToolUse ? 'pre_tool_deny' : 'permission_deny',
 							reason: 'Denied by user via permission dialog',
 						},
 			};

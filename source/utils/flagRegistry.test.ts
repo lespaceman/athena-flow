@@ -11,8 +11,13 @@ import {
 } from '../types/isolation.js';
 
 describe('FLAG_REGISTRY', () => {
-	it('should contain exactly 29 flag definitions', () => {
-		expect(FLAG_REGISTRY).toHaveLength(29);
+	it('should contain exactly 28 flag definitions', () => {
+		expect(FLAG_REGISTRY).toHaveLength(28);
+	});
+
+	it('should not include allowedTools (consumed as hook rules, not CLI flags)', () => {
+		const fields = FLAG_REGISTRY.map((def: FlagDef) => def.field);
+		expect(fields).not.toContain('allowedTools');
 	});
 
 	it('should have unique field+flag combinations', () => {
@@ -111,20 +116,20 @@ describe('buildIsolationArgs', () => {
 	describe('array kind', () => {
 		it('should emit one flag per array element', () => {
 			const args = buildIsolationArgs({
-				allowedTools: ['Bash', 'Read', 'Write'],
+				disallowedTools: ['Bash', 'Read', 'Write'],
 			});
 			expect(args).toEqual([
-				'--allowedTools',
+				'--disallowedTools',
 				'Bash',
-				'--allowedTools',
+				'--disallowedTools',
 				'Read',
-				'--allowedTools',
+				'--disallowedTools',
 				'Write',
 			]);
 		});
 
 		it('should skip empty arrays', () => {
-			const args = buildIsolationArgs({allowedTools: []});
+			const args = buildIsolationArgs({disallowedTools: []});
 			expect(args).toEqual([]);
 		});
 
@@ -146,14 +151,10 @@ describe('buildIsolationArgs', () => {
 			]);
 		});
 
-		it('should emit allowedTools from resolved strict preset', () => {
+		it('should not emit allowedTools as CLI flags (consumed as hook rules)', () => {
 			const config = resolveIsolationConfig('strict');
 			const args = buildIsolationArgs(config);
-			// strict preset has 6 allowed tools
-			expect(args.filter(a => a === '--allowedTools')).toHaveLength(6);
-			expect(args).toContain('Read');
-			expect(args).toContain('Edit');
-			expect(args).toContain('Bash');
+			expect(args.filter(a => a === '--allowedTools')).toHaveLength(0);
 		});
 	});
 
@@ -310,8 +311,8 @@ describe('buildIsolationArgs', () => {
 			// noChrome is false, should NOT be in args
 			expect(args).not.toContain('--no-chrome');
 
-			// Array flags
-			expect(args.filter(a => a === '--allowedTools')).toHaveLength(2);
+			// Array flags — allowedTools excluded (consumed as hook rules)
+			expect(args.filter(a => a === '--allowedTools')).toHaveLength(0);
 			expect(args.filter(a => a === '--disallowedTools')).toHaveLength(1);
 			expect(args.filter(a => a === '--add-dir')).toHaveLength(1);
 			expect(args.filter(a => a === '--plugin-dir')).toHaveLength(1);

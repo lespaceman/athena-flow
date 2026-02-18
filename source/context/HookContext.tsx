@@ -11,6 +11,7 @@ const HookContext = createContext<HookContextValue | null>(null);
 export function HookProvider({
 	projectDir,
 	instanceId,
+	allowedTools,
 	children,
 }: HookProviderProps) {
 	// Runtime must be stable (memoized) — useFeed assumes it doesn't change
@@ -18,7 +19,7 @@ export function HookProvider({
 		() => createClaudeHookRuntime({projectDir, instanceId}),
 		[projectDir, instanceId],
 	);
-	const hookServer = useFeed(runtime);
+	const hookServer = useFeed(runtime, [], allowedTools);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>

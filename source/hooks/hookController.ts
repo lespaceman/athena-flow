@@ -25,48 +25,72 @@ export type ControllerResult =
 	| {handled: true; decision?: RuntimeDecision}
 	| {handled: false};
 
+/**
+ * Check rules for a tool event and return a decision, or enqueue for user dialog.
+ */
+function applyToolRules(
+	event: RuntimeEvent,
+	cb: ControllerCallbacks,
+	intents: {
+		allow: 'permission_allow' | 'pre_tool_allow';
+		deny: 'permission_deny' | 'pre_tool_deny';
+	},
+): ControllerResult {
+	const rule = matchRule(cb.getRules(), event.toolName!);
+
+	if (rule?.action === 'deny') {
+		return {
+			handled: true,
+			decision: {
+				type: 'json',
+				source: 'rule',
+				intent: {
+					kind: intents.deny,
+					reason: `Blocked by rule: ${rule.addedBy}`,
+				},
+			},
+		};
+	}
+
+	if (rule?.action === 'approve') {
+		return {
+			handled: true,
+			decision: {
+				type: 'json',
+				source: 'rule',
+				intent: {kind: intents.allow},
+			},
+		};
+	}
+
+	cb.enqueuePermission(event);
+	return {handled: true};
+}
+
 export function handleEvent(
 	event: RuntimeEvent,
 	cb: ControllerCallbacks,
 ): ControllerResult {
 	// ── PermissionRequest: check rules, enqueue if no match ──
 	if (event.hookName === 'PermissionRequest' && event.toolName) {
-		const rule = matchRule(cb.getRules(), event.toolName);
-
-		if (rule?.action === 'deny') {
-			return {
-				handled: true,
-				decision: {
-					type: 'json',
-					source: 'rule',
-					intent: {
-						kind: 'permission_deny',
-						reason: `Blocked by rule: ${rule.addedBy}`,
-					},
-				},
-			};
-		}
-
-		if (rule?.action === 'approve') {
-			return {
-				handled: true,
-				decision: {
-					type: 'json',
-					source: 'rule',
-					intent: {kind: 'permission_allow'},
-				},
-			};
-		}
-
-		// No rule — enqueue for user dialog
-		cb.enqueuePermission(event);
-		return {handled: true};
+		return applyToolRules(event, cb, {
+			allow: 'permission_allow',
+			deny: 'permission_deny',
+		});
 	}
 
 	// ── AskUserQuestion hijack ──
 	if (event.hookName === 'PreToolUse' && event.toolName === 'AskUserQuestion') {
 		cb.enqueueQuestion(event.id);
 		return {handled: true};
+	}
+
+	// ── PreToolUse permission gate: check rules, enqueue if no match ──
+	if (event.hookName === 'PreToolUse' && event.toolName) {
+		return applyToolRules(event, cb, {
+			allow: 'pre_tool_allow',
+			deny: 'pre_tool_deny',
+		});
 	}
 
 	// ── Session tracking (side effects) ──

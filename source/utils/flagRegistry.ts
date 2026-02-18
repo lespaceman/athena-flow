@@ -48,7 +48,9 @@ export const FLAG_REGISTRY: FlagDef[] = [
 	},
 
 	// === Tool Access ===
-	{field: 'allowedTools', flag: '--allowedTools', kind: 'array'},
+	// allowedTools is intentionally excluded — consumed as hook rules, not CLI flags.
+	// In headless mode, --allowedTools silently pre-approves tools without hook events.
+	// By routing through PreToolUse hooks instead, athena gets visibility and control.
 	{field: 'disallowedTools', flag: '--disallowedTools', kind: 'array'},
 	{field: 'tools', flag: '--tools', kind: 'value'},
 

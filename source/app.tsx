@@ -725,7 +725,11 @@ export default function App({
 
 	return (
 		<ThemeProvider value={theme}>
-			<HookProvider projectDir={projectDir} instanceId={instanceId}>
+			<HookProvider
+				projectDir={projectDir}
+				instanceId={instanceId}
+				allowedTools={isolation?.allowedTools}
+			>
 				<AppContent
 					key={clearCount}
 					projectDir={projectDir}

@@ -11,6 +11,7 @@ function makePermissionEvent(
 	return {
 		request_id: 'test-id',
 		ts: Date.now(),
+		hookName: 'PermissionRequest',
 		tool_name: toolName,
 		tool_input: toolInput,
 	};

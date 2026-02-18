@@ -10,7 +10,7 @@ describe('getInteractionHints', () => {
 
 		const pre = getInteractionHints('PreToolUse');
 		expect(pre.expectsDecision).toBe(true);
-		expect(pre.defaultTimeoutMs).toBe(4000);
+		expect(pre.defaultTimeoutMs).toBe(300_000);
 
 		const post = getInteractionHints('PostToolUse');
 		expect(post.expectsDecision).toBe(false);

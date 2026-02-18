@@ -164,10 +164,8 @@ describe('spawnClaude', () => {
 			expect(args).toContain('--mcp-config');
 			expect(args).toContain('/mcp.json');
 
-			// Tool access
-			expect(args).toContain('--allowedTools');
-			expect(args).toContain('Read');
-			expect(args).toContain('Write');
+			// Tool access — allowedTools no longer emitted as CLI flags
+			expect(args).not.toContain('--allowedTools');
 			expect(args).toContain('--disallowedTools');
 			expect(args).toContain('Bash');
 
@@ -234,8 +232,6 @@ describe('spawnClaude', () => {
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 			expect(args).toContain('--strict-mcp-config'); // from preset
-			expect(args).toContain('--allowedTools'); // custom override
-			expect(args).toContain('Read');
 		});
 
 		it('logs warning to stderr for conflicting flags', () => {
