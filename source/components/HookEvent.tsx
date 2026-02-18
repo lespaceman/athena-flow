@@ -13,9 +13,14 @@ import GenericHookEvent from './GenericHookEvent.js';
 type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
+	expanded?: boolean;
 };
 
-export default function HookEvent({event, verbose}: Props): React.ReactNode {
+export default function HookEvent({
+	event,
+	verbose,
+	expanded,
+}: Props): React.ReactNode {
 	if (
 		!verbose &&
 		(event.kind === 'session.start' || event.kind === 'user.prompt')
@@ -40,7 +45,13 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	}
 
 	if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
-		return <UnifiedToolCallEvent event={event} verbose={verbose} />;
+		return (
+			<UnifiedToolCallEvent
+				event={event}
+				verbose={verbose}
+				expanded={expanded}
+			/>
+		);
 	}
 
 	if (
@@ -51,7 +62,9 @@ export default function HookEvent({event, verbose}: Props): React.ReactNode {
 	}
 
 	if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
-		return <PostToolResult event={event} verbose={verbose} />;
+		return (
+			<PostToolResult event={event} verbose={verbose} expanded={expanded} />
+		);
 	}
 
 	if (event.kind === 'subagent.start') {

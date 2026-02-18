@@ -9,6 +9,7 @@ import {useTheme} from '../theme/index.js';
 type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
+	expanded?: boolean;
 };
 
 const BULLET = '\u25cf'; // ●
@@ -16,6 +17,7 @@ const BULLET = '\u25cf'; // ●
 export default function UnifiedToolCallEvent({
 	event,
 	verbose,
+	expanded,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -49,7 +51,7 @@ export default function UnifiedToolCallEvent({
 				</Text>
 				<Text dimColor>{truncatedParams}</Text>
 			</Box>
-			{verbose && (
+			{(verbose || expanded) && (
 				<Box paddingLeft={3}>
 					<Text dimColor>{JSON.stringify(toolInput, null, 2)}</Text>
 				</Box>
