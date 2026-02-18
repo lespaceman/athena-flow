@@ -21,6 +21,7 @@ export type TimelineEntry = {
 	error: boolean;
 	expandable: boolean;
 	details: string;
+	feedEvent?: FeedEvent;
 };
 
 export type RunSummary = {
