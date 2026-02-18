@@ -325,7 +325,7 @@ export function createFeedMapper(): FeedMapper {
 				results.push(
 					makeEvent(
 						'permission.request',
-						'warn',
+						'info',
 						'system',
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
@@ -346,7 +346,7 @@ export function createFeedMapper(): FeedMapper {
 				results.push(
 					makeEvent(
 						'stop.request',
-						'warn',
+						'info',
 						'system',
 						{
 							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
@@ -531,20 +531,8 @@ export function createFeedMapper(): FeedMapper {
 		}
 
 		if (originalKind === 'stop.request') {
-			let data: import('./types.js').StopDecisionData;
-
-			if (decision.source === 'timeout' || decision.type === 'passthrough') {
-				data = {decision_type: 'no_opinion', reason: decision.source};
-			} else if (decision.type === 'block') {
-				data = {
-					decision_type: 'block',
-					reason: decision.reason ?? 'Blocked',
-				};
-			} else {
-				data = {decision_type: 'allow', reason: decision.reason};
-			}
-
-			return makeDecisionEvent('stop.decision', data);
+			// Stop is display-only; never emit stop.decision
+			return null;
 		}
 
 		return null;

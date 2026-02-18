@@ -28,7 +28,7 @@ describe('shouldExcludeFromFeed', () => {
 		).toBe(false);
 	});
 
-	it('excludes subagent.stop (result via tool.post Task)', () => {
+	it('does not exclude subagent.stop (now visible in feed)', () => {
 		expect(
 			shouldExcludeFromFeed(
 				makeEvent('subagent.stop', {
@@ -37,7 +37,7 @@ describe('shouldExcludeFromFeed', () => {
 					stop_hook_active: false,
 				}),
 			),
-		).toBe(true);
+		).toBe(false);
 	});
 
 	it('excludes TodoWrite tool.pre events', () => {

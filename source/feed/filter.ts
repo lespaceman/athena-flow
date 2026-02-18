@@ -15,5 +15,5 @@ function isTaskToolEvent(event: FeedEvent): boolean {
 }
 
 export function shouldExcludeFromFeed(event: FeedEvent): boolean {
-	return event.kind === 'subagent.stop' || isTaskToolEvent(event);
+	return isTaskToolEvent(event);
 }

@@ -372,6 +372,29 @@ describe('FeedMapper', () => {
 			expect(decision!.data.reason).toBe('timeout');
 		});
 
+		it('does not emit stop.decision for stop.request events', () => {
+			const mapper = createFeedMapper();
+			const stopEvent = makeRuntimeEvent('Stop', {
+				id: 'req-stop',
+				payload: {
+					hook_event_name: 'Stop',
+					session_id: 'sess-1',
+					transcript_path: '/tmp/t.jsonl',
+					cwd: '/project',
+					stop_hook_active: false,
+					scope: 'root',
+				},
+			});
+			mapper.mapEvent(stopEvent);
+
+			const decision = mapper.mapDecision('req-stop', {
+				type: 'passthrough',
+				source: 'timeout',
+			});
+
+			expect(decision).toBeNull();
+		});
+
 		it('returns null for decision on unknown event', () => {
 			const mapper = createFeedMapper();
 			const result = mapper.mapDecision('nonexistent', {

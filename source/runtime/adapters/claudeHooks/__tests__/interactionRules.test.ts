@@ -18,7 +18,8 @@ describe('getInteractionHints', () => {
 
 		const stop = getInteractionHints('Stop');
 		expect(stop.expectsDecision).toBe(false);
-		expect(stop.canBlock).toBe(true);
+		expect(stop.canBlock).toBe(false);
+		expect(stop.defaultTimeoutMs).toBeUndefined();
 	});
 
 	it('returns safe defaults for unknown events', () => {

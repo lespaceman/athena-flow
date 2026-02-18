@@ -28,8 +28,7 @@ const RULES: Record<string, InteractionHints> = {
 	},
 	Stop: {
 		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
+		canBlock: false,
 	},
 	SubagentStop: {
 		expectsDecision: false,
