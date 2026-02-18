@@ -38,7 +38,7 @@ function renderItem(
 				<ErrorBoundary
 					fallback={<Text color="red">[Error rendering event]</Text>}
 				>
-					<HookEvent event={event} verbose={verbose} />
+					<HookEvent event={event} verbose={verbose} expanded={expandedSet.has(event.event_id)} />
 				</ErrorBoundary>
 			</Box>
 			{/* Expand affordance */}

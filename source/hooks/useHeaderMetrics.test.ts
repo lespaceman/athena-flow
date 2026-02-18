@@ -239,6 +239,36 @@ describe('useHeaderMetrics', () => {
 		vi.useRealTimers();
 	});
 
+	it('counts failures from tool.failure events', () => {
+		const events = [
+			makeFeedEvent({
+				kind: 'tool.failure',
+				data: {tool_name: 'Bash', tool_input: {}, error: 'fail1'},
+			}),
+			makeFeedEvent({
+				kind: 'tool.failure',
+				data: {tool_name: 'Bash', tool_input: {}, error: 'fail2'},
+			}),
+		];
+		const {result} = renderHook(() => useHeaderMetrics(events));
+		expect(result.current.failures).toBe(2);
+	});
+
+	it('counts blocks from permission deny and stop block', () => {
+		const events = [
+			makeFeedEvent({
+				kind: 'permission.decision',
+				data: {decision_type: 'deny'},
+			}),
+			makeFeedEvent({
+				kind: 'stop.decision',
+				data: {decision_type: 'block', reason: 'blocked'},
+			}),
+		];
+		const {result} = renderHook(() => useHeaderMetrics(events));
+		expect(result.current.blocks).toBe(2);
+	});
+
 	it('all token fields are null (data not yet available)', () => {
 		const events = [
 			makeFeedEvent({
