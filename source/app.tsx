@@ -4,15 +4,12 @@ import {Box, Text, useApp, useInput, useStdout} from 'ink';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
-import DashboardFrame, {
-	type DashboardTimelineRow,
-} from './components/DashboardFrame.js';
-import DashboardInput from './components/DashboardInput.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
 import {useDuration} from './hooks/useDuration.js';
 import {useAppMode} from './hooks/useAppMode.js';
+import {useTextInput} from './hooks/useTextInput.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {
 	type Message as MessageType,
@@ -47,7 +44,48 @@ type AppPhase =
 	| {type: 'session-select'}
 	| {type: 'main'; initialSessionId?: string};
 
-const MAX_VISIBLE_TODOS = 4;
+type FocusMode = 'feed' | 'input' | 'todo';
+type InputMode = 'normal' | 'cmd' | 'search';
+type TodoPanelStatus = 'open' | 'doing' | 'blocked' | 'done';
+type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+
+type TimelineEntry = {
+	id: string;
+	ts: number;
+	runId?: string;
+	op: string;
+	actor: string;
+	summary: string;
+	searchText: string;
+	error: boolean;
+	expandable: boolean;
+	details: string;
+};
+
+type RunSummary = {
+	runId: string;
+	title: string;
+	status: RunStatus;
+	startedAt: number;
+	endedAt?: number;
+};
+
+type TodoPanelItem = {
+	id: string;
+	text: string;
+	priority: 'P0' | 'P1' | 'P2';
+	status: TodoPanelStatus;
+	linkedEventId?: string;
+	owner?: string;
+	localOnly?: boolean;
+};
+
+const HEADER_ROWS = 2;
+const FOOTER_ROWS = 2;
+const TODO_PANEL_MAX_ROWS = 6;
+const RUN_OVERLAY_MAX_ROWS = 6;
+const FEED_OVERSCAN = 2;
+const FRAME_BORDER_ROWS = 4;
 
 function toAscii(value: string): string {
 	return value.replace(/[^\x20-\x7e]/g, '?');
@@ -59,6 +97,14 @@ function compactText(value: string, max: number): string {
 	if (clean.length <= max) return clean;
 	if (max <= 3) return clean.slice(0, max);
 	return `${clean.slice(0, max - 3)}...`;
+}
+
+function fit(text: string, width: number): string {
+	const clean = toAscii(text);
+	if (width <= 0) return '';
+	if (clean.length <= width) return clean.padEnd(width, ' ');
+	if (width <= 3) return clean.slice(0, width);
+	return `${clean.slice(0, width - 3)}...`;
 }
 
 function formatClock(timestamp: number): string {
@@ -116,89 +162,214 @@ function summarizeToolInput(input: Record<string, unknown>): string {
 	return pairs.join(' ');
 }
 
-function eventTypeLabel(event: FeedEvent): string {
+function eventOperation(event: FeedEvent): string {
 	switch (event.kind) {
+		case 'run.start':
+			return 'run.start';
+		case 'run.end':
+			return event.data.status === 'completed'
+				? 'run.ok'
+				: event.data.status === 'failed'
+					? 'run.fail'
+					: 'run.abort';
+		case 'user.prompt':
+			return 'prompt';
 		case 'tool.pre':
 			return 'tool.call';
 		case 'tool.post':
-			return 'tool.result OK';
+			return 'tool.ok';
 		case 'tool.failure':
-			return 'tool.result ERR';
+			return 'tool.fail';
 		case 'subagent.start':
-			return 'agent.spawn';
+			return 'sub.start';
 		case 'subagent.stop':
-			return 'agent.join';
+			return 'sub.stop';
+		case 'permission.request':
+			return 'perm.req';
+		case 'permission.decision':
+			return `perm.${event.data.decision_type}`;
+		case 'stop.request':
+			return 'stop.req';
+		case 'stop.decision':
+			return `stop.${event.data.decision_type}`;
+		case 'session.start':
+			return 'sess.start';
+		case 'session.end':
+			return 'sess.end';
+		case 'notification':
+			return 'notify';
+		case 'compact.pre':
+			return 'compact';
+		case 'setup':
+			return 'setup';
+		case 'unknown.hook':
+			return 'unknown';
+		case 'todo.add':
+			return 'todo.add';
+		case 'todo.update':
+			return 'todo.upd';
+		case 'todo.done':
+			return 'todo.done';
 		default:
-			return event.kind;
+			return 'event';
 	}
 }
 
 function eventSummary(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
-			return compactText(
-				event.data.trigger.prompt_preview || event.title || 'run started',
-				64,
-			);
+			return compactText(event.data.trigger.prompt_preview || 'interactive', 84);
 		case 'run.end':
-			return `status=${event.data.status}`;
+			return compactText(
+				`status=${event.data.status} tools=${event.data.counters.tool_uses} fail=${event.data.counters.tool_failures} perm=${event.data.counters.permission_requests} blk=${event.data.counters.blocks}`,
+				84,
+			);
 		case 'user.prompt':
-			return compactText(JSON.stringify(event.data.prompt), 64);
+			return compactText(event.data.prompt, 84);
 		case 'tool.pre': {
 			const args = summarizeToolInput(event.data.tool_input);
-			return compactText(`${event.data.tool_name} ${args}`.trim(), 64);
+			return compactText(`${event.data.tool_name} ${args}`.trim(), 84);
 		}
 		case 'tool.post':
-			return compactText(`${event.data.tool_name} ok`, 64);
+			return compactText(event.data.tool_name, 84);
 		case 'tool.failure':
-			return compactText(event.data.error, 64);
+			return compactText(`${event.data.tool_name} ${event.data.error}`, 84);
 		case 'subagent.start':
 			return compactText(
-				`spawned ${event.data.agent_type} (${event.data.agent_id})`,
-				64,
+				`${event.data.agent_type} ${event.data.agent_id}`,
+				84,
 			);
 		case 'subagent.stop':
 			return compactText(
-				`${event.data.agent_type} finished (${event.data.agent_id})`,
-				64,
+				`${event.data.agent_type} ${event.data.agent_id}`,
+				84,
 			);
 		case 'permission.request':
-			return compactText(`request ${event.data.tool_name}`, 64);
-		case 'permission.decision':
-			return compactText(`decision=${event.data.decision_type}`, 64);
+			return compactText(
+				`${event.data.tool_name} ${summarizeToolInput(event.data.tool_input)}`.trim(),
+				84,
+			);
+		case 'permission.decision': {
+			const detail =
+				event.data.decision_type === 'deny'
+					? event.data.message || event.data.reason
+					: event.data.reason;
+			return compactText(detail || event.data.decision_type, 84);
+		}
+		case 'stop.request':
+			return compactText(
+				`scope=${event.data.scope}${event.data.agent_id ? ` agent=${event.data.agent_id}` : ''}`,
+				84,
+			);
+		case 'stop.decision':
+			return compactText(event.data.reason || event.data.decision_type, 84);
+		case 'session.start':
+			return compactText(
+				`source=${event.data.source}${event.data.model ? ` model=${event.data.model}` : ''}`,
+				84,
+			);
+		case 'session.end':
+			return compactText(`reason=${event.data.reason}`, 84);
 		case 'notification':
-			return compactText(event.data.message, 64);
+			return compactText(event.data.message, 84);
+		case 'compact.pre':
+			return compactText(`trigger=${event.data.trigger}`, 84);
+		case 'setup':
+			return compactText(`trigger=${event.data.trigger}`, 84);
+		case 'unknown.hook':
+			return compactText(event.data.hook_event_name, 84);
+		case 'todo.add':
+			return compactText(
+				`${event.data.priority?.toUpperCase() ?? 'P1'} ${event.data.text}`,
+				84,
+			);
+		case 'todo.update': {
+			const patchFields = Object.keys(event.data.patch);
+			return compactText(
+				`${event.data.todo_id} ${patchFields.length > 0 ? patchFields.join(',') : 'update'}`,
+				84,
+			);
+		}
+		case 'todo.done':
+			return compactText(`${event.data.todo_id} ${event.data.reason || 'done'}`, 84);
 		default:
-			return compactText(event.title || event.kind, 64);
+			return compactText('event', 84);
 	}
 }
 
-function todoLines(tasks: TodoItem[]): string[] {
-	if (tasks.length === 0) return ['  (no tasks)'];
-
-	const lines = tasks.slice(0, MAX_VISIBLE_TODOS).map(task => {
-		const symbol =
-			task.status === 'completed'
-				? '[x]'
-				: task.status === 'in_progress'
-					? '[>]'
-					: task.status === 'failed'
-						? '[!]'
-						: '[ ]';
-		const suffix =
-			task.status === 'in_progress' && task.activeForm
-				? ` -- ${task.activeForm}`
-				: task.status === 'failed'
-					? ' -- failed'
-					: '';
-		return `  ${symbol} ${compactText(task.content, 56)}${compactText(suffix, 32)}`;
-	});
-
-	if (tasks.length > MAX_VISIBLE_TODOS) {
-		lines.push(`  ... ${tasks.length - MAX_VISIBLE_TODOS} more`);
+function expansionForEvent(event: FeedEvent): string {
+	switch (event.kind) {
+		case 'tool.pre':
+			return JSON.stringify(
+				{tool: event.data.tool_name, args: event.data.tool_input},
+				null,
+				2,
+			);
+		case 'tool.post':
+			return JSON.stringify(
+				{
+					tool: event.data.tool_name,
+					args: event.data.tool_input,
+					result: event.data.tool_response,
+				},
+				null,
+				2,
+			);
+		case 'tool.failure':
+			return JSON.stringify(
+				{
+					tool: event.data.tool_name,
+					args: event.data.tool_input,
+					error: event.data.error,
+					interrupt: event.data.is_interrupt,
+				},
+				null,
+				2,
+			);
+		case 'permission.request':
+			return JSON.stringify(
+				{
+					tool: event.data.tool_name,
+					args: event.data.tool_input,
+					suggestions: event.data.permission_suggestions,
+				},
+				null,
+				2,
+			);
+		case 'subagent.stop':
+		case 'run.end':
+			return JSON.stringify(event.data, null, 2);
+		default:
+			return JSON.stringify(event.raw ?? event.data, null, 2);
 	}
+}
 
-	return lines;
+function isEventError(event: FeedEvent): boolean {
+	if (event.level === 'error') return true;
+	if (event.kind === 'tool.failure') return true;
+	if (event.kind === 'run.end') return event.data.status !== 'completed';
+	if (
+		event.kind === 'permission.decision' &&
+		event.data.decision_type === 'deny'
+	) {
+		return true;
+	}
+	if (event.kind === 'stop.decision' && event.data.decision_type === 'block') {
+		return true;
+	}
+	return false;
+}
+
+function isEventExpandable(event: FeedEvent): boolean {
+	return (
+		event.kind === 'tool.pre' ||
+		event.kind === 'tool.post' ||
+		event.kind === 'tool.failure' ||
+		event.kind === 'permission.request' ||
+		event.kind === 'subagent.stop' ||
+		event.kind === 'run.end' ||
+		event.kind === 'notification'
+	);
 }
 
 function deriveRunTitle(
@@ -228,6 +399,87 @@ function deriveRunTitle(
 		}
 	}
 	return 'Untitled run';
+}
+
+function formatInputBuffer(
+	value: string,
+	cursorOffset: number,
+	width: number,
+	showCursor: boolean,
+	placeholder: string,
+): string {
+	if (width <= 0) return '';
+	if (value.length === 0) {
+		if (!showCursor) return fit(placeholder, width);
+		return fit(`|${placeholder}`, width);
+	}
+
+	if (!showCursor) {
+		return fit(value, width);
+	}
+
+	const withCursor =
+		value.slice(0, cursorOffset) + '|' + value.slice(cursorOffset);
+	if (withCursor.length <= width) return withCursor.padEnd(width, ' ');
+
+	const desiredStart = Math.max(0, cursorOffset + 1 - Math.floor(width * 0.65));
+	const start = Math.min(desiredStart, withCursor.length - width);
+	return fit(withCursor.slice(start, start + width), width);
+}
+
+function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
+	switch (status) {
+		case 'in_progress':
+			return 'doing';
+		case 'completed':
+			return 'done';
+		case 'failed':
+			return 'blocked';
+		default:
+			return 'open';
+	}
+}
+
+function symbolForTodoStatus(status: TodoPanelStatus): string {
+	switch (status) {
+		case 'done':
+			return '[x]';
+		case 'doing':
+			return '[>]';
+		case 'blocked':
+			return '[!]';
+		default:
+			return '[ ]';
+	}
+}
+
+function formatFeedLine(
+	entry: TimelineEntry,
+	width: number,
+	focused: boolean,
+	expanded: boolean,
+	matched: boolean,
+): string {
+	const prefix = `${focused ? '>' : ' '} ${matched ? '*' : ' '} `;
+	const suffix = entry.expandable ? (expanded ? ' v' : ' >') : '  ';
+	const time = fit(formatClock(entry.ts), 8);
+	const run = fit(formatRunLabel(entry.runId), 5);
+	const op = fit(entry.op, 10);
+	const actor = fit(entry.actor, 8);
+	const base = `${time} ${run} ${op} ${actor} ${entry.summary}`;
+	const bodyWidth = Math.max(0, width - prefix.length - suffix.length);
+	return fit(`${prefix}${fit(base, bodyWidth)}${suffix}`, width);
+}
+
+function toRunStatus(event: Extract<FeedEvent, {kind: 'run.end'}>): RunStatus {
+	switch (event.data.status) {
+		case 'completed':
+			return 'SUCCEEDED';
+		case 'failed':
+			return 'FAILED';
+		case 'aborted':
+			return 'CANCELLED';
+	}
 }
 
 /** Fallback for crashed PermissionDialog -- lets user press Escape to deny. */
@@ -275,7 +527,26 @@ function AppContent({
 	inputHistory: InputHistory;
 }) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const [timelineScroll, setTimelineScroll] = useState(0);
+	const [focusMode, setFocusMode] = useState<FocusMode>('feed');
+	const [inputMode, setInputMode] = useState<InputMode>('normal');
+	const [todoVisible, setTodoVisible] = useState(true);
+	const [todoShowDone, setTodoShowDone] = useState(false);
+	const [todoCursor, setTodoCursor] = useState(0);
+	const [todoScroll, setTodoScroll] = useState(0);
+	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [feedCursor, setFeedCursor] = useState(0);
+	const [tailFollow, setTailFollow] = useState(true);
+	const [runFilter, setRunFilter] = useState<string>('all');
+	const [showRunOverlay, setShowRunOverlay] = useState(false);
+	const [errorsOnly, setErrorsOnly] = useState(false);
+	const [detailScroll, setDetailScroll] = useState(0);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [searchMatchPos, setSearchMatchPos] = useState(0);
+	const [extraTodos, setExtraTodos] = useState<TodoPanelItem[]>([]);
+	const [todoStatusOverrides, setTodoStatusOverrides] = useState<
+		Record<string, TodoPanelStatus>
+	>({});
+
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 
@@ -284,7 +555,6 @@ function AppContent({
 		feedEvents,
 		items: feedItems,
 		tasks,
-		isServerRunning,
 		session,
 		currentRun,
 		currentPermissionRequest,
@@ -299,7 +569,6 @@ function AppContent({
 	const {
 		spawn: spawnClaude,
 		isRunning: isClaudeRunning,
-		sendInterrupt,
 		tokenUsage,
 	} = useClaudeProcess(
 		projectDir,
@@ -312,6 +581,12 @@ function AppContent({
 	const {stdout} = useStdout();
 	const terminalWidth = stdout?.columns ?? 80;
 	const terminalRows = stdout?.rows ?? 24;
+	const frameWidth = Math.max(4, terminalWidth);
+	const innerWidth = frameWidth - 2;
+	const topBorder = `+${'-'.repeat(innerWidth)}+`;
+	const sectionBorder = `|${'-'.repeat(innerWidth)}|`;
+	const frameLine = (content: string): string =>
+		`|${fit(content, innerWidth)}|`;
 
 	// Auto-spawn Claude when resuming a session.
 	const autoSpawnedRef = useRef(false);
@@ -324,6 +599,13 @@ function AppContent({
 
 	const metrics = useHeaderMetrics(feedEvents);
 	const elapsed = useDuration(metrics.sessionStartTime);
+	const appMode = useAppMode(
+		isClaudeRunning,
+		currentPermissionRequest,
+		currentQuestionRequest,
+	);
+	const dialogActive =
+		appMode.type === 'permission' || appMode.type === 'question';
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -343,11 +625,11 @@ function AppContent({
 		hookServer.clearEvents();
 		// ANSI: clear screen + clear scrollback + cursor home.
 		process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
-		// Force remount so dashboard frame fully refreshes.
+		// Force remount so dashboard fully refreshes.
 		onClear();
 	}, [hookServer, onClear]);
 
-	const handleSubmit = useCallback(
+	const submitPromptOrSlashCommand = useCallback(
 		(value: string) => {
 			if (!value.trim()) return;
 
@@ -395,20 +677,233 @@ function AppContent({
 			});
 		},
 		[
+			inputHistory,
 			addMessage,
 			spawnClaude,
 			currentSessionId,
-			hookServer,
 			exit,
 			clearScreen,
 			onShowSessions,
-			inputHistory,
 			metrics,
 			modelName,
 			tokenUsage,
 			elapsed,
+			hookServer,
 		],
 	);
+
+	const stableItems = useMemo((): FeedItem[] => {
+		const messageItems: FeedItem[] = messages.map(m => ({
+			type: 'message' as const,
+			data: m,
+		}));
+		return [...messageItems, ...feedItems].sort((a, b) => {
+			const tsA = a.type === 'message' ? a.data.timestamp.getTime() : a.data.ts;
+			const tsB = b.type === 'message' ? b.data.timestamp.getTime() : b.data.ts;
+			return tsA - tsB;
+		});
+	}, [messages, feedItems]);
+
+	const timelineEntries = useMemo((): TimelineEntry[] => {
+		const entries: TimelineEntry[] = [];
+		let activeRunId: string | undefined;
+		let messageCounter = 1;
+
+		for (const item of stableItems) {
+			if (item.type === 'message') {
+				const id = `M${String(messageCounter++).padStart(3, '0')}`;
+				const summary = compactText(item.data.content, 84);
+				const details = item.data.content;
+				entries.push({
+					id,
+					ts: item.data.timestamp.getTime(),
+					runId: activeRunId,
+					op: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
+					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
+					summary,
+					searchText: `${summary}\n${details}`,
+					error: false,
+					expandable: details.length > 120,
+					details,
+				});
+				continue;
+			}
+
+			const event = item.data;
+			if (event.kind === 'run.start') {
+				activeRunId = event.run_id;
+			}
+			const summary = eventSummary(event);
+			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
+			entries.push({
+				id: event.event_id,
+				ts: event.ts,
+				runId: event.run_id,
+				op: eventOperation(event),
+				actor: actorLabel(event.actor_id),
+				summary,
+				searchText: `${summary}\n${details}`,
+				error: isEventError(event),
+				expandable: isEventExpandable(event),
+				details,
+			});
+			if (event.kind === 'run.end') {
+				activeRunId = undefined;
+			}
+		}
+		return entries;
+	}, [stableItems]);
+
+	const runSummaries = useMemo((): RunSummary[] => {
+		const map = new Map<string, RunSummary>();
+
+		for (const event of feedEvents) {
+			if (event.kind === 'run.start') {
+				map.set(event.run_id, {
+					runId: event.run_id,
+					title: compactText(
+						event.data.trigger.prompt_preview || 'Untitled run',
+						46,
+					),
+					status: 'RUNNING',
+					startedAt: event.ts,
+				});
+				continue;
+			}
+			if (event.kind === 'run.end') {
+				const existing = map.get(event.run_id);
+				if (existing) {
+					existing.status = toRunStatus(event);
+					existing.endedAt = event.ts;
+				} else {
+					map.set(event.run_id, {
+						runId: event.run_id,
+						title: 'Untitled run',
+						status: toRunStatus(event),
+						startedAt: event.ts,
+						endedAt: event.ts,
+					});
+				}
+			}
+		}
+
+		const summaries = Array.from(map.values()).sort(
+			(a, b) => a.startedAt - b.startedAt,
+		);
+
+		if (currentRun) {
+			const found = summaries.find(s => s.runId === currentRun.run_id);
+			if (found) {
+				found.status = 'RUNNING';
+			} else {
+				summaries.push({
+					runId: currentRun.run_id,
+					title: compactText(
+						currentRun.trigger.prompt_preview || 'Untitled run',
+						46,
+					),
+					status: 'RUNNING',
+					startedAt: currentRun.started_at,
+				});
+			}
+		}
+
+		return summaries;
+	}, [feedEvents, currentRun]);
+
+	const todoItems = useMemo((): TodoPanelItem[] => {
+		const fromTasks = tasks.map((task, index) => ({
+			id: `task-${index}-${toAscii(task.content).slice(0, 16)}`,
+			text: task.content,
+			priority: 'P1' as const,
+			status: toTodoStatus(task.status),
+			owner: 'main',
+		}));
+		const merged = [...fromTasks, ...extraTodos].map(todo => ({
+			...todo,
+			status: todoStatusOverrides[todo.id] ?? todo.status,
+		}));
+		return merged;
+	}, [tasks, extraTodos, todoStatusOverrides]);
+
+	const visibleTodoItems = useMemo(
+		() =>
+			todoShowDone
+				? todoItems
+				: todoItems.filter(todo => todo.status !== 'done'),
+		[todoItems, todoShowDone],
+	);
+
+	const filteredEntries = useMemo(() => {
+		return timelineEntries.filter(entry => {
+			if (runFilter !== 'all' && entry.runId !== runFilter) return false;
+			if (errorsOnly && !entry.error) return false;
+			return true;
+		});
+	}, [timelineEntries, runFilter, errorsOnly]);
+
+	const searchMatches = useMemo(() => {
+		const q = searchQuery.trim().toLowerCase();
+		if (!q) return [] as number[];
+		const matches: number[] = [];
+		for (let i = 0; i < filteredEntries.length; i++) {
+			if (filteredEntries[i]!.searchText.toLowerCase().includes(q)) {
+				matches.push(i);
+			}
+		}
+		return matches;
+	}, [filteredEntries, searchQuery]);
+
+	const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);
+
+	const filteredEntriesRef = useRef<TimelineEntry[]>(filteredEntries);
+	filteredEntriesRef.current = filteredEntries;
+	const runSummariesRef = useRef<RunSummary[]>(runSummaries);
+	runSummariesRef.current = runSummaries;
+	const visibleTodoItemsRef = useRef<TodoPanelItem[]>(visibleTodoItems);
+	visibleTodoItemsRef.current = visibleTodoItems;
+
+	useEffect(() => {
+		setFeedCursor(prev =>
+			Math.min(prev, Math.max(0, filteredEntries.length - 1)),
+		);
+	}, [filteredEntries.length]);
+
+	useEffect(() => {
+		if (!tailFollow) return;
+		setFeedCursor(Math.max(0, filteredEntries.length - 1));
+	}, [filteredEntries.length, tailFollow]);
+
+	useEffect(() => {
+		setTodoCursor(prev =>
+			Math.min(prev, Math.max(0, visibleTodoItems.length - 1)),
+		);
+	}, [visibleTodoItems.length]);
+
+	useEffect(() => {
+		setSearchMatchPos(prev =>
+			Math.min(prev, Math.max(0, searchMatches.length - 1)),
+		);
+	}, [searchMatches.length]);
+
+	useEffect(() => {
+		setDetailScroll(0);
+	}, [expandedId]);
+
+	useEffect(() => {
+		if (expandedId && !filteredEntries.some(entry => entry.id === expandedId)) {
+			setExpandedId(null);
+		}
+	}, [expandedId, filteredEntries]);
+
+	useEffect(() => {
+		if (
+			focusMode === 'todo' &&
+			(!todoVisible || visibleTodoItems.length === 0)
+		) {
+			setFocusMode('feed');
+		}
+	}, [focusMode, todoVisible, visibleTodoItems.length]);
 
 	const handlePermissionDecision = useCallback(
 		(decision: PermissionDecision) => {
@@ -434,51 +929,239 @@ function AppContent({
 		resolveQuestion(currentQuestionRequest.cause.hook_request_id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const stableItems = useMemo((): FeedItem[] => {
-		const messageItems: FeedItem[] = messages.map(m => ({
-			type: 'message' as const,
-			data: m,
-		}));
-		return [...messageItems, ...feedItems].sort((a, b) => {
-			const tsA = a.type === 'message' ? a.data.timestamp.getTime() : a.data.ts;
-			const tsB = b.type === 'message' ? b.data.timestamp.getTime() : b.data.ts;
-			return tsA - tsB;
-		});
-	}, [messages, feedItems]);
+	const runCommand = useCallback(
+		(commandLine: string) => {
+			const command = commandLine.trim();
+			if (!command) return;
 
-	const timelineRows = useMemo((): DashboardTimelineRow[] => {
-		let messageCounter = 1;
-		return stableItems.map(item => {
-			if (item.type === 'message') {
-				const id = `M${String(messageCounter++).padStart(3, '0')}`;
-				return {
-					time: formatClock(item.data.timestamp.getTime()),
-					eventId: id,
-					type:
-						item.data.role === 'user' ? 'user.message' : 'assistant.message',
-					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
-					summary: compactText(item.data.content, 64),
-				};
+			if (command === ':todo') {
+				setTodoVisible(v => !v);
+				return;
 			}
 
-			const event = item.data;
-			return {
-				time: formatClock(event.ts),
-				eventId: event.event_id,
-				type: eventTypeLabel(event),
-				actor: actorLabel(event.actor_id),
-				summary: eventSummary(event),
-			};
-		});
-	}, [stableItems]);
+			if (command === ':todo done') {
+				setTodoShowDone(v => !v);
+				return;
+			}
 
-	const appMode = useAppMode(
-		isClaudeRunning,
-		currentPermissionRequest,
-		currentQuestionRequest,
+			if (command === ':todo focus') {
+				setTodoVisible(true);
+				setFocusMode('todo');
+				return;
+			}
+
+			const todoAddMatch = command.match(/^:todo add(?:\s+(p[0-2]))?\s+(.+)$/i);
+			if (todoAddMatch) {
+				const priorityToken = (todoAddMatch[1] ?? 'P1').toUpperCase();
+				const text = todoAddMatch[2]!.trim();
+				if (!text) return;
+				const priority =
+					priorityToken === 'P0' || priorityToken === 'P2'
+						? priorityToken
+						: 'P1';
+				setExtraTodos(prev => [
+					...prev,
+					{
+						id: `local-${generateId()}`,
+						text,
+						priority,
+						status: 'open',
+						owner: 'main',
+						localOnly: true,
+					},
+				]);
+				setTodoVisible(true);
+				return;
+			}
+
+			if (command === ':run list') {
+				setShowRunOverlay(true);
+				return;
+			}
+
+			if (command === ':run all') {
+				setRunFilter('all');
+				setShowRunOverlay(false);
+				setTailFollow(true);
+				setFeedCursor(Math.max(0, filteredEntriesRef.current.length - 1));
+				return;
+			}
+
+			const runMatch = command.match(/^:run\s+(.+)$/i);
+			if (runMatch) {
+				const needle = runMatch[1]!.trim().toLowerCase();
+				const hit = runSummariesRef.current.find(summary => {
+					return (
+						summary.runId.toLowerCase() === needle ||
+						formatRunLabel(summary.runId).toLowerCase() === needle
+					);
+				});
+				if (!hit) {
+					addMessage('assistant', `No run matched "${needle}"`);
+					return;
+				}
+				setRunFilter(hit.runId);
+				setShowRunOverlay(false);
+				setTailFollow(true);
+				setFeedCursor(Math.max(0, filteredEntriesRef.current.length - 1));
+				return;
+			}
+
+			if (command === ':tail') {
+				setTailFollow(true);
+				setFeedCursor(Math.max(0, filteredEntriesRef.current.length - 1));
+				return;
+			}
+
+			const jumpMatch = command.match(/^:jump\s+(.+)$/i);
+			if (jumpMatch) {
+				const needle = jumpMatch[1]!.trim().toLowerCase();
+				const idx = filteredEntriesRef.current.findIndex(entry => {
+					const id = entry.id.toLowerCase();
+					return id === needle || id.endsWith(needle);
+				});
+				if (idx < 0) {
+					addMessage('assistant', `No event matched "${needle}"`);
+					return;
+				}
+				setFeedCursor(idx);
+				setTailFollow(false);
+				setFocusMode('feed');
+				return;
+			}
+
+			if (command === ':errors') {
+				setErrorsOnly(v => !v);
+				setTailFollow(true);
+				setFeedCursor(Math.max(0, filteredEntriesRef.current.length - 1));
+				return;
+			}
+
+			addMessage('assistant', `Unknown command: ${command}`);
+		},
+		[addMessage],
 	);
-	const dialogActive =
-		appMode.type === 'permission' || appMode.type === 'question';
+
+	const setInputValueRef = useRef<(value: string) => void>(() => {});
+	const inputValueRef = useRef('');
+
+	const handleInputSubmit = useCallback(
+		(rawValue: string) => {
+			const trimmed = rawValue.trim();
+			if (!trimmed) {
+				setInputValueRef.current('');
+				setInputMode('normal');
+				setFocusMode('feed');
+				return;
+			}
+
+			if (trimmed.startsWith(':') || inputMode === 'cmd') {
+				runCommand(trimmed.startsWith(':') ? trimmed : `:${trimmed}`);
+				setInputValueRef.current('');
+				setInputMode('normal');
+				setFocusMode('feed');
+				return;
+			}
+
+			const parsedSlash = parseInput(trimmed);
+			if (parsedSlash.type === 'command') {
+				submitPromptOrSlashCommand(trimmed);
+				setInputValueRef.current('');
+				setInputMode('normal');
+				setFocusMode('feed');
+				return;
+			}
+
+			if (trimmed.startsWith('/') || inputMode === 'search') {
+				const query = trimmed.replace(/^\//, '').trim();
+				setSearchQuery(query);
+				if (query.length > 0) {
+					const q = query.toLowerCase();
+					const firstIdx = filteredEntriesRef.current.findIndex(entry =>
+						entry.searchText.toLowerCase().includes(q),
+					);
+					if (firstIdx >= 0) {
+						setFeedCursor(firstIdx);
+						setTailFollow(false);
+						setSearchMatchPos(0);
+					}
+				}
+				setInputValueRef.current('');
+				setInputMode('normal');
+				setFocusMode('feed');
+				return;
+			}
+
+			submitPromptOrSlashCommand(trimmed);
+			setInputValueRef.current('');
+			setInputMode('normal');
+			setFocusMode('feed');
+		},
+		[inputMode, runCommand, submitPromptOrSlashCommand],
+	);
+
+	const {
+		value: inputValue,
+		cursorOffset,
+		setValue: setInputValue,
+	} = useTextInput({
+		onChange: value => {
+			inputValueRef.current = value;
+			if (value.startsWith(':')) {
+				setInputMode('cmd');
+				return;
+			}
+			if (value.startsWith('/')) {
+				setInputMode('search');
+				setSearchQuery(value.replace(/^\//, '').trim());
+				return;
+			}
+			if (value.length === 0) {
+				setInputMode('normal');
+				setSearchQuery('');
+			}
+		},
+		onSubmit: handleInputSubmit,
+		isActive: focusMode === 'input' && !dialogActive,
+	});
+	setInputValueRef.current = setInputValue;
+	inputValueRef.current = inputValue;
+
+	const moveFeedCursor = useCallback((delta: number) => {
+		setFeedCursor(prev => {
+			const max = Math.max(0, filteredEntriesRef.current.length - 1);
+			return Math.max(0, Math.min(prev + delta, max));
+		});
+		setTailFollow(false);
+	}, []);
+
+	const jumpToTail = useCallback(() => {
+		setTailFollow(true);
+		setFeedCursor(Math.max(0, filteredEntriesRef.current.length - 1));
+	}, []);
+
+	const jumpToTop = useCallback(() => {
+		setTailFollow(false);
+		setFeedCursor(0);
+	}, []);
+
+	const toggleExpandedAtCursor = useCallback(() => {
+		const entry = filteredEntriesRef.current[feedCursor];
+		if (!entry?.expandable) return;
+		setExpandedId(prev => (prev === entry.id ? null : entry.id));
+	}, [feedCursor]);
+
+	const cycleFocus = useCallback(() => {
+		setFocusMode(prev => {
+			if (prev === 'feed') return 'input';
+			if (prev === 'input') {
+				if (todoVisible && visibleTodoItemsRef.current.length > 0)
+					return 'todo';
+				return 'feed';
+			}
+			return 'feed';
+		});
+	}, [todoVisible]);
 
 	const runTitle = deriveRunTitle(
 		currentRun?.trigger.prompt_preview,
@@ -486,93 +1169,527 @@ function AppContent({
 		messages,
 	);
 	const sessionLabel = formatSessionLabel(session?.session_id);
-	const runLabel = formatRunLabel(currentRun?.run_id);
-	const mainActor = compactText(session?.agent_type ?? 'Agent', 20);
+	const selectedRunId =
+		runFilter === 'all'
+			? (currentRun?.run_id ?? runSummaries[runSummaries.length - 1]?.runId)
+			: runFilter;
+	const runLabel = formatRunLabel(selectedRunId);
+	const mainActor = compactText(session?.agent_type ?? 'Agent', 16);
 
-	const doneCount = tasks.filter(t => t.status === 'completed').length;
-	const doingCount = tasks.filter(t => t.status === 'in_progress').length;
-	const openCount = tasks.filter(
-		t => t.status === 'pending' || t.status === 'failed',
+	const doneCount = todoItems.filter(todo => todo.status === 'done').length;
+	const doingCount = todoItems.filter(todo => todo.status === 'doing').length;
+	const blockedCount = todoItems.filter(
+		todo => todo.status === 'blocked',
 	).length;
+	const openCount = todoItems.filter(todo => todo.status === 'open').length;
 	const stepCurrent = doneCount + (doingCount > 0 ? 1 : 0);
-	const stepTotal = Math.max(tasks.length, stepCurrent);
+	const stepTotal = Math.max(todoItems.length, stepCurrent);
 
-	const statusLabel =
-		appMode.type === 'working'
-			? 'RUNNING'
-			: appMode.type === 'idle'
-				? 'IDLE'
-				: 'WAITING';
+	const latestRunStatus: RunStatus = (() => {
+		if (currentRun) return 'RUNNING';
+		const tail = runSummaries[runSummaries.length - 1];
+		return tail?.status ?? 'SUCCEEDED';
+	})();
 
-	const headerLine1 = `ATHENA v${version} | session ${sessionLabel} | run ${runLabel}: ${runTitle} | main: ${mainActor}`;
-	const headerLine2 = `${statusLabel} | step ${stepCurrent}/${stepTotal} | tools ${metrics.totalToolCallCount} | subagents ${metrics.subagentCount} | errors ${metrics.failures} | tokens ${formatCount(tokenUsage.total)}`;
+	const headerLine1 = fit(
+		`ATHENA | session ${sessionLabel} | run ${runLabel}: ${runTitle} | main: ${mainActor}`,
+		innerWidth,
+	);
+	const headerLine2 = fit(
+		`${latestRunStatus.padEnd(9, ' ')} | step ${String(stepCurrent).padStart(2, ' ')}/${String(stepTotal).padEnd(2, ' ')} | tools ${String(metrics.totalToolCallCount).padStart(4, ' ')} | sub ${String(metrics.subagentCount).padStart(3, ' ')} | err ${String(metrics.failures).padStart(3, ' ')} | blk ${String(metrics.blocks).padStart(3, ' ')} | tok ${formatCount(tokenUsage.total).padStart(8, ' ')}${tailFollow ? ' | TAIL' : ''}`,
+		innerWidth,
+	);
 
-	const renderedTodoLines = useMemo(() => todoLines(tasks), [tasks]);
-	const todoHeader = `[TODO] (run ${runLabel}) ${openCount} open / ${doingCount} doing`;
+	const bodyHeight = Math.max(
+		1,
+		terminalRows - HEADER_ROWS - FOOTER_ROWS - FRAME_BORDER_ROWS,
+	);
+	const expandedEntry = expandedId
+		? (filteredEntries.find(entry => entry.id === expandedId) ?? null)
+		: null;
+	const detailLines = useMemo(() => {
+		if (!expandedEntry) return [];
+		return expandedEntry.details.split(/\r?\n/).map(line => toAscii(line));
+	}, [expandedEntry]);
+	const detailHeaderRows = expandedEntry ? 1 : 0;
+	const detailContentRows = expandedEntry
+		? Math.max(1, bodyHeight - detailHeaderRows)
+		: 0;
+	const maxDetailScroll = Math.max(0, detailLines.length - detailContentRows);
+	const detailPageStep = Math.max(1, Math.floor(detailContentRows / 2));
 
-	const reservedRows = 10 + renderedTodoLines.length;
-	const timelineCapacity = Math.max(5, terminalRows - reservedRows);
-	const maxTimelineScroll = Math.max(0, timelineRows.length - timelineCapacity);
+	const todoRowsTarget = expandedEntry
+		? 0
+		: todoVisible
+		? Math.min(
+				TODO_PANEL_MAX_ROWS,
+				1 +
+					Math.max(
+						1,
+						Math.min(visibleTodoItems.length, TODO_PANEL_MAX_ROWS - 1),
+					),
+			)
+		: 0;
+	const runOverlayRowsTarget = expandedEntry
+		? 0
+		: showRunOverlay
+		? Math.min(RUN_OVERLAY_MAX_ROWS, 1 + Math.max(1, runSummaries.length))
+		: 0;
+
+	let remainingRows = bodyHeight;
+	const todoRows = Math.min(todoRowsTarget, Math.max(0, remainingRows - 1));
+	remainingRows -= todoRows;
+	const runOverlayRows = Math.min(
+		runOverlayRowsTarget,
+		Math.max(0, remainingRows - 1),
+	);
+	remainingRows -= runOverlayRows;
+	const feedRows = expandedEntry ? 0 : Math.max(1, remainingRows);
+	const pageStep = Math.max(1, Math.floor(feedRows / 2));
+	const scrollDetail = useCallback(
+		(delta: number) => {
+			setDetailScroll(prev =>
+				Math.max(0, Math.min(prev + delta, maxDetailScroll)),
+			);
+		},
+		[maxDetailScroll],
+	);
+
+	const feedViewportStart = useMemo(() => {
+		const total = filteredEntries.length;
+		if (feedRows <= 0) return 0;
+		if (total <= feedRows) return 0;
+
+		let start = tailFollow
+			? total - feedRows
+			: Math.max(
+					0,
+					Math.min(feedCursor - Math.floor(feedRows / 2), total - feedRows),
+				);
+
+		if (feedCursor < start) start = feedCursor;
+		if (feedCursor >= start + feedRows) start = feedCursor - feedRows + 1;
+
+		return Math.max(0, Math.min(start, total - feedRows));
+	}, [filteredEntries.length, feedCursor, feedRows, tailFollow]);
+
+	const feedViewportEnd = Math.min(
+		filteredEntries.length,
+		feedViewportStart + feedRows,
+	);
+	const feedRenderStart = Math.max(0, feedViewportStart - FEED_OVERSCAN);
+	const feedRenderEnd = Math.min(
+		filteredEntries.length,
+		feedViewportEnd + FEED_OVERSCAN,
+	);
+
+	const visibleFeedEntries = filteredEntries.slice(
+		feedViewportStart,
+		feedViewportEnd,
+	);
 
 	useEffect(() => {
-		setTimelineScroll(prev => Math.min(prev, maxTimelineScroll));
-	}, [maxTimelineScroll]);
+		setDetailScroll(prev => Math.min(prev, maxDetailScroll));
+	}, [maxDetailScroll]);
 
-	const visibleTimelineRows = useMemo(() => {
-		if (timelineRows.length === 0) return [];
-		const endExclusive = Math.max(0, timelineRows.length - timelineScroll);
-		const start = Math.max(0, endExclusive - timelineCapacity);
-		return timelineRows.slice(start, endExclusive);
-	}, [timelineRows, timelineScroll, timelineCapacity]);
+	const todoListHeight = Math.max(0, todoRows - 1);
+	useEffect(() => {
+		if (todoListHeight <= 0) {
+			setTodoScroll(0);
+			return;
+		}
+		setTodoScroll(prev => {
+			if (todoCursor < prev) return todoCursor;
+			if (todoCursor >= prev + todoListHeight) {
+				return todoCursor - todoListHeight + 1;
+			}
+			const maxScroll = Math.max(0, visibleTodoItems.length - todoListHeight);
+			return Math.min(prev, maxScroll);
+		});
+	}, [todoCursor, todoListHeight, visibleTodoItems.length]);
 
 	useInput(
-		(_input, key) => {
+		(input, key) => {
+			if (dialogActive) return;
+
+			if (key.ctrl && input === 't') {
+				setTodoVisible(v => !v);
+				if (focusMode === 'todo') setFocusMode('feed');
+				return;
+			}
+
+			if (focusMode === 'input') {
+				if (key.escape) {
+					setFocusMode('feed');
+					setInputMode('normal');
+					return;
+				}
+				if (key.tab) {
+					cycleFocus();
+					return;
+				}
+				if (key.ctrl && input === 'p') {
+					const prev = inputHistory.back(inputValueRef.current);
+					if (prev !== undefined) setInputValueRef.current(prev);
+					return;
+				}
+				if (key.ctrl && input === 'n') {
+					const next = inputHistory.forward();
+					if (next !== undefined) setInputValueRef.current(next);
+					return;
+				}
+				return;
+			}
+
+			if (focusMode === 'todo') {
+				if (key.escape) {
+					setFocusMode('feed');
+					return;
+				}
+				if (key.tab) {
+					cycleFocus();
+					return;
+				}
+				if (key.upArrow || (key.ctrl && key.upArrow)) {
+					setTodoCursor(prev => Math.max(0, prev - 1));
+					return;
+				}
+				if (key.downArrow || (key.ctrl && key.downArrow)) {
+					setTodoCursor(prev =>
+						Math.min(
+							Math.max(0, visibleTodoItemsRef.current.length - 1),
+							prev + 1,
+						),
+					);
+					return;
+				}
+				if (input === ' ') {
+					const selected = visibleTodoItemsRef.current[todoCursor];
+					if (!selected) return;
+					setTodoStatusOverrides(prev => ({
+						...prev,
+						[selected.id]:
+							(prev[selected.id] ?? selected.status) === 'done'
+								? 'open'
+								: 'done',
+					}));
+					return;
+				}
+				if (key.return) {
+					const selected = visibleTodoItemsRef.current[todoCursor];
+					if (!selected?.linkedEventId) return;
+					const idx = filteredEntriesRef.current.findIndex(
+						entry => entry.id === selected.linkedEventId,
+					);
+					if (idx >= 0) {
+						setFeedCursor(idx);
+						setTailFollow(false);
+						setFocusMode('feed');
+					}
+					return;
+				}
+				if (input.toLowerCase() === 'a') {
+					setFocusMode('input');
+					setInputMode('cmd');
+					setInputValueRef.current(':todo add ');
+					return;
+				}
+				return;
+			}
+
+			// Feed focus
+			if (key.escape) {
+				if (expandedId) {
+					setExpandedId(null);
+					return;
+				}
+				setShowRunOverlay(false);
+				return;
+			}
+
+			if (expandedEntry) {
+				if (key.home) {
+					setDetailScroll(0);
+					return;
+				}
+				if (key.end) {
+					setDetailScroll(maxDetailScroll);
+					return;
+				}
+				if (key.pageUp) {
+					scrollDetail(-detailPageStep);
+					return;
+				}
+				if (key.pageDown) {
+					scrollDetail(detailPageStep);
+					return;
+				}
+				if (key.ctrl && key.upArrow) {
+					scrollDetail(-1);
+					return;
+				}
+				if (key.ctrl && key.downArrow) {
+					scrollDetail(1);
+					return;
+				}
+				if (key.upArrow) {
+					scrollDetail(-1);
+					return;
+				}
+				if (key.downArrow) {
+					scrollDetail(1);
+					return;
+				}
+				return;
+			}
+
+			if (key.tab) {
+				cycleFocus();
+				return;
+			}
+
+			if (input === ':') {
+				setFocusMode('input');
+				setInputMode('cmd');
+				setInputValueRef.current(':');
+				return;
+			}
+
+			if (input === '/') {
+				setFocusMode('input');
+				setInputMode('search');
+				setInputValueRef.current('/');
+				return;
+			}
+
+			if (key.home) {
+				jumpToTop();
+				return;
+			}
+			if (key.end) {
+				jumpToTail();
+				return;
+			}
+			if (key.pageUp) {
+				moveFeedCursor(-pageStep);
+				return;
+			}
+			if (key.pageDown) {
+				moveFeedCursor(pageStep);
+				return;
+			}
+			if (key.ctrl && key.upArrow) {
+				moveFeedCursor(-1);
+				return;
+			}
+			if (key.ctrl && key.downArrow) {
+				moveFeedCursor(1);
+				return;
+			}
 			if (key.upArrow) {
-				setTimelineScroll(prev => Math.min(maxTimelineScroll, prev + 1));
+				moveFeedCursor(-1);
 				return;
 			}
 			if (key.downArrow) {
-				setTimelineScroll(prev => Math.max(0, prev - 1));
+				moveFeedCursor(1);
 				return;
 			}
-			if (key.ctrl && _input === 'l') {
-				setTimelineScroll(0);
+
+			if (key.return || (key.ctrl && key.rightArrow)) {
+				toggleExpandedAtCursor();
+				return;
+			}
+
+			if ((input === 'n' || input === 'N') && searchMatches.length > 0) {
+				const direction = input === 'n' ? 1 : -1;
+				setSearchMatchPos(prev => {
+					const count = searchMatches.length;
+					const next = (prev + direction + count) % count;
+					const target = searchMatches[next]!;
+					setFeedCursor(target);
+					setTailFollow(false);
+					return next;
+				});
+				return;
+			}
+
+			if (key.ctrl && input === 'l') {
+				setSearchQuery('');
+				setShowRunOverlay(false);
+				jumpToTail();
+				return;
 			}
 		},
-		{isActive: !dialogActive},
+		{
+			isActive: !dialogActive,
+		},
 	);
 
+	const footerHelp = (() => {
+		if (focusMode === 'todo') {
+			return 'TODO: up/down select  Space toggle done  Enter jump  a add  Esc back';
+		}
+		if (focusMode === 'input') {
+			return 'INPUT: Enter send  Esc back  Tab focus  Ctrl+P/N history';
+		}
+		if (expandedEntry) {
+			return 'DETAILS: Up/Down scroll  PgUp/PgDn jump  Home/End edge  Esc back';
+		}
+		const searchPart =
+			searchQuery && searchMatches.length > 0
+				? ` | search ${searchMatchPos + 1}/${searchMatches.length}`
+				: searchQuery
+					? ' | search 0/0'
+					: '';
+		return `FEED: Ctrl+Up/Down move  Enter expand  / search  : cmd  End tail${searchPart}`;
+	})();
+
+	const runBadge = isClaudeRunning ? '[RUN]' : '[IDLE]';
+	const modeBadges = [
+		runBadge,
+		...(inputMode === 'cmd' ? ['[CMD]'] : []),
+		...(inputMode === 'search' ? ['[SEARCH]'] : []),
+	];
+	const badgeText = modeBadges.join('');
+	const inputPrefix = 'input> ';
+	const inputContentWidth = Math.max(
+		1,
+		innerWidth - inputPrefix.length - badgeText.length,
+	);
+	const inputPlaceholder =
+		inputMode === 'cmd'
+			? ':command'
+			: inputMode === 'search'
+				? '/search'
+				: 'Type a prompt or :command';
+	const inputBuffer = dialogActive
+		? fit(
+				appMode.type === 'question'
+					? 'Answer question in dialog...'
+					: 'Respond to permission dialog...',
+				inputContentWidth,
+			)
+		: formatInputBuffer(
+				inputValue,
+				cursorOffset,
+				inputContentWidth,
+				focusMode === 'input',
+				inputPlaceholder,
+			);
+	const inputLine = fit(`${inputPrefix}${inputBuffer}${badgeText}`, innerWidth);
+
+	const bodyLines: string[] = [];
+
+	if (todoRows > 0) {
+		const todoHeader = `[TODO] (${runLabel}) ${openCount} open / ${doingCount} doing / ${doneCount} done${blockedCount > 0 ? ` / ${blockedCount} blocked` : ''}${todoShowDone ? ' [all]' : ' [open]'}`;
+		bodyLines.push(fit(todoHeader, innerWidth));
+
+		for (let i = 0; i < todoRows - 1; i++) {
+			const todo = visibleTodoItems[todoScroll + i];
+			if (!todo) {
+				bodyLines.push(fit('', innerWidth));
+				continue;
+			}
+			const focused = focusMode === 'todo' && todoCursor === todoScroll + i;
+			const link = todo.linkedEventId ? ` <- ${todo.linkedEventId}` : '';
+			const owner = todo.owner ? ` @${todo.owner}` : '';
+			const line = `${focused ? '>' : ' '} ${symbolForTodoStatus(todo.status)} ${todo.priority} ${compactText(todo.text, 48)}${link}${owner}`;
+			bodyLines.push(fit(line, innerWidth));
+		}
+	}
+
+	if (runOverlayRows > 0) {
+		bodyLines.push(fit('[RUNS] :run <id>  :run all', innerWidth));
+		const listRows = runOverlayRows - 1;
+		const start = Math.max(0, runSummaries.length - listRows);
+		for (let i = 0; i < runOverlayRows - 1; i++) {
+			const summary = runSummaries[start + i];
+			if (!summary) {
+				bodyLines.push(fit('', innerWidth));
+				continue;
+			}
+			const active =
+				runFilter !== 'all' && runFilter === summary.runId ? '*' : ' ';
+			const line = `${active} ${formatRunLabel(summary.runId)} ${summary.status.padEnd(9, ' ')} ${compactText(summary.title, 48)}`;
+			bodyLines.push(fit(line, innerWidth));
+		}
+	}
+
+	const visibleIndexSet = new Set<number>();
+	for (let i = feedRenderStart; i < feedRenderEnd; i++) {
+		visibleIndexSet.add(i);
+	}
+
+	if (visibleFeedEntries.length === 0) {
+		bodyLines.push(fit('(no feed events)', innerWidth));
+		for (let i = 1; i < feedRows; i++) {
+			bodyLines.push(fit('', innerWidth));
+		}
+	} else {
+		for (let i = 0; i < feedRows; i++) {
+			const idx = feedViewportStart + i;
+			const entry = filteredEntries[idx];
+			if (!entry) {
+				bodyLines.push(fit('', innerWidth));
+				continue;
+			}
+			if (!visibleIndexSet.has(idx)) {
+				bodyLines.push(fit('', innerWidth));
+				continue;
+			}
+			bodyLines.push(
+				formatFeedLine(
+					entry,
+					innerWidth,
+					focusMode === 'feed' && idx === feedCursor,
+					expandedId === entry.id,
+					searchMatchSet.has(idx),
+				),
+			);
+		}
+	}
+
+	if (drawerRows > 0 && expandedEntry) {
+		bodyLines.push(
+			fit(
+				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor})`,
+				innerWidth,
+			),
+		);
+		const rawLines = expandedEntry.details
+			.split(/\r?\n/)
+			.map(line => toAscii(line));
+		const capacity = Math.max(0, drawerRows - 1);
+		const shown = rawLines.slice(0, capacity);
+		for (const line of shown) {
+			bodyLines.push(fit(`  ${line}`, innerWidth));
+		}
+		if (rawLines.length > capacity && bodyLines.length > 0) {
+			bodyLines[bodyLines.length - 1] = fit(
+				`  ... (${rawLines.length - capacity} more lines)`,
+				innerWidth,
+			);
+		}
+	}
+
+	const clippedBodyLines = bodyLines.slice(0, bodyHeight);
+	while (clippedBodyLines.length < bodyHeight) {
+		clippedBodyLines.push(fit('', innerWidth));
+	}
+
 	return (
-		<Box flexDirection="column">
-			<DashboardFrame
-				width={terminalWidth}
-				headerLine1={headerLine1}
-				headerLine2={headerLine2}
-				todoHeader={todoHeader}
-				todoLines={renderedTodoLines}
-				timelineRows={visibleTimelineRows}
-				footerLine={
-					'/help /todo /sessions  up/down scroll  ctrl+p/n history  enter send'
-				}
-				renderInput={innerWidth => (
-					<DashboardInput
-						width={innerWidth}
-						onSubmit={handleSubmit}
-						disabled={dialogActive}
-						disabledMessage={
-							appMode.type === 'question'
-								? 'Answer question above...'
-								: appMode.type === 'permission'
-									? 'Respond to permission request above...'
-									: undefined
-						}
-						onEscape={isClaudeRunning ? sendInterrupt : undefined}
-						onHistoryBack={inputHistory.back}
-						onHistoryForward={inputHistory.forward}
-						runLabel={isClaudeRunning ? 'RUN' : dialogActive ? 'WAIT' : 'SEND'}
-					/>
-				)}
-			/>
+		<Box flexDirection="column" width={frameWidth}>
+			<Text>{topBorder}</Text>
+			<Text>{frameLine(headerLine1)}</Text>
+			<Text>{frameLine(headerLine2)}</Text>
+			<Text>{sectionBorder}</Text>
+			{clippedBodyLines.map((line, index) => (
+				<Text key={`body-${index}`}>{frameLine(line)}</Text>
+			))}
+			<Text>{sectionBorder}</Text>
+			<Text>{frameLine(fit(footerHelp, innerWidth))}</Text>
+			<Text>{frameLine(inputLine)}</Text>
+			<Text>{topBorder}</Text>
 
 			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
