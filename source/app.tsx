@@ -1,12 +1,11 @@
 import process from 'node:process';
 import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
-import {Box, Static, Text, useApp, useInput, useStdout} from 'ink';
-import Message from './components/Message.js';
+import {Box, Text, useApp, useInput, useStdout} from 'ink';
 import CommandInput from './components/CommandInput.js';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
-import HookEvent from './components/HookEvent.js';
+import FeedList from './components/FeedList.js';
 import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
 
@@ -31,6 +30,8 @@ import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
+import {useFocusableList} from './hooks/useFocusableList.js';
+import {isExpandable} from './feed/expandable.js';
 
 type Props = {
 	projectDir: string;
@@ -49,20 +50,6 @@ type Props = {
 type AppPhase =
 	| {type: 'session-select'}
 	| {type: 'main'; initialSessionId?: string};
-
-function renderContentItem(item: FeedItem, verbose?: boolean): React.ReactNode {
-	if (item.type === 'message') {
-		return <Message key={item.data.id} message={item.data} />;
-	}
-	return (
-		<ErrorBoundary
-			key={item.data.event_id}
-			fallback={<Text color="red">[Error rendering event]</Text>}
-		>
-			<HookEvent event={item.data} verbose={verbose} />
-		</ErrorBoundary>
-	);
-}
 
 /** Fallback for crashed PermissionDialog — lets user press Escape to deny. */
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
@@ -281,6 +268,21 @@ function AppContent({
 		});
 	}, [messages, feedItems]);
 
+	// Compute focusable IDs from feed events
+	const focusableIds = useMemo(
+		() =>
+			stableItems
+				.filter(
+					(item): item is FeedItem & {type: 'feed'} => item.type === 'feed',
+				)
+				.filter(item => isExpandable(item.data))
+				.map(item => item.data.event_id),
+		[stableItems],
+	);
+
+	const {focusedId, expandedSet, moveUp, moveDown, toggleFocused} =
+		useFocusableList(focusableIds);
+
 	const appMode = useAppMode(
 		isClaudeRunning,
 		currentPermissionRequest,
@@ -301,6 +303,12 @@ function AppContent({
 			if (key.ctrl && _input === 'e') {
 				setStatsExpanded(prev => !prev);
 			}
+			// Ctrl+Up/Down for feed navigation (plain arrows = input history)
+			if (key.ctrl && key.upArrow && focusableIds.length > 0) moveUp();
+			if (key.ctrl && key.downArrow && focusableIds.length > 0) moveDown();
+			// Ctrl+Right to toggle expand/collapse on focused item
+			if (key.ctrl && key.rightArrow && focusableIds.length > 0)
+				toggleFocused();
 		},
 		{isActive: !dialogActive},
 	);
@@ -330,10 +338,13 @@ function AppContent({
 				/>
 			)}
 
-			{/* All items — committed to scrollback, never re-rendered */}
-			<Static items={stableItems}>
-				{(item: FeedItem) => renderContentItem(item, verbose)}
-			</Static>
+			<FeedList
+				items={stableItems}
+				focusedId={focusedId}
+				expandedSet={expandedSet}
+				verbose={verbose}
+				dialogActive={dialogActive}
+			/>
 
 			{/* Active task list - always dynamic, shows latest state */}
 			<TaskList

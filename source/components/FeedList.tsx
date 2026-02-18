@@ -16,10 +16,6 @@ type Props = {
 
 const VIEWPORT_RESERVE = 10;
 
-function itemKey(item: FeedItem): string {
-	return item.type === 'message' ? item.data.id : item.data.event_id;
-}
-
 function renderItem(
 	item: FeedItem,
 	focusedId: string | undefined,
@@ -100,9 +96,7 @@ export default function FeedList({
 		<Box flexDirection="column">
 			{/* Scrollback: write-once, no cursor indicators */}
 			<Static items={scrollbackItems}>
-				{(item: FeedItem) =>
-					renderItem(item, undefined, expandedSet, verbose)
-				}
+				{(item: FeedItem) => renderItem(item, undefined, expandedSet, verbose)}
 			</Static>
 			{/* Viewport: dynamic, cursor indicators update here */}
 			{viewportItems.map(item =>
