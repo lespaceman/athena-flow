@@ -503,6 +503,58 @@ describe('FeedMapper', () => {
 		});
 	});
 
+	describe('ui.collapsed_default', () => {
+		it('sets collapsed_default on setup events', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('Setup', {
+					payload: {
+						hook_event_name: 'Setup',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						trigger: 'init',
+					},
+				}),
+			);
+			const setupEvent = events.find(e => e.kind === 'setup');
+			expect(setupEvent?.ui?.collapsed_default).toBe(true);
+		});
+
+		it('sets collapsed_default on compact.pre events', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('PreCompact', {
+					payload: {
+						hook_event_name: 'PreCompact',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						trigger: 'auto',
+					},
+				}),
+			);
+			const compactEvent = events.find(e => e.kind === 'compact.pre');
+			expect(compactEvent?.ui?.collapsed_default).toBe(true);
+		});
+
+		it('sets collapsed_default on unknown.hook events', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('SomeFutureHook', {
+					payload: {
+						hook_event_name: 'SomeFutureHook',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const unknownEvent = events.find(e => e.kind === 'unknown.hook');
+			expect(unknownEvent?.ui?.collapsed_default).toBe(true);
+		});
+	});
+
 	describe('seq numbering', () => {
 		it('assigns monotonically increasing seq within a run', () => {
 			const mapper = createFeedMapper();

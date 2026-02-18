@@ -426,51 +426,51 @@ export function createFeedMapper(): FeedMapper {
 
 			case 'PreCompact': {
 				results.push(...ensureRunArray(event));
-				results.push(
-					makeEvent(
-						'compact.pre',
-						'info',
-						'system',
-						{
-							trigger: (p.trigger as 'manual' | 'auto') ?? 'auto',
-							custom_instructions: p.custom_instructions as string | undefined,
-						} satisfies import('./types.js').PreCompactData,
-						event,
-					),
+				const compactEvt = makeEvent(
+					'compact.pre',
+					'info',
+					'system',
+					{
+						trigger: (p.trigger as 'manual' | 'auto') ?? 'auto',
+						custom_instructions: p.custom_instructions as string | undefined,
+					} satisfies import('./types.js').PreCompactData,
+					event,
 				);
+				compactEvt.ui = {collapsed_default: true};
+				results.push(compactEvt);
 				break;
 			}
 
 			case 'Setup': {
 				results.push(...ensureRunArray(event));
-				results.push(
-					makeEvent(
-						'setup',
-						'info',
-						'system',
-						{
-							trigger: (p.trigger as 'init' | 'maintenance') ?? 'init',
-						} satisfies import('./types.js').SetupData,
-						event,
-					),
+				const setupEvt = makeEvent(
+					'setup',
+					'info',
+					'system',
+					{
+						trigger: (p.trigger as 'init' | 'maintenance') ?? 'init',
+					} satisfies import('./types.js').SetupData,
+					event,
 				);
+				setupEvt.ui = {collapsed_default: true};
+				results.push(setupEvt);
 				break;
 			}
 
 			default: {
 				results.push(...ensureRunArray(event));
-				results.push(
-					makeEvent(
-						'unknown.hook',
-						'debug',
-						'system',
-						{
-							hook_event_name: event.hookName,
-							payload: event.payload,
-						} satisfies import('./types.js').UnknownHookData,
-						event,
-					),
+				const unknownEvt = makeEvent(
+					'unknown.hook',
+					'debug',
+					'system',
+					{
+						hook_event_name: event.hookName,
+						payload: event.payload,
+					} satisfies import('./types.js').UnknownHookData,
+					event,
 				);
+				unknownEvt.ui = {collapsed_default: true};
+				results.push(unknownEvt);
 				break;
 			}
 		}
