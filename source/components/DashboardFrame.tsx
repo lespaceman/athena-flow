@@ -1,5 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
+import {fit} from '../utils/format.js';
 
 export type DashboardTimelineRow = {
 	time: string;
@@ -20,18 +21,6 @@ type Props = {
 	renderInput: (innerWidth: number) => React.ReactNode;
 };
 
-function toAscii(value: string): string {
-	return value.replace(/[^\x20-\x7e]/g, '?');
-}
-
-function fit(text: string, width: number): string {
-	const clean = toAscii(text);
-	if (width <= 0) return '';
-	if (clean.length === width) return clean;
-	if (clean.length < width) return clean.padEnd(width, ' ');
-	if (width <= 3) return clean.slice(0, width);
-	return `${clean.slice(0, width - 3)}...`;
-}
 
 function renderLine(content: string, innerWidth: number): string {
 	return `|${fit(content, innerWidth)}|`;

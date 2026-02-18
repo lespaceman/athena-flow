@@ -1,6 +1,7 @@
 import React, {useCallback, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useTextInput} from '../hooks/useTextInput.js';
+import {fit} from '../utils/format.js';
 
 const PLACEHOLDER = 'Type a message or /command...';
 
@@ -15,18 +16,6 @@ type Props = {
 	runLabel?: string;
 };
 
-function toAscii(value: string): string {
-	return value.replace(/[^\x20-\x7e]/g, '?');
-}
-
-function fit(text: string, width: number): string {
-	const clean = toAscii(text);
-	if (width <= 0) return '';
-	if (clean.length === width) return clean;
-	if (clean.length < width) return clean.padEnd(width, ' ');
-	if (width <= 3) return clean.slice(0, width);
-	return `${clean.slice(0, width - 3)}...`;
-}
 
 function renderInputText(
 	value: string,
