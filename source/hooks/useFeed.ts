@@ -254,6 +254,13 @@ export function useFeed(
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
 			if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
+				// Auto-dequeue permissions/questions from incoming events
+				for (const fe of newFeedEvents) {
+					if (fe.kind === 'permission.decision' && fe.cause?.hook_request_id) {
+						dequeuePermission(fe.cause.hook_request_id);
+					}
+				}
+
 				setFeedEvents(prev => {
 					const updated = [...prev, ...newFeedEvents];
 					return updated.length > MAX_EVENTS
@@ -269,6 +276,14 @@ export function useFeed(
 				const feedEvent = mapperRef.current.mapDecision(eventId, decision);
 				if (feedEvent) {
 					setFeedEvents(prev => [...prev, feedEvent]);
+
+					// Auto-dequeue permissions/questions when decision arrives
+					if (
+						feedEvent.kind === 'permission.decision' &&
+						feedEvent.cause?.hook_request_id
+					) {
+						dequeuePermission(feedEvent.cause.hook_request_id);
+					}
 				}
 			},
 		);
@@ -281,7 +296,7 @@ export function useFeed(
 			unsubDecision();
 			runtime.stop();
 		};
-	}, [runtime, enqueuePermission, enqueueQuestion]);
+	}, [runtime, enqueuePermission, enqueueQuestion, dequeuePermission]);
 
 	// Derive items (content ordering)
 	const items = useMemo((): FeedItem[] => {
