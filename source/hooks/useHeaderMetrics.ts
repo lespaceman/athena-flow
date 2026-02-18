@@ -1,5 +1,5 @@
 import {useMemo, useRef} from 'react';
-import type {HookEventDisplay} from '../types/hooks/display.js';
+import type {FeedEvent} from '../feed/types.js';
 import type {SessionMetrics, TokenUsage} from '../types/headerMetrics.js';
 
 const NULL_TOKENS: TokenUsage = {
@@ -12,14 +12,14 @@ const NULL_TOKENS: TokenUsage = {
 };
 
 /**
- * Derives SessionMetrics from an array of hook events.
+ * Derives SessionMetrics from an array of feed events.
  *
  * Pure computation (useMemo only) — no side effects.
  * Token fields are always null until a data source becomes available.
  */
 const THROTTLE_MS = 1000;
 
-export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
+export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 	const lastComputeRef = useRef<number>(0);
 	const cachedRef = useRef<SessionMetrics | null>(null);
 
@@ -45,39 +45,47 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 		>();
 
 		for (const event of events) {
-			const payload = event.payload as Record<string, unknown>;
-
-			// Extract session start time from first SessionStart event
-			if (sessionStartTime === null && event.hookName === 'SessionStart') {
-				sessionStartTime = event.timestamp;
+			// Extract session start time from first session.start event
+			if (sessionStartTime === null && event.kind === 'session.start') {
+				sessionStartTime = new Date(event.ts);
 			}
 
-			// Extract model from first SessionStart event with model field
+			// Extract model from first session.start event with model field
 			if (
 				modelName === null &&
-				event.hookName === 'SessionStart' &&
-				typeof payload.model === 'string'
+				event.kind === 'session.start' &&
+				typeof event.data.model === 'string'
 			) {
-				modelName = payload.model;
+				modelName = event.data.model;
 			}
 
-			// Count top-level tool uses (PreToolUse, not child events)
-			if (event.hookName === 'PreToolUse' && !event.parentSubagentId) {
+			// Count top-level tool uses (tool.pre, not subagent events)
+			if (
+				event.kind === 'tool.pre' &&
+				!event.actor_id.startsWith('subagent:')
+			) {
 				toolCallCount++;
 			}
 
 			// Count child tool calls per subagent
-			if (event.hookName === 'PreToolUse' && event.parentSubagentId) {
-				const existing = subagentMap.get(event.parentSubagentId);
+			if (
+				event.kind === 'tool.pre' &&
+				event.actor_id.startsWith('subagent:')
+			) {
+				const subagentId = event.actor_id.replace(/^subagent:/, '');
+				const existing = subagentMap.get(subagentId);
 				if (existing) {
 					existing.toolCallCount++;
 				}
 			}
 
-			// Track subagents from SubagentStart (top-level only)
-			if (event.hookName === 'SubagentStart' && !event.parentSubagentId) {
-				const agentId = payload.agent_id as string;
-				const agentType = payload.agent_type as string;
+			// Track subagents from subagent.start (top-level only)
+			if (
+				event.kind === 'subagent.start' &&
+				!event.actor_id.startsWith('subagent:')
+			) {
+				const agentId = event.data.agent_id;
+				const agentType = event.data.agent_type;
 				if (agentId && !subagentMap.has(agentId)) {
 					subagentMap.set(agentId, {
 						agentType: agentType ?? 'Agent',
@@ -86,13 +94,17 @@ export function useHeaderMetrics(events: HookEventDisplay[]): SessionMetrics {
 				}
 			}
 
-			// Count permission outcomes
-			if (event.hookName === 'PermissionRequest') {
-				if (event.status === 'blocked') {
+			// Count permission decisions
+			if (event.kind === 'permission.decision') {
+				if (event.data.decision_type === 'deny') {
 					permissionsDenied++;
-				} else if (event.status !== 'pending') {
+				} else if (
+					event.data.decision_type === 'allow' ||
+					event.data.decision_type === 'no_opinion'
+				) {
 					permissionsAllowed++;
 				}
+				// 'ask' is like pending — not counted
 			}
 		}
 

@@ -2,28 +2,26 @@
 import {describe, it, expect, vi} from 'vitest';
 import {renderHook} from '@testing-library/react';
 import {useHeaderMetrics} from './useHeaderMetrics.js';
-import type {HookEventDisplay} from '../types/hooks/index.js';
+import type {FeedEvent} from '../feed/types.js';
 
-function makeEvent(
-	overrides: Partial<HookEventDisplay> & {
-		hookName: HookEventDisplay['hookName'];
-	},
-): HookEventDisplay {
+let seqCounter = 0;
+
+function makeFeedEvent(
+	overrides: Partial<FeedEvent> & {kind: FeedEvent['kind']; data: unknown},
+): FeedEvent {
+	seqCounter++;
 	return {
-		id: overrides.id ?? 'evt-1',
-		event_id: overrides.event_id ?? overrides.id ?? 'evt-1',
-		timestamp: overrides.timestamp ?? new Date('2024-01-15T10:00:00Z'),
-		hookName: overrides.hookName,
-		toolName: overrides.toolName,
-		payload: overrides.payload ?? {
-			session_id: 's1',
-			transcript_path: '/tmp/t.jsonl',
-			cwd: '/project',
-			hook_event_name: overrides.hookName,
-		},
-		status: overrides.status ?? 'passthrough',
-		parentSubagentId: overrides.parentSubagentId,
-	};
+		event_id: overrides.event_id ?? `e${seqCounter}`,
+		seq: overrides.seq ?? seqCounter,
+		ts: overrides.ts ?? new Date('2024-01-15T10:00:00Z').getTime(),
+		session_id: overrides.session_id ?? 's1',
+		run_id: overrides.run_id ?? 's1:R1',
+		kind: overrides.kind,
+		level: overrides.level ?? 'info',
+		actor_id: overrides.actor_id ?? 'agent:root',
+		title: overrides.title ?? '',
+		data: overrides.data,
+	} as FeedEvent;
 }
 
 describe('useHeaderMetrics', () => {
@@ -48,18 +46,12 @@ describe('useHeaderMetrics', () => {
 		});
 	});
 
-	it('extracts model name from SessionStart event', () => {
+	it('extracts model name from session.start event', () => {
 		const events = [
-			makeEvent({
-				hookName: 'SessionStart',
-				payload: {
-					session_id: 's1',
-					transcript_path: '/tmp/t.jsonl',
-					cwd: '/project',
-					hook_event_name: 'SessionStart',
-					source: 'startup',
-					model: 'claude-opus-4-6',
-				},
+			makeFeedEvent({
+				kind: 'session.start',
+				title: 'Session started',
+				data: {source: 'startup', model: 'claude-opus-4-6'},
 			}),
 		];
 
@@ -70,110 +62,116 @@ describe('useHeaderMetrics', () => {
 		);
 	});
 
-	it('counts top-level PreToolUse events', () => {
+	it('counts top-level tool.pre events', () => {
 		const events = [
-			makeEvent({id: 't1', hookName: 'PreToolUse', toolName: 'Bash'}),
-			makeEvent({id: 't2', hookName: 'PreToolUse', toolName: 'Read'}),
-			makeEvent({
-				id: 't3',
-				hookName: 'PreToolUse',
-				toolName: 'Grep',
-				parentSubagentId: 'agent-1',
+			makeFeedEvent({
+				event_id: 't1',
+				kind: 'tool.pre',
+				title: '● Bash',
+				data: {tool_name: 'Bash', tool_input: {}},
+			}),
+			makeFeedEvent({
+				event_id: 't2',
+				kind: 'tool.pre',
+				title: '● Read',
+				data: {tool_name: 'Read', tool_input: {}},
+			}),
+			makeFeedEvent({
+				event_id: 't3',
+				kind: 'tool.pre',
+				title: '● Grep',
+				actor_id: 'subagent:agent-1',
+				data: {tool_name: 'Grep', tool_input: {}},
 			}),
 		];
 
 		const {result} = renderHook(() => useHeaderMetrics(events));
 		// Only top-level (t1, t2) — t3 is a child
 		expect(result.current.toolCallCount).toBe(2);
-		// agent-1 isn't tracked via SubagentStart, so totalToolCallCount
+		// agent-1 isn't tracked via subagent.start, so totalToolCallCount
 		// only includes tracked subagent tools
 		expect(result.current.totalToolCallCount).toBe(2);
 	});
 
 	it('tracks subagent metrics', () => {
 		const events = [
-			makeEvent({
-				id: 'sub-1',
-				hookName: 'SubagentStart',
-				payload: {
-					session_id: 's1',
-					transcript_path: '/tmp/t.jsonl',
-					cwd: '/project',
-					hook_event_name: 'SubagentStart',
-					agent_id: 'a1',
-					agent_type: 'Explore',
-				},
+			makeFeedEvent({
+				event_id: 'sub-1',
+				kind: 'subagent.start',
+				title: 'Subagent started',
+				data: {agent_id: 'a1', agent_type: 'Explore'},
 			}),
-			makeEvent({
-				id: 'child-1',
-				hookName: 'PreToolUse',
-				toolName: 'Bash',
-				parentSubagentId: 'a1',
+			makeFeedEvent({
+				event_id: 'child-1',
+				kind: 'tool.pre',
+				title: '● Bash',
+				actor_id: 'subagent:a1',
+				data: {tool_name: 'Bash', tool_input: {}},
 			}),
-			makeEvent({
-				id: 'child-2',
-				hookName: 'PreToolUse',
-				toolName: 'Read',
-				parentSubagentId: 'a1',
+			makeFeedEvent({
+				event_id: 'child-2',
+				kind: 'tool.pre',
+				title: '● Read',
+				actor_id: 'subagent:a1',
+				data: {tool_name: 'Read', tool_input: {}},
 			}),
 		];
 
 		const {result} = renderHook(() => useHeaderMetrics(events));
 		expect(result.current.subagentCount).toBe(1);
 		expect(result.current.subagentMetrics).toEqual([
-			{agentId: 'a1', agentType: 'Explore', toolCallCount: 2, tokenCount: null},
+			{
+				agentId: 'a1',
+				agentType: 'Explore',
+				toolCallCount: 2,
+				tokenCount: null,
+			},
 		]);
 		// 0 main + 2 subagent = 2 total
 		expect(result.current.totalToolCallCount).toBe(2);
 	});
 
-	it('counts permission outcomes', () => {
+	it('counts permission decision outcomes', () => {
 		const events = [
-			makeEvent({
-				id: 'p1',
-				hookName: 'PermissionRequest',
-				toolName: 'Bash',
-				status: 'passthrough',
+			makeFeedEvent({
+				event_id: 'p1',
+				kind: 'permission.decision',
+				title: 'Permission allowed',
+				data: {decision_type: 'no_opinion'},
 			}),
-			makeEvent({
-				id: 'p2',
-				hookName: 'PermissionRequest',
-				toolName: 'Write',
-				status: 'blocked',
+			makeFeedEvent({
+				event_id: 'p2',
+				kind: 'permission.decision',
+				title: 'Permission denied',
+				data: {decision_type: 'deny', message: 'Not allowed'},
 			}),
-			makeEvent({
-				id: 'p3',
-				hookName: 'PermissionRequest',
-				toolName: 'Edit',
-				status: 'json_output',
+			makeFeedEvent({
+				event_id: 'p3',
+				kind: 'permission.decision',
+				title: 'Permission allowed',
+				data: {decision_type: 'allow'},
 			}),
-			makeEvent({
-				id: 'p4',
-				hookName: 'PermissionRequest',
-				toolName: 'Bash',
-				status: 'pending',
+			makeFeedEvent({
+				event_id: 'p4',
+				kind: 'permission.decision',
+				title: 'Permission ask',
+				data: {decision_type: 'ask'},
 			}),
 		];
 
 		const {result} = renderHook(() => useHeaderMetrics(events));
-		// p1 = allowed, p2 = denied, p3 = allowed, p4 = pending (not counted)
+		// p1 = allowed (no_opinion), p2 = denied, p3 = allowed, p4 = ask (not counted)
 		expect(result.current.permissions).toEqual({allowed: 2, denied: 1});
 	});
 
-	it('ignores child SubagentStart events', () => {
+	it('ignores child subagent.start events', () => {
 		const events = [
-			makeEvent({
-				id: 'nested-sub',
-				hookName: 'SubagentStart',
-				parentSubagentId: 'parent-agent',
-				payload: {
-					session_id: 's1',
-					transcript_path: '/tmp/t.jsonl',
-					cwd: '/project',
-					hook_event_name: 'SubagentStart',
-					agent_id: 'nested-1',
-					agent_type: 'Plan',
-				},
+			makeFeedEvent({
+				event_id: 'nested-sub',
+				kind: 'subagent.start',
+				title: 'Subagent started',
+				actor_id: 'subagent:parent-agent',
+				data: {agent_id: 'nested-1', agent_type: 'Plan'},
 			}),
 		];
 
@@ -181,20 +179,14 @@ describe('useHeaderMetrics', () => {
 		expect(result.current.subagentCount).toBe(0);
 	});
 
-	it('sets sessionStartTime even when SessionStart has no model field', () => {
+	it('sets sessionStartTime even when session.start has no model field', () => {
 		const ts = new Date('2024-01-15T10:00:00Z');
 		const events = [
-			makeEvent({
-				hookName: 'SessionStart',
-				timestamp: ts,
-				payload: {
-					session_id: 's1',
-					transcript_path: '/tmp/t.jsonl',
-					cwd: '/project',
-					hook_event_name: 'SessionStart',
-					source: 'startup',
-					// no model field
-				},
+			makeFeedEvent({
+				kind: 'session.start',
+				ts: ts.getTime(),
+				title: 'Session started',
+				data: {source: 'startup'},
 			}),
 		];
 
@@ -208,20 +200,20 @@ describe('useHeaderMetrics', () => {
 		vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
 
 		const events1 = [
-			makeEvent({
-				hookName: 'SessionStart',
-				payload: {
-					session_id: 's1',
-					transcript_path: '/tmp/t.jsonl',
-					cwd: '/project',
-					hook_event_name: 'SessionStart',
-					source: 'startup',
-				},
+			makeFeedEvent({
+				kind: 'session.start',
+				title: 'Session started',
+				data: {source: 'startup'},
 			}),
 		];
 		const events2 = [
 			...events1,
-			makeEvent({id: 't1', hookName: 'PreToolUse', toolName: 'Bash'}),
+			makeFeedEvent({
+				event_id: 't1',
+				kind: 'tool.pre',
+				title: '● Bash',
+				data: {tool_name: 'Bash', tool_input: {}},
+			}),
 		];
 
 		const {result, rerender} = renderHook(
@@ -246,7 +238,13 @@ describe('useHeaderMetrics', () => {
 	});
 
 	it('all token fields are null (data not yet available)', () => {
-		const events = [makeEvent({hookName: 'PreToolUse', toolName: 'Bash'})];
+		const events = [
+			makeFeedEvent({
+				kind: 'tool.pre',
+				title: '● Bash',
+				data: {tool_name: 'Bash', tool_input: {}},
+			}),
+		];
 
 		const {result} = renderHook(() => useHeaderMetrics(events));
 		expect(result.current.tokens.input).toBeNull();
