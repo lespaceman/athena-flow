@@ -61,7 +61,7 @@ export default function PermissionDialog({
 
 	return (
 		<Box flexDirection="column">
-			<Text dimColor>{'╌'.repeat(columns)}</Text>
+			<Text dimColor>{'-'.repeat(columns)}</Text>
 
 			<Box flexDirection="column" paddingX={1}>
 				<Box justifyContent="space-between">
@@ -75,7 +75,7 @@ export default function PermissionDialog({
 
 				<Box marginTop={1} gap={2}>
 					<Text>
-						<Text dimColor>↑/↓</Text> Navigate
+						<Text dimColor>up/down</Text> Navigate
 					</Text>
 					<Text>
 						<Text dimColor>1-{options.length}</Text> Jump

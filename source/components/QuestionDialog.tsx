@@ -69,7 +69,7 @@ function QuestionTabs({
 			{questions.map((q, i) => {
 				const answered = answers[q.question] !== undefined;
 				const active = i === currentIndex;
-				const prefix = answered ? '\u2713' : `${i + 1}`; // ✓ or number
+				const prefix = answered ? 'x' : `${i + 1}`;
 				const label = `${prefix}. ${q.header}`;
 
 				return (
@@ -275,7 +275,7 @@ export default function QuestionDialog({
 	if (questions.length === 0) {
 		return (
 			<Box flexDirection="column">
-				<Text dimColor>{'╌'.repeat(columns)}</Text>
+				<Text dimColor>{'-'.repeat(columns)}</Text>
 				<Box paddingX={1}>
 					<Text color={theme.status.warning}>
 						No questions found in AskUserQuestion input.
@@ -289,7 +289,7 @@ export default function QuestionDialog({
 
 	return (
 		<Box flexDirection="column">
-			<Text dimColor>{'╌'.repeat(columns)}</Text>
+			<Text dimColor>{'-'.repeat(columns)}</Text>
 
 			<Box flexDirection="column" paddingX={1}>
 				<QuestionTabs

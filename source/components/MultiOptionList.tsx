@@ -53,7 +53,7 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 			{options.map((option, index) => {
 				const isFocused = index === focusIndex;
 				const isSelected = selected.has(option.value);
-				const checkbox = isSelected ? '✓' : ' ';
+				const checkbox = isSelected ? 'x' : ' ';
 				return (
 					<Box key={option.value} flexDirection="column">
 						<Box>
@@ -63,7 +63,7 @@ export default function MultiOptionList({options, onSubmit}: Props) {
 								inverse={isFocused}
 								dimColor={!isFocused}
 							>
-								{isFocused ? ' › ' : '   '}[{checkbox}] {option.label}
+								{isFocused ? ' > ' : '   '}[{checkbox}] {option.label}
 								{isFocused ? ' ' : ''}
 							</Text>
 						</Box>

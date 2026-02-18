@@ -78,8 +78,12 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/hooks/hookController.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
 - **source/context/HookContext.tsx**: React context providing `UseFeedResult` (feed events, queues, tasks) to components
 - **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
+- **source/components/DashboardFrame.tsx**: Main CLI dashboard shell (ASCII frame, run summary, todo section, timeline table, footer)
+- **source/components/DashboardInput.tsx**: Dashboard input row (`input>` + run badge), built on `useTextInput`
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
 - **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
+- **source/components/Header/Header.tsx**: Legacy compact header component (kept for compatibility/tests; dashboard shell is primary UI)
+- **source/components/Header/StatsPanel.tsx**: Expandable metrics panel toggled with `Ctrl+E`
 - **source/types/isolation.ts**: IsolationConfig type, presets (strict/minimal/permissive), and resolver
   - `strict`: core tools only (Read, Edit, Write, Glob, Grep, Bash), no MCP
   - `minimal`: adds WebSearch, WebFetch, Task, Skill; allows project MCP

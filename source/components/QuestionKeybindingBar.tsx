@@ -13,7 +13,7 @@ export default function QuestionKeybindingBar({
 	return (
 		<Box gap={2}>
 			<Text>
-				<Text dimColor>↑/↓</Text> Navigate
+				<Text dimColor>up/down</Text> Navigate
 			</Text>
 			{optionCount > 0 && (
 				<Text>

@@ -298,7 +298,7 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('╌');
+		expect(frame).toContain('----');
 		expect(frame).not.toContain('\u256d'); // no ╭
 		expect(frame).not.toContain('\u256f'); // no ╯
 	});

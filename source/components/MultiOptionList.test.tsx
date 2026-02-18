@@ -39,7 +39,7 @@ describe('MultiOptionList', () => {
 		stdin.write(' ');
 		await delay(50);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('✓');
+		expect(frame).toContain('x');
 	});
 
 	it('submits selected values on Enter', async () => {
@@ -83,7 +83,7 @@ describe('MultiOptionList', () => {
 		stdin.write('1');
 		await delay(50);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('✓');
+		expect(frame).toContain('x');
 	});
 
 	it('submits number-key-toggled selections on Enter', async () => {
@@ -107,7 +107,7 @@ describe('MultiOptionList', () => {
 		await delay(50);
 		const frame = lastFrame() ?? '';
 		// Should not have any checkmarks
-		expect(frame).not.toContain('✓');
+		expect(frame).not.toContain('x');
 	});
 
 	it('renders non-focused options with dim styling', async () => {

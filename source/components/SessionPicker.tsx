@@ -67,7 +67,7 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 					<Box key={session.sessionId} flexDirection="column">
 						<Box>
 							<Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
-								{isFocused ? '▸ ' : '  '}
+								{isFocused ? '> ' : '  '}
 								{session.summary || session.firstPrompt}
 							</Text>
 						</Box>
@@ -79,7 +79,7 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 			})}
 
 			<Box marginTop={1}>
-				<Text dimColor>↑/↓ Navigate Enter Select Esc Cancel</Text>
+				<Text dimColor>up/down Navigate Enter Select Esc Cancel</Text>
 			</Box>
 		</Box>
 	);

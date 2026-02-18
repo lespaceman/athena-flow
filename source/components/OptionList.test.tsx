@@ -55,7 +55,7 @@ describe('OptionList', () => {
 			<OptionList options={options} onSelect={vi.fn()} />,
 		);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('\u203a');
+		expect(frame).toContain(' > Concise & minimal');
 	});
 
 	it('moves focus down on arrow key', async () => {
