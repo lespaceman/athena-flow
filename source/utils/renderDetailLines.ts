@@ -49,8 +49,7 @@ export function renderMarkdownToLines(
 	const m = createMarkedRenderer(width);
 	try {
 		const result = m.parse(content);
-		const rendered =
-			typeof result === 'string' ? result.trimEnd() : content;
+		const rendered = typeof result === 'string' ? result.trimEnd() : content;
 		return rendered.replace(/\n{3,}/g, '\n').split('\n');
 	} catch {
 		return content.split('\n');
@@ -81,9 +80,7 @@ function renderDiff(oldText: string, newText: string): string[] {
 	return lines;
 }
 
-function renderList(
-	items: {primary: string; secondary?: string}[],
-): string[] {
+function renderList(items: {primary: string; secondary?: string}[]): string[] {
 	return items.map(item =>
 		item.secondary
 			? `  ${chalk.dim(item.secondary)}  ${item.primary}`
@@ -95,11 +92,21 @@ function renderToolPost(
 	event: Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}>,
 	width: number,
 ): DetailRenderResult {
-	const {tool_name, tool_input, tool_response} = event.data;
+	const {tool_name, tool_input} = event.data;
+
+	// tool.failure has error string instead of tool_response
+	if (event.kind === 'tool.failure') {
+		const header = chalk.bold.red(`● ${tool_name} (FAILED)`);
+		return {
+			lines: [header, '', chalk.red(event.data.error)],
+			showLineNumbers: false,
+		};
+	}
+
 	const output = extractToolOutput(
 		tool_name,
 		tool_input as Record<string, unknown>,
-		tool_response,
+		event.data.tool_response,
 	);
 
 	const header = chalk.bold.cyan(`● ${tool_name}`);
@@ -133,10 +140,7 @@ function renderToolPost(
 }
 
 function renderToolPre(
-	event: Extract<
-		FeedEvent,
-		{kind: 'tool.pre'} | {kind: 'permission.request'}
-	>,
+	event: Extract<FeedEvent, {kind: 'tool.pre'} | {kind: 'permission.request'}>,
 ): DetailRenderResult {
 	const {tool_name, tool_input} = event.data;
 	const header = chalk.bold.cyan(`● ${tool_name}`);

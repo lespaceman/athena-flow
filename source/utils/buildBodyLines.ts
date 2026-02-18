@@ -14,6 +14,7 @@ export type DetailViewState = {
 	maxDetailScroll: number;
 	detailLines: string[];
 	detailContentRows: number;
+	showLineNumbers?: boolean;
 };
 
 export type FeedViewState = {
@@ -96,8 +97,12 @@ export function buildBodyLines({
 				bodyLines.push(fit('', innerWidth));
 				continue;
 			}
-			const lineNo = String(start + i + 1).padStart(lineNumberWidth, ' ');
-			bodyLines.push(fit(`${lineNo} | ${line}`, innerWidth));
+			if (detail.showLineNumbers !== false) {
+				const lineNo = String(start + i + 1).padStart(lineNumberWidth, ' ');
+				bodyLines.push(fit(`${lineNo} | ${line}`, innerWidth));
+			} else {
+				bodyLines.push(fit(line, innerWidth));
+			}
 		}
 	} else {
 		const {

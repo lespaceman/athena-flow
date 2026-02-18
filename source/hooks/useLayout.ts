@@ -3,7 +3,10 @@ import {type TimelineEntry} from '../feed/timeline.js';
 import {type UseFeedNavigationResult} from './useFeedNavigation.js';
 import {type UseTodoPanelResult} from './useTodoPanel.js';
 import {type RunSummary} from '../feed/timeline.js';
-import {toAscii} from '../utils/format.js';
+import {
+	renderDetailLines,
+	renderMarkdownToLines,
+} from '../utils/renderDetailLines.js';
 
 const HEADER_ROWS = 2;
 const FOOTER_ROWS = 2;
@@ -33,6 +36,7 @@ export type UseLayoutResult = {
 	detailPageStep: number;
 	maxDetailScroll: number;
 	detailLines: string[];
+	detailShowLineNumbers: boolean;
 	detailContentRows: number;
 	expandedEntry: TimelineEntry | null;
 	todoListHeight: number;
@@ -96,10 +100,23 @@ export function useLayout({
 	const actualRunOverlayRows = expandedEntry ? 0 : runOverlayRows;
 	const pageStep = Math.max(1, Math.floor(Math.max(1, feedContentRows) / 2));
 
-	const detailLines = useMemo(() => {
-		if (!expandedEntry) return [];
-		return expandedEntry.details.split(/\r?\n/).map(line => toAscii(line));
-	}, [expandedEntry]);
+	const {detailLines, detailShowLineNumbers} = useMemo(() => {
+		if (!expandedEntry)
+			return {detailLines: [] as string[], detailShowLineNumbers: true};
+		if (expandedEntry.feedEvent) {
+			const result = renderDetailLines(expandedEntry.feedEvent, innerWidth);
+			return {
+				detailLines: result.lines,
+				detailShowLineNumbers: result.showLineNumbers,
+			};
+		}
+		// Message entries (no feedEvent) — render as markdown
+		const markdownLines = renderMarkdownToLines(
+			expandedEntry.details,
+			innerWidth,
+		);
+		return {detailLines: markdownLines, detailShowLineNumbers: false};
+	}, [expandedEntry, innerWidth]);
 	const detailHeaderRows = expandedEntry ? 1 : 0;
 	const detailContentRows = expandedEntry
 		? Math.max(1, bodyHeight - detailHeaderRows)
@@ -149,6 +166,7 @@ export function useLayout({
 		detailPageStep,
 		maxDetailScroll,
 		detailLines,
+		detailShowLineNumbers,
 		detailContentRows,
 		expandedEntry,
 		todoListHeight,
