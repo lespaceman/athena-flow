@@ -6,6 +6,7 @@ import {TASK_TOOL_NAMES} from '../types/todo.js';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
 import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStartEvent from './SubagentStartEvent.js';
+import SubagentStopEvent from './SubagentStopEvent.js';
 import SubagentResultEvent from './SubagentResultEvent.js';
 import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
@@ -76,6 +77,16 @@ export default function HookEvent({
 
 	if (event.kind === 'subagent.start') {
 		return <SubagentStartEvent event={event} />;
+	}
+
+	if (event.kind === 'subagent.stop') {
+		return (
+			<SubagentStopEvent
+				event={event}
+				expanded={expanded}
+				parentWidth={parentWidth}
+			/>
+		);
 	}
 
 	return <GenericHookEvent event={event} verbose={verbose} />;

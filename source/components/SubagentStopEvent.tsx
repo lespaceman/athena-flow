@@ -1,0 +1,40 @@
+import process from 'node:process';
+import React from 'react';
+import {Box, Text} from 'ink';
+import type {FeedEvent} from '../feed/types.js';
+import {useTheme} from '../theme/index.js';
+import {truncateLine} from '../utils/truncate.js';
+
+type Props = {
+	event: FeedEvent;
+	expanded?: boolean;
+	parentWidth?: number;
+};
+
+export default function SubagentStopEvent({
+	event,
+	expanded,
+	parentWidth,
+}: Props): React.ReactNode {
+	const theme = useTheme();
+	if (event.kind !== 'subagent.stop') return null;
+
+	const width = parentWidth ?? process.stdout.columns ?? 80;
+	const label = `⏹ ${event.data.agent_type || 'Agent'} done`;
+
+	return (
+		<Box flexDirection="column">
+			<Text color={theme.accentSecondary}>
+				{truncateLine(label, width - 2)}
+			</Text>
+			{expanded && (
+				<Box paddingLeft={2} flexDirection="column">
+					<Text dimColor>agent_id: {event.data.agent_id}</Text>
+					{event.data.agent_transcript_path && (
+						<Text dimColor>transcript: {event.data.agent_transcript_path}</Text>
+					)}
+				</Box>
+			)}
+		</Box>
+	);
+}
