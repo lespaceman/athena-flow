@@ -34,7 +34,11 @@ export default function PostToolResult({
 		const errorText =
 			event.kind === 'tool.failure' ? event.data.error : 'Unknown error';
 		responseNode = (
-			<ToolResultContainer gutterColor={statusColors.blocked} dimGutter={false} parentWidth={parentWidth}>
+			<ToolResultContainer
+				gutterColor={statusColors.blocked}
+				dimGutter={false}
+				parentWidth={parentWidth}
+			>
 				<Text color={statusColors.blocked}>{errorText}</Text>
 			</ToolResultContainer>
 		);

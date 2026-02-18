@@ -13,7 +13,6 @@ import {
 	readGlobalConfig,
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
-import {detectClaudeVersion} from './utils/detectClaudeVersion.js';
 import {resolveTheme} from './theme/index.js';
 import {getMostRecentSession} from './utils/sessionIndex.js';
 
@@ -146,8 +145,6 @@ const themeName =
 	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
 const theme = resolveTheme(themeName);
 
-const claudeCodeVersion = detectClaudeVersion();
-
 // Resolve --continue flag: with value = specific session ID, without value = most recent
 // meow parses --continue (no value) as undefined for type: 'string', so check process.argv
 const hasContinueFlag = process.argv.includes('--continue');
@@ -177,7 +174,6 @@ render(
 		version={version}
 		pluginMcpConfig={pluginMcpConfig}
 		modelName={modelName}
-		claudeCodeVersion={claudeCodeVersion}
 		theme={theme}
 		initialSessionId={initialSessionId}
 		showSessionPicker={showSessionPicker}

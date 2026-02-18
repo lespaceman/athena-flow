@@ -65,7 +65,13 @@ export default function HookEvent({
 	}
 
 	if (event.kind === 'tool.post' || event.kind === 'tool.failure') {
-		return <PostToolResult event={event} verbose={verbose} parentWidth={parentWidth} />;
+		return (
+			<PostToolResult
+				event={event}
+				verbose={verbose}
+				parentWidth={parentWidth}
+			/>
+		);
 	}
 
 	if (event.kind === 'subagent.start') {

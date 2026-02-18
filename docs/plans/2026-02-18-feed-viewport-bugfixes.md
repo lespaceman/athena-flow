@@ -15,6 +15,7 @@
 **Problem:** When a `tool.pre` row is expanded, `JSON.stringify(toolInput, null, 2)` is dumped with no line limit. A large tool input (e.g., a Bash command writing a 500-line file) floods the viewport.
 
 **Files:**
+
 - Modify: `source/components/UnifiedToolCallEvent.tsx:54-58`
 - Modify: `source/utils/truncate.ts` (if `truncateBlock` doesn't exist yet, add it)
 - Test: `source/components/__tests__/UnifiedToolCallEvent.test.tsx` (create)
@@ -93,19 +94,24 @@ In `source/components/UnifiedToolCallEvent.tsx`, add a line cap to the expanded 
 const MAX_EXPANDED_LINES = 40;
 
 // Replace lines 54-58 with:
-{(verbose || expanded) && (() => {
-	const jsonStr = JSON.stringify(toolInput, null, 2);
-	const allLines = jsonStr.split('\n');
-	const truncated = allLines.length > MAX_EXPANDED_LINES;
-	const displayLines = truncated ? allLines.slice(0, MAX_EXPANDED_LINES) : allLines;
-	const omitted = allLines.length - displayLines.length;
-	return (
-		<Box paddingLeft={3} flexDirection="column">
-			<Text dimColor>{displayLines.join('\n')}</Text>
-			{truncated && <Text dimColor>({omitted} more lines)</Text>}
-		</Box>
-	);
-})()}
+{
+	(verbose || expanded) &&
+		(() => {
+			const jsonStr = JSON.stringify(toolInput, null, 2);
+			const allLines = jsonStr.split('\n');
+			const truncated = allLines.length > MAX_EXPANDED_LINES;
+			const displayLines = truncated
+				? allLines.slice(0, MAX_EXPANDED_LINES)
+				: allLines;
+			const omitted = allLines.length - displayLines.length;
+			return (
+				<Box paddingLeft={3} flexDirection="column">
+					<Text dimColor>{displayLines.join('\n')}</Text>
+					{truncated && <Text dimColor>({omitted} more lines)</Text>}
+				</Box>
+			);
+		})();
+}
 ```
 
 **Step 4: Run test to verify it passes**
@@ -134,6 +140,7 @@ git commit -m "fix: cap expanded JSON output in UnifiedToolCallEvent to 40 lines
 **Decision:** Remove the dead code rather than adding `tool.post` to expandable kinds. Tool results already have their own collapse/expand mechanism via `:open <toolId>`. Adding them to the focus-navigate list would clutter it.
 
 **Files:**
+
 - Modify: `source/components/PostToolResult.tsx:9-13,50`
 - Test: `source/components/__tests__/PostToolResult.test.tsx` (create)
 
@@ -180,7 +187,9 @@ describe('PostToolResult', () => {
 		// Type-level check: PostToolResult should no longer have expanded in Props
 		// This test just ensures it renders correctly without the prop
 		const event = stubToolPost();
-		const {lastFrame} = render(<PostToolResult event={event} verbose={false} />);
+		const {lastFrame} = render(
+			<PostToolResult event={event} verbose={false} />,
+		);
 		expect(lastFrame()).toContain('hello');
 	});
 });
@@ -196,6 +205,7 @@ Expected: PASS (confirming baseline)
 In `source/components/PostToolResult.tsx`:
 
 1. Remove `expanded` from the Props type (line 12):
+
 ```tsx
 type Props = {
 	event: FeedEvent;
@@ -204,6 +214,7 @@ type Props = {
 ```
 
 2. Remove `expanded` from the destructured props (line 18):
+
 ```tsx
 export default function PostToolResult({
 	event,
@@ -212,11 +223,13 @@ export default function PostToolResult({
 ```
 
 3. Remove the `expanded` ternary on line 50, hardcode `undefined`:
+
 ```tsx
-collapseThreshold={undefined}
+collapseThreshold = {undefined};
 ```
 
 Actually, since `undefined` is the default for `collapseThreshold`, just remove the prop entirely:
+
 ```tsx
 <ToolResultContainer
 	previewLines={outputMeta?.previewLines}
@@ -257,6 +270,7 @@ git commit -m "fix: remove dead expanded branch from PostToolResult"
 **Solution:** Export a `FEEDLIST_ROW_OVERHEAD` constant from `FeedList.tsx` and pass `parentWidth={terminalWidth - FEEDLIST_ROW_OVERHEAD}` through `HookEvent` to child components. This follows the existing pattern where `SubagentEvent` passes `parentWidth` to `ToolResultContainer`.
 
 **Files:**
+
 - Modify: `source/components/FeedList.tsx:19-49` — export constant, pass `parentWidth` to `HookEvent`
 - Modify: `source/components/HookEvent.tsx` — accept and forward `parentWidth`
 - Modify: `source/components/UnifiedToolCallEvent.tsx:34-37` — use `parentWidth` instead of `process.stdout.columns`
@@ -288,12 +302,14 @@ Expected: FAIL — `FEEDLIST_ROW_OVERHEAD` is not exported yet.
 In `source/components/FeedList.tsx`:
 
 1. Add and export the constant:
+
 ```tsx
 // Cursor indicator (2 chars: "› " or "  ") + expand affordance (2 chars: " ▸" or " ▾")
 export const FEEDLIST_ROW_OVERHEAD = 4;
 ```
 
 2. Update `renderItem` to accept and pass `parentWidth`:
+
 ```tsx
 function renderItem(
 	item: FeedItem,
@@ -307,7 +323,9 @@ function renderItem(
 		<Box key={event.event_id} flexDirection="row">
 			<Text>{isFocused && expandable ? '› ' : '  '}</Text>
 			<Box flexDirection="column" flexGrow={1}>
-				<ErrorBoundary fallback={<Text color="red">[Error rendering event]</Text>}>
+				<ErrorBoundary
+					fallback={<Text color="red">[Error rendering event]</Text>}
+				>
 					<HookEvent
 						event={event}
 						verbose={verbose}
@@ -325,6 +343,7 @@ function renderItem(
 ```
 
 3. In the `FeedList` component, compute and pass `parentWidth`:
+
 ```tsx
 const terminalWidth = stdout?.columns ?? 80;
 const contentWidth = terminalWidth - FEEDLIST_ROW_OVERHEAD;
@@ -335,6 +354,7 @@ Pass `contentWidth` as the last arg to `renderItem` in both the `<Static>` and v
 4. In `source/components/HookEvent.tsx`, accept `parentWidth` and forward it to `UnifiedToolCallEvent` and `PostToolResult`.
 
 5. In `source/components/UnifiedToolCallEvent.tsx`, replace `process.stdout.columns ?? 80` with the `parentWidth` prop:
+
 ```tsx
 type Props = {
 	event: FeedEvent;
@@ -348,6 +368,7 @@ const terminalWidth = parentWidth ?? process.stdout.columns ?? 80;
 ```
 
 6. In `source/components/PostToolResult.tsx`, pass `parentWidth` to `ToolResultContainer`:
+
 ```tsx
 type Props = {
 	event: FeedEvent;

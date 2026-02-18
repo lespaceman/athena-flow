@@ -16,7 +16,6 @@ type Props = {
 	runLabel?: string;
 };
 
-
 function renderInputText(
 	value: string,
 	cursorOffset: number,

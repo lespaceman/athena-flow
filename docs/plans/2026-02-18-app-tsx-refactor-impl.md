@@ -13,6 +13,7 @@
 ### Task 1: Extract `source/utils/format.ts` with tests
 
 **Files:**
+
 - Create: `source/utils/format.ts`
 - Create: `source/utils/format.test.ts`
 
@@ -300,6 +301,7 @@ git commit -m "refactor: extract formatting utilities to source/utils/format.ts"
 ### Task 2: Extract `source/feed/todoPanel.ts` with tests
 
 **Files:**
+
 - Create: `source/feed/todoPanel.ts`
 - Create: `source/feed/todoPanel.test.ts`
 
@@ -398,6 +400,7 @@ git commit -m "refactor: extract todo panel types and helpers to source/feed/tod
 ### Task 3: Extract `source/feed/timeline.ts` with tests
 
 **Files:**
+
 - Create: `source/feed/timeline.ts`
 - Create: `source/feed/timeline.test.ts`
 
@@ -496,6 +499,7 @@ export function toRunStatus(
 **Step 2: Write tests** — focus on the pure functions with mock FeedEvent objects.
 
 Test at minimum:
+
 - `eventOperation` returns correct op strings for each event kind
 - `isEventError` correctly identifies error events
 - `isEventExpandable` returns true for the right event kinds
@@ -521,6 +525,7 @@ git commit -m "refactor: extract timeline entry mapping to source/feed/timeline.
 ### Task 4: Update `DashboardFrame.tsx` to import from `utils/format.ts`
 
 **Files:**
+
 - Modify: `source/components/DashboardFrame.tsx:23-34` (remove duplicate `toAscii` and `fit`)
 
 **Step 1: Replace local `toAscii` and `fit` with imports**
@@ -559,11 +564,13 @@ git commit -m "refactor: consolidate toAscii/fit into utils/format.ts, remove du
 ### Task 5: Extract `source/hooks/useFeedNavigation.ts`
 
 **Files:**
+
 - Create: `source/hooks/useFeedNavigation.ts`
 
 **Step 1: Create the hook**
 
 Extract from `app.tsx` the feed navigation state and computed values:
+
 - State: `feedCursor`, `tailFollow`, `expandedId`, `detailScroll`, `feedViewportStart`
 - Effects: cursor clamping (line 874-878), tail-follow (880-883), expanded collapse on filter (901-905), detail scroll reset (897-899)
 - Actions: `moveFeedCursor`, `jumpToTail`, `jumpToTop`, `toggleExpandedAtCursor`, `scrollDetail`
@@ -611,11 +618,13 @@ git commit -m "refactor: extract useFeedNavigation hook for feed viewport state"
 ### Task 6: Extract `source/hooks/useTodoPanel.ts`
 
 **Files:**
+
 - Create: `source/hooks/useTodoPanel.ts`
 
 **Step 1: Create the hook**
 
 Extract todo-related state from `app.tsx`:
+
 - State: `todoVisible`, `todoShowDone`, `todoCursor`, `todoScroll`, `extraTodos`, `todoStatusOverrides`
 - Computed: `todoItems` (from tasks + extraTodos + overrides), `visibleTodoItems`, counts
 - Effects: cursor clamping (886-889), scroll adjustment (1311-1324), focus fallback (907-914)
@@ -646,6 +655,7 @@ git commit -m "refactor: extract useTodoPanel hook for todo panel state"
 ### Task 7: Extract `source/hooks/useCommandMode.ts`
 
 **Files:**
+
 - Create: `source/hooks/useCommandMode.ts`
 
 **Step 1: Create the command dispatch function**
@@ -708,6 +718,7 @@ git commit -m "refactor: extract command mode parsing to useCommandMode"
 ### Task 8: Extract keyboard hooks
 
 **Files:**
+
 - Create: `source/hooks/useFeedKeyboard.ts`
 - Create: `source/hooks/useTodoKeyboard.ts`
 
@@ -756,11 +767,13 @@ git commit -m "refactor: extract keyboard handlers to dedicated hooks"
 ### Task 9: Wire everything together in `app.tsx`
 
 **Files:**
+
 - Modify: `source/app.tsx` (major rewrite — the big integration step)
 
 **Step 1: Rewrite `app.tsx`**
 
 Replace the 1833-line file with the orchestrator version:
+
 - Import all extracted modules
 - `AppContent` wires hooks together and builds props for `DashboardFrame`
 - Remove all inline utility functions, types, and rendering logic
@@ -804,6 +817,7 @@ git commit -m "refactor: slim app.tsx to orchestrator wiring extracted hooks and
 ```bash
 npm test && npm run lint && npm run build
 ```
+
 Expected: All PASS
 
 **Step 2: Verify line count**
@@ -811,6 +825,7 @@ Expected: All PASS
 ```bash
 wc -l source/app.tsx
 ```
+
 Expected: ~300-400 lines
 
 **Step 3: Commit any remaining fixups**

@@ -6,6 +6,7 @@
 ## Problem
 
 `app.tsx` contains ~7 distinct concerns in a single file:
+
 1. ~30 pure utility functions (string formatting, label generation)
 2. FeedEvent → TimelineEntry mapping (event classification, summarization, expansion)
 3. Todo panel types & logic
@@ -32,7 +33,9 @@ Wire app.tsx to use existing `DashboardFrame` + `DashboardInput` components. Ext
 ## New Files
 
 ### `source/utils/format.ts` (~80 lines)
+
 General-purpose string formatting utilities:
+
 - `toAscii(value)` — strip non-printable chars
 - `compactText(value, max)` — truncate with ellipsis
 - `fit(text, width)` — pad or truncate to exact width
@@ -40,13 +43,15 @@ General-purpose string formatting utilities:
 - `formatCount(value)` — locale-formatted number or `--`
 - `formatSessionLabel(sessionId)` — `S{tail4}`
 - `formatRunLabel(runId)` — `R{tail4}` or direct match
-- `actorLabel(actorId)` — USER/AGENT/SYSTEM/SA-*
+- `actorLabel(actorId)` — USER/AGENT/SYSTEM/SA-\*
 - `summarizeValue(value)` — compact display of any value
 - `summarizeToolInput(input)` — first 2 key=value pairs
 - `formatInputBuffer(value, cursor, width, showCursor, placeholder)` — input line with cursor
 
 ### `source/feed/timeline.ts` (~200 lines)
+
 Feed-event-to-timeline mapping (compliant with feed boundary rule — imports only `feed/types.ts`):
+
 - Types: `TimelineEntry`, `RunStatus`, `RunSummary`
 - `eventOperation(event)` — classify event kind to op string
 - `eventSummary(event)` — one-line summary per event kind
@@ -59,36 +64,47 @@ Feed-event-to-timeline mapping (compliant with feed boundary rule — imports on
 - `deriveRunTitle(promptPreview, feedEvents, messages)` — run title from context
 
 ### `source/feed/todoPanel.ts` (~40 lines)
+
 - Types: `TodoPanelItem`, `TodoPanelStatus`
 - `toTodoStatus(status)` — TodoItem.status → TodoPanelStatus
 - `symbolForTodoStatus(status)` — `[x]`, `[>]`, `[!]`, `[ ]`
 
 ### `source/hooks/useFeedNavigation.ts` (~80 lines)
+
 Feed viewport state management:
+
 - State: `feedCursor`, `tailFollow`, `expandedId`, `detailScroll`
 - Computed: `feedViewportStart`, `visibleFeedEntries`, `detailLines`
 - Actions: `moveFeedCursor`, `jumpToTail`, `jumpToTop`, `toggleExpandedAtCursor`, `scrollDetail`
 
 ### `source/hooks/useTodoPanel.ts` (~60 lines)
+
 Todo panel state:
+
 - State: `todoVisible`, `todoShowDone`, `todoCursor`, `todoScroll`, `extraTodos`, `todoStatusOverrides`
 - Computed: `todoItems`, `visibleTodoItems`, `todoCounts`
 - Actions: `toggleTodo`, `addTodo`, `cycleTodoStatus`
 
 ### `source/hooks/useCommandMode.ts` (~120 lines)
+
 Command parsing and execution:
+
 - `runCommand(command, ctx)` — dispatch `:todo`, `:run`, `:jump`, `:tail`, `:errors`
 - Returns structured actions rather than calling setState directly (inversion of control)
 
 ### `source/hooks/useFeedKeyboard.ts` (~80 lines)
+
 Feed-focus keyboard handler:
+
 - Arrow navigation, page up/down, home/end
 - Enter to expand, Escape to collapse
 - `n`/`N` for search navigation
 - `Ctrl+L` to clear search and jump to tail
 
 ### `source/hooks/useTodoKeyboard.ts` (~60 lines)
+
 Todo-focus keyboard handler:
+
 - Arrow navigation
 - Space to toggle done
 - Enter to jump to linked event
@@ -97,16 +113,19 @@ Todo-focus keyboard handler:
 ## Modified Files
 
 ### `source/app.tsx` → ~300-400 lines
+
 - Import and wire all extracted hooks
 - Pass computed data as props to `DashboardFrame`
 - Keep `AppContent`, `App`, error fallback components
 - Remove all inline utility functions and frame rendering
 
 ### `source/components/DashboardFrame.tsx`
+
 - Import `fit`/`toAscii` from `source/utils/format.ts` (remove duplicates)
 - Adapt props to accept body sections: todo panel lines, run overlay lines, feed lines, detail view lines (already string-based, minimal change)
 
 ### `source/components/DashboardInput.tsx`
+
 - Verify compatibility with current input rendering; wire into app.tsx
 
 ## Bug Fixes During Refactor

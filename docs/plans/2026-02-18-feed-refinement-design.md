@@ -27,12 +27,12 @@ Replace `permissionQueue: string[]` with `permissionQueue: PermissionQueueItem[]
 
 ```typescript
 type PermissionQueueItem = {
-  request_id: string;       // RuntimeEvent.id (for sendDecision)
-  ts: number;
-  tool_name: string;
-  tool_input: Record<string, unknown>;
-  tool_use_id?: string;
-  suggestions?: unknown;    // permission_suggestions from payload
+	request_id: string; // RuntimeEvent.id (for sendDecision)
+	ts: number;
+	tool_name: string;
+	tool_input: Record<string, unknown>;
+	tool_use_id?: string;
+	suggestions?: unknown; // permission_suggestions from payload
 };
 ```
 
@@ -44,6 +44,7 @@ type PermissionQueueItem = {
 - Components never import runtime types — `PermissionQueueItem` is a semantic UI type
 
 **Files changed**:
+
 - `source/hooks/useFeed.ts`: Queue type, enqueue logic, remove feed-lookup memoization
 - `source/hooks/hookController.ts`: `enqueuePermission` callback signature change
 - `source/app.tsx`: PermissionDialog reads from queue item, not FeedEvent
@@ -59,6 +60,7 @@ type PermissionQueueItem = {
 - Keep `stop.request` as informational event in feed (level: `info`, not `warn`)
 
 **Files changed**:
+
 - `source/runtime/adapters/claudeHooks/interactionRules.ts`: Stop config
 - `source/runtime/adapters/claudeHooks/server.ts`: Guard timeout scheduling
 - `source/feed/mapper.ts`: Guard stop.decision emission
@@ -73,6 +75,7 @@ type PermissionQueueItem = {
 - No fake "result" excerpt — only surface data that exists in the payload
 
 **Files changed**:
+
 - `source/feed/filter.ts`: Remove subagent.stop exclusion
 - `source/components/HookEvent.tsx`: Route `subagent.stop` to new renderer
 - New: `source/components/SubagentStopEvent.tsx` (or inline in HookEvent)
@@ -86,13 +89,14 @@ New feed event kind: `agent.message`
 ```typescript
 // In feed/types.ts
 type AgentMessageData = {
-  message: string;         // The agent's final response text
-  source: 'transcript';   // Where the message came from
-  scope: 'root' | 'subagent';
+	message: string; // The agent's final response text
+	source: 'transcript'; // Where the message came from
+	scope: 'root' | 'subagent';
 };
 ```
 
 Flow:
+
 1. Mapper emits `stop.request` (sync, immediate)
 2. `useFeed` detects new `stop.request` in feed → schedules async `parseTranscriptTail(transcriptPath)`
 3. Tail-read: last 64–256KB of transcript JSONL, scan backwards for last `role: assistant` block
@@ -104,6 +108,7 @@ Flow:
 6. Cache: track last parsed offset per transcript path to skip redundant reads
 
 **Files changed**:
+
 - `source/feed/types.ts`: Add `agent.message` kind + `AgentMessageData`
 - `source/feed/titleGen.ts`: Title for agent.message
 - `source/hooks/useFeed.ts`: Async enrichment on stop.request
@@ -131,6 +136,7 @@ Same pattern as D, but triggered by `subagent.stop` with `agent_transcript_path`
 - Default collapse for `unknown.hook`: true
 
 **Files changed**:
+
 - `source/feed/mapper.ts`: stop.request level, collapse defaults
 - `source/feed/mapper.ts`: Guard stop.decision creation
 

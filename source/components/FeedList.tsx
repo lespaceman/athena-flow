@@ -41,7 +41,12 @@ function renderItem(
 				<ErrorBoundary
 					fallback={<Text color="red">[Error rendering event]</Text>}
 				>
-					<HookEvent event={event} verbose={verbose} expanded={expandedSet.has(event.event_id)} parentWidth={parentWidth} />
+					<HookEvent
+						event={event}
+						verbose={verbose}
+						expanded={expandedSet.has(event.event_id)}
+						parentWidth={parentWidth}
+					/>
 				</ErrorBoundary>
 			</Box>
 			{/* Expand affordance */}
@@ -101,7 +106,9 @@ export default function FeedList({
 		<Box flexDirection="column">
 			{/* Scrollback: write-once, no cursor indicators */}
 			<Static items={scrollbackItems}>
-				{(item: FeedItem) => renderItem(item, undefined, expandedSet, verbose, contentWidth)}
+				{(item: FeedItem) =>
+					renderItem(item, undefined, expandedSet, verbose, contentWidth)
+				}
 			</Static>
 			{/* Viewport: dynamic, cursor indicators update here */}
 			{viewportItems.map(item =>

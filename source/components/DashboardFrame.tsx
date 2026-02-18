@@ -21,7 +21,6 @@ type Props = {
 	renderInput: (innerWidth: number) => React.ReactNode;
 };
 
-
 function renderLine(content: string, innerWidth: number): string {
 	return `|${fit(content, innerWidth)}|`;
 }
