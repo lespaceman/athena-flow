@@ -9,13 +9,11 @@ import {useTheme} from '../theme/index.js';
 type Props = {
 	event: FeedEvent;
 	verbose?: boolean;
-	expanded?: boolean;
 };
 
 export default function PostToolResult({
 	event,
 	verbose,
-	expanded,
 }: Props): React.ReactNode {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
@@ -47,7 +45,6 @@ export default function PostToolResult({
 				previewLines={outputMeta?.previewLines}
 				totalLineCount={outputMeta?.totalLineCount}
 				toolId={event.data.tool_use_id}
-				collapseThreshold={expanded ? Infinity : undefined}
 			>
 				{availableWidth => (
 					<ToolOutputRenderer
