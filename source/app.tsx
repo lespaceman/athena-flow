@@ -11,7 +11,6 @@ import TaskList from './components/TaskList.js';
 import StreamingResponse from './components/StreamingResponse.js';
 
 import StatsPanel from './components/Header/StatsPanel.js';
-import Header from './components/Header/Header.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
