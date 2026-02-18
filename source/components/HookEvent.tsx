@@ -8,6 +8,7 @@ import TaskAgentEvent from './TaskAgentEvent.js';
 import SubagentStartEvent from './SubagentStartEvent.js';
 import SubagentStopEvent from './SubagentStopEvent.js';
 import SubagentResultEvent from './SubagentResultEvent.js';
+import AgentMessageEvent from './AgentMessageEvent.js';
 import PostToolResult from './PostToolResult.js';
 import GenericHookEvent from './GenericHookEvent.js';
 
@@ -82,6 +83,16 @@ export default function HookEvent({
 	if (event.kind === 'subagent.stop') {
 		return (
 			<SubagentStopEvent
+				event={event}
+				expanded={expanded}
+				parentWidth={parentWidth}
+			/>
+		);
+	}
+
+	if (event.kind === 'agent.message') {
+		return (
+			<AgentMessageEvent
 				event={event}
 				expanded={expanded}
 				parentWidth={parentWidth}
