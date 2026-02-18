@@ -7,7 +7,7 @@
 
 import {type Message} from '../types/common.js';
 import {type IsolationConfig} from '../types/isolation.js';
-import {type UseHookServerResult} from '../types/server.js';
+import {type UseFeedResult} from '../hooks/useFeed.js';
 import {type SessionStatsSnapshot} from '../types/headerMetrics.js';
 
 // ---------------------------------------------------------------------------
@@ -67,7 +67,7 @@ export type UICommandContext = {
 
 export type HookCommandContext = {
 	args: Record<string, string>;
-	hookServer: UseHookServerResult;
+	feed: UseFeedResult;
 };
 
 export type PromptCommandContext = {
