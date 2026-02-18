@@ -5,12 +5,12 @@
  */
 
 import {type ReactNode} from 'react';
-import {type UseRuntimeResult} from '../hooks/useRuntime.js';
+import {type UseFeedResult} from '../hooks/useFeed.js';
 
 /**
  * Value provided by the HookContext.
  */
-export type HookContextValue = UseRuntimeResult;
+export type HookContextValue = UseFeedResult;
 
 /**
  * Props for the HookProvider component.

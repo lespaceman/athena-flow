@@ -26,6 +26,7 @@ export type FeedItem =
 
 export type UseFeedResult = {
 	items: FeedItem[];
+	feedEvents: FeedEvent[];
 	tasks: TodoItem[];
 	session: Session | null;
 	currentRun: Run | null;
@@ -318,6 +319,7 @@ export function useFeed(
 
 	return {
 		items,
+		feedEvents,
 		tasks,
 		session: mapperRef.current.getSession(),
 		currentRun: mapperRef.current.getCurrentRun(),
