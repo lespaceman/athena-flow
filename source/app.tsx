@@ -25,10 +25,7 @@ import {
 	type IsolationConfig,
 	generateId,
 } from './types/index.js';
-import {
-	type ContentItem,
-	useContentOrdering,
-} from './hooks/useContentOrdering.js';
+import {type FeedItem} from './hooks/useFeed.js';
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
@@ -54,16 +51,13 @@ type AppPhase =
 	| {type: 'session-select'}
 	| {type: 'main'; initialSessionId?: string};
 
-function renderContentItem(
-	item: ContentItem,
-	verbose?: boolean,
-): React.ReactNode {
+function renderContentItem(item: FeedItem, verbose?: boolean): React.ReactNode {
 	if (item.type === 'message') {
 		return <Message key={item.data.id} message={item.data} />;
 	}
 	return (
 		<ErrorBoundary
-			key={item.data.id}
+			key={item.data.event_id}
 			fallback={<Text color="red">[Error rendering event]</Text>}
 		>
 			<HookEvent event={item.data} verbose={verbose} />
@@ -124,10 +118,11 @@ function AppContent({
 	messagesRef.current = messages;
 	const hookServer = useHookContext();
 	const {
-		events,
+		feedEvents,
+		items: feedItems,
+		tasks,
 		isServerRunning,
-		socketPath,
-		currentSessionId,
+		session,
 		currentPermissionRequest,
 		permissionQueueCount,
 		resolvePermission,
@@ -135,6 +130,7 @@ function AppContent({
 		questionQueueCount,
 		resolveQuestion,
 	} = hookServer;
+	const currentSessionId = session?.session_id ?? null;
 	const {
 		spawn: spawnClaude,
 		isRunning: isClaudeRunning,
@@ -159,7 +155,7 @@ function AppContent({
 		}
 	}, [initialSessionId, spawnClaude]);
 
-	const metrics = useHeaderMetrics(events);
+	const metrics = useHeaderMetrics(feedEvents);
 	const elapsed = useDuration(metrics.sessionStartTime);
 
 	const addMessage = useCallback(
@@ -225,7 +221,7 @@ function AppContent({
 				},
 				hook: {
 					args: result.args,
-					hookServer,
+					feed: hookServer,
 				},
 				prompt: {
 					spawn: spawnClaude,
@@ -251,29 +247,40 @@ function AppContent({
 
 	const handlePermissionDecision = useCallback(
 		(decision: PermissionDecision) => {
-			if (!currentPermissionRequest) return;
-			resolvePermission(currentPermissionRequest.id, decision);
+			if (!currentPermissionRequest?.cause?.hook_request_id) return;
+			resolvePermission(
+				currentPermissionRequest.cause.hook_request_id,
+				decision,
+			);
 		},
 		[currentPermissionRequest, resolvePermission],
 	);
 
 	const handleQuestionAnswer = useCallback(
 		(answers: Record<string, string>) => {
-			if (!currentQuestionRequest) return;
-			resolveQuestion(currentQuestionRequest.id, answers);
+			if (!currentQuestionRequest?.cause?.hook_request_id) return;
+			resolveQuestion(currentQuestionRequest.cause.hook_request_id, answers);
 		},
 		[currentQuestionRequest, resolveQuestion],
 	);
 
 	const handleQuestionSkip = useCallback(() => {
-		if (!currentQuestionRequest) return;
-		resolveQuestion(currentQuestionRequest.id, {});
+		if (!currentQuestionRequest?.cause?.hook_request_id) return;
+		resolveQuestion(currentQuestionRequest.cause.hook_request_id, {});
 	}, [currentQuestionRequest, resolveQuestion]);
 
-	const {stableItems, tasks} = useContentOrdering({
-		messages,
-		events,
-	});
+	// Merge local messages with feed items from context
+	const stableItems = useMemo((): FeedItem[] => {
+		const messageItems: FeedItem[] = messages.map(m => ({
+			type: 'message' as const,
+			data: m,
+		}));
+		return [...messageItems, ...feedItems].sort((a, b) => {
+			const tsA = a.type === 'message' ? a.data.timestamp.getTime() : a.data.ts;
+			const tsB = b.type === 'message' ? b.data.timestamp.getTime() : b.data.ts;
+			return tsA - tsB;
+		});
+	}, [messages, feedItems]);
 
 	const appMode = useAppMode(
 		isClaudeRunning,
@@ -326,7 +333,7 @@ function AppContent({
 
 			{/* All items — committed to scrollback, never re-rendered */}
 			<Static items={stableItems}>
-				{(item: ContentItem) => renderContentItem(item, verbose)}
+				{(item: FeedItem) => renderContentItem(item, verbose)}
 			</Static>
 
 			{/* Active task list - always dynamic, shows latest state */}

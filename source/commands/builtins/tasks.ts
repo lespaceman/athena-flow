@@ -6,6 +6,6 @@ export const tasksCommand: HookCommand = {
 	category: 'hook',
 	aliases: ['todo'],
 	execute(ctx) {
-		ctx.hookServer.printTaskSnapshot();
+		ctx.feed.printTaskSnapshot();
 	},
 };
