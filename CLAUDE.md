@@ -36,7 +36,7 @@ tail -f .claude/logs/hooks.jsonl     # Real-time NDJSON hook event log
 1. **dist/cli.js** (`athena-cli`) - Main Ink terminal UI
    - Parses CLI args with meow (`source/cli.tsx`)
    - Renders React app with Ink (`source/app.tsx`)
-   - Starts UDS server to receive hook events (hook server architecture below)
+   - Creates runtime adapter (UDS server) to receive hook events
 
 2. **dist/hook-forwarder.js** (`athena-hook-forwarder`) - Standalone script invoked by Claude Code hooks
    - Reads hook input JSON from stdin
@@ -45,20 +45,24 @@ tail -f .claude/logs/hooks.jsonl     # Real-time NDJSON hook event log
    - Returns results via stdout/exit code
    - **Fail-safe**: always exits 0 on error to never block Claude Code
 
-### Hook Flow
+### Data Flow
 
 ```
-Claude Code → hook-forwarder (stdin JSON) → UDS → Ink CLI → UDS → hook-forwarder (stdout/exit code) → Claude Code
+Claude Code → hook-forwarder (stdin JSON) → UDS → Runtime adapter → RuntimeEvent → FeedMapper → FeedEvent[] → useFeed → UI
+                                             ↑                                                                      ↓
+                                             └── hook-forwarder (stdout/exit code) ← RuntimeDecision ← hookController ←┘
 ```
 
-### Hook Server Architecture
+### Runtime Layer (`source/runtime/`)
 
-The hook server is split into focused modules:
+The runtime layer abstracts how hook events are received and exposes a uniform `Runtime` interface:
 
-- **source/hooks/useHookServer.ts**: UDS server lifecycle, socket handling, pending request management
-- **source/hooks/eventHandlers.ts**: Pure event dispatch chain (first-match-wins) with `HandlerCallbacks` interface
-- **source/hooks/usePermissionQueue.ts**: Permission request queue state
-- **source/hooks/useQuestionQueue.ts**: AskUserQuestion queue state
+- **source/runtime/types.ts**: `Runtime`, `RuntimeEvent`, `RuntimeDecision` types
+- **source/runtime/adapters/claudeHooks/server.ts**: UDS server lifecycle, socket handling, NDJSON protocol
+- **source/runtime/adapters/claudeHooks/mapper.ts**: Maps raw hook payloads → `RuntimeEvent`
+- **source/runtime/adapters/claudeHooks/decisionMapper.ts**: Maps `RuntimeDecision` → hook result payloads
+- **source/runtime/adapters/mock/**: Scripted replay + injectable adapters for testing
+- **source/hooks/hookController.ts**: Event dispatch chain (first-match-wins) — replaces old `eventHandlers.ts`
 - Auto-passthrough timeout: 4000ms (before forwarder's 5000ms timeout)
 
 ### Plugin Loading Flow
@@ -71,10 +75,8 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 
 ### Key Files
 
-- **source/hooks/useHookServer.ts**: UDS server lifecycle and socket handling
-- **source/hooks/eventHandlers.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
-- **source/hooks/usePermissionQueue.ts** / **useQuestionQueue.ts**: Extracted queue hooks
-- **source/context/HookContext.tsx**: React context providing hook server state to components
+- **source/hooks/hookController.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
+- **source/context/HookContext.tsx**: React context providing `UseFeedResult` (feed events, queues, tasks) to components
 - **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
 - **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
@@ -85,9 +87,29 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
 - **source/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
 - **source/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
-- **source/hooks/useContentOrdering.ts**: Pure transformation: events → stableItems (all items are immediately stable)
+- **source/hooks/useFeed.ts**: Main feed hook providing `FeedEvent[]` + queues + tasks
+- **source/hooks/useFocusableList.ts**: Hook for arrow-key navigation state (cursor, expand/collapse)
 - **source/components/PostToolResult.tsx**: Renders standalone PostToolUse/PostToolUseFailure as `⎿ result`
 - **source/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
+
+### Feed Model (`source/feed/`)
+
+The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `FeedEvent` objects. Components never access raw hook payloads directly.
+
+- **source/feed/types.ts**: `FeedEvent` discriminated union (21 kinds), all kind-specific data types, `FeedEventCause` for causality
+- **source/feed/mapper.ts**: Stateful `createFeedMapper()` factory — tracks sessions, runs, actors, correlation indexes. Produces `FeedEvent[]` from `RuntimeEvent`
+- **source/feed/entities.ts**: `Session`, `Run`, `Actor` types and `ActorRegistry`
+- **source/feed/titleGen.ts**: Pure `generateTitle(event)` — kind-based titles, max 80 chars
+- **source/feed/filter.ts**: `shouldExcludeFromFeed()` — hides subagent.stop and task tool events
+
+**Boundary rule**: Components may import `feed/types.ts` only. Never import `feed/mapper.ts`, `feed/entities.ts`, or other stateful feed internals from components/hooks — ESLint enforces protocol-level boundaries, and feed internals should stay behind `useFeed`.
+
+**Key concepts**:
+
+- Runs are opened by `UserPromptSubmit` or `SessionStart(resume)`, not by `SessionStart(startup)`
+- Decisions (`permission.decision`, `stop.decision`) are separate append-only events linked via `cause.parent_event_id`
+- Correlation indexes (`toolPreIndex`, `eventIdByRequestId`) are cleared on run boundaries to prevent cross-run mis-parenting
+- Every `FeedEvent` has `actor_id` attribution: `user`, `agent:root`, `subagent:<id>`, or `system`
 
 ## Tech Stack
 
@@ -136,4 +158,4 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **Ink `<Static>` is write-once**: Every event is immediately stable — no waiting for PostToolUse before rendering
 - **Session lifecycle is per-message**: Each `spawnClaude()` creates a new session (SessionStart→Stop→SessionEnd). State flags like `sessionEnded` must reset on new `SessionStart` or they affect future sessions
 - **Ink border width overhead**: `borderStyle="round"` consumes 2 chars (left+right borders). Components computing width from `process.stdout.columns` inside bordered boxes must subtract border + padding overhead or content will overflow and break the border rendering.
-- **Independent events**: Every hook event (PreToolUse, PostToolUse, SubagentStart, SubagentStop) is its own independent static line — no pairing, merging, or waiting
+- **Independent events with causality**: Every feed event is its own independent static line (no pairing or waiting), but events link to parents via `cause.parent_event_id` (e.g., `tool.post` → `tool.pre`, `permission.decision` → `permission.request`). Components render independently; correlation is for data attribution, not render grouping.
