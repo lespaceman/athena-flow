@@ -23,7 +23,8 @@ export type FeedEventKind =
 	| 'unknown.hook'
 	| 'todo.add'
 	| 'todo.update'
-	| 'todo.done';
+	| 'todo.done'
+	| 'agent.message';
 
 export type FeedEventLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -192,6 +193,12 @@ export type TodoUpdateData = {
 };
 export type TodoDoneData = {todo_id: string; reason?: string};
 
+export type AgentMessageData = {
+	message: string;
+	source: 'transcript';
+	scope: 'root' | 'subagent';
+};
+
 // ── Discriminated union ──────────────────────────────────
 
 export type FeedEvent =
@@ -218,4 +225,5 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'unknown.hook'; data: UnknownHookData})
 	| (FeedEventBase & {kind: 'todo.add'; data: TodoAddData})
 	| (FeedEventBase & {kind: 'todo.update'; data: TodoUpdateData})
-	| (FeedEventBase & {kind: 'todo.done'; data: TodoDoneData});
+	| (FeedEventBase & {kind: 'todo.done'; data: TodoDoneData})
+	| (FeedEventBase & {kind: 'agent.message'; data: AgentMessageData});

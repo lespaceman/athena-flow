@@ -115,6 +115,24 @@ describe('generateTitle', () => {
 		expect(generateTitle(event)).toBe('Fix the bug in the login flow');
 	});
 
+	it('generates title for agent.message root', () => {
+		const event = makeFeedEvent('agent.message', {
+			message: 'Here is my final response.',
+			source: 'transcript',
+			scope: 'root',
+		});
+		expect(generateTitle(event)).toContain('Agent response');
+	});
+
+	it('generates title for agent.message subagent', () => {
+		const event = makeFeedEvent('agent.message', {
+			message: 'Subagent result.',
+			source: 'transcript',
+			scope: 'subagent',
+		});
+		expect(generateTitle(event)).toContain('Subagent response');
+	});
+
 	it('truncates long user.prompt title', () => {
 		const longPrompt = 'A'.repeat(100);
 		const event = makeFeedEvent('user.prompt', {prompt: longPrompt, cwd: '/'});

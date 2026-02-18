@@ -73,6 +73,10 @@ export function generateTitle(event: FeedEvent): string {
 			return `📋 Todo updated: ${event.data.todo_id}`;
 		case 'todo.done':
 			return `✅ Todo done: ${event.data.todo_id}`;
+		case 'agent.message':
+			return event.data.scope === 'subagent'
+				? truncate('💬 Subagent response')
+				: truncate('💬 Agent response');
 	}
 	return 'Unknown event';
 }

@@ -79,6 +79,8 @@ export function eventOperation(event: FeedEvent): string {
 			return 'todo.upd';
 		case 'todo.done':
 			return 'todo.done';
+		case 'agent.message':
+			return 'agent.msg';
 		default:
 			return 'event';
 	}
@@ -161,6 +163,8 @@ export function eventSummary(event: FeedEvent): string {
 				`${event.data.todo_id} ${event.data.reason || 'done'}`,
 				84,
 			);
+		case 'agent.message':
+			return compactText(event.data.message, 84);
 		default:
 			return compactText('event', 84);
 	}
@@ -237,7 +241,8 @@ export function isEventExpandable(event: FeedEvent): boolean {
 		event.kind === 'permission.request' ||
 		event.kind === 'subagent.stop' ||
 		event.kind === 'run.end' ||
-		event.kind === 'notification'
+		event.kind === 'notification' ||
+		event.kind === 'agent.message'
 	);
 }
 
