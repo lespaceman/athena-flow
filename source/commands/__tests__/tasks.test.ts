@@ -11,8 +11,8 @@ describe('tasks command', () => {
 		const printTaskSnapshot = vi.fn();
 		tasksCommand.execute({
 			args: {},
-			hookServer: {printTaskSnapshot} as any,
-		});
+			feed: {printTaskSnapshot} as any,
+		} as any);
 		expect(printTaskSnapshot).toHaveBeenCalled();
 	});
 });

@@ -52,6 +52,3 @@ export {
 	createPermissionRequestAllowResult,
 	createPermissionRequestDenyResult,
 } from './result.js';
-
-// Display types
-export {type HookEventStatus} from './display.js';

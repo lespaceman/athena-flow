@@ -13,7 +13,7 @@ export function HookProvider({
 	instanceId,
 	children,
 }: HookProviderProps) {
-	// Runtime must be stable (memoized) — useRuntime assumes it doesn't change
+	// Runtime must be stable (memoized) — useFeed assumes it doesn't change
 	const runtime = useMemo(
 		() => createClaudeHookRuntime({projectDir, instanceId}),
 		[projectDir, instanceId],

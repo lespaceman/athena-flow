@@ -204,7 +204,10 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'tool.post'; data: ToolPostData})
 	| (FeedEventBase & {kind: 'tool.failure'; data: ToolFailureData})
 	| (FeedEventBase & {kind: 'permission.request'; data: PermissionRequestData})
-	| (FeedEventBase & {kind: 'permission.decision'; data: PermissionDecisionData})
+	| (FeedEventBase & {
+			kind: 'permission.decision';
+			data: PermissionDecisionData;
+	  })
 	| (FeedEventBase & {kind: 'stop.request'; data: StopRequestData})
 	| (FeedEventBase & {kind: 'stop.decision'; data: StopDecisionData})
 	| (FeedEventBase & {kind: 'subagent.start'; data: SubagentStartData})

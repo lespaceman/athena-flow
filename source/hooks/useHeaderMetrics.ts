@@ -68,10 +68,7 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 			}
 
 			// Count child tool calls per subagent
-			if (
-				event.kind === 'tool.pre' &&
-				event.actor_id.startsWith('subagent:')
-			) {
+			if (event.kind === 'tool.pre' && event.actor_id.startsWith('subagent:')) {
 				const subagentId = event.actor_id.replace(/^subagent:/, '');
 				const existing = subagentMap.get(subagentId);
 				if (existing) {
