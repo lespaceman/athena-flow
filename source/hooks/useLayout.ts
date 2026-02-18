@@ -1,0 +1,157 @@
+import {useEffect, useMemo} from 'react';
+import {type TimelineEntry} from '../feed/timeline.js';
+import {type UseFeedNavigationResult} from './useFeedNavigation.js';
+import {type UseTodoPanelResult} from './useTodoPanel.js';
+import {type RunSummary} from '../feed/timeline.js';
+import {toAscii} from '../utils/format.js';
+
+const HEADER_ROWS = 2;
+const FOOTER_ROWS = 2;
+const FRAME_BORDER_ROWS = 4;
+const TODO_PANEL_MAX_ROWS = 6;
+const RUN_OVERLAY_MAX_ROWS = 6;
+
+export type UseLayoutOptions = {
+	terminalRows: number;
+	terminalWidth: number;
+	showRunOverlay: boolean;
+	runSummaries: RunSummary[];
+	filteredEntries: TimelineEntry[];
+	feedNav: UseFeedNavigationResult;
+	todoPanel: UseTodoPanelResult;
+};
+
+export type UseLayoutResult = {
+	frameWidth: number;
+	innerWidth: number;
+	bodyHeight: number;
+	feedHeaderRows: number;
+	feedContentRows: number;
+	actualTodoRows: number;
+	actualRunOverlayRows: number;
+	pageStep: number;
+	detailPageStep: number;
+	maxDetailScroll: number;
+	detailLines: string[];
+	detailContentRows: number;
+	expandedEntry: TimelineEntry | null;
+	todoListHeight: number;
+	baseFeedContentRows: number;
+};
+
+export function useLayout({
+	terminalRows,
+	terminalWidth,
+	showRunOverlay,
+	runSummaries,
+	filteredEntries,
+	feedNav,
+	todoPanel,
+}: UseLayoutOptions): UseLayoutResult {
+	const frameWidth = Math.max(4, terminalWidth);
+	const innerWidth = frameWidth - 2;
+
+	const bodyHeight = Math.max(
+		1,
+		terminalRows - HEADER_ROWS - FOOTER_ROWS - FRAME_BORDER_ROWS,
+	);
+
+	const todoRowsTarget = todoPanel.todoVisible
+		? Math.min(
+				TODO_PANEL_MAX_ROWS,
+				1 +
+					Math.max(
+						1,
+						Math.min(
+							todoPanel.visibleTodoItems.length,
+							TODO_PANEL_MAX_ROWS - 1,
+						),
+					),
+			)
+		: 0;
+	const runOverlayRowsTarget = showRunOverlay
+		? Math.min(RUN_OVERLAY_MAX_ROWS, 1 + Math.max(1, runSummaries.length))
+		: 0;
+
+	let remainingRows = bodyHeight;
+	const todoRows = Math.min(todoRowsTarget, Math.max(0, remainingRows - 1));
+	remainingRows -= todoRows;
+	const runOverlayRows = Math.min(
+		runOverlayRowsTarget,
+		Math.max(0, remainingRows - 1),
+	);
+	remainingRows -= runOverlayRows;
+	const baseFeedRows = Math.max(1, remainingRows);
+	const baseFeedHeaderRows = baseFeedRows > 1 ? 1 : 0;
+	const baseFeedContentRows = Math.max(0, baseFeedRows - baseFeedHeaderRows);
+
+	const expandedEntry = feedNav.expandedId
+		? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ?? null)
+		: null;
+
+	const feedRows = expandedEntry ? 0 : baseFeedRows;
+	const feedHeaderRows = feedRows > 1 ? 1 : 0;
+	const feedContentRows = expandedEntry ? 0 : baseFeedContentRows;
+	const actualTodoRows = expandedEntry ? 0 : todoRows;
+	const actualRunOverlayRows = expandedEntry ? 0 : runOverlayRows;
+	const pageStep = Math.max(1, Math.floor(Math.max(1, feedContentRows) / 2));
+
+	const detailLines = useMemo(() => {
+		if (!expandedEntry) return [];
+		return expandedEntry.details.split(/\r?\n/).map(line => toAscii(line));
+	}, [expandedEntry]);
+	const detailHeaderRows = expandedEntry ? 1 : 0;
+	const detailContentRows = expandedEntry
+		? Math.max(1, bodyHeight - detailHeaderRows)
+		: 0;
+	const maxDetailScroll = Math.max(0, detailLines.length - detailContentRows);
+	const detailPageStep = Math.max(1, Math.floor(detailContentRows / 2));
+
+	// Clamp detail scroll
+	useEffect(() => {
+		feedNav.setDetailScroll(prev => Math.min(prev, maxDetailScroll));
+	}, [maxDetailScroll, feedNav]);
+
+	// Todo scroll adjustment
+	const todoListHeight = Math.max(0, actualTodoRows - 1);
+	useEffect(() => {
+		if (todoListHeight <= 0) {
+			todoPanel.setTodoScroll(0);
+			return;
+		}
+		todoPanel.setTodoScroll(prev => {
+			if (todoPanel.todoCursor < prev) return todoPanel.todoCursor;
+			if (todoPanel.todoCursor >= prev + todoListHeight) {
+				return todoPanel.todoCursor - todoListHeight + 1;
+			}
+			const maxScroll = Math.max(
+				0,
+				todoPanel.visibleTodoItems.length - todoListHeight,
+			);
+			return Math.min(prev, maxScroll);
+		});
+	}, [
+		todoPanel.todoCursor,
+		todoListHeight,
+		todoPanel.visibleTodoItems.length,
+		todoPanel,
+	]);
+
+	return {
+		frameWidth,
+		innerWidth,
+		bodyHeight,
+		feedHeaderRows,
+		feedContentRows,
+		actualTodoRows,
+		actualRunOverlayRows,
+		pageStep,
+		detailPageStep,
+		maxDetailScroll,
+		detailLines,
+		detailContentRows,
+		expandedEntry,
+		todoListHeight,
+		baseFeedContentRows,
+	};
+}
