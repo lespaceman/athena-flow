@@ -1,0 +1,100 @@
+export function toAscii(value: string): string {
+	return value.replace(/[^\x20-\x7e]/g, '?');
+}
+
+export function compactText(value: string, max: number): string {
+	const clean = toAscii(value).replace(/\s+/g, ' ').trim();
+	if (max <= 0) return '';
+	if (clean.length <= max) return clean;
+	if (max <= 3) return clean.slice(0, max);
+	return `${clean.slice(0, max - 3)}...`;
+}
+
+export function fit(text: string, width: number): string {
+	const clean = toAscii(text);
+	if (width <= 0) return '';
+	if (clean.length <= width) return clean.padEnd(width, ' ');
+	if (width <= 3) return clean.slice(0, width);
+	return `${clean.slice(0, width - 3)}...`;
+}
+
+export function formatClock(timestamp: number): string {
+	const d = new Date(timestamp);
+	const hh = String(d.getHours()).padStart(2, '0');
+	const mm = String(d.getMinutes()).padStart(2, '0');
+	const ss = String(d.getSeconds()).padStart(2, '0');
+	return `${hh}:${mm}:${ss}`;
+}
+
+export function formatCount(value: number | null): string {
+	if (value === null) return '--';
+	return value.toLocaleString('en-US');
+}
+
+export function formatSessionLabel(sessionId: string | undefined): string {
+	if (!sessionId) return 'S-';
+	const tail = sessionId.replace(/[^a-zA-Z0-9]/g, '').slice(-4);
+	return `S${tail || '-'}`;
+}
+
+export function formatRunLabel(runId: string | undefined): string {
+	if (!runId) return 'R-';
+	const direct = runId.match(/^(R\d+)$/i);
+	if (direct) return direct[1]!.toUpperCase();
+	const tail = runId.replace(/[^a-zA-Z0-9]/g, '').slice(-4);
+	return `R${tail || '-'}`;
+}
+
+export function actorLabel(actorId: string): string {
+	if (actorId === 'user') return 'USER';
+	if (actorId === 'agent:root') return 'AGENT';
+	if (actorId === 'system') return 'SYSTEM';
+	if (actorId.startsWith('subagent:')) {
+		return `SA-${compactText(actorId.slice('subagent:'.length), 8)}`;
+	}
+	return compactText(actorId.toUpperCase(), 12);
+}
+
+export function summarizeValue(value: unknown): string {
+	if (typeof value === 'string') return compactText(JSON.stringify(value), 28);
+	if (typeof value === 'number' || typeof value === 'boolean') {
+		return String(value);
+	}
+	if (value === null || value === undefined) return String(value);
+	if (Array.isArray(value)) return `[${value.length}]`;
+	if (typeof value === 'object') return '{...}';
+	return compactText(String(value), 20);
+}
+
+export function summarizeToolInput(input: Record<string, unknown>): string {
+	const pairs = Object.entries(input)
+		.slice(0, 2)
+		.map(([key, value]) => `${key}=${summarizeValue(value)}`);
+	return pairs.join(' ');
+}
+
+export function formatInputBuffer(
+	value: string,
+	cursorOffset: number,
+	width: number,
+	showCursor: boolean,
+	placeholder: string,
+): string {
+	if (width <= 0) return '';
+	if (value.length === 0) {
+		if (!showCursor) return fit(placeholder, width);
+		return fit(`|${placeholder}`, width);
+	}
+
+	if (!showCursor) {
+		return fit(value, width);
+	}
+
+	const withCursor =
+		value.slice(0, cursorOffset) + '|' + value.slice(cursorOffset);
+	if (withCursor.length <= width) return withCursor.padEnd(width, ' ');
+
+	const desiredStart = Math.max(0, cursorOffset + 1 - Math.floor(width * 0.65));
+	const start = Math.min(desiredStart, withCursor.length - width);
+	return fit(withCursor.slice(start, start + width), width);
+}
