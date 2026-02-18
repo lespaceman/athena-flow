@@ -104,6 +104,7 @@ export function useTimeline({
 				error: isEventError(event),
 				expandable: isEventExpandable(event),
 				details,
+				feedEvent: event,
 			});
 			if (event.kind === 'run.end') {
 				activeRunId = undefined;

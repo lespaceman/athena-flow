@@ -255,6 +255,7 @@ function AppContent({
 		detailPageStep,
 		maxDetailScroll,
 		detailLines,
+		detailShowLineNumbers,
 		detailContentRows,
 		expandedEntry,
 	} = layout;
@@ -595,6 +596,7 @@ function AppContent({
 					maxDetailScroll,
 					detailLines,
 					detailContentRows,
+					showLineNumbers: detailShowLineNumbers,
 				}
 			: null,
 		feed: {

@@ -18,6 +18,48 @@ export function fit(text: string, width: number): string {
 	return `${clean.slice(0, width - 3)}...`;
 }
 
+/**
+ * ANSI-aware fit: truncates by visual width while preserving escape codes.
+ * Uses slice-ansi + string-width (transitive deps from Ink).
+ */
+export function fitAnsi(text: string, width: number): string {
+	if (width <= 0) return '';
+	// Lazy-load to avoid top-level await for ESM-only packages
+	const stripAnsi = fitAnsi._stripAnsi;
+	const stringWidth = fitAnsi._stringWidth;
+	const sliceAnsi = fitAnsi._sliceAnsi;
+	if (!stripAnsi || !stringWidth || !sliceAnsi) {
+		// Fallback if not initialized — use plain fit
+		return fit(text, width);
+	}
+	const visualWidth = stringWidth(text);
+	if (visualWidth <= width) {
+		const pad = width - visualWidth;
+		return pad > 0 ? text + ' '.repeat(pad) : text;
+	}
+	if (width <= 3) return sliceAnsi(text, 0, width);
+	return sliceAnsi(text, 0, width - 3) + '...';
+}
+
+// These are set by initAnsiHelpers() at startup
+fitAnsi._stripAnsi = undefined as ((text: string) => string) | undefined;
+fitAnsi._stringWidth = undefined as ((text: string) => number) | undefined;
+fitAnsi._sliceAnsi = undefined as
+	| ((text: string, start: number, end: number) => string)
+	| undefined;
+
+export async function initAnsiHelpers(): Promise<void> {
+	const [{default: stripAnsi}, {default: stringWidth}, {default: sliceAnsi}] =
+		await Promise.all([
+			import('strip-ansi'),
+			import('string-width'),
+			import('slice-ansi'),
+		]);
+	fitAnsi._stripAnsi = stripAnsi;
+	fitAnsi._stringWidth = stringWidth;
+	fitAnsi._sliceAnsi = sliceAnsi;
+}
+
 export function formatClock(timestamp: number): string {
 	const d = new Date(timestamp);
 	const hh = String(d.getHours()).padStart(2, '0');

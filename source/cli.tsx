@@ -164,6 +164,10 @@ if (cli.flags.continue) {
 	}
 }
 
+// Eagerly load ANSI helpers for rich detail view rendering
+import {initAnsiHelpers} from './utils/format.js';
+void initAnsiHelpers();
+
 const instanceId = process.pid;
 render(
 	<App

@@ -6,7 +6,7 @@ import {
 } from '../feed/timeline.js';
 import {type TodoPanelItem} from '../feed/todoPanel.js';
 import {symbolForTodoStatus} from '../feed/todoPanel.js';
-import {compactText, fit, formatRunLabel} from './format.js';
+import {compactText, fit, fitAnsi, formatRunLabel} from './format.js';
 
 export type DetailViewState = {
 	expandedEntry: TimelineEntry;
@@ -14,6 +14,7 @@ export type DetailViewState = {
 	maxDetailScroll: number;
 	detailLines: string[];
 	detailContentRows: number;
+	showLineNumbers?: boolean;
 };
 
 export type FeedViewState = {
@@ -96,8 +97,12 @@ export function buildBodyLines({
 				bodyLines.push(fit('', innerWidth));
 				continue;
 			}
-			const lineNo = String(start + i + 1).padStart(lineNumberWidth, ' ');
-			bodyLines.push(fit(`${lineNo} | ${line}`, innerWidth));
+			if (detail.showLineNumbers !== false) {
+				const lineNo = String(start + i + 1).padStart(lineNumberWidth, ' ');
+				bodyLines.push(fitAnsi(`${lineNo} | ${line}`, innerWidth));
+			} else {
+				bodyLines.push(fitAnsi(line, innerWidth));
+			}
 		}
 	} else {
 		const {
