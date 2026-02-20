@@ -85,18 +85,6 @@ export function mapDecisionToResult(
 				},
 			};
 
-		case 'pre_tool_deny':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PreToolUse',
-						permissionDecision: 'deny',
-						permissionDecisionReason: intent.reason,
-					},
-				},
-			};
-
 		default:
 			// Exhaustive check — if new intents are added, TypeScript will catch it
 			return {action: 'passthrough'};

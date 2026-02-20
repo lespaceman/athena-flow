@@ -33,7 +33,7 @@ function applyToolRules(
 	cb: ControllerCallbacks,
 	intents: {
 		allow: 'permission_allow' | 'pre_tool_allow';
-		deny: 'permission_deny' | 'pre_tool_deny';
+		deny: 'permission_deny';
 	},
 ): ControllerResult {
 	const rule = matchRule(cb.getRules(), event.toolName!);
