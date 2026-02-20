@@ -78,7 +78,6 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/hooks/hookController.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
 - **source/context/HookContext.tsx**: React context providing `UseFeedResult` (feed events, queues, tasks) to components
 - **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
-- **source/components/DashboardFrame.tsx**: Main CLI dashboard shell (ASCII frame, run summary, todo section, timeline table, footer)
 - **source/components/DashboardInput.tsx**: Dashboard input row (`input>` + run badge), built on `useTextInput`
 - **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
 - **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
