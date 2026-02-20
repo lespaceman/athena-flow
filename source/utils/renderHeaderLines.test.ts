@@ -11,13 +11,15 @@ const fullModel: HeaderModel = {
 	workflow: 'web.login.smoke',
 	harness: 'Claude Code',
 	run_count: 3,
+	active_agents: 2,
+	token_in: 15_000,
+	token_out: 3_200,
 	context: {used: 67_000, max: 200_000},
 	engine: 'claude-code',
 	progress: {done: 3, total: 12},
 	status: 'running',
 	err_count: 2,
 	block_count: 1,
-	elapsed_ms: 264_000,
 	tail_mode: false,
 };
 
@@ -26,6 +28,9 @@ const idleModel: HeaderModel = {
 	workflow: 'default',
 	harness: 'Claude Code',
 	run_count: 0,
+	active_agents: 1,
+	token_in: null,
+	token_out: null,
 	context: {used: null, max: 200_000},
 	status: 'idle',
 	err_count: 0,
@@ -91,16 +96,9 @@ describe('renderHeaderLines', () => {
 	});
 
 	describe('truncation order', () => {
-		it('drops harness before workflow at narrow width (~70)', () => {
+		it('drops Out before In, In before Agents at narrow widths', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 70, false, NOW));
-			expect(lines[0]).not.toContain('harness:');
-			expect(lines[0]).toContain('wf:');
-		});
-
-		it('drops workflow after harness at very narrow (~55)', () => {
-			const lines = stripped(renderHeaderLines(fullModel, 55, false, NOW));
-			expect(lines[0]).not.toContain('harness:');
-			expect(lines[0]).not.toContain('wf:');
+			expect(lines[0]).not.toContain('Out:');
 		});
 
 		it('ATHENA and status badge never dropped', () => {
@@ -113,60 +111,54 @@ describe('renderHeaderLines', () => {
 	});
 
 	describe('content', () => {
-		it('line 1 shows session_id, wf:, harness: at wide width', () => {
-			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[0]).toContain('sess_abc123def456');
-			expect(lines[0]).toContain('wf:web.login.smoke');
-			expect(lines[0]).toContain('harness:Claude Code');
+		it('line 1 shows Workflow, Runs, Agents, Harness, Session ID at wide width', () => {
+			const lines = stripped(renderHeaderLines(fullModel, 140, false, NOW));
+			expect(lines[0]).toContain('Workflow: web.login.smoke');
+			expect(lines[0]).toContain('Runs: 3');
+			expect(lines[0]).toContain('Agents: 2');
+			expect(lines[0]).toContain('Harness: Claude Code');
+			expect(lines[0]).toContain('Session ID: sess_abc123def456');
 		});
 
-		it('line 2 shows context bar and runs count', () => {
-			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[1]).toContain('ctx');
+		it('line 2 shows In, Out, and context bar at wide width', () => {
+			const lines = stripped(renderHeaderLines(fullModel, 140, false, NOW));
+			expect(lines[1]).toContain('In: 15k');
+			expect(lines[1]).toContain('Out: 3.2k');
 			expect(lines[1]).toContain('67k/200k');
-			expect(lines[1]).toContain('runs:3');
 		});
 
 		it('shows progress only when present', () => {
-			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[1]).toContain('progress: 3/12');
-
-			const noProgress = stripped(
-				renderHeaderLines(idleModel, 120, false, NOW),
-			);
-			expect(noProgress[1]).not.toContain('progress');
+			// progress is no longer displayed on header lines (moved out)
+			// but the model still carries it for other consumers
+			expect(fullModel.progress).toEqual({done: 3, total: 12});
+			expect(idleModel.progress).toBeUndefined();
 		});
 
-		it('shows elapsed during active run', () => {
+		it('no longer shows elapsed or ended', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[1]).toContain('elapsed 4m24s');
+			expect(lines[1]).not.toContain('elapsed');
+			expect(lines[1]).not.toContain('ended');
 		});
 
-		it('shows ended when complete', () => {
-			const endedModel: HeaderModel = {
-				...fullModel,
-				status: 'succeeded',
-				elapsed_ms: undefined,
-				ended_at: new Date('2026-02-20T14:25:00Z').getTime(),
-			};
-			const lines = stripped(renderHeaderLines(endedModel, 120, false, NOW));
-			expect(lines[1]).toMatch(/ended \d{2}:\d{2}:\d{2}/);
-		});
-
-		it('shows err/blk only when > 0, hidden when 0', () => {
+		it('shows Err/Blk only when > 0, hidden when 0', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[1]).toContain('err 2');
-			expect(lines[1]).toContain('blk 1');
+			expect(lines[1]).toContain('Err 2');
+			expect(lines[1]).toContain('Blk 1');
 
 			const noErr = stripped(renderHeaderLines(idleModel, 120, false, NOW));
-			expect(noErr[1]).not.toContain('err');
-			expect(noErr[1]).not.toContain('blk');
+			expect(noErr[1]).not.toContain('Err');
+			expect(noErr[1]).not.toContain('Blk');
 		});
 
 		it('idle state: minimal header', () => {
 			const lines = stripped(renderHeaderLines(idleModel, 80, false, NOW));
 			expect(lines[0]).toContain('ATHENA');
 			expect(lines[0]).toContain('[IDLE]');
+		});
+
+		it('line 1 drops Session ID before Harness at narrow width', () => {
+			const lines = stripped(renderHeaderLines(fullModel, 70, false, NOW));
+			expect(lines[0]).not.toContain('Session ID');
 		});
 	});
 
@@ -200,19 +192,8 @@ describe('renderHeaderLines', () => {
 
 	describe('truncateSessionId', () => {
 		it('returns full ID when it fits', () => {
-			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
+			const lines = stripped(renderHeaderLines(fullModel, 140, false, NOW));
 			expect(lines[0]).toContain('sess_abc123def456');
-		});
-
-		it('truncates session ID with ellipsis at narrow width', () => {
-			const narrowModel: HeaderModel = {
-				...fullModel,
-				session_id: 'sess_abc123def456ghi789',
-			};
-			// At narrow width, session ID should be truncated but still present
-			const lines = stripped(renderHeaderLines(narrowModel, 80, false, NOW));
-			// Should contain some portion of the session ID
-			expect(lines[0]).toMatch(/sess_|S[a-zA-Z0-9]/);
 		});
 	});
 });

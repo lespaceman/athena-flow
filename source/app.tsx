@@ -586,13 +586,19 @@ function AppContent({
 				}
 			: null,
 		runSummaries,
-		metrics,
+		metrics: {
+			failures: metrics.failures,
+			blocks: metrics.blocks,
+			subagentCount: metrics.subagentCount,
+		},
 		todoPanel,
 		tailFollow: feedNav.tailFollow,
 		now,
 		workflowRef,
 		contextUsed: tokenUsage.contextSize,
 		contextMax: 200000,
+		tokenIn: tokenUsage.input,
+		tokenOut: tokenUsage.output,
 	});
 	const [headerLine1, headerLine2] = renderHeaderLines(
 		headerModel,

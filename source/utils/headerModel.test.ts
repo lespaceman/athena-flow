@@ -13,7 +13,7 @@ const baseInput = {
 		started_at: number;
 	} | null,
 	runSummaries: [] as {status: string; endedAt?: number}[],
-	metrics: {failures: 0, blocks: 0},
+	metrics: {failures: 0, blocks: 0, subagentCount: 0},
 	todoPanel: {doneCount: 0, doingCount: 0, todoItems: {length: 0}},
 	tailFollow: false,
 	now: 1000000,
@@ -24,7 +24,6 @@ describe('buildHeaderModel', () => {
 		const model = buildHeaderModel(baseInput);
 		expect(model.status).toBe('idle');
 		expect(model.session_id).toBe('abc123');
-		expect(model.elapsed_ms).toBeUndefined();
 	});
 
 	it('returns running status with active run', () => {
@@ -37,7 +36,6 @@ describe('buildHeaderModel', () => {
 			},
 		});
 		expect(model.status).toBe('running');
-		expect(model.elapsed_ms).toBe(1000);
 	});
 
 	it('defaults workflow to "default" when workflowRef is undefined', () => {
@@ -83,7 +81,31 @@ describe('buildHeaderModel', () => {
 		expect(model.context).toEqual({used: 50000, max: 100000});
 	});
 
-	it('no longer has run_id_short or run_title fields', () => {
+	it('computes active_agents as subagentCount + 1', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			metrics: {failures: 0, blocks: 0, subagentCount: 3},
+		});
+		expect(model.active_agents).toBe(4);
+	});
+
+	it('passes token_in and token_out', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			tokenIn: 15000,
+			tokenOut: 3200,
+		});
+		expect(model.token_in).toBe(15000);
+		expect(model.token_out).toBe(3200);
+	});
+
+	it('defaults token_in and token_out to null', () => {
+		const model = buildHeaderModel(baseInput);
+		expect(model.token_in).toBeNull();
+		expect(model.token_out).toBeNull();
+	});
+
+	it('no longer has elapsed_ms, ended_at, run_id_short, or run_title fields', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			currentRun: {
@@ -92,10 +114,10 @@ describe('buildHeaderModel', () => {
 				started_at: 999000,
 			},
 		});
+		expect(model).not.toHaveProperty('elapsed_ms');
+		expect(model).not.toHaveProperty('ended_at');
 		expect(model).not.toHaveProperty('run_id_short');
 		expect(model).not.toHaveProperty('run_title');
-		expect(model).not.toHaveProperty('workflow_ref');
-		expect(model).not.toHaveProperty('session_id_short');
 	});
 
 	it('derives status from last runSummary when no active run', () => {
@@ -104,7 +126,6 @@ describe('buildHeaderModel', () => {
 			runSummaries: [{status: 'FAILED', endedAt: 998000}],
 		});
 		expect(model.status).toBe('failed');
-		expect(model.ended_at).toBe(998000);
 	});
 
 	it('maps CANCELLED to stopped', () => {
@@ -115,22 +136,12 @@ describe('buildHeaderModel', () => {
 		expect(model.status).toBe('stopped');
 	});
 
-	it('maps SUCCEEDED to succeeded with ended_at', () => {
+	it('maps SUCCEEDED to succeeded', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			runSummaries: [{status: 'SUCCEEDED', endedAt: 998000}],
 		});
 		expect(model.status).toBe('succeeded');
-		expect(model.ended_at).toBe(998000);
-	});
-
-	it('does not set ended_at for idle status', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			runSummaries: [{status: 'UNKNOWN', endedAt: 998000}],
-		});
-		expect(model.status).toBe('idle');
-		expect(model.ended_at).toBeUndefined();
 	});
 
 	it('includes progress only when total > 0', () => {
@@ -147,7 +158,7 @@ describe('buildHeaderModel', () => {
 	it('maps metrics correctly', () => {
 		const model = buildHeaderModel({
 			...baseInput,
-			metrics: {failures: 5, blocks: 2},
+			metrics: {failures: 5, blocks: 2, subagentCount: 0},
 		});
 		expect(model.err_count).toBe(5);
 		expect(model.block_count).toBe(2);
