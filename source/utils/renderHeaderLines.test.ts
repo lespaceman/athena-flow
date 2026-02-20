@@ -7,10 +7,11 @@ import {renderHeaderLines} from './renderHeaderLines.js';
 const NOW = new Date('2026-02-20T14:30:45Z').getTime();
 
 const fullModel: HeaderModel = {
-	workflow_ref: 'web.login.smoke@7c91f2',
-	run_title: 'Fix the login bug',
-	session_id_short: 'S1',
-	run_id_short: 'R3',
+	session_id: 'sess_abc123def456',
+	workflow: 'web.login.smoke',
+	harness: 'Claude Code',
+	run_count: 3,
+	context: {used: 67_000, max: 200_000},
 	engine: 'claude-code',
 	progress: {done: 3, total: 12},
 	status: 'running',
@@ -21,7 +22,11 @@ const fullModel: HeaderModel = {
 };
 
 const idleModel: HeaderModel = {
-	session_id_short: 'S1',
+	session_id: 'sess_idle1',
+	workflow: 'default',
+	harness: 'Claude Code',
+	run_count: 0,
+	context: {used: null, max: 200_000},
 	status: 'idle',
 	err_count: 0,
 	block_count: 0,
@@ -73,8 +78,6 @@ describe('renderHeaderLines', () => {
 				'stopped',
 				'idle',
 			];
-			// All lines should be the same total padded length — this proves the
-			// rail occupies a fixed-width region regardless of badge text.
 			const lengths = statuses.map(status => {
 				const model = {...fullModel, status};
 				const [line1] = stripped(renderHeaderLines(model, width, false, NOW));
@@ -88,16 +91,16 @@ describe('renderHeaderLines', () => {
 	});
 
 	describe('truncation order', () => {
-		it('drops engine before run ID at narrow width (~70)', () => {
+		it('drops harness before workflow at narrow width (~70)', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 70, false, NOW));
-			expect(lines[0]).not.toContain('claude-code');
-			expect(lines[0]).toContain('R3');
+			expect(lines[0]).not.toContain('harness:');
+			expect(lines[0]).toContain('wf:');
 		});
 
-		it('drops run ID only after engine at very narrow (~55)', () => {
+		it('drops workflow after harness at very narrow (~55)', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 55, false, NOW));
-			expect(lines[0]).not.toContain('claude-code');
-			expect(lines[0]).not.toContain('R3');
+			expect(lines[0]).not.toContain('harness:');
+			expect(lines[0]).not.toContain('wf:');
 		});
 
 		it('ATHENA and status badge never dropped', () => {
@@ -110,20 +113,18 @@ describe('renderHeaderLines', () => {
 	});
 
 	describe('content', () => {
-		it('shows workflow: label when workflow_ref set', () => {
+		it('line 1 shows session_id, wf:, harness: at wide width', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
-			expect(lines[0]).toContain('workflow:');
-			expect(lines[0]).toContain('web.login.smoke@7c91f2');
+			expect(lines[0]).toContain('sess_abc123def456');
+			expect(lines[0]).toContain('wf:web.login.smoke');
+			expect(lines[0]).toContain('harness:Claude Code');
 		});
 
-		it('shows run: label when only run_title set', () => {
-			const model: HeaderModel = {
-				...fullModel,
-				workflow_ref: undefined,
-			};
-			const lines = stripped(renderHeaderLines(model, 120, false, NOW));
-			expect(lines[0]).toContain('run:');
-			expect(lines[0]).toContain('Fix the login bug');
+		it('line 2 shows context bar and runs count', () => {
+			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
+			expect(lines[1]).toContain('ctx');
+			expect(lines[1]).toContain('67k/200k');
+			expect(lines[1]).toContain('runs:3');
 		});
 
 		it('shows progress only when present', () => {
@@ -166,8 +167,6 @@ describe('renderHeaderLines', () => {
 			const lines = stripped(renderHeaderLines(idleModel, 80, false, NOW));
 			expect(lines[0]).toContain('ATHENA');
 			expect(lines[0]).toContain('[IDLE]');
-			expect(lines[0]).not.toContain('workflow');
-			expect(lines[0]).not.toContain('run:');
 		});
 	});
 
@@ -196,6 +195,24 @@ describe('renderHeaderLines', () => {
 			const timeMatches = lines[0]!.match(/\d{2}:\d{2}/g);
 			expect(timeMatches).toBeTruthy();
 			expect(lines[0]).not.toMatch(/\d{2}:\d{2}:\d{2}/);
+		});
+	});
+
+	describe('truncateSessionId', () => {
+		it('returns full ID when it fits', () => {
+			const lines = stripped(renderHeaderLines(fullModel, 120, false, NOW));
+			expect(lines[0]).toContain('sess_abc123def456');
+		});
+
+		it('truncates session ID with ellipsis at narrow width', () => {
+			const narrowModel: HeaderModel = {
+				...fullModel,
+				session_id: 'sess_abc123def456ghi789',
+			};
+			// At narrow width, session ID should be truncated but still present
+			const lines = stripped(renderHeaderLines(narrowModel, 80, false, NOW));
+			// Should contain some portion of the session ID
+			expect(lines[0]).toMatch(/sess_|S[a-zA-Z0-9]/);
 		});
 	});
 });

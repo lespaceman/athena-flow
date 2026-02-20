@@ -4,6 +4,7 @@ import type {HeaderModel, HeaderStatus} from './headerModel.js';
 import {getStatusBadge} from './statusBadge.js';
 import {formatClock} from './format.js';
 import {formatDuration} from './formatters.js';
+import {renderContextBar} from './contextBar.js';
 
 function visWidth(s: string): number {
 	return stringWidth(s);
@@ -14,6 +15,16 @@ function truncateStr(s: string, max: number): string {
 	if (s.length <= max) return s;
 	if (max <= 1) return s.slice(0, max);
 	return s.slice(0, max - 1) + '\u2026';
+}
+
+export function truncateSessionId(id: string, maxWidth: number): string {
+	if (id.length <= maxWidth) return id;
+	if (maxWidth >= 12) {
+		const tail = id.slice(-6);
+		return id.slice(0, maxWidth - 7) + '\u2026' + tail;
+	}
+	const alphanumeric = id.replace(/[^a-zA-Z0-9]/g, '').slice(-4);
+	return 'S' + (alphanumeric || '\u2013');
 }
 
 /** Compute the maximum badge width across all statuses for rail stability. */
@@ -71,7 +82,7 @@ export function renderHeaderLines(
 	const maxBW = maxBadgeWidth(hasColor);
 	const shortClock = width < 70;
 	const clockStr = formatClock(now ?? Date.now());
-	const clock = shortClock ? clockStr.slice(0, 5) : clockStr; // HH:MM or HH:MM:SS
+	const clock = shortClock ? clockStr.slice(0, 5) : clockStr;
 
 	// Right rail line 1: badge (padded to maxBW) + space + clock
 	const badge = getStatusBadge(model.status, hasColor);
@@ -82,38 +93,22 @@ export function renderHeaderLines(
 	// Build left tokens for line 1
 	const athena = hasColor ? chalk.bold('ATHENA') : 'ATHENA';
 
-	type Token = {text: string; priority: number}; // lower priority = dropped first
+	type Token = {text: string; priority: number};
 	const leftTokens: Token[] = [{text: athena, priority: 100}];
 
-	// Title token (workflow_ref takes precedence over run_title)
-	if (model.workflow_ref) {
-		const label = hasColor ? chalk.dim('workflow:') : 'workflow:';
-		const value = model.workflow_ref;
-		leftTokens.push({text: `${label} ${value}`, priority: 50});
-	} else if (model.run_title) {
-		const label = hasColor ? chalk.dim('run:') : 'run:';
-		const value = model.run_title;
-		leftTokens.push({text: `${label} ${value}`, priority: 50});
-	}
+	// Session ID (priority 70)
+	leftTokens.push({text: model.session_id, priority: 70});
 
-	// Run ID
-	if (model.run_id_short) {
-		leftTokens.push({
-			text: `run ${model.run_id_short}`,
-			priority: 20,
-		});
-	}
+	// Workflow (priority 60)
+	leftTokens.push({text: `wf:${model.workflow}`, priority: 60});
 
-	// Engine
-	if (model.engine) {
-		leftTokens.push({text: model.engine, priority: 10});
-	}
+	// Harness (priority 40)
+	leftTokens.push({text: `harness:${model.harness}`, priority: 40});
 
 	const sep = ' \u00B7 '; // " · "
 	const railWidth = visWidth(rightRail1);
-	const maxLeft = width - 1 - railWidth - 1; // 1 for min gap
+	const maxLeft = width - 1 - railWidth - 1;
 
-	// Truncation: iteratively drop lowest priority tokens, then truncate title
 	function buildLeft(tokens: Token[]): string {
 		return tokens.map(t => t.text).join(sep);
 	}
@@ -125,7 +120,6 @@ export function renderHeaderLines(
 		currentTokens.length > 1 &&
 		visWidth(buildLeft(currentTokens)) > maxLeft
 	) {
-		// Find lowest priority token (skip index 0 which is ATHENA)
 		let minIdx = 1;
 		let minPri = currentTokens[1]!.priority;
 		for (let i = 2; i < currentTokens.length; i++) {
@@ -134,37 +128,25 @@ export function renderHeaderLines(
 				minIdx = i;
 			}
 		}
-		// If lowest is the title token (priority 50) and there are lower ones, drop those first
 		currentTokens.splice(minIdx, 1);
 	}
 
-	// If still too wide, truncate the title value in the second token
+	// If still too wide after dropping, truncate session ID (the token with priority 70)
 	if (
 		currentTokens.length > 1 &&
 		visWidth(buildLeft(currentTokens)) > maxLeft
 	) {
-		const titleToken = currentTokens[1]!;
-		const overhead = visWidth(currentTokens[0]!.text) + visWidth(sep) + 1; // +1 for safety
-		const availForTitle = maxLeft - overhead;
-		if (availForTitle > 0) {
-			// Truncate just the value part
-			const colonIdx = titleToken.text.indexOf(' ');
-			if (colonIdx >= 0) {
-				const labelPart = titleToken.text.slice(0, colonIdx + 1); // "workflow: " or "run: "
-				const valuePart = titleToken.text.slice(colonIdx + 1);
-				const labelW = visWidth(labelPart);
-				const maxValW = availForTitle - labelW;
-				if (maxValW > 0) {
-					titleToken.text = labelPart + truncateStr(valuePart, maxValW);
-				} else {
-					titleToken.text = truncateStr(titleToken.text, availForTitle);
-				}
+		const sessIdx = currentTokens.findIndex(t => t.priority === 70);
+		if (sessIdx >= 0) {
+			const sessToken = currentTokens[sessIdx]!;
+			const otherWidth =
+				visWidth(buildLeft(currentTokens)) - visWidth(sessToken.text);
+			const availForSess = maxLeft - otherWidth;
+			if (availForSess > 5) {
+				sessToken.text = truncateSessionId(sessToken.text, availForSess);
 			} else {
-				titleToken.text = truncateStr(titleToken.text, availForTitle);
+				currentTokens.splice(sessIdx, 1);
 			}
-		} else {
-			// Drop the title entirely
-			currentTokens.splice(1, 1);
 		}
 	}
 
@@ -172,7 +154,23 @@ export function renderHeaderLines(
 	const line1 = padLine(leftStr1, rightRail1, width, hasColor);
 
 	// Line 2
+	const sep2 = ' \u00B7 ';
 	const leftParts2: string[] = [];
+
+	// Context bar — allocate ~20 chars for the bar
+	const ctxBarWidth = 20;
+	leftParts2.push(
+		renderContextBar(
+			model.context.used,
+			model.context.max,
+			ctxBarWidth,
+			hasColor,
+		),
+	);
+
+	// Runs count
+	leftParts2.push(`runs:${model.run_count}`);
+
 	if (model.progress) {
 		leftParts2.push(`progress: ${model.progress.done}/${model.progress.total}`);
 	}
@@ -182,7 +180,7 @@ export function renderHeaderLines(
 	if (model.ended_at !== undefined) {
 		leftParts2.push(`ended ${formatClock(model.ended_at)}`);
 	}
-	const leftStr2 = leftParts2.join(sep);
+	const leftStr2 = leftParts2.join(sep2);
 
 	// Right rail line 2: err/blk
 	const rightParts2: string[] = [];
@@ -196,10 +194,7 @@ export function renderHeaderLines(
 	}
 	const rightStr2 = rightParts2.join(' ');
 
-	const line2 =
-		leftStr2 || rightStr2
-			? padLine(leftStr2, rightStr2, width, hasColor)
-			: ' '.repeat(width - 1);
+	const line2 = padLine(leftStr2, rightStr2, width, hasColor);
 
 	return [line1, line2];
 }
