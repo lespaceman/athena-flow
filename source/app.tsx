@@ -591,6 +591,8 @@ function AppContent({
 		tailFollow: feedNav.tailFollow,
 		now,
 		workflowRef,
+		contextUsed: null, // TODO: wire from future hook event
+		contextMax: 200000,
 	});
 	const [headerLine1, headerLine2] = renderHeaderLines(
 		headerModel,
