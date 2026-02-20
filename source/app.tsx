@@ -20,6 +20,8 @@ import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
 import {buildBodyLines} from './utils/buildBodyLines.js';
 import {buildFrameLines} from './utils/buildFrameLines.js';
+import {buildHeaderModel} from './utils/headerModel.js';
+import {renderHeaderLines} from './utils/renderHeaderLines.js';
 import {
 	type Message as MessageType,
 	type IsolationConfig,
@@ -31,7 +33,6 @@ import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
-import {deriveRunTitle} from './feed/timeline.js';
 import {fit, fitAnsi, formatRunLabel} from './utils/format.js';
 
 type Props = {
@@ -45,6 +46,7 @@ type Props = {
 	theme: Theme;
 	initialSessionId?: string;
 	showSessionPicker?: boolean;
+	workflowRef?: string;
 };
 
 type AppPhase =
@@ -91,6 +93,7 @@ function AppContent({
 	onClear,
 	onShowSessions,
 	inputHistory,
+	workflowRef,
 }: Omit<Props, 'showSessionPicker' | 'theme'> & {
 	initialSessionId?: string;
 	onClear: () => void;
@@ -550,11 +553,6 @@ function AppContent({
 
 	// ── Frame lines ─────────────────────────────────────────
 
-	const runTitle = deriveRunTitle(
-		currentRun?.trigger.prompt_preview,
-		feedEvents,
-		messages,
-	);
 	const runLabel = formatRunLabel(
 		runFilter === 'all'
 			? (currentRun?.run_id ?? runSummaries[runSummaries.length - 1]?.runId)
@@ -563,15 +561,6 @@ function AppContent({
 
 	const frame = buildFrameLines({
 		innerWidth,
-		session,
-		currentRun,
-		runFilter,
-		runSummaries,
-		runTitle,
-		metrics,
-		tokenUsage,
-		todoPanel,
-		tailFollow: feedNav.tailFollow,
 		focusMode,
 		inputMode,
 		searchQuery,
@@ -584,6 +573,29 @@ function AppContent({
 		dialogActive,
 		dialogType: appMode.type,
 	});
+
+	const hasColor = !process.env['NO_COLOR'];
+	const headerModel = buildHeaderModel({
+		session,
+		currentRun: currentRun
+			? {
+					run_id: currentRun.run_id,
+					trigger: currentRun.trigger,
+					started_at: currentRun.started_at,
+				}
+			: null,
+		runSummaries,
+		metrics,
+		todoPanel,
+		tailFollow: feedNav.tailFollow,
+		now: Date.now(),
+		workflowRef: workflowRef,
+	});
+	const [headerLine1, headerLine2] = renderHeaderLines(
+		headerModel,
+		innerWidth,
+		hasColor,
+	);
 
 	// ── Body lines ──────────────────────────────────────────
 
@@ -634,8 +646,8 @@ function AppContent({
 	return (
 		<Box flexDirection="column" width={frameWidth}>
 			<Text>{topBorder}</Text>
-			<Text>{frameLine(frame.headerLine1)}</Text>
-			<Text>{frameLine(frame.headerLine2)}</Text>
+			<Text>{frameLine(headerLine1)}</Text>
+			<Text>{frameLine(headerLine2)}</Text>
 			<Text>{sectionBorder}</Text>
 			{clippedBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{frameLine(line)}</Text>
@@ -686,6 +698,7 @@ export default function App({
 	theme,
 	initialSessionId,
 	showSessionPicker,
+	workflowRef,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
@@ -746,6 +759,7 @@ export default function App({
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
 					inputHistory={inputHistory}
+					workflowRef={workflowRef}
 				/>
 			</HookProvider>
 		</ThemeProvider>

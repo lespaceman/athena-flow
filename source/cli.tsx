@@ -38,6 +38,7 @@ const cli = meow(
 		--theme         Color theme: dark (default) or light
 		--continue      Resume the most recent session (or specify a session ID)
 		--sessions      Launch interactive session picker before main UI
+		--workflow       Workflow reference displayed in header (e.g. name@rev)
 
 	Note: All isolation modes use --setting-sources "" to completely isolate
 	      from Claude Code's settings. athena-cli is fully self-contained.
@@ -88,6 +89,9 @@ const cli = meow(
 			sessions: {
 				type: 'boolean',
 				default: false,
+			},
+			workflow: {
+				type: 'string',
 			},
 		},
 	},
@@ -164,10 +168,6 @@ if (cli.flags.continue) {
 	}
 }
 
-// Eagerly load ANSI helpers for rich detail view rendering
-import {initAnsiHelpers} from './utils/format.js';
-void initAnsiHelpers();
-
 const instanceId = process.pid;
 render(
 	<App
@@ -181,5 +181,6 @@ render(
 		theme={theme}
 		initialSessionId={initialSessionId}
 		showSessionPicker={showSessionPicker}
+		workflowRef={cli.flags.workflow}
 	/>,
 );
