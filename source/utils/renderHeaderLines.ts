@@ -100,18 +100,8 @@ export function renderHeaderLines(
 	// Workflow (priority 70)
 	leftTokens.push({text: `Workflow: ${model.workflow}`, priority: 70});
 
-	// Runs (priority 65)
-	leftTokens.push({text: `Runs: ${model.run_count}`, priority: 65});
-
-	// Active agents (priority 50)
-	const agentsStr = `Agents: ${model.active_agents}`;
-	leftTokens.push({
-		text: hasColor ? chalk.cyan(agentsStr) : agentsStr,
-		priority: 50,
-	});
-
-	// Harness (priority 40)
-	leftTokens.push({text: `Harness: ${model.harness}`, priority: 40});
+	// Harness (priority 50)
+	leftTokens.push({text: `Harness: ${model.harness}`, priority: 50});
 
 	// Session ID (priority 30 — lowest on line 1, dropped first)
 	leftTokens.push({text: `Session ID: ${model.session_id}`, priority: 30});
@@ -167,11 +157,21 @@ export function renderHeaderLines(
 	const leftStr1 = buildLeft(currentTokens);
 	const line1 = padLine(leftStr1, rightRail1, width, hasColor);
 
-	// Line 2: In:<tok> · Out:<tok> · CTX [████░░] 29k/200k
+	// Line 2: Runs:<n> · Active Agents:<n> · In:<tok> · Out:<tok> · CTX [████░░] 29k/200k
 	const sep2 = ' \u00B7 ';
 
 	type Token2 = {text: string; priority: number};
 	const leftTokens2: Token2[] = [];
+
+	// Runs (priority 90)
+	leftTokens2.push({text: `Runs: ${model.run_count}`, priority: 90});
+
+	// Active agents (priority 85)
+	const agentsStr = `Active Agents: ${model.active_agents}`;
+	leftTokens2.push({
+		text: hasColor ? chalk.cyan(agentsStr) : agentsStr,
+		priority: 85,
+	});
 
 	// Token in (priority 80)
 	const inStr = `In: ${formatTokens(model.token_in)}`;

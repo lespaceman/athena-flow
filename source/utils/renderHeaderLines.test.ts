@@ -111,17 +111,17 @@ describe('renderHeaderLines', () => {
 	});
 
 	describe('content', () => {
-		it('line 1 shows Workflow, Runs, Agents, Harness, Session ID at wide width', () => {
+		it('line 1 shows Workflow, Harness, Session ID at wide width', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 140, false, NOW));
 			expect(lines[0]).toContain('Workflow: web.login.smoke');
-			expect(lines[0]).toContain('Runs: 3');
-			expect(lines[0]).toContain('Agents: 2');
 			expect(lines[0]).toContain('Harness: Claude Code');
 			expect(lines[0]).toContain('Session ID: sess_abc123def456');
 		});
 
-		it('line 2 shows In, Out, and context bar at wide width', () => {
+		it('line 2 shows Runs, Active Agents, In, Out, and context bar at wide width', () => {
 			const lines = stripped(renderHeaderLines(fullModel, 140, false, NOW));
+			expect(lines[1]).toContain('Runs: 3');
+			expect(lines[1]).toContain('Active Agents: 2');
 			expect(lines[1]).toContain('In: 15k');
 			expect(lines[1]).toContain('Out: 3.2k');
 			expect(lines[1]).toContain('67k/200k');
