@@ -1,4 +1,4 @@
-import {describe, it, expect, beforeAll, afterAll} from 'vitest';
+import {describe, it, expect} from 'vitest';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {renderContextBar, formatTokenCount} from './contextBar.js';
@@ -35,8 +35,8 @@ describe('renderContextBar', () => {
 		const prev = chalk.level;
 		chalk.level = 1;
 		try {
-			const green = renderContextBar(50000, 200000, 30, true);
-			expect(green).not.toBe(stripAnsi(green));
+			const result = renderContextBar(50000, 200000, 30, true);
+			expect(result).not.toBe(stripAnsi(result));
 		} finally {
 			chalk.level = prev;
 		}
