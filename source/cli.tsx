@@ -40,8 +40,8 @@ const cli = meow(
 		--sessions      Launch interactive session picker before main UI
 		--workflow       Workflow reference displayed in header (e.g. name@rev)
 
-	Note: All isolation modes use --setting-sources "" to completely isolate
-	      from Claude Code's settings. athena-cli is fully self-contained.
+	Note: Claude loads its own settings for permissions. athena injects hooks
+	      via --settings for event interception and tool auto-approval.
 
 	Config Files
 		Global:  ~/.config/athena/config.json

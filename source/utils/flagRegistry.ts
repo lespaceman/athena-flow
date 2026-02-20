@@ -48,9 +48,10 @@ export const FLAG_REGISTRY: FlagDef[] = [
 	},
 
 	// === Tool Access ===
-	// allowedTools is intentionally excluded — consumed as hook rules, not CLI flags.
-	// In headless mode, --allowedTools silently pre-approves tools without hook events.
-	// By routing through PreToolUse hooks instead, athena gets visibility and control.
+	// allowedTools is intentionally excluded — consumed as PreToolUse hook rules.
+	// When a tool matches the allowlist, athena returns permissionDecision:"allow"
+	// in PreToolUse, bypassing Claude's permission system. Non-matching tools
+	// passthrough to Claude's own permission config (3-tier model).
 	{field: 'disallowedTools', flag: '--disallowedTools', kind: 'array'},
 	{field: 'tools', flag: '--tools', kind: 'value'},
 

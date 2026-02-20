@@ -68,8 +68,6 @@ describe('spawnClaude', () => {
 				'stream-json',
 				'--settings',
 				'/tmp/mock-settings.json',
-				'--setting-sources',
-				'',
 				'--strict-mcp-config', // default strict preset
 			]),
 			expect.objectContaining({

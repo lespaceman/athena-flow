@@ -53,6 +53,21 @@ Claude Code → hook-forwarder (stdin JSON) → UDS → Runtime adapter → Runt
                                              └── hook-forwarder (stdout/exit code) ← RuntimeDecision ← hookController ←┘
 ```
 
+### Permission Model (3-tier)
+
+Claude is the permission authority. athena is an accelerator + UI owner.
+
+```
+PreToolUse event received
+  ├─ Tool in athena allowlist → permissionDecision:"allow" (bypass Claude permissions)
+  └─ Tool NOT in allowlist → passthrough (Claude decides)
+       ├─ Claude auto-allows → tool executes, no prompt
+       └─ Claude would prompt → PermissionRequest fires
+            └─ athena shows permission prompt UI
+```
+
+Key: athena cannot hard-block tools Claude already allows. Use `disallowedTools` (--disallowedTools flag) or `tools` (--tools flag) for hard restrictions.
+
 ### Runtime Layer (`source/runtime/`)
 
 The runtime layer abstracts how hook events are received and exposes a uniform `Runtime` interface:
@@ -157,8 +172,10 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - **MCP collision detection**: `registerPlugins()` throws if two plugins define the same MCP server name
 - **Flag registry**: Adding a new Claude CLI flag = add one `FlagDef` entry to `FLAG_REGISTRY`, no other changes needed
 - **Error boundaries**: Every `<HookEvent>` and dialog is wrapped in `<ErrorBoundary>` with recoverable fallbacks (Escape key)
-- **Settings isolation**: Always passes `--setting-sources ""` to Claude — athena fully controls what Claude sees
 - **Ink `<Static>` is write-once**: Every event is immediately stable — no waiting for PostToolUse before rendering
 - **Session lifecycle is per-message**: Each `spawnClaude()` creates a new session (SessionStart→Stop→SessionEnd). State flags like `sessionEnded` must reset on new `SessionStart` or they affect future sessions
 - **Ink border width overhead**: `borderStyle="round"` consumes 2 chars (left+right borders). Components computing width from `process.stdout.columns` inside bordered boxes must subtract border + padding overhead or content will overflow and break the border rendering.
 - **Independent events with causality**: Every feed event is its own independent static line (no pairing or waiting), but events link to parents via `cause.parent_event_id` (e.g., `tool.post` → `tool.pre`, `permission.decision` → `permission.request`). Components render independently; correlation is for data attribution, not render grouping.
+- **allowedTools as PreToolUse accelerator**: `allowedTools` in `IsolationConfig` is NOT passed as a CLI flag to Claude. It is converted to `HookRule[]` that auto-approve matched tools via `permissionDecision:"allow"` in PreToolUse hooks, bypassing Claude's permission system. Non-matching tools passthrough to Claude's own permission config.
+- **Hook settings temp file**: `generateHookSettings()` creates a temporary JSON settings file at spawn time registering `athena-hook-forwarder` for all hook event types. Cleaned up on process exit.
+- **No Ink `<Static>`**: All events rendered in a fixed viewport with manual scrolling state (`feedNav.feedViewportStart`), avoiding Ink's write-once constraint.
