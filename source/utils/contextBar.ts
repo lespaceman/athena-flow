@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 
 export function formatTokenCount(value: number | null): string {
-	if (value === null) return '–';
+	if (value === null) return '0';
 	if (value < 1000) return String(value);
 	const k = value / 1000;
 	if (Number.isInteger(k)) return `${k}k`;

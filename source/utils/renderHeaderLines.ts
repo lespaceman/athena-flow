@@ -124,10 +124,12 @@ export function renderHeaderLines(
 	const sidLabel = hasColor ? chalk.dim('Session ID: ') : 'Session ID: ';
 	const sidText = `${sidLabel}${model.session_id}`;
 
-	// Context bar fills remaining width
+	// Context bar: compact, right-aligned
 	const sidVW = visWidth(sidText);
 	const minCtxWidth = 20;
-	const ctxAvail = Math.max(minCtxWidth, width - 1 - sidVW - SEP.length);
+	const maxCtxWidth = 28;
+	const remaining = width - 1 - sidVW - SEP.length;
+	const ctxAvail = Math.max(minCtxWidth, Math.min(maxCtxWidth, remaining));
 	const ctxBar = renderContextBar(
 		model.context.used,
 		model.context.max,
@@ -135,23 +137,23 @@ export function renderHeaderLines(
 		hasColor,
 	);
 
-	const leftStr2 = `${sidText}${SEP}${ctxBar}`;
-
-	// Truncate if line 2 overflows
-	const l2vw = visWidth(leftStr2);
+	// Right-align context bar: Session ID on left, context bar on right
+	const ctxVW = visWidth(ctxBar);
+	const totalTarget = width - 1;
+	const gap2 = Math.max(1, totalTarget - sidVW - ctxVW);
 	let line2: string;
-	if (l2vw <= width - 1) {
-		line2 = leftStr2 + ' '.repeat(Math.max(0, width - 1 - l2vw));
+	if (sidVW + ctxVW + 1 <= totalTarget) {
+		line2 = sidText + ' '.repeat(gap2) + ctxBar;
 	} else {
-		// Drop session ID, just show context bar
+		// Drop session ID, right-align context bar only
 		const ctxOnly = renderContextBar(
 			model.context.used,
 			model.context.max,
-			Math.max(minCtxWidth, width - 1),
+			Math.max(minCtxWidth, Math.min(maxCtxWidth, totalTarget)),
 			hasColor,
 		);
 		const cvw = visWidth(ctxOnly);
-		line2 = ctxOnly + ' '.repeat(Math.max(0, width - 1 - cvw));
+		line2 = ' '.repeat(Math.max(0, totalTarget - cvw)) + ctxOnly;
 	}
 
 	return [line1, line2];

@@ -123,7 +123,12 @@ export function useClaudeProcess(
 			setStreamingText('');
 			setIsRunning(true);
 			tokenAccRef.current.reset();
-			setTokenUsage(NULL_TOKENS);
+			// Preserve last known contextSize across runs — it stays valid until
+			// the new run reports updated context numbers.
+			setTokenUsage(prev => ({
+				...NULL_TOKENS,
+				contextSize: prev.contextSize,
+			}));
 
 			const child = spawnClaude({
 				prompt,
