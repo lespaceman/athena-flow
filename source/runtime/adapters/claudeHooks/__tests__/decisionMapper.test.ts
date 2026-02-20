@@ -94,4 +94,17 @@ describe('mapDecisionToResult', () => {
 		const hso = output.hookSpecificOutput as Record<string, unknown>;
 		expect(hso.permissionDecision).toBe('allow');
 	});
+
+	it('maps pre_tool_deny intent', () => {
+		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'pre_tool_deny', reason: 'No'},
+		});
+		expect(result.action).toBe('json_output');
+		const output = result.stdout_json as Record<string, unknown>;
+		const hso = output.hookSpecificOutput as Record<string, unknown>;
+		expect(hso.permissionDecision).toBe('deny');
+		expect(hso.permissionDecisionReason).toBe('No');
+	});
 });

@@ -87,12 +87,15 @@ describe('hookController handleEvent', () => {
 		expect(cb.enqueueQuestion).toHaveBeenCalledWith('req-1');
 	});
 
-	it('passes through PreToolUse when no rule matches', () => {
+	it('enqueues PreToolUse for user when no rule matches', () => {
 		const cb = makeCallbacks();
 		const result = handleEvent(makeEvent('PreToolUse'), cb);
 
-		expect(result.handled).toBe(false);
-		expect(cb.enqueuePermission).not.toHaveBeenCalled();
+		expect(result.handled).toBe(true);
+		expect(result.decision).toBeUndefined();
+		expect(cb.enqueuePermission).toHaveBeenCalledWith(
+			expect.objectContaining({id: 'req-1', hookName: 'PreToolUse'}),
+		);
 	});
 
 	it('returns immediate pre_tool_allow when approve rule matches PreToolUse', () => {
@@ -107,13 +110,16 @@ describe('hookController handleEvent', () => {
 		expect(result.decision!.intent).toEqual({kind: 'pre_tool_allow'});
 	});
 
-	it('passes through PreToolUse when deny rule matches (deny not enforced on PreToolUse)', () => {
+	it('returns immediate pre_tool_deny when deny rule matches PreToolUse', () => {
 		const cb = makeCallbacks();
 		cb._rules = [{id: '1', toolName: 'Bash', action: 'deny', addedBy: 'test'}];
 		const result = handleEvent(makeEvent('PreToolUse'), cb);
 
-		expect(result.handled).toBe(false);
-		expect(cb.enqueuePermission).not.toHaveBeenCalled();
+		expect(result.handled).toBe(true);
+		expect(result.decision!.intent).toEqual({
+			kind: 'pre_tool_deny',
+			reason: 'Blocked by rule: test',
+		});
 	});
 
 	it('tracks session ID on SessionStart', () => {

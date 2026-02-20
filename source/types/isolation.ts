@@ -1,18 +1,24 @@
 /**
  * Isolation types for spawning Claude Code processes.
  *
- * Controls how the spawned headless Claude Code process is configured.
- * Claude loads its normal settings for permission management.
- * athena injects hooks via --settings for event interception and
- * auto-approves allowlisted tools via PreToolUse hooks.
+ * Controls how the spawned headless Claude Code process is isolated
+ * from the project's configuration.
+ *
+ * IMPORTANT: athena-cli always uses `--setting-sources ""` to completely
+ * isolate from Claude Code's settings. All configuration comes from athena's
+ * own generated settings file. This ensures athena is fully self-contained
+ * and doesn't inherit unexpected behavior from user's Claude settings.
  */
 
 /**
  * Preset isolation levels for common use cases.
  *
- * Claude loads its own permission settings. Presets control:
- * - Which tools athena auto-approves (bypassing Claude's permission prompts)
- * - MCP server access
+ * All presets use full settings isolation (`--setting-sources ""`).
+ * The difference is in MCP server access:
+ *
+ * - `strict`: Block all MCP servers (default)
+ * - `minimal`: Allow project MCP servers
+ * - `permissive`: Allow project MCP servers (same as minimal for now)
  */
 export type IsolationPreset = 'strict' | 'minimal' | 'permissive';
 
@@ -121,6 +127,9 @@ export type IsolationConfig = {
 
 /**
  * Preset configurations for common isolation use cases.
+ *
+ * All presets use `--setting-sources ""` for full isolation from Claude's
+ * settings. The presets differ in MCP server access and allowed tools.
  */
 export const ISOLATION_PRESETS: Record<
 	IsolationPreset,
@@ -128,9 +137,10 @@ export const ISOLATION_PRESETS: Record<
 > = {
 	/**
 	 * Strict isolation (default):
-	 * - Auto-approve core code tools (bypasses Claude's permission prompts)
+	 * - No Claude settings loaded (full isolation)
 	 * - Block all MCP servers
-	 * - All other tools: Claude's own permission config decides
+	 * - Allow core code tools (read, edit, search, bash)
+	 * - No network or MCP tools
 	 */
 	strict: {
 		strictMcpConfig: true,
@@ -139,9 +149,9 @@ export const ISOLATION_PRESETS: Record<
 
 	/**
 	 * Minimal isolation:
-	 * - Auto-approve core tools + web access + subagents
+	 * - No Claude settings loaded (full isolation)
 	 * - Allow project MCP servers
-	 * - All other tools: Claude's own permission config decides
+	 * - Allow core tools + web access + subagents
 	 */
 	minimal: {
 		strictMcpConfig: false,
@@ -162,9 +172,9 @@ export const ISOLATION_PRESETS: Record<
 
 	/**
 	 * Permissive:
-	 * - Auto-approve all common tools including MCP wildcard
+	 * - No Claude settings loaded (full isolation)
 	 * - Allow project MCP servers
-	 * - All other tools: Claude's own permission config decides
+	 * - Allow all tools including MCP wildcard
 	 */
 	permissive: {
 		strictMcpConfig: false,

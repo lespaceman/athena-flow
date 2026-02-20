@@ -240,7 +240,7 @@ export function useFeed(
 				intent: isAllow
 					? {kind: isPreToolUse ? 'pre_tool_allow' : 'permission_allow'}
 					: {
-							kind: 'permission_deny',
+							kind: isPreToolUse ? 'pre_tool_deny' : 'permission_deny',
 							reason: 'Denied by user via permission dialog',
 						},
 			};

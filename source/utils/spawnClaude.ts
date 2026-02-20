@@ -17,11 +17,11 @@ export type {SpawnClaudeOptions};
  * Uses `claude -p` for proper headless/programmatic mode with streaming JSON output.
  * Passes ATHENA_INSTANCE_ID env var so hook-forwarder can route to the correct socket.
  *
- * Permission model (3-tier):
- * - Claude loads its normal settings (user/project/local) for permission config
- * - athena injects hooks via --settings (highest priority) for event interception
- * - PreToolUse: athena auto-approves allowlisted tools, passthrough otherwise
- * - PermissionRequest: athena shows prompt UI or applies policy
+ * By default, uses strict isolation:
+ * - Only loads user settings (API keys, model preferences)
+ * - Skips project/local settings
+ * - Injects athena's hooks via temp settings file
+ * - Blocks project MCP servers
  */
 export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	const {
@@ -51,6 +51,11 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 
 	// Add isolation flags
 	args.push('--settings', settingsPath);
+
+	// Full settings isolation: don't load any Claude settings
+	// All configuration comes from athena's generated settings file
+	// Authentication still works (stored in ~/.claude.json, not settings)
+	args.push('--setting-sources', '');
 
 	// Validate and warn about conflicting flags (non-fatal: conflicts are
 	// logged to stderr but both flags are still passed to Claude's CLI parser)
