@@ -63,6 +63,12 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 	} = input;
 
 	const lastSummary = runSummaries[runSummaries.length - 1];
+	const status = deriveStatus(currentRun, runSummaries);
+
+	// Only show ended_at for terminal statuses (not idle)
+	const showEndedAt =
+		!currentRun &&
+		(status === 'succeeded' || status === 'failed' || status === 'stopped');
 
 	return {
 		workflow_ref: workflowRef,
@@ -74,11 +80,11 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 			todoPanel.todoItems.length > 0
 				? {done: todoPanel.doneCount, total: todoPanel.todoItems.length}
 				: undefined,
-		status: deriveStatus(currentRun, runSummaries),
+		status,
 		err_count: metrics.failures,
 		block_count: metrics.blocks,
 		elapsed_ms: currentRun ? now - currentRun.started_at : undefined,
-		ended_at: !currentRun ? lastSummary?.endedAt : undefined,
+		ended_at: showEndedAt ? lastSummary?.endedAt : undefined,
 		tail_mode: tailFollow,
 	};
 }

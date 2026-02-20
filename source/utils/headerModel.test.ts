@@ -70,6 +70,24 @@ describe('buildHeaderModel', () => {
 		expect(model.status).toBe('stopped');
 	});
 
+	it('maps SUCCEEDED to succeeded with ended_at', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			runSummaries: [{status: 'SUCCEEDED', endedAt: 998000}],
+		});
+		expect(model.status).toBe('succeeded');
+		expect(model.ended_at).toBe(998000);
+	});
+
+	it('does not set ended_at for idle status', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			runSummaries: [{status: 'UNKNOWN', endedAt: 998000}],
+		});
+		expect(model.status).toBe('idle');
+		expect(model.ended_at).toBeUndefined();
+	});
+
 	it('includes progress only when total > 0', () => {
 		const noProgress = buildHeaderModel(baseInput);
 		expect(noProgress.progress).toBeUndefined();

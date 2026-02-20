@@ -48,7 +48,7 @@ function padLine(
 	let truncatedLeft = left;
 	if (lw + rw + 1 > totalTarget) {
 		const maxLW = Math.max(0, totalTarget - rw - 1);
-		truncatedLeft = truncateStr(stripAnsiIfNeeded(left, hasColor), maxLW);
+		truncatedLeft = truncateStr(toPlainText(left, hasColor), maxLW);
 		lw = truncatedLeft.length;
 	}
 
@@ -56,10 +56,9 @@ function padLine(
 	return truncatedLeft + ' '.repeat(gap) + right;
 }
 
-function stripAnsiIfNeeded(s: string, hasColor: boolean): string {
+/** Strip ANSI escape codes so truncation doesn't break mid-sequence. */
+function toPlainText(s: string, hasColor: boolean): string {
 	if (!hasColor) return s;
-	// For colored strings, strip ANSI before truncation then return plain
-	// This loses color but prevents ANSI-broken strings
 	return s.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
@@ -67,10 +66,11 @@ export function renderHeaderLines(
 	model: HeaderModel,
 	width: number,
 	hasColor: boolean,
-): [string, string, string] {
+	now?: number,
+): [string, string] {
 	const maxBW = maxBadgeWidth(hasColor);
 	const shortClock = width < 70;
-	const clockStr = formatClock(Date.now());
+	const clockStr = formatClock(now ?? Date.now());
 	const clock = shortClock ? clockStr.slice(0, 5) : clockStr; // HH:MM or HH:MM:SS
 
 	// Right rail line 1: badge (padded to maxBW) + space + clock
@@ -201,10 +201,5 @@ export function renderHeaderLines(
 			? padLine(leftStr2, rightStr2, width, hasColor)
 			: ' '.repeat(width - 1);
 
-	// Line 3: separator
-	const dashChar = '\u2500'; // ─
-	const rawSep = dashChar.repeat(width - 1);
-	const line3 = hasColor ? chalk.dim(rawSep) : rawSep;
-
-	return [line1, line2, line3];
+	return [line1, line2];
 }

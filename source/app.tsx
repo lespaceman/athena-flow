@@ -575,6 +575,7 @@ function AppContent({
 	});
 
 	const hasColor = !process.env['NO_COLOR'];
+	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
 		currentRun: currentRun
@@ -588,13 +589,14 @@ function AppContent({
 		metrics,
 		todoPanel,
 		tailFollow: feedNav.tailFollow,
-		now: Date.now(),
-		workflowRef: workflowRef,
+		now,
+		workflowRef,
 	});
 	const [headerLine1, headerLine2] = renderHeaderLines(
 		headerModel,
 		innerWidth,
 		hasColor,
+		now,
 	);
 
 	// ── Body lines ──────────────────────────────────────────
