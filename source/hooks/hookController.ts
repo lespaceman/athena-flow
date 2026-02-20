@@ -85,12 +85,50 @@ export function handleEvent(
 		return {handled: true};
 	}
 
-	// ── PreToolUse permission gate: check rules, enqueue if no match ──
+	// ── PreToolUse: approve/deny allowlisted tools, passthrough the rest ──
+	// In headless mode (claude -p), PermissionRequest never fires — PreToolUse
+	// is our only hook. Allowlisted tools get auto-approved; everything else
+	// passes through so Claude can execute without athena prompting the user
+	// for tools Claude already has permission to use.
 	if (event.hookName === 'PreToolUse' && event.toolName) {
-		return applyToolRules(event, cb, {
-			allow: 'pre_tool_allow',
-			deny: 'pre_tool_deny',
-		});
+		const rule = matchRule(cb.getRules(), event.toolName);
+
+		if (rule?.action === 'deny') {
+			return {
+				handled: true,
+				decision: {
+					type: 'json',
+					source: 'rule',
+					intent: {
+						kind: 'pre_tool_deny',
+						reason: `Blocked by rule: ${rule.addedBy}`,
+					},
+				},
+			};
+		}
+
+		if (rule?.action === 'approve') {
+			return {
+				handled: true,
+				decision: {
+					type: 'json',
+					source: 'rule',
+					intent: {kind: 'pre_tool_allow'},
+				},
+			};
+		}
+
+		// No rule match → auto-allow. In headless mode (claude -p) with
+		// --setting-sources "", a passthrough leaves Claude with no permission
+		// config, so tools silently fail. We must explicitly allow.
+		return {
+			handled: true,
+			decision: {
+				type: 'json',
+				source: 'rule',
+				intent: {kind: 'pre_tool_allow'},
+			},
+		};
 	}
 
 	// ── Session tracking (side effects) ──

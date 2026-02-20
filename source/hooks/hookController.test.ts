@@ -87,15 +87,14 @@ describe('hookController handleEvent', () => {
 		expect(cb.enqueueQuestion).toHaveBeenCalledWith('req-1');
 	});
 
-	it('enqueues PreToolUse for user when no rule matches', () => {
+	it('auto-allows PreToolUse when no rule matches (no permission prompt)', () => {
 		const cb = makeCallbacks();
 		const result = handleEvent(makeEvent('PreToolUse'), cb);
 
 		expect(result.handled).toBe(true);
-		expect(result.decision).toBeUndefined();
-		expect(cb.enqueuePermission).toHaveBeenCalledWith(
-			expect.objectContaining({id: 'req-1', hookName: 'PreToolUse'}),
-		);
+		expect(result.decision).toBeDefined();
+		expect(result.decision!.intent).toEqual({kind: 'pre_tool_allow'});
+		expect(cb.enqueuePermission).not.toHaveBeenCalled();
 	});
 
 	it('returns immediate pre_tool_allow when approve rule matches PreToolUse', () => {
