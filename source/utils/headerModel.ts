@@ -1,13 +1,14 @@
 import type {HeaderStatus} from './statusBadge.js';
-import {formatSessionLabel, formatRunLabel} from './format.js';
+import {detectHarness} from './detectHarness.js';
 
 export type {HeaderStatus} from './statusBadge.js';
 
 export interface HeaderModel {
-	workflow_ref?: string;
-	run_title?: string;
-	session_id_short: string;
-	run_id_short?: string;
+	session_id: string;
+	workflow: string;
+	harness: string;
+	run_count: number;
+	context: {used: number | null; max: number};
 	engine?: string;
 	progress?: {done: number; total: number};
 	status: HeaderStatus;
@@ -35,6 +36,9 @@ export interface HeaderModelInput {
 	tailFollow: boolean;
 	now: number;
 	workflowRef?: string;
+	harness?: string;
+	contextUsed?: number | null;
+	contextMax?: number;
 }
 
 function deriveStatus(
@@ -71,10 +75,11 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		(status === 'succeeded' || status === 'failed' || status === 'stopped');
 
 	return {
-		workflow_ref: workflowRef,
-		run_title: currentRun?.trigger.prompt_preview,
-		session_id_short: formatSessionLabel(session?.session_id),
-		run_id_short: currentRun ? formatRunLabel(currentRun.run_id) : undefined,
+		session_id: session?.session_id ?? '–',
+		workflow: workflowRef ?? 'default',
+		harness: input.harness ?? detectHarness(),
+		run_count: runSummaries.length,
+		context: {used: input.contextUsed ?? null, max: input.contextMax ?? 200000},
 		engine: session?.agent_type,
 		progress:
 			todoPanel.todoItems.length > 0

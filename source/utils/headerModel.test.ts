@@ -1,5 +1,9 @@
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, vi} from 'vitest';
 import {buildHeaderModel} from './headerModel.js';
+
+vi.mock('./detectHarness.js', () => ({
+	detectHarness: () => 'Claude Code',
+}));
 
 const baseInput = {
 	session: {session_id: 'abc123', agent_type: 'claude-code'},
@@ -19,8 +23,7 @@ describe('buildHeaderModel', () => {
 	it('returns idle status when no run exists', () => {
 		const model = buildHeaderModel(baseInput);
 		expect(model.status).toBe('idle');
-		expect(model.session_id_short).toBeTruthy();
-		expect(model.run_id_short).toBeUndefined();
+		expect(model.session_id).toBe('abc123');
 		expect(model.elapsed_ms).toBeUndefined();
 	});
 
@@ -34,12 +37,53 @@ describe('buildHeaderModel', () => {
 			},
 		});
 		expect(model.status).toBe('running');
-		expect(model.run_title).toBe('Fix the bug');
 		expect(model.elapsed_ms).toBe(1000);
-		expect(model.run_id_short).toBeTruthy();
 	});
 
-	it('prefers workflow_ref over run_title (both present)', () => {
+	it('defaults workflow to "default" when workflowRef is undefined', () => {
+		const model = buildHeaderModel(baseInput);
+		expect(model.workflow).toBe('default');
+	});
+
+	it('uses workflowRef for workflow when provided', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			workflowRef: 'web.login.smoke@7c91f2',
+		});
+		expect(model.workflow).toBe('web.login.smoke@7c91f2');
+	});
+
+	it('includes run_count from runSummaries length', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			runSummaries: [
+				{status: 'SUCCEEDED', endedAt: 997000},
+				{status: 'FAILED', endedAt: 998000},
+			],
+		});
+		expect(model.run_count).toBe(2);
+	});
+
+	it('includes harness field', () => {
+		const model = buildHeaderModel(baseInput);
+		expect(model.harness).toBe('Claude Code');
+	});
+
+	it('includes context with null used and default max', () => {
+		const model = buildHeaderModel(baseInput);
+		expect(model.context).toEqual({used: null, max: 200000});
+	});
+
+	it('includes context with provided values', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			contextUsed: 50000,
+			contextMax: 100000,
+		});
+		expect(model.context).toEqual({used: 50000, max: 100000});
+	});
+
+	it('no longer has run_id_short or run_title fields', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			currentRun: {
@@ -47,10 +91,11 @@ describe('buildHeaderModel', () => {
 				trigger: {prompt_preview: 'Fix the bug'},
 				started_at: 999000,
 			},
-			workflowRef: 'web.login.smoke@7c91f2',
 		});
-		expect(model.workflow_ref).toBe('web.login.smoke@7c91f2');
-		expect(model.run_title).toBe('Fix the bug');
+		expect(model).not.toHaveProperty('run_id_short');
+		expect(model).not.toHaveProperty('run_title');
+		expect(model).not.toHaveProperty('workflow_ref');
+		expect(model).not.toHaveProperty('session_id_short');
 	});
 
 	it('derives status from last runSummary when no active run', () => {
@@ -115,7 +160,7 @@ describe('buildHeaderModel', () => {
 
 	it('handles null session gracefully', () => {
 		const model = buildHeaderModel({...baseInput, session: null});
-		expect(model.session_id_short).toBeTruthy();
+		expect(model.session_id).toBe('–');
 		expect(model.engine).toBeUndefined();
 	});
 });
