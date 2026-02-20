@@ -85,12 +85,25 @@ export function handleEvent(
 		return {handled: true};
 	}
 
-	// ── PreToolUse permission gate: check rules, enqueue if no match ──
+	// ── PreToolUse: auto-approve allowlisted tools, passthrough everything else ──
 	if (event.hookName === 'PreToolUse' && event.toolName) {
-		return applyToolRules(event, cb, {
-			allow: 'pre_tool_allow',
-			deny: 'pre_tool_deny',
-		});
+		const rule = matchRule(cb.getRules(), event.toolName);
+
+		// Only approve rules are checked — deny rules are not enforced on PreToolUse.
+		// Hard tool restrictions use --disallowedTools (tool removal from Claude).
+		if (rule?.action === 'approve') {
+			return {
+				handled: true,
+				decision: {
+					type: 'json',
+					source: 'rule',
+					intent: {kind: 'pre_tool_allow'},
+				},
+			};
+		}
+
+		// No allowlist match → passthrough. Let Claude's permission system decide.
+		return {handled: false};
 	}
 
 	// ── Session tracking (side effects) ──
