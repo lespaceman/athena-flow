@@ -22,7 +22,7 @@ describe('formatTokenCount', () => {
 describe('renderContextBar', () => {
 	it('renders filled bar proportionally', () => {
 		const result = renderContextBar(100000, 200000, 24, false);
-		expect(result).toContain('ctx');
+		expect(result).toContain('Context');
 		expect(result).toContain('100k/200k');
 	});
 

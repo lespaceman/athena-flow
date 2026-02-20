@@ -13,7 +13,7 @@ const baseInput = {
 		started_at: number;
 	} | null,
 	runSummaries: [] as {status: string; endedAt?: number}[],
-	metrics: {failures: 0, blocks: 0, subagentCount: 0},
+	metrics: {failures: 0, blocks: 0},
 	todoPanel: {doneCount: 0, doingCount: 0, todoItems: {length: 0}},
 	tailFollow: false,
 	now: 1000000,
@@ -26,7 +26,7 @@ describe('buildHeaderModel', () => {
 		expect(model.session_id).toBe('abc123');
 	});
 
-	it('returns running status with active run', () => {
+	it('returns active status with active run', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			currentRun: {
@@ -35,7 +35,7 @@ describe('buildHeaderModel', () => {
 				started_at: 999000,
 			},
 		});
-		expect(model.status).toBe('running');
+		expect(model.status).toBe('active');
 	});
 
 	it('defaults workflow to "default" when workflowRef is undefined', () => {
@@ -49,17 +49,6 @@ describe('buildHeaderModel', () => {
 			workflowRef: 'web.login.smoke@7c91f2',
 		});
 		expect(model.workflow).toBe('web.login.smoke@7c91f2');
-	});
-
-	it('includes run_count from runSummaries length', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			runSummaries: [
-				{status: 'SUCCEEDED', endedAt: 997000},
-				{status: 'FAILED', endedAt: 998000},
-			],
-		});
-		expect(model.run_count).toBe(2);
 	});
 
 	it('includes harness field', () => {
@@ -81,51 +70,12 @@ describe('buildHeaderModel', () => {
 		expect(model.context).toEqual({used: 50000, max: 100000});
 	});
 
-	it('computes active_agents as subagentCount + 1', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			metrics: {failures: 0, blocks: 0, subagentCount: 3},
-		});
-		expect(model.active_agents).toBe(4);
-	});
-
-	it('passes token_in and token_out', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			tokenIn: 15000,
-			tokenOut: 3200,
-		});
-		expect(model.token_in).toBe(15000);
-		expect(model.token_out).toBe(3200);
-	});
-
-	it('defaults token_in and token_out to null', () => {
-		const model = buildHeaderModel(baseInput);
-		expect(model.token_in).toBeNull();
-		expect(model.token_out).toBeNull();
-	});
-
-	it('no longer has elapsed_ms, ended_at, run_id_short, or run_title fields', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			currentRun: {
-				run_id: 'run1',
-				trigger: {prompt_preview: 'Fix the bug'},
-				started_at: 999000,
-			},
-		});
-		expect(model).not.toHaveProperty('elapsed_ms');
-		expect(model).not.toHaveProperty('ended_at');
-		expect(model).not.toHaveProperty('run_id_short');
-		expect(model).not.toHaveProperty('run_title');
-	});
-
-	it('derives status from last runSummary when no active run', () => {
+	it('derives error status from FAILED runSummary', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			runSummaries: [{status: 'FAILED', endedAt: 998000}],
 		});
-		expect(model.status).toBe('failed');
+		expect(model.status).toBe('error');
 	});
 
 	it('maps CANCELLED to stopped', () => {
@@ -136,12 +86,27 @@ describe('buildHeaderModel', () => {
 		expect(model.status).toBe('stopped');
 	});
 
-	it('maps SUCCEEDED to succeeded', () => {
+	it('maps SUCCEEDED to idle', () => {
 		const model = buildHeaderModel({
 			...baseInput,
 			runSummaries: [{status: 'SUCCEEDED', endedAt: 998000}],
 		});
-		expect(model.status).toBe('succeeded');
+		expect(model.status).toBe('idle');
+	});
+
+	it('includes error_reason only when status is error', () => {
+		const errorModel = buildHeaderModel({
+			...baseInput,
+			runSummaries: [{status: 'FAILED'}],
+			errorReason: 'Permission denied',
+		});
+		expect(errorModel.error_reason).toBe('Permission denied');
+
+		const idleModel = buildHeaderModel({
+			...baseInput,
+			errorReason: 'Should not appear',
+		});
+		expect(idleModel.error_reason).toBeUndefined();
 	});
 
 	it('includes progress only when total > 0', () => {
@@ -155,13 +120,14 @@ describe('buildHeaderModel', () => {
 		expect(withProgress.progress).toEqual({done: 3, total: 10});
 	});
 
-	it('maps metrics correctly', () => {
-		const model = buildHeaderModel({
-			...baseInput,
-			metrics: {failures: 5, blocks: 2, subagentCount: 0},
-		});
-		expect(model.err_count).toBe(5);
-		expect(model.block_count).toBe(2);
+	it('no longer has removed fields', () => {
+		const model = buildHeaderModel(baseInput);
+		expect(model).not.toHaveProperty('run_count');
+		expect(model).not.toHaveProperty('active_agents');
+		expect(model).not.toHaveProperty('token_in');
+		expect(model).not.toHaveProperty('token_out');
+		expect(model).not.toHaveProperty('err_count');
+		expect(model).not.toHaveProperty('block_count');
 	});
 
 	it('passes engine from session agent_type', () => {

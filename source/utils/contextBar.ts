@@ -16,7 +16,7 @@ export function renderContextBar(
 ): string {
 	const usedStr = formatTokenCount(used);
 	const maxStr = formatTokenCount(max);
-	const label = `ctx `;
+	const label = 'Context ';
 	const numbers = ` ${usedStr}/${maxStr}`;
 
 	const bracketOverhead = hasColor ? 0 : 2;
@@ -37,7 +37,7 @@ export function renderContextBar(
 		const emptyStr = emptyChar.repeat(empty);
 		const pct = used !== null ? used / max : 0;
 		const colorFn =
-			pct > 0.8 ? chalk.red : pct > 0.5 ? chalk.yellow : chalk.green;
+			pct > 0.9 ? chalk.red : pct > 0.7 ? chalk.yellow : chalk.green;
 		bar = colorFn(filledStr) + chalk.dim(emptyStr);
 	} else {
 		const filledStr = '='.repeat(filled);
@@ -45,5 +45,8 @@ export function renderContextBar(
 		bar = `[${filledStr}${emptyStr}]`;
 	}
 
+	if (hasColor) {
+		return `${chalk.dim(label)}${bar}${numbers}`;
+	}
 	return `${label}${bar}${numbers}`;
 }

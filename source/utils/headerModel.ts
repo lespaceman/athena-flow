@@ -7,16 +7,11 @@ export interface HeaderModel {
 	session_id: string;
 	workflow: string;
 	harness: string;
-	run_count: number;
-	active_agents: number;
-	token_in: number | null;
-	token_out: number | null;
 	context: {used: number | null; max: number};
 	engine?: string;
 	progress?: {done: number; total: number};
 	status: HeaderStatus;
-	err_count: number;
-	block_count: number;
+	error_reason?: string;
 	tail_mode: boolean;
 }
 
@@ -28,7 +23,7 @@ export interface HeaderModelInput {
 		started_at: number;
 	} | null;
 	runSummaries: {status: string; endedAt?: number}[];
-	metrics: {failures: number; blocks: number; subagentCount: number};
+	metrics: {failures: number; blocks: number};
 	todoPanel: {
 		doneCount: number;
 		doingCount: number;
@@ -40,20 +35,19 @@ export interface HeaderModelInput {
 	harness?: string;
 	contextUsed?: number | null;
 	contextMax?: number;
-	tokenIn?: number | null;
-	tokenOut?: number | null;
+	errorReason?: string;
 }
 
 function deriveStatus(
 	currentRun: HeaderModelInput['currentRun'],
 	runSummaries: HeaderModelInput['runSummaries'],
 ): HeaderStatus {
-	if (currentRun) return 'running';
+	if (currentRun) return 'active';
 	const last = runSummaries[runSummaries.length - 1];
 	if (!last) return 'idle';
-	if (last.status === 'FAILED') return 'failed';
+	if (last.status === 'FAILED') return 'error';
 	if (last.status === 'CANCELLED') return 'stopped';
-	if (last.status === 'SUCCEEDED') return 'succeeded';
+	if (last.status === 'SUCCEEDED') return 'idle';
 	return 'idle';
 }
 
@@ -62,10 +56,8 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		session,
 		currentRun,
 		runSummaries,
-		metrics,
 		todoPanel,
 		tailFollow,
-		now,
 		workflowRef,
 	} = input;
 
@@ -75,10 +67,6 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		session_id: session?.session_id ?? '–',
 		workflow: workflowRef ?? 'default',
 		harness: input.harness ?? detectHarness(),
-		run_count: runSummaries.length,
-		active_agents: metrics.subagentCount + 1,
-		token_in: input.tokenIn ?? null,
-		token_out: input.tokenOut ?? null,
 		context: {used: input.contextUsed ?? null, max: input.contextMax ?? 200000},
 		engine: session?.agent_type,
 		progress:
@@ -86,8 +74,7 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 				? {done: todoPanel.doneCount, total: todoPanel.todoItems.length}
 				: undefined,
 		status,
-		err_count: metrics.failures,
-		block_count: metrics.blocks,
+		error_reason: status === 'error' ? input.errorReason : undefined,
 		tail_mode: tailFollow,
 	};
 }

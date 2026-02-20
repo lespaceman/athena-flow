@@ -589,7 +589,6 @@ function AppContent({
 		metrics: {
 			failures: metrics.failures,
 			blocks: metrics.blocks,
-			subagentCount: metrics.subagentCount,
 		},
 		todoPanel,
 		tailFollow: feedNav.tailFollow,
@@ -597,8 +596,6 @@ function AppContent({
 		workflowRef,
 		contextUsed: tokenUsage.contextSize,
 		contextMax: 200000,
-		tokenIn: tokenUsage.input,
-		tokenOut: tokenUsage.output,
 	});
 	const [headerLine1, headerLine2] = renderHeaderLines(
 		headerModel,
