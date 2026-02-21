@@ -33,7 +33,7 @@ import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
-import {fit, fitAnsi, formatRunLabel} from './utils/format.js';
+import {fit, fitAnsi} from './utils/format.js';
 
 type Props = {
 	projectDir: string;
@@ -559,12 +559,6 @@ function AppContent({
 	});
 
 	// ── Frame lines ─────────────────────────────────────────
-
-	const runLabel = formatRunLabel(
-		runFilter === 'all'
-			? (currentRun?.run_id ?? runSummaries[runSummaries.length - 1]?.runId)
-			: runFilter,
-	);
 
 	const frame = buildFrameLines({
 		innerWidth,
