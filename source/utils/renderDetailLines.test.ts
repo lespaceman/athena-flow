@@ -85,6 +85,52 @@ describe('renderDetailLines', () => {
 		expect(result.lines.some(l => l.includes('echo hello'))).toBe(true);
 	});
 
+	it('shows structured header for MCP tool.pre', () => {
+		const event = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__scroll_element_into_view',
+				tool_input: {eid: 'btn-1'},
+			},
+		});
+		const result = renderDetailLines(event, 80);
+		const text = result.lines.join('\n');
+		expect(text).toContain('Namespace: mcp');
+		expect(text).toContain('Server:    agent-web-interface');
+		expect(text).toContain('Action:    scroll_element_into_view');
+	});
+
+	it('shows standard header for built-in tool.pre', () => {
+		const event = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/foo.ts'},
+			},
+		});
+		const result = renderDetailLines(event, 80);
+		const text = result.lines.join('\n');
+		expect(text).toContain('● Read');
+		expect(text).not.toContain('Namespace:');
+	});
+
+	it('shows structured header for MCP tool.post', () => {
+		const event = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {url: 'https://example.com'},
+				tool_response: {result: 'ok'},
+			},
+		});
+		const result = renderDetailLines(event, 80);
+		const text = result.lines.join('\n');
+		expect(text).toContain('Server:    agent-web-interface');
+		expect(text).toContain('Action:    navigate');
+	});
+
 	it('falls back to JSON for unknown event kinds', () => {
 		const event = makeEvent({
 			kind: 'session.start',
