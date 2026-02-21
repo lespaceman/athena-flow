@@ -25,58 +25,41 @@ export type ControllerResult =
 	| {handled: true; decision?: RuntimeDecision}
 	| {handled: false};
 
-/**
- * Check rules for a tool event and return a decision, or enqueue for user dialog.
- */
-function applyToolRules(
-	event: RuntimeEvent,
-	cb: ControllerCallbacks,
-	intents: {
-		allow: 'permission_allow' | 'pre_tool_allow';
-		deny: 'permission_deny' | 'pre_tool_deny';
-	},
-): ControllerResult {
-	const rule = matchRule(cb.getRules(), event.toolName!);
-
-	if (rule?.action === 'deny') {
-		return {
-			handled: true,
-			decision: {
-				type: 'json',
-				source: 'rule',
-				intent: {
-					kind: intents.deny,
-					reason: `Blocked by rule: ${rule.addedBy}`,
-				},
-			},
-		};
-	}
-
-	if (rule?.action === 'approve') {
-		return {
-			handled: true,
-			decision: {
-				type: 'json',
-				source: 'rule',
-				intent: {kind: intents.allow},
-			},
-		};
-	}
-
-	cb.enqueuePermission(event);
-	return {handled: true};
-}
-
 export function handleEvent(
 	event: RuntimeEvent,
 	cb: ControllerCallbacks,
 ): ControllerResult {
 	// ── PermissionRequest: check rules, enqueue if no match ──
 	if (event.hookName === 'PermissionRequest' && event.toolName) {
-		return applyToolRules(event, cb, {
-			allow: 'permission_allow',
-			deny: 'permission_deny',
-		});
+		const rule = matchRule(cb.getRules(), event.toolName);
+
+		if (rule?.action === 'deny') {
+			return {
+				handled: true,
+				decision: {
+					type: 'json',
+					source: 'rule',
+					intent: {
+						kind: 'permission_deny',
+						reason: `Blocked by rule: ${rule.addedBy}`,
+					},
+				},
+			};
+		}
+
+		if (rule?.action === 'approve') {
+			return {
+				handled: true,
+				decision: {
+					type: 'json',
+					source: 'rule',
+					intent: {kind: 'permission_allow'},
+				},
+			};
+		}
+
+		cb.enqueuePermission(event);
+		return {handled: true};
 	}
 
 	// ── AskUserQuestion hijack ──
@@ -85,11 +68,10 @@ export function handleEvent(
 		return {handled: true};
 	}
 
-	// ── PreToolUse: approve/deny allowlisted tools, passthrough the rest ──
-	// In headless mode (claude -p), PermissionRequest never fires — PreToolUse
-	// is our only hook. Allowlisted tools get auto-approved; everything else
-	// passes through so Claude can execute without athena prompting the user
-	// for tools Claude already has permission to use.
+	// ── PreToolUse: deny-listed tools get blocked, everything else auto-allowed ──
+	// In headless mode (claude -p) with --setting-sources "", a passthrough
+	// leaves Claude with no permission config, so tools silently fail.
+	// We must explicitly allow all non-denied tools.
 	if (event.hookName === 'PreToolUse' && event.toolName) {
 		const rule = matchRule(cb.getRules(), event.toolName);
 
@@ -107,20 +89,6 @@ export function handleEvent(
 			};
 		}
 
-		if (rule?.action === 'approve') {
-			return {
-				handled: true,
-				decision: {
-					type: 'json',
-					source: 'rule',
-					intent: {kind: 'pre_tool_allow'},
-				},
-			};
-		}
-
-		// No rule match → auto-allow. In headless mode (claude -p) with
-		// --setting-sources "", a passthrough leaves Claude with no permission
-		// config, so tools silently fail. We must explicitly allow.
 		return {
 			handled: true,
 			decision: {
