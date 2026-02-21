@@ -10,14 +10,11 @@
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
 import {type HookRule, matchRule} from '../types/rules.js';
-import {parseTranscriptFile} from '../utils/transcriptParser.js';
 
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];
 	enqueuePermission: (event: RuntimeEvent) => void;
 	enqueueQuestion: (eventId: string) => void;
-	setCurrentSessionId: (sessionId: string) => void;
-	onTranscriptParsed: (eventId: string, summary: unknown) => void;
 	signal?: AbortSignal;
 };
 
@@ -97,30 +94,6 @@ export function handleEvent(
 				intent: {kind: 'pre_tool_allow'},
 			},
 		};
-	}
-
-	// ── Session tracking (side effects) ──
-	if (event.hookName === 'SessionStart') {
-		cb.setCurrentSessionId(event.sessionId);
-	}
-
-	if (event.hookName === 'SessionEnd') {
-		const transcriptPath = event.context.transcriptPath;
-		if (transcriptPath) {
-			parseTranscriptFile(transcriptPath, cb.signal)
-				.then(summary => cb.onTranscriptParsed(event.id, summary))
-				.catch(err => {
-					console.error('[SessionEnd] Failed to parse transcript:', err);
-				});
-		} else {
-			cb.onTranscriptParsed(event.id, {
-				lastAssistantText: null,
-				lastAssistantTimestamp: null,
-				messageCount: 0,
-				toolCallCount: 0,
-				error: 'No transcript path provided',
-			});
-		}
 	}
 
 	// Default: not handled — adapter timeout will auto-passthrough

@@ -141,6 +141,7 @@ export type StopRequestData = {
 	scope: 'root' | 'subagent';
 	agent_id?: string;
 	agent_type?: string;
+	last_assistant_message?: string;
 };
 
 export type StopDecisionData =
@@ -154,6 +155,7 @@ export type SubagentStopData = {
 	agent_type: string;
 	stop_hook_active: boolean;
 	agent_transcript_path?: string;
+	last_assistant_message?: string;
 };
 
 export type NotificationData = {
@@ -195,7 +197,7 @@ export type TodoDoneData = {todo_id: string; reason?: string};
 
 export type AgentMessageData = {
 	message: string;
-	source: 'transcript';
+	source: 'hook';
 	scope: 'root' | 'subagent';
 };
 

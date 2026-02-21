@@ -22,7 +22,7 @@ describe('renderDetailLines', () => {
 	it('renders agent.message as markdown', () => {
 		const event = makeEvent({
 			kind: 'agent.message',
-			data: {message: '**bold** text', source: 'transcript', scope: 'root'},
+			data: {message: '**bold** text', source: 'hook', scope: 'root'},
 		});
 		const result = renderDetailLines(event, 80);
 		expect(result.showLineNumbers).toBe(false);

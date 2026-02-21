@@ -71,6 +71,7 @@ export type NotificationEvent = BaseHookEvent & {
 export type StopEvent = BaseHookEvent & {
 	hook_event_name: 'Stop';
 	stop_hook_active: boolean;
+	last_assistant_message?: string;
 };
 
 // SubagentStart: Subagent spawn event
@@ -87,6 +88,7 @@ export type SubagentStopEvent = BaseHookEvent & {
 	agent_id: string;
 	agent_type: string;
 	agent_transcript_path?: string;
+	last_assistant_message?: string;
 };
 
 // UserPromptSubmit: User submits a prompt

@@ -353,6 +353,9 @@ export function createFeedMapper(): FeedMapper {
 							scope: (p.scope as 'root' | 'subagent') ?? 'root',
 							agent_id: p.agent_id as string | undefined,
 							agent_type: p.agent_type as string | undefined,
+							last_assistant_message: p.last_assistant_message as
+								| string
+								| undefined,
 						} satisfies import('./types.js').StopRequestData,
 						event,
 					),
@@ -397,6 +400,9 @@ export function createFeedMapper(): FeedMapper {
 							agent_type: event.agentType ?? (p.agent_type as string) ?? '',
 							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
 							agent_transcript_path: p.agent_transcript_path as
+								| string
+								| undefined,
+							last_assistant_message: p.last_assistant_message as
 								| string
 								| undefined,
 						} satisfies import('./types.js').SubagentStopData,

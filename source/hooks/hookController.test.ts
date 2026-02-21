@@ -35,8 +35,6 @@ function makeCallbacks(): ControllerCallbacks & {_rules: HookRule[]} {
 		},
 		enqueuePermission: vi.fn(),
 		enqueueQuestion: vi.fn(),
-		setCurrentSessionId: vi.fn(),
-		onTranscriptParsed: vi.fn(),
 	};
 }
 
@@ -119,13 +117,6 @@ describe('hookController handleEvent', () => {
 			kind: 'pre_tool_deny',
 			reason: 'Blocked by rule: test',
 		});
-	});
-
-	it('tracks session ID on SessionStart', () => {
-		const cb = makeCallbacks();
-		handleEvent(makeEvent('SessionStart'), cb);
-
-		expect(cb.setCurrentSessionId).toHaveBeenCalledWith('sess-1');
 	});
 
 	it('returns handled:false for unknown events', () => {

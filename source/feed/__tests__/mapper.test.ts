@@ -555,6 +555,67 @@ describe('FeedMapper', () => {
 		});
 	});
 
+	describe('last_assistant_message passthrough', () => {
+		it('passes last_assistant_message through Stop to StopRequestData', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+						last_assistant_message: 'Here is my answer.',
+					},
+				}),
+			);
+			const stopEvt = events.find(e => e.kind === 'stop.request');
+			expect(stopEvt).toBeDefined();
+			expect(stopEvt!.data.last_assistant_message).toBe('Here is my answer.');
+		});
+
+		it('passes last_assistant_message through SubagentStop to SubagentStopData', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('SubagentStop', {
+					agentId: 'agent-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						agent_id: 'agent-1',
+						agent_type: 'task',
+						stop_hook_active: false,
+						last_assistant_message: 'Subagent done.',
+					},
+				}),
+			);
+			const stopEvt = events.find(e => e.kind === 'subagent.stop');
+			expect(stopEvt).toBeDefined();
+			expect(stopEvt!.data.last_assistant_message).toBe('Subagent done.');
+		});
+
+		it('omits last_assistant_message when not in payload', () => {
+			const mapper = createFeedMapper();
+			const events = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+			);
+			const stopEvt = events.find(e => e.kind === 'stop.request');
+			expect(stopEvt!.data.last_assistant_message).toBeUndefined();
+		});
+	});
+
 	describe('seq numbering', () => {
 		it('assigns monotonically increasing seq within a run', () => {
 			const mapper = createFeedMapper();

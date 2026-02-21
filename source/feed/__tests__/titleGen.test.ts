@@ -118,7 +118,7 @@ describe('generateTitle', () => {
 	it('generates title for agent.message root', () => {
 		const event = makeFeedEvent('agent.message', {
 			message: 'Here is my final response.',
-			source: 'transcript',
+			source: 'hook',
 			scope: 'root',
 		});
 		expect(generateTitle(event)).toContain('Agent response');
@@ -127,7 +127,7 @@ describe('generateTitle', () => {
 	it('generates title for agent.message subagent', () => {
 		const event = makeFeedEvent('agent.message', {
 			message: 'Subagent result.',
-			source: 'transcript',
+			source: 'hook',
 			scope: 'subagent',
 		});
 		expect(generateTitle(event)).toContain('Subagent response');

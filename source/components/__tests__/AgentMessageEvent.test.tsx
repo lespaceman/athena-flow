@@ -18,7 +18,7 @@ function makeEvent(overrides?: Partial<Record<string, unknown>>): FeedEvent {
 		body: 'Here is my final response.',
 		data: {
 			message: 'Here is my final response.',
-			source: 'transcript',
+			source: 'hook',
 			scope: 'root',
 		},
 		...overrides,
@@ -35,7 +35,7 @@ describe('AgentMessageEvent', () => {
 		const event = makeEvent({
 			data: {
 				message: 'Done.',
-				source: 'transcript',
+				source: 'hook',
 				scope: 'subagent',
 			},
 		});

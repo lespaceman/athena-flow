@@ -11,8 +11,11 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
-import {parseTranscriptTail} from '../utils/parseTranscriptTail.js';
-import type {AgentMessageData} from '../feed/types.js';
+import type {
+	AgentMessageData,
+	StopRequestData,
+	SubagentStopData,
+} from '../feed/types.js';
 
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -51,23 +54,20 @@ export function extractPermissionSnapshot(
 	};
 }
 
-export async function enrichStopEvent(
-	stopEvent: FeedEvent,
-	signal?: AbortSignal,
-): Promise<FeedEvent | null> {
-	const transcriptPath = stopEvent.cause?.transcript_path;
-	if (!transcriptPath) return null;
-
-	const message = await parseTranscriptTail(transcriptPath, signal);
-	if (!message) return null;
-
+export function enrichStopEvent(stopEvent: FeedEvent): FeedEvent | null {
 	const isSubagent = stopEvent.kind === 'subagent.stop';
 	const scope = isSubagent ? 'subagent' : 'root';
 	const actorId = isSubagent ? stopEvent.actor_id : 'agent:root';
 
+	const message = isSubagent
+		? (stopEvent.data as SubagentStopData).last_assistant_message
+		: (stopEvent.data as StopRequestData).last_assistant_message;
+
+	if (!message) return null;
+
 	const data: AgentMessageData = {
 		message,
-		source: 'transcript',
+		source: 'hook',
 		scope,
 	};
 
@@ -87,7 +87,7 @@ export async function enrichStopEvent(
 		body: message,
 		cause: {
 			parent_event_id: stopEvent.event_id,
-			transcript_path: transcriptPath,
+			transcript_path: stopEvent.cause?.transcript_path,
 		},
 		data,
 	} as FeedEvent;
@@ -304,8 +304,6 @@ export function useFeed(
 			getRules: () => rulesRef.current,
 			enqueuePermission,
 			enqueueQuestion,
-			setCurrentSessionId: () => {}, // session tracking handled by mapper
-			onTranscriptParsed: () => {}, // transcript parsing handled differently now
 			signal: abortRef.current.signal,
 		};
 
@@ -321,6 +319,16 @@ export function useFeed(
 			// Map to feed events
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
+			// Sync enrichment: extract agent final message on stop/subagent.stop
+			const enriched: FeedEvent[] = [];
+			for (const fe of newFeedEvents) {
+				if (fe.kind === 'stop.request' || fe.kind === 'subagent.stop') {
+					const msgEvent = enrichStopEvent(fe);
+					if (msgEvent) enriched.push(msgEvent);
+				}
+			}
+			newFeedEvents.push(...enriched);
+
 			if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
 				// Auto-dequeue permissions/questions from incoming events
 				for (const fe of newFeedEvents) {
@@ -335,25 +343,6 @@ export function useFeed(
 						? updated.slice(-MAX_EVENTS)
 						: updated;
 				});
-			}
-
-			// Async enrichment: extract agent final message on stop/subagent.stop
-			for (const fe of newFeedEvents) {
-				if (
-					(fe.kind === 'stop.request' || fe.kind === 'subagent.stop') &&
-					fe.cause?.transcript_path
-				) {
-					enrichStopEvent(fe, abortRef.current.signal).then(msgEvent => {
-						if (msgEvent && !abortRef.current.signal.aborted) {
-							setFeedEvents(prev => {
-								const updated = [...prev, msgEvent];
-								return updated.length > MAX_EVENTS
-									? updated.slice(-MAX_EVENTS)
-									: updated;
-							});
-						}
-					});
-				}
 			}
 		});
 
