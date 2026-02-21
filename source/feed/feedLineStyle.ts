@@ -1,6 +1,7 @@
 import chalk, {type ChalkInstance} from 'chalk';
 import {type Theme} from '../theme/types.js';
 import {GLYPH_REGISTRY} from '../glyphs/index.js';
+import {FEED_OP_COL_START, FEED_OP_COL_END} from './timeline.js';
 
 /** All known collapsed glyphs (unicode + ascii). */
 const COLLAPSED_GLYPHS = new Set([
@@ -20,7 +21,16 @@ export type FeedLineStyleOptions = {
 	actorId: string;
 	isError: boolean;
 	theme: Theme;
+	op?: string;
 };
+
+function opCategoryColor(op: string, theme: Theme): string | undefined {
+	if (op.startsWith('tool.')) return theme.status.warning;
+	if (op.startsWith('perm.')) return theme.accentSecondary;
+	if (op.startsWith('stop.')) return theme.status.info;
+	if (op.startsWith('run.') || op.startsWith('sess.')) return theme.textMuted;
+	return undefined;
+}
 
 function actorStyle(actorId: string, theme: Theme): ChalkInstance {
 	if (actorId === 'system') return chalk.dim.hex(theme.textMuted);
@@ -45,7 +55,19 @@ export function styleFeedLine(
 		? chalk.hex(theme.status.error)
 		: actorStyle(actorId, theme);
 
-	let styled = base(line);
+	// Determine if OP segment gets separate coloring
+	const opColor =
+		opts.op && !isError ? opCategoryColor(opts.op, theme) : undefined;
+
+	let styled: string;
+	if (opColor) {
+		const before = line.slice(0, FEED_OP_COL_START);
+		const opText = line.slice(FEED_OP_COL_START, FEED_OP_COL_END);
+		const after = line.slice(FEED_OP_COL_END);
+		styled = base(before) + chalk.hex(opColor)(opText) + base(after);
+	} else {
+		styled = base(line);
+	}
 
 	// Color expand indicator glyphs via registry lookup
 	// Glyphs are always preceded by a space (suffix = ` ${glyph}`)

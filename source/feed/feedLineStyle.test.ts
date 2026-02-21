@@ -149,6 +149,82 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('\x1b[2m');
 	});
 
+	it('colors OP segment with category color for tool.call', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			op: 'tool.call',
+		});
+		const withoutOp = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		expect(result).not.toBe(withoutOp);
+	});
+
+	it('does not color OP when focused (inverse takes precedence)', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: true,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			op: 'tool.call',
+		});
+		const withoutOp = styleFeedLine(baseLine, {
+			focused: true,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		expect(result).toBe(withoutOp);
+	});
+
+	it('does not color OP when isError (error red takes precedence)', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: true,
+			theme: darkTheme,
+			op: 'tool.call',
+		});
+		const withoutOp = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: true,
+			theme: darkTheme,
+		});
+		expect(result).toBe(withoutOp);
+	});
+
+	it('skips OP coloring when op is undefined', () => {
+		const withUndefined = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			op: undefined,
+		});
+		const withoutOp = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		expect(withUndefined).toBe(withoutOp);
+	});
+
 	it('focused takes priority over matched (no ▌)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: true,

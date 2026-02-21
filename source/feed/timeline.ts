@@ -318,6 +318,10 @@ export function deriveRunTitle(
 import {feedGlyphs} from '../glyphs/index.js';
 export {feedGlyphs};
 
+/** Column positions in formatted feed line (0-indexed char offsets). */
+export const FEED_OP_COL_START = 6; // after "HH:MM "
+export const FEED_OP_COL_END = 16; // 6 + 10 (op width)
+
 export function formatFeedLine(
 	entry: TimelineEntry,
 	width: number,

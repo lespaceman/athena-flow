@@ -243,6 +243,7 @@ export function buildBodyLines({
 						actorId: entry.actorId,
 						isError: entry.error,
 						theme,
+						op: entry.op,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
 				}
