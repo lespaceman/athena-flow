@@ -8,13 +8,13 @@
 
 **Tech Stack:** TypeScript, React/Ink, vitest, NDJSON transcript parsing.
 
-**Dependency:** The `app.tsx` refactor plan (`2026-02-18-app-tsx-refactor-impl.md`) extracts hooks and utilities from `app.tsx`. This feed refinement plan should execute **before** the app.tsx refactor because:
+**Post-refactor state:** The `app.tsx` refactor has already been executed (commit `b8e953a`). app.tsx is now 749 lines. Key locations after refactor:
 
-1. Task 3 here modifies `handlePermissionDecision` in app.tsx (line 916-924) — the refactor may move this into a hook.
-2. Task 10 adds async enrichment in `useFeed.ts` — this is additive and compatible with the refactor.
-3. After both plans execute, the refactored app.tsx will inherit the PermissionQueueItem-based dialog wiring.
+- `handlePermissionDecision`: app.tsx line 450-458
+- `PermissionDialog` render: app.tsx line 647-660
+- Extracted files: `source/feed/timeline.ts` (has `stop.decision`, `subagent.stop` references needing `agent.message` support), `source/utils/format.ts`, `source/hooks/useFeedNavigation.ts`, `source/hooks/useCommandMode.ts`, etc.
 
-If the refactor executes first, Task 3's line references will be stale — adjust to find `handlePermissionDecision` and `PermissionDialog` render in their new locations (likely a custom hook or the slimmed app.tsx).
+**Extra file to update:** `source/feed/timeline.ts` — must add `agent.message` to `eventOperation()`, `eventSummary()`, and `isEventExpandable()`. Must handle `stop.decision` removal in `isEventError()` (line 226).
 
 ---
 
@@ -336,7 +336,7 @@ directly from queue snapshot, eliminating React batching race condition."
 **Files:**
 
 - Modify: `source/components/PermissionDialog.tsx:3,8-9,19-22`
-- Modify: `source/app.tsx:916-924,1726-1740`
+- Modify: `source/app.tsx:450-458,647-660` (post-refactor line numbers)
 
 **Step 1: Write the failing test**
 
@@ -394,7 +394,7 @@ const rawToolName = request.tool_name;
 
 In `source/app.tsx`:
 
-1. Update `handlePermissionDecision` (line 916-924):
+1. Update `handlePermissionDecision` (line 450-458, post-refactor):
 
 ```typescript
 const handlePermissionDecision = useCallback(
@@ -406,7 +406,7 @@ const handlePermissionDecision = useCallback(
 );
 ```
 
-2. The `PermissionDialog` render (line 1734-1738) already passes `currentPermissionRequest` — the prop type change handles it.
+2. The `PermissionDialog` render (line 655-658, post-refactor) already passes `currentPermissionRequest` — the prop type change handles it.
 
 **Step 5: Run tests**
 
