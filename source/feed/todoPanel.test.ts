@@ -1,5 +1,10 @@
 import {describe, it, expect} from 'vitest';
-import {toTodoStatus, glyphForTodoStatus, todoCaret, todoDivider, todoScrollUp, todoScrollDown} from './todoPanel.js';
+import {
+	toTodoStatus,
+	todoGlyphs,
+	SPINNER_FRAMES,
+	ASCII_SPINNER_FRAMES,
+} from './todoPanel.js';
 
 describe('toTodoStatus', () => {
 	it('maps TodoItem statuses to TodoPanelStatus', () => {
@@ -10,52 +15,38 @@ describe('toTodoStatus', () => {
 	});
 });
 
-describe('glyphForTodoStatus', () => {
-	it('returns Unicode glyphs by default', () => {
-		expect(glyphForTodoStatus('doing')).toBe('⟳');
-		expect(glyphForTodoStatus('open')).toBe('○');
-		expect(glyphForTodoStatus('done')).toBe('✓');
-		expect(glyphForTodoStatus('blocked')).toBe('○');
+describe('todoGlyphs', () => {
+	it('returns Unicode glyphs with spinner frame', () => {
+		const g = todoGlyphs(false, 0);
+		expect(g.statusGlyph('doing')).toBe(SPINNER_FRAMES[0]);
+		expect(g.statusGlyph('open')).toBe('○');
+		expect(g.statusGlyph('done')).toBe('✓');
+		expect(g.statusGlyph('blocked')).toBe('○');
+		expect(g.caret).toBe('▶');
+		expect(g.dividerChar).toBe('─');
+		expect(g.scrollUp).toBe('▲');
+		expect(g.scrollDown).toBe('▼');
 	});
 
-	it('returns ASCII glyphs when ascii=true', () => {
-		expect(glyphForTodoStatus('doing', true)).toBe('~');
-		expect(glyphForTodoStatus('open', true)).toBe('-');
-		expect(glyphForTodoStatus('done', true)).toBe('x');
-		expect(glyphForTodoStatus('blocked', true)).toBe('-');
-	});
-});
-
-describe('todoCaret', () => {
-	it('returns Unicode caret by default', () => {
-		expect(todoCaret(false)).toBe('▶');
+	it('cycles spinner frames for doing status', () => {
+		const g0 = todoGlyphs(false, 0);
+		const g3 = todoGlyphs(false, 3);
+		expect(g0.statusGlyph('doing')).toBe(SPINNER_FRAMES[0]);
+		expect(g3.statusGlyph('doing')).toBe(SPINNER_FRAMES[3]);
+		// Wraps around
+		const gWrap = todoGlyphs(false, SPINNER_FRAMES.length);
+		expect(gWrap.statusGlyph('doing')).toBe(SPINNER_FRAMES[0]);
 	});
 
-	it('returns ASCII caret when ascii=true', () => {
-		expect(todoCaret(true)).toBe('>');
-	});
-});
-
-describe('todoDivider', () => {
-	it('returns Unicode divider of given width', () => {
-		expect(todoDivider(40, false)).toBe('─'.repeat(40));
-	});
-
-	it('returns ASCII divider when ascii=true', () => {
-		expect(todoDivider(40, true)).toBe('-'.repeat(40));
-	});
-});
-
-describe('todoScrollUp', () => {
-	it('returns ▲ by default and ^ for ASCII', () => {
-		expect(todoScrollUp(false)).toBe('▲');
-		expect(todoScrollUp(true)).toBe('^');
-	});
-});
-
-describe('todoScrollDown', () => {
-	it('returns ▼ by default and v for ASCII', () => {
-		expect(todoScrollDown(false)).toBe('▼');
-		expect(todoScrollDown(true)).toBe('v');
+	it('returns ASCII glyphs with ASCII spinner', () => {
+		const g = todoGlyphs(true, 0);
+		expect(g.statusGlyph('doing')).toBe(ASCII_SPINNER_FRAMES[0]);
+		expect(g.statusGlyph('open')).toBe('-');
+		expect(g.statusGlyph('done')).toBe('x');
+		expect(g.statusGlyph('blocked')).toBe('-');
+		expect(g.caret).toBe('>');
+		expect(g.dividerChar).toBe('-');
+		expect(g.scrollUp).toBe('^');
+		expect(g.scrollDown).toBe('v');
 	});
 });

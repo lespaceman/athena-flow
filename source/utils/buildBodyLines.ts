@@ -4,15 +4,8 @@ import {
 	formatFeedLine,
 	formatFeedHeaderLine,
 } from '../feed/timeline.js';
-import {type TodoPanelItem} from '../feed/todoPanel.js';
-import {
-	glyphForTodoStatus,
-	todoCaret,
-	todoDivider,
-	todoScrollUp,
-	todoScrollDown,
-} from '../feed/todoPanel.js';
-import {compactText, fit, fitAnsi, formatRunLabel} from './format.js';
+import {type TodoPanelItem, todoGlyphs} from '../feed/todoPanel.js';
+import {compactText, fitAnsi, formatRunLabel} from './format.js';
 
 export type DetailViewState = {
 	expandedEntry: TimelineEntry;
@@ -45,6 +38,7 @@ export type TodoViewState = {
 	};
 	focusMode: string;
 	ascii: boolean;
+	spinnerFrame: number;
 };
 
 export type RunOverlayState = {
@@ -88,7 +82,7 @@ export function buildBodyLines({
 				? '0/0'
 				: `${start + 1}-${end}/${detailLines.length}`;
 		bodyLines.push(
-			fit(
+			fitAnsi(
 				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor}) ${rangeLabel} [Esc back]`,
 				innerWidth,
 			),
@@ -96,7 +90,7 @@ export function buildBodyLines({
 		for (let i = 0; i < detailContentRows; i++) {
 			const line = detailLines[start + i];
 			if (line === undefined) {
-				bodyLines.push(fit('', innerWidth));
+				bodyLines.push(fitAnsi('', innerWidth));
 				continue;
 			}
 			if (detail.showLineNumbers !== false) {
@@ -128,7 +122,7 @@ export function buildBodyLines({
 				remainingCount,
 				visibleTodoItems: items,
 			} = tp;
-			const ascii = todo.ascii;
+			const g = todoGlyphs(todo.ascii, todo.spinnerFrame);
 
 			// Header line: "TODO" left-aligned, "N remaining" right-aligned
 			const headerLeft = 'TODO';
@@ -138,7 +132,10 @@ export function buildBodyLines({
 				innerWidth - headerLeft.length - headerRight.length,
 			);
 			bodyLines.push(
-				fit(`${headerLeft}${' '.repeat(headerGap)}${headerRight}`, innerWidth),
+				fitAnsi(
+					`${headerLeft}${' '.repeat(headerGap)}${headerRight}`,
+					innerWidth,
+				),
 			);
 
 			const itemSlots = actualTodoRows - 2; // minus header and divider
@@ -152,49 +149,48 @@ export function buildBodyLines({
 			if (hasScrollDown) renderSlots--;
 
 			if (hasScrollUp) {
-				bodyLines.push(fit(todoScrollUp(ascii), innerWidth));
+				bodyLines.push(fitAnsi(g.scrollUp, innerWidth));
 			}
 
 			for (let i = 0; i < renderSlots; i++) {
 				const item = items[tScroll + i];
 				if (!item) {
-					bodyLines.push(fit('', innerWidth));
+					bodyLines.push(fitAnsi('', innerWidth));
 					continue;
 				}
 				const isFocused = todoFocus === 'todo' && tCursor === tScroll + i;
-				const caret = isFocused ? todoCaret(ascii) : ' ';
-				const glyph = glyphForTodoStatus(item.status, ascii);
-				const prefix = `${caret} ${glyph}  `;
+				const caret = isFocused ? g.caret : ' ';
+				const prefix = `${caret} ${g.statusGlyph(item.status)}  `;
 				const maxTitleWidth = Math.max(1, innerWidth - prefix.length);
 				const title = fitAnsi(item.text, maxTitleWidth).trimEnd();
-				bodyLines.push(fit(`${prefix}${title}`, innerWidth));
+				bodyLines.push(fitAnsi(`${prefix}${title}`, innerWidth));
 			}
 
 			if (hasScrollDown) {
 				const moreCount = totalItems - (tScroll + renderSlots);
 				bodyLines.push(
-					fit(`${todoScrollDown(ascii)}  +${moreCount} more`, innerWidth),
+					fitAnsi(`${g.scrollDown}  +${moreCount} more`, innerWidth),
 				);
 			}
 
 			// Divider line
-			bodyLines.push(fit(todoDivider(innerWidth, ascii), innerWidth));
+			bodyLines.push(fitAnsi(g.dividerChar.repeat(innerWidth), innerWidth));
 		}
 
 		if (actualRunOverlayRows > 0) {
-			bodyLines.push(fit('[RUNS] :run <id>  :run all', innerWidth));
+			bodyLines.push(fitAnsi('[RUNS] :run <id>  :run all', innerWidth));
 			const listRows = actualRunOverlayRows - 1;
 			const start = Math.max(0, runSummaries.length - listRows);
 			for (let i = 0; i < actualRunOverlayRows - 1; i++) {
 				const summary = runSummaries[start + i];
 				if (!summary) {
-					bodyLines.push(fit('', innerWidth));
+					bodyLines.push(fitAnsi('', innerWidth));
 					continue;
 				}
 				const active =
 					runFilter !== 'all' && runFilter === summary.runId ? '*' : ' ';
 				const line = `${active} ${formatRunLabel(summary.runId)} ${summary.status.padEnd(9, ' ')} ${compactText(summary.title, 48)}`;
-				bodyLines.push(fit(line, innerWidth));
+				bodyLines.push(fitAnsi(line, innerWidth));
 			}
 		}
 
@@ -204,16 +200,16 @@ export function buildBodyLines({
 
 		if (feedContentRows > 0) {
 			if (visibleFeedEntries.length === 0) {
-				bodyLines.push(fit('(no feed events)', innerWidth));
+				bodyLines.push(fitAnsi('(no feed events)', innerWidth));
 				for (let i = 1; i < feedContentRows; i++) {
-					bodyLines.push(fit('', innerWidth));
+					bodyLines.push(fitAnsi('', innerWidth));
 				}
 			} else {
 				for (let i = 0; i < feedContentRows; i++) {
 					const idx = feedViewportStart + i;
 					const entry = filteredEntries[idx];
 					if (!entry) {
-						bodyLines.push(fit('', innerWidth));
+						bodyLines.push(fitAnsi('', innerWidth));
 						continue;
 					}
 					bodyLines.push(
@@ -232,7 +228,7 @@ export function buildBodyLines({
 
 	const clippedBodyLines = bodyLines.slice(0, bodyHeight);
 	while (clippedBodyLines.length < bodyHeight) {
-		clippedBodyLines.push(fit('', innerWidth));
+		clippedBodyLines.push(fitAnsi('', innerWidth));
 	}
 	return clippedBodyLines;
 }

@@ -38,7 +38,6 @@ export type UseTodoPanelResult = {
 	>;
 	addTodo: (priority: 'P0' | 'P1' | 'P2', text: string) => void;
 	toggleTodoStatus: (index: number) => void;
-	todoListHeight: number;
 };
 
 export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
@@ -95,16 +94,14 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		todo => todo.status === 'blocked',
 	).length;
 	const openCount = todoItems.filter(todo => todo.status === 'open').length;
-	const remainingCount = todoItems.filter(todo => todo.status !== 'done').length;
+	const remainingCount = todoItems.filter(
+		todo => todo.status !== 'done',
+	).length;
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
-		setTodoCursor(prev =>
-			Math.min(prev, Math.max(0, sortedItems.length - 1)),
-		);
+		setTodoCursor(prev => Math.min(prev, Math.max(0, sortedItems.length - 1)));
 	}, [sortedItems.length]);
-
-	const todoListHeight = 0; // Will be set by caller via adjustTodoScroll
 
 	const addTodo = useCallback((priority: 'P0' | 'P1' | 'P2', text: string) => {
 		setExtraTodos(prev => [
@@ -153,6 +150,5 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		setTodoStatusOverrides,
 		addTodo,
 		toggleTodoStatus,
-		todoListHeight,
 	};
 }

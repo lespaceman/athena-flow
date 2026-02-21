@@ -18,6 +18,7 @@ import {useTodoKeyboard} from './hooks/useTodoKeyboard.js';
 import {useTimeline} from './hooks/useTimeline.js';
 import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
+import {useSpinnerFrame} from './hooks/useSpinnerFrame.js';
 import {buildBodyLines} from './utils/buildBodyLines.js';
 import {buildFrameLines} from './utils/buildFrameLines.js';
 import {buildHeaderModel} from './utils/headerModel.js';
@@ -58,10 +59,6 @@ type FocusMode = 'feed' | 'input' | 'todo';
 type InputMode = 'normal' | 'cmd' | 'search';
 
 /** Fallback for crashed PermissionDialog -- lets user press Escape to deny. */
-function isUtf8Locale(): boolean {
-	const lang = process.env['LANG'] ?? process.env['LC_ALL'] ?? '';
-	return /utf-?8/i.test(lang);
-}
 
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
 	const theme = useTheme();
@@ -226,20 +223,17 @@ function AppContent({
 		}
 	}, [focusMode, todoPanel.todoVisible, todoPanel.visibleTodoItems.length]);
 
+	const estimatedTodoRows = todoPanel.todoVisible
+		? Math.min(8, 2 + todoPanel.visibleTodoItems.length)
+		: 0;
+	const estimatedRunRows = showRunOverlay
+		? Math.min(6, 1 + Math.max(1, runSummaries.length))
+		: 0;
 	const feedNav = useFeedNavigation({
 		filteredEntries,
 		feedContentRows: Math.max(
-			0,
-			Math.max(1, terminalRows - 10) -
-				(todoPanel.todoVisible
-					? Math.min(
-							6,
-							1 + Math.max(1, Math.min(todoPanel.visibleTodoItems.length, 5)),
-						)
-					: 0) -
-				(showRunOverlay
-					? Math.min(6, 1 + Math.max(1, runSummaries.length))
-					: 0),
+			1,
+			terminalRows - 10 - estimatedTodoRows - estimatedRunRows,
 		),
 	});
 
@@ -576,8 +570,9 @@ function AppContent({
 	});
 
 	const hasColor = !process.env['NO_COLOR'];
-	// TODO: thread useAscii into rendering components in subsequent tasks
-	const _useAscii = ascii || !hasColor || !isUtf8Locale();
+	const useAscii = !!ascii;
+	const hasDoingTodos = todoPanel.doingCount > 0;
+	const spinnerFrame = useSpinnerFrame(hasDoingTodos);
 	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
@@ -642,7 +637,8 @@ function AppContent({
 				visibleTodoItems: todoPanel.visibleTodoItems,
 			},
 			focusMode,
-			ascii: _useAscii,
+			ascii: useAscii,
+			spinnerFrame,
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
 	});

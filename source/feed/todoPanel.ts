@@ -25,42 +25,45 @@ export function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
 	}
 }
 
-export function glyphForTodoStatus(
-	status: TodoPanelStatus,
-	ascii = false,
-): string {
-	if (ascii) {
-		switch (status) {
-			case 'doing':
-				return '~';
-			case 'done':
-				return 'x';
-			default:
-				return '-';
-		}
-	}
-	switch (status) {
-		case 'doing':
-			return '⟳';
-		case 'done':
-			return '✓';
-		default:
-			return '○';
-	}
-}
+export const SPINNER_FRAMES = [
+	'⠋',
+	'⠙',
+	'⠹',
+	'⠸',
+	'⠼',
+	'⠴',
+	'⠦',
+	'⠧',
+	'⠇',
+	'⠏',
+];
+export const ASCII_SPINNER_FRAMES = ['|', '/', '-', '\\'];
 
-export function todoCaret(ascii = false): string {
-	return ascii ? '>' : '▶';
-}
+export type TodoGlyphs = {
+	statusGlyph: (status: TodoPanelStatus) => string;
+	caret: string;
+	dividerChar: string;
+	scrollUp: string;
+	scrollDown: string;
+};
 
-export function todoDivider(width: number, ascii = false): string {
-	return (ascii ? '-' : '─').repeat(width);
-}
-
-export function todoScrollUp(ascii = false): string {
-	return ascii ? '^' : '▲';
-}
-
-export function todoScrollDown(ascii = false): string {
-	return ascii ? 'v' : '▼';
+export function todoGlyphs(ascii = false, spinnerFrame = 0): TodoGlyphs {
+	const frames = ascii ? ASCII_SPINNER_FRAMES : SPINNER_FRAMES;
+	const doingGlyph = frames[spinnerFrame % frames.length]!;
+	return {
+		statusGlyph: (status: TodoPanelStatus) => {
+			switch (status) {
+				case 'doing':
+					return doingGlyph;
+				case 'done':
+					return ascii ? 'x' : '✓';
+				default:
+					return ascii ? '-' : '○';
+			}
+		},
+		caret: ascii ? '>' : '▶',
+		dividerChar: ascii ? '-' : '─',
+		scrollUp: ascii ? '^' : '▲',
+		scrollDown: ascii ? 'v' : '▼',
+	};
 }

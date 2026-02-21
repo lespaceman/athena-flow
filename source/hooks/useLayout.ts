@@ -11,7 +11,7 @@ import {
 const HEADER_ROWS = 2;
 const FOOTER_ROWS = 2;
 const FRAME_BORDER_ROWS = 4;
-const TODO_PANEL_MAX_ROWS = 12;
+const TODO_PANEL_MAX_ROWS = 8;
 const RUN_OVERLAY_MAX_ROWS = 6;
 
 export type UseLayoutOptions = {
@@ -61,7 +61,7 @@ export function useLayout({
 	);
 
 	const todoRowsTarget = todoPanel.todoVisible
-		? Math.min(TODO_PANEL_MAX_ROWS, 2 + Math.max(1, todoPanel.visibleTodoItems.length))
+		? Math.min(TODO_PANEL_MAX_ROWS, 2 + todoPanel.visibleTodoItems.length)
 		: 0;
 	const runOverlayRowsTarget = showRunOverlay
 		? Math.min(RUN_OVERLAY_MAX_ROWS, 1 + Math.max(1, runSummaries.length))
