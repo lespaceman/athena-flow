@@ -1,9 +1,6 @@
 import {type FeedEvent} from '../feed/types.js';
 import {extractToolOutput} from './toolExtractors.js';
-import {
-	parseToolName,
-	extractFriendlyServerName,
-} from './toolNameParser.js';
+import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
 import {highlight} from 'cli-highlight';
 import {Marked} from 'marked';
 import {markedTerminal} from 'marked-terminal';
@@ -118,7 +115,13 @@ function renderToolPost(
 	if (event.kind === 'tool.failure') {
 		const headerLines = buildToolHeader(tool_name);
 		return {
-			lines: [...headerLines, '', chalk.red('FAILED'), '', chalk.red(event.data.error)],
+			lines: [
+				...headerLines,
+				'',
+				chalk.red('FAILED'),
+				'',
+				chalk.red(event.data.error),
+			],
 			showLineNumbers: false,
 		};
 	}
@@ -134,12 +137,20 @@ function renderToolPost(
 	switch (output.type) {
 		case 'code':
 			return {
-				lines: [...headerLines, '', ...highlightCode(output.content, output.language)],
+				lines: [
+					...headerLines,
+					'',
+					...highlightCode(output.content, output.language),
+				],
 				showLineNumbers: true,
 			};
 		case 'diff':
 			return {
-				lines: [...headerLines, '', ...renderDiff(output.oldText, output.newText)],
+				lines: [
+					...headerLines,
+					'',
+					...renderDiff(output.oldText, output.newText),
+				],
 				showLineNumbers: true,
 			};
 		case 'list':

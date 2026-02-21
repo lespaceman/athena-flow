@@ -1,4 +1,4 @@
-import {type FeedEvent} from './types.js';
+import {feedGlyphs} from '../glyphs/index.js';
 import {type Message} from '../types/index.js';
 import {
 	compactText,
@@ -10,6 +10,7 @@ import {
 	extractFriendlyServerName,
 	parseToolName,
 } from '../utils/toolNameParser.js';
+import {type FeedEvent} from './types.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
@@ -314,9 +315,6 @@ export function deriveRunTitle(
 	}
 	return 'Untitled run';
 }
-
-import {feedGlyphs} from '../glyphs/index.js';
-export {feedGlyphs};
 
 /** Column positions in formatted feed line (0-indexed char offsets). */
 export const FEED_OP_COL_START = 6; // after "HH:MM "

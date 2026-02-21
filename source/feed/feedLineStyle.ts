@@ -73,10 +73,8 @@ export function styleFeedLine(
 	// Glyphs are always preceded by a space (suffix = ` ${glyph}`)
 	const trimmed = line.trimEnd();
 	const lastChar = trimmed.at(-1);
-	const hasGlyphSpace =
-		lastChar !== undefined && trimmed.length >= 2 && trimmed.at(-2) === ' ';
 
-	if (hasGlyphSpace && lastChar !== undefined) {
+	if (lastChar && trimmed.length >= 2 && trimmed.at(-2) === ' ') {
 		const glyphPos = trimmed.length - 1;
 		const before = line.slice(0, glyphPos);
 		const after = line.slice(glyphPos + lastChar.length);

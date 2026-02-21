@@ -2,17 +2,6 @@ import chalk from 'chalk';
 import stringWidth from 'string-width';
 import type {HeaderModel} from './headerModel.js';
 
-function visWidth(s: string): number {
-	return stringWidth(s);
-}
-
-function truncateStr(s: string, max: number): string {
-	if (max <= 0) return '';
-	if (s.length <= max) return s;
-	if (max <= 1) return s.slice(0, max);
-	return s.slice(0, max - 1) + '\u2026';
-}
-
 export function truncateSessionId(id: string, maxWidth: number): string {
 	if (id.length <= maxWidth) return id;
 	if (maxWidth >= 12) {
@@ -21,35 +10,6 @@ export function truncateSessionId(id: string, maxWidth: number): string {
 	}
 	const alphanumeric = id.replace(/[^a-zA-Z0-9]/g, '').slice(-4);
 	return 'S' + (alphanumeric || '\u2013');
-}
-
-function padLine(
-	left: string,
-	right: string,
-	width: number,
-	hasColor: boolean,
-): string {
-	const measure = (s: string) => (hasColor ? visWidth(s) : s.length);
-	let lw = measure(left);
-	const rw = measure(right);
-	const totalTarget = width - 1;
-
-	// If left + right + min gap exceeds target, truncate left
-	let truncatedLeft = left;
-	if (lw + rw + 1 > totalTarget) {
-		const maxLW = Math.max(0, totalTarget - rw - 1);
-		truncatedLeft = truncateStr(toPlainText(left, hasColor), maxLW);
-		lw = truncatedLeft.length;
-	}
-
-	const gap = Math.max(1, totalTarget - lw - rw);
-	return truncatedLeft + ' '.repeat(gap) + right;
-}
-
-/** Strip ANSI escape codes so truncation doesn't break mid-sequence. */
-function toPlainText(s: string, hasColor: boolean): string {
-	if (!hasColor) return s;
-	return s.replace(/\x1b\[[0-9;]*m/g, '');
 }
 
 export function renderHeaderLines(
@@ -94,7 +54,7 @@ export function renderHeaderLines(
 	let current = [...tokens];
 	const totalTarget = width - 1;
 
-	while (current.length > 1 && visWidth(buildLine(current)) > totalTarget) {
+	while (current.length > 1 && stringWidth(buildLine(current)) > totalTarget) {
 		let minIdx = 1;
 		let minPri = current[1]!.priority;
 		for (let i = 2; i < current.length; i++) {
@@ -107,7 +67,7 @@ export function renderHeaderLines(
 	}
 
 	const line = buildLine(current);
-	const vw = visWidth(line);
+	const vw = stringWidth(line);
 	const padded = vw < totalTarget ? line + ' '.repeat(totalTarget - vw) : line;
 	return [padded];
 }
