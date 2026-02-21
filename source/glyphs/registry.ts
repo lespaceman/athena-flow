@@ -1,0 +1,114 @@
+/**
+ * Centralized glyph registry — single source of truth for all unicode/ascii symbol pairs.
+ *
+ * Every glyph used in the UI must be defined here with both a unicode and ascii variant.
+ * Color application is separate (done at call sites via chalk).
+ */
+
+export type GlyphKey =
+	// Feed
+	| 'feed.expandCollapsed'
+	| 'feed.expandExpanded'
+	| 'feed.searchMatch'
+	// Todo
+	| 'todo.doing'
+	| 'todo.done'
+	| 'todo.open'
+	| 'todo.blocked'
+	| 'todo.caret'
+	| 'todo.scrollUp'
+	| 'todo.scrollDown'
+	// Frame
+	| 'frame.topLeft'
+	| 'frame.topRight'
+	| 'frame.bottomLeft'
+	| 'frame.bottomRight'
+	| 'frame.horizontal'
+	| 'frame.vertical'
+	| 'frame.teeLeft'
+	| 'frame.teeRight'
+	// Status
+	| 'status.active'
+	| 'status.error'
+	| 'status.pending'
+	| 'status.passthrough'
+	| 'status.blocked'
+	// Tool
+	| 'tool.bullet'
+	| 'tool.gutter'
+	| 'tool.arrow'
+	// Subagent
+	| 'subagent.pending'
+	| 'subagent.passthrough'
+	// Task
+	| 'task.completed'
+	| 'task.pending'
+	| 'task.failed'
+	| 'task.collapsed'
+	| 'task.expanded'
+	// Progress
+	| 'progress.filled'
+	| 'progress.empty'
+	// General
+	| 'general.ellipsis'
+	| 'general.divider';
+
+export const GLYPH_REGISTRY: Record<
+	GlyphKey,
+	{unicode: string; ascii: string}
+> = {
+	// Feed
+	'feed.expandCollapsed': {unicode: '▸', ascii: '>'},
+	'feed.expandExpanded': {unicode: '▾', ascii: 'v'},
+	'feed.searchMatch': {unicode: '▌', ascii: '|'},
+
+	// Todo
+	'todo.doing': {unicode: '■', ascii: '*'},
+	'todo.done': {unicode: '✓', ascii: 'x'},
+	'todo.open': {unicode: '□', ascii: '-'},
+	'todo.blocked': {unicode: '□', ascii: '-'},
+	'todo.caret': {unicode: '▶', ascii: '>'},
+	'todo.scrollUp': {unicode: '▲', ascii: '^'},
+	'todo.scrollDown': {unicode: '▼', ascii: 'v'},
+
+	// Frame (box-drawing)
+	'frame.topLeft': {unicode: '┌', ascii: '+'},
+	'frame.topRight': {unicode: '┐', ascii: '+'},
+	'frame.bottomLeft': {unicode: '└', ascii: '+'},
+	'frame.bottomRight': {unicode: '┘', ascii: '+'},
+	'frame.horizontal': {unicode: '─', ascii: '-'},
+	'frame.vertical': {unicode: '│', ascii: '|'},
+	'frame.teeLeft': {unicode: '├', ascii: '+'},
+	'frame.teeRight': {unicode: '┤', ascii: '+'},
+
+	// Status
+	'status.active': {unicode: '●', ascii: '*'},
+	'status.error': {unicode: '■', ascii: '!'},
+	'status.pending': {unicode: '○', ascii: 'o'},
+	'status.passthrough': {unicode: '●', ascii: '*'},
+	'status.blocked': {unicode: '✗', ascii: 'x'},
+
+	// Tool
+	'tool.bullet': {unicode: '●', ascii: '*'},
+	'tool.gutter': {unicode: '⎿', ascii: '|'},
+	'tool.arrow': {unicode: '→', ascii: '->'},
+
+	// Subagent
+	'subagent.pending': {unicode: '◇', ascii: 'o'},
+	'subagent.passthrough': {unicode: '◆', ascii: '*'},
+
+	// Task
+	'task.completed': {unicode: '✓', ascii: 'x'},
+	'task.pending': {unicode: '·', ascii: '.'},
+	'task.failed': {unicode: '✗', ascii: '!'},
+	'task.collapsed': {unicode: '▶', ascii: '>'},
+	'task.expanded': {unicode: '▼', ascii: 'v'},
+
+	// Progress
+	'progress.filled': {unicode: '█', ascii: '='},
+	'progress.empty': {unicode: '░', ascii: '-'},
+
+	// General
+	'general.ellipsis': {unicode: '…', ascii: '...'},
+	'general.divider': {unicode: '─', ascii: '-'},
+};
