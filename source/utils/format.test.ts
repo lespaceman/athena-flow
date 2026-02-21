@@ -33,10 +33,9 @@ describe('compactText', () => {
 		expect(compactText('hello', 10)).toBe('hello');
 	});
 
-	it('collapses whitespace and replaces non-ASCII first', () => {
-		// toAscii runs first: \t and \n become ?, then \s+ collapses spaces
+	it('collapses whitespace while preserving non-ASCII', () => {
 		expect(compactText('a  b  c', 20)).toBe('a b c');
-		expect(compactText('a  b\t\nc', 20)).toBe('a b??c');
+		expect(compactText('a  b\t\nc', 20)).toBe('a b c');
 	});
 
 	it('truncates with ellipsis', () => {
@@ -53,8 +52,8 @@ describe('compactText', () => {
 		expect(compactText('hello', 2)).toBe('he');
 	});
 
-	it('replaces non-ASCII', () => {
-		expect(compactText('café', 10)).toBe('caf?');
+	it('preserves non-ASCII content', () => {
+		expect(compactText('café', 10)).toBe('café');
 	});
 });
 
@@ -77,6 +76,16 @@ describe('fit', () => {
 
 	it('exact fit does not truncate', () => {
 		expect(fit('abcde', 5)).toBe('abcde');
+	});
+
+	it('preserves Unicode characters instead of replacing with ?', () => {
+		expect(fit('café', 10)).toBe('café      ');
+		expect(fit('▸ expand', 10)).toBe('▸ expand  ');
+	});
+
+	it('handles wide characters (emoji) by visual width', () => {
+		// 🚀 is 2 columns wide, so "🚀 go" = 5 visual cols
+		expect(fit('🚀 go', 8)).toBe('🚀 go   ');
 	});
 });
 

@@ -6,19 +6,23 @@ export function toAscii(value: string): string {
 }
 
 export function compactText(value: string, max: number): string {
-	const clean = toAscii(value).replace(/\s+/g, ' ').trim();
+	const clean = value.replace(/\s+/g, ' ').trim();
 	if (max <= 0) return '';
-	if (clean.length <= max) return clean;
-	if (max <= 3) return clean.slice(0, max);
-	return `${clean.slice(0, max - 3)}...`;
+	const w = stringWidth(clean);
+	if (w <= max) return clean;
+	if (max <= 3) return sliceAnsi(clean, 0, max);
+	return sliceAnsi(clean, 0, max - 3) + '...';
 }
 
 export function fit(text: string, width: number): string {
-	const clean = toAscii(text);
 	if (width <= 0) return '';
-	if (clean.length <= width) return clean.padEnd(width, ' ');
-	if (width <= 3) return clean.slice(0, width);
-	return `${clean.slice(0, width - 3)}...`;
+	const w = stringWidth(text);
+	if (w <= width) {
+		const pad = width - w;
+		return pad > 0 ? text + ' '.repeat(pad) : text;
+	}
+	if (width <= 3) return sliceAnsi(text, 0, width);
+	return sliceAnsi(text, 0, width - 3) + '...';
 }
 
 /**
