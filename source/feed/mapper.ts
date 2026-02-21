@@ -26,7 +26,8 @@ export function createFeedMapper(): FeedMapper {
 	let seq = 0;
 	let runSeq = 0;
 
-	// Correlation indexes
+	// Correlation indexes — keyed on undocumented request_id (best-effort).
+	// mapDecision() returns null when requestId is missing from the index.
 	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
 	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
@@ -101,7 +102,12 @@ export function createFeedMapper(): FeedMapper {
 
 	function ensureRunArray(
 		runtimeEvent: RuntimeEvent,
-		triggerType: 'user_prompt_submit' | 'resume' | 'other' = 'other',
+		triggerType:
+			| 'user_prompt_submit'
+			| 'resume'
+			| 'clear'
+			| 'compact'
+			| 'other' = 'other',
 		promptPreview?: string,
 	): FeedEvent[] {
 		if (currentRun && triggerType === 'other') return [];
@@ -146,16 +152,7 @@ export function createFeedMapper(): FeedMapper {
 		return results;
 	}
 
-	function getActorForTool(runtimeEvent: RuntimeEvent): string {
-		if (runtimeEvent.agentId) {
-			actors.ensureSubagent(
-				runtimeEvent.agentId,
-				runtimeEvent.agentType ?? 'unknown',
-			);
-			return `subagent:${runtimeEvent.agentId}`;
-		}
-		return 'agent:root';
-	}
+	// Tool actor: always 'agent:root' — wire protocol has no agent_id on tool events
 
 	function resolveToolUseId(
 		event: RuntimeEvent,
@@ -187,8 +184,11 @@ export function createFeedMapper(): FeedMapper {
 					model: p.model as string | undefined,
 					agent_type: p.agent_type as string | undefined,
 				};
-				if (p.source === 'resume') {
-					results.push(...ensureRunArray(event, 'resume'));
+				const source = (p.source as string) ?? 'startup';
+				if (source === 'resume' || source === 'clear' || source === 'compact') {
+					results.push(
+						...ensureRunArray(event, source as 'resume' | 'clear' | 'compact'),
+					);
 				}
 				results.push(
 					makeEvent(
@@ -257,7 +257,7 @@ export function createFeedMapper(): FeedMapper {
 				const fe = makeEvent(
 					'tool.pre',
 					'info',
-					getActorForTool(event),
+					'agent:root',
 					{
 						tool_name: event.toolName ?? (p.tool_name as string),
 						tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -281,7 +281,7 @@ export function createFeedMapper(): FeedMapper {
 					makeEvent(
 						'tool.post',
 						'info',
-						getActorForTool(event),
+						'agent:root',
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
 							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -304,7 +304,7 @@ export function createFeedMapper(): FeedMapper {
 					makeEvent(
 						'tool.failure',
 						'error',
-						getActorForTool(event),
+						'agent:root',
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
 							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -347,12 +347,9 @@ export function createFeedMapper(): FeedMapper {
 					makeEvent(
 						'stop.request',
 						'info',
-						'system',
+						'agent:root',
 						{
 							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-							scope: (p.scope as 'root' | 'subagent') ?? 'root',
-							agent_id: p.agent_id as string | undefined,
-							agent_type: p.agent_type as string | undefined,
 							last_assistant_message: p.last_assistant_message as
 								| string
 								| undefined,
@@ -463,6 +460,60 @@ export function createFeedMapper(): FeedMapper {
 				break;
 			}
 
+			case 'TeammateIdle': {
+				results.push(...ensureRunArray(event));
+				const idleEvt = makeEvent(
+					'teammate.idle',
+					'info',
+					'system',
+					{
+						teammate_name: (p.teammate_name as string) ?? '',
+						team_name: (p.team_name as string) ?? '',
+					} satisfies import('./types.js').TeammateIdleData,
+					event,
+				);
+				idleEvt.ui = {collapsed_default: true};
+				results.push(idleEvt);
+				break;
+			}
+
+			case 'TaskCompleted': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'task.completed',
+						'info',
+						'system',
+						{
+							task_id: (p.task_id as string) ?? '',
+							task_subject: (p.task_subject as string) ?? '',
+							task_description: p.task_description as string | undefined,
+							teammate_name: p.teammate_name as string | undefined,
+							team_name: p.team_name as string | undefined,
+						} satisfies import('./types.js').TaskCompletedData,
+						event,
+					),
+				);
+				break;
+			}
+
+			case 'ConfigChange': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'config.change',
+						'info',
+						'system',
+						{
+							source: (p.source as string) ?? 'unknown',
+							file_path: p.file_path as string | undefined,
+						} satisfies import('./types.js').ConfigChangeData,
+						event,
+					),
+				);
+				break;
+			}
+
 			default: {
 				results.push(...ensureRunArray(event));
 				const unknownEvt = makeEvent(
@@ -537,8 +588,31 @@ export function createFeedMapper(): FeedMapper {
 		}
 
 		if (originalKind === 'stop.request') {
-			// Stop is display-only; never emit stop.decision
-			return null;
+			let data: import('./types.js').StopDecisionData;
+			const d = decision.data as Record<string, unknown> | undefined;
+
+			if (decision.source === 'timeout') {
+				data = {decision_type: 'no_opinion', reason: 'timeout'};
+			} else if (decision.type === 'passthrough') {
+				data = {decision_type: 'no_opinion', reason: decision.source};
+			} else if (d?.decision === 'block') {
+				// Command hook schema: { decision: "block", reason: "..." }
+				data = {
+					decision_type: 'block',
+					reason: (d.reason as string) ?? decision.reason ?? 'Blocked',
+				};
+			} else if (d?.ok === false) {
+				// Prompt/agent hook schema: { ok: false, reason: "..." }
+				data = {
+					decision_type: 'block',
+					reason: (d.reason as string) ?? 'Blocked by hook',
+				};
+			} else {
+				// No blocking signal — treat as allow
+				data = {decision_type: 'allow'};
+			}
+
+			return makeDecisionEvent('stop.decision', data);
 		}
 
 		return null;

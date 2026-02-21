@@ -27,8 +27,9 @@ const RULES: Record<string, InteractionHints> = {
 		canBlock: false,
 	},
 	Stop: {
-		expectsDecision: false,
-		canBlock: false,
+		expectsDecision: true,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
 	},
 	SubagentStop: {
 		expectsDecision: false,
@@ -69,6 +70,21 @@ const RULES: Record<string, InteractionHints> = {
 		expectsDecision: false,
 		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 		canBlock: false,
+	},
+	TeammateIdle: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	TaskCompleted: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	ConfigChange: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
 	},
 };
 

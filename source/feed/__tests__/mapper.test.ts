@@ -156,6 +156,25 @@ describe('FeedMapper', () => {
 	});
 
 	describe('tool mapping', () => {
+		it('tool events are always attributed to agent:root (wire protocol has no agent_id on tool events)', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const toolPre = results.find(r => r.kind === 'tool.pre');
+			expect(toolPre!.actor_id).toBe('agent:root');
+		});
+
 		it('maps PreToolUse to tool.pre', () => {
 			const mapper = createFeedMapper();
 			const results = mapper.mapEvent(
@@ -372,7 +391,7 @@ describe('FeedMapper', () => {
 			expect(decision!.data.reason).toBe('timeout');
 		});
 
-		it('does not emit stop.decision for stop.request events', () => {
+		it('maps Stop to stop.request with actor agent:root and no scope', () => {
 			const mapper = createFeedMapper();
 			const stopEvent = makeRuntimeEvent('Stop', {
 				id: 'req-stop',
@@ -382,17 +401,94 @@ describe('FeedMapper', () => {
 					transcript_path: '/tmp/t.jsonl',
 					cwd: '/project',
 					stop_hook_active: false,
-					scope: 'root',
 				},
 			});
-			mapper.mapEvent(stopEvent);
+			const results = mapper.mapEvent(stopEvent);
+			const stop = results.find(r => r.kind === 'stop.request');
+			expect(stop).toBeDefined();
+			expect(stop!.actor_id).toBe('agent:root');
+			expect(stop!.data).not.toHaveProperty('scope');
+			expect(stop!.data).not.toHaveProperty('agent_id');
+			expect(stop!.data).not.toHaveProperty('agent_type');
+		});
 
-			const decision = mapper.mapDecision('req-stop', {
+		it('emits stop.decision block from command hook schema (decision:"block")', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					id: 'req-stop-cmd',
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+			);
+
+			const decision = mapper.mapDecision('req-stop-cmd', {
+				type: 'json',
+				source: 'rule',
+				data: {decision: 'block', reason: 'Tests not passing'},
+			});
+
+			expect(decision).not.toBeNull();
+			expect(decision!.kind).toBe('stop.decision');
+			expect(decision!.data.decision_type).toBe('block');
+			expect(decision!.data.reason).toBe('Tests not passing');
+		});
+
+		it('emits stop.decision block from prompt/agent hook schema (ok:false)', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					id: 'req-stop-prompt',
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+			);
+
+			const decision = mapper.mapDecision('req-stop-prompt', {
+				type: 'json',
+				source: 'rule',
+				data: {ok: false, reason: 'Lint errors remain'},
+			});
+
+			expect(decision).not.toBeNull();
+			expect(decision!.kind).toBe('stop.decision');
+			expect(decision!.data.decision_type).toBe('block');
+			expect(decision!.data.reason).toBe('Lint errors remain');
+		});
+
+		it('emits stop.decision with no_opinion on timeout', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					id: 'req-stop-timeout',
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+			);
+
+			const decision = mapper.mapDecision('req-stop-timeout', {
 				type: 'passthrough',
 				source: 'timeout',
 			});
 
-			expect(decision).toBeNull();
+			expect(decision).not.toBeNull();
+			expect(decision!.kind).toBe('stop.decision');
+			expect(decision!.data.decision_type).toBe('no_opinion');
 		});
 
 		it('returns null for decision on unknown event', () => {
@@ -441,6 +537,40 @@ describe('FeedMapper', () => {
 
 			expect(results.some(r => r.kind === 'run.start')).toBe(true);
 			expect(results.some(r => r.kind === 'session.start')).toBe(true);
+			expect(mapper.getCurrentRun()).not.toBeNull();
+		});
+
+		it('SessionStart(clear) emits run.start', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SessionStart', {
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'clear',
+					},
+				}),
+			);
+			expect(results.some(r => r.kind === 'run.start')).toBe(true);
+			expect(mapper.getCurrentRun()).not.toBeNull();
+		});
+
+		it('SessionStart(compact) emits run.start', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SessionStart', {
+					payload: {
+						hook_event_name: 'SessionStart',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'compact',
+					},
+				}),
+			);
+			expect(results.some(r => r.kind === 'run.start')).toBe(true);
 			expect(mapper.getCurrentRun()).not.toBeNull();
 		});
 
@@ -613,6 +743,94 @@ describe('FeedMapper', () => {
 			);
 			const stopEvt = events.find(e => e.kind === 'stop.request');
 			expect(stopEvt!.data.last_assistant_message).toBeUndefined();
+		});
+	});
+
+	describe('new hook events', () => {
+		it('maps TeammateIdle to teammate.idle', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('TeammateIdle', {
+					payload: {
+						hook_event_name: 'TeammateIdle',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						teammate_name: 'researcher',
+						team_name: 'my-project',
+					},
+				}),
+			);
+			const evt = results.find(r => r.kind === 'teammate.idle');
+			expect(evt).toBeDefined();
+			expect(evt!.data.teammate_name).toBe('researcher');
+			expect(evt!.data.team_name).toBe('my-project');
+			expect(evt!.actor_id).toBe('system');
+			expect(evt!.ui?.collapsed_default).toBe(true);
+		});
+
+		it('maps TaskCompleted to task.completed', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('TaskCompleted', {
+					payload: {
+						hook_event_name: 'TaskCompleted',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						task_id: 'task-001',
+						task_subject: 'Implement auth',
+						task_description: 'Add login endpoints',
+						teammate_name: 'implementer',
+						team_name: 'my-project',
+					},
+				}),
+			);
+			const evt = results.find(r => r.kind === 'task.completed');
+			expect(evt).toBeDefined();
+			expect(evt!.data.task_id).toBe('task-001');
+			expect(evt!.data.task_subject).toBe('Implement auth');
+			expect(evt!.actor_id).toBe('system');
+		});
+
+		it('maps ConfigChange to config.change', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('ConfigChange', {
+					payload: {
+						hook_event_name: 'ConfigChange',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'project_settings',
+						file_path: '/project/.claude/settings.json',
+					},
+				}),
+			);
+			const evt = results.find(r => r.kind === 'config.change');
+			expect(evt).toBeDefined();
+			expect(evt!.data.source).toBe('project_settings');
+			expect(evt!.data.file_path).toBe('/project/.claude/settings.json');
+			expect(evt!.actor_id).toBe('system');
+		});
+
+		it('maps ConfigChange with policy_settings source (note: cannot be blocked per docs)', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('ConfigChange', {
+					payload: {
+						hook_event_name: 'ConfigChange',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						source: 'policy_settings',
+					},
+				}),
+			);
+			const evt = results.find(r => r.kind === 'config.change');
+			expect(evt).toBeDefined();
+			expect(evt!.data.source).toBe('policy_settings');
+			expect(evt!.ui?.badge).toBeUndefined();
 		});
 	});
 

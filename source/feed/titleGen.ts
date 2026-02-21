@@ -42,9 +42,7 @@ export function generateTitle(event: FeedEvent): string {
 			}
 			break;
 		case 'stop.request':
-			return event.data.scope === 'subagent'
-				? `⛔ Stop: subagent ${event.data.agent_type ?? ''}`
-				: '⛔ Stop requested';
+			return '⛔ Stop requested';
 		case 'stop.decision':
 			switch (event.data.decision_type) {
 				case 'block':
@@ -65,6 +63,12 @@ export function generateTitle(event: FeedEvent): string {
 			return `Compacting context (${event.data.trigger})`;
 		case 'setup':
 			return `Setup (${event.data.trigger})`;
+		case 'teammate.idle':
+			return `⏸ Teammate idle: ${event.data.teammate_name}`;
+		case 'task.completed':
+			return truncate(`✅ Task completed: ${event.data.task_subject}`);
+		case 'config.change':
+			return `⚙ Config changed: ${event.data.source}`;
 		case 'unknown.hook':
 			return `? ${event.data.hook_event_name}`;
 		case 'todo.add':

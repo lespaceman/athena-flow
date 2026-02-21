@@ -12,12 +12,11 @@ describe('enrichStopEvent', () => {
 			run_id: 'R1',
 			kind: 'stop.request',
 			level: 'info',
-			actor_id: 'system',
+			actor_id: 'agent:root',
 			title: 'Stop requested',
 			cause: {transcript_path: '/tmp/t.jsonl'},
 			data: {
 				stop_hook_active: false,
-				scope: 'root',
 				last_assistant_message: 'Final answer text',
 			},
 		} as unknown as FeedEvent;
@@ -66,7 +65,7 @@ describe('enrichStopEvent', () => {
 			event_id: 'R1:E5',
 			kind: 'stop.request',
 			cause: {transcript_path: '/tmp/t.jsonl'},
-			data: {stop_hook_active: false, scope: 'root'},
+			data: {stop_hook_active: false},
 		} as unknown as FeedEvent;
 
 		const result = enrichStopEvent(stopEvent);

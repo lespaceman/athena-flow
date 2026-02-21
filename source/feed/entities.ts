@@ -22,7 +22,7 @@ export type Run = {
 	started_at: number;
 	ended_at?: number;
 	trigger: {
-		type: 'user_prompt_submit' | 'resume' | 'other';
+		type: 'user_prompt_submit' | 'resume' | 'clear' | 'compact' | 'other';
 		request_id?: string;
 		prompt_preview?: string;
 	};

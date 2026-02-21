@@ -127,7 +127,7 @@ export function eventSummary(event: FeedEvent): string {
 		}
 		case 'stop.request':
 			return compactText(
-				`scope=${event.data.scope}${event.data.agent_id ? ` agent=${event.data.agent_id}` : ''}`,
+				`stop_hook_active=${event.data.stop_hook_active}`,
 				84,
 			);
 		case 'stop.decision':

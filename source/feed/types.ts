@@ -24,7 +24,10 @@ export type FeedEventKind =
 	| 'todo.add'
 	| 'todo.update'
 	| 'todo.done'
-	| 'agent.message';
+	| 'agent.message'
+	| 'teammate.idle'
+	| 'task.completed'
+	| 'config.change';
 
 export type FeedEventLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -71,7 +74,7 @@ export type SessionEndData = {
 
 export type RunStartData = {
 	trigger: {
-		type: 'user_prompt_submit' | 'resume' | 'other';
+		type: 'user_prompt_submit' | 'resume' | 'clear' | 'compact' | 'other';
 		prompt_preview?: string;
 	};
 };
@@ -138,9 +141,6 @@ export type PermissionDecisionData =
 
 export type StopRequestData = {
 	stop_hook_active: boolean;
-	scope: 'root' | 'subagent';
-	agent_id?: string;
-	agent_type?: string;
 	last_assistant_message?: string;
 };
 
@@ -169,6 +169,24 @@ export type PreCompactData = {
 };
 export type SetupData = {trigger: 'init' | 'maintenance'};
 export type UnknownHookData = {hook_event_name: string; payload: unknown};
+
+export type TeammateIdleData = {
+	teammate_name: string;
+	team_name: string;
+};
+
+export type TaskCompletedData = {
+	task_id: string;
+	task_subject: string;
+	task_description?: string;
+	teammate_name?: string;
+	team_name?: string;
+};
+
+export type ConfigChangeData = {
+	source: string;
+	file_path?: string;
+};
 
 // Phase 2 stubs
 export type TodoPriority = 'p0' | 'p1' | 'p2';
@@ -228,4 +246,7 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'todo.add'; data: TodoAddData})
 	| (FeedEventBase & {kind: 'todo.update'; data: TodoUpdateData})
 	| (FeedEventBase & {kind: 'todo.done'; data: TodoDoneData})
-	| (FeedEventBase & {kind: 'agent.message'; data: AgentMessageData});
+	| (FeedEventBase & {kind: 'agent.message'; data: AgentMessageData})
+	| (FeedEventBase & {kind: 'teammate.idle'; data: TeammateIdleData})
+	| (FeedEventBase & {kind: 'task.completed'; data: TaskCompletedData})
+	| (FeedEventBase & {kind: 'config.change'; data: ConfigChangeData});

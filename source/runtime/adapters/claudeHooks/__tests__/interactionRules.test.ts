@@ -17,9 +17,9 @@ describe('getInteractionHints', () => {
 		expect(post.canBlock).toBe(false);
 
 		const stop = getInteractionHints('Stop');
-		expect(stop.expectsDecision).toBe(false);
-		expect(stop.canBlock).toBe(false);
-		expect(stop.defaultTimeoutMs).toBeUndefined();
+		expect(stop.expectsDecision).toBe(true);
+		expect(stop.canBlock).toBe(true);
+		expect(stop.defaultTimeoutMs).toBe(4000);
 	});
 
 	it('returns safe defaults for unknown events', () => {

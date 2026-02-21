@@ -9,7 +9,11 @@
 // ── Runtime Event (adapter → UI) ─────────────────────────
 
 export type RuntimeEvent = {
-	/** Opaque correlation ID (maps to request_id internally) */
+	/**
+	 * Opaque correlation ID (maps to request_id internally).
+	 * NOTE: request_id is NOT in the documented common input fields.
+	 * Treat as best-effort — may be absent in some environments.
+	 */
 	id: string;
 	/** Unix ms timestamp */
 	timestamp: number;
