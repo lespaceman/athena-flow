@@ -100,7 +100,7 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `FeedEvent` objects. Components never access raw hook payloads directly.
 
 - **source/feed/types.ts**: `FeedEvent` discriminated union (21 kinds), all kind-specific data types, `FeedEventCause` for causality
-- **source/feed/mapper.ts**: Stateful `createFeedMapper()` factory — tracks sessions, runs, actors, correlation indexes. Produces `FeedEvent[]` from `RuntimeEvent`
+- **source/feed/mapper.ts**: Stateful `createFeedMapper()` factory — tracks sessions, runs, actors, correlation indexes, and active subagent stack. Produces `FeedEvent[]` from `RuntimeEvent`. Tool events are attributed to the innermost active subagent (if any) via a LIFO stack maintained across SubagentStart/SubagentStop events.
 - **source/feed/entities.ts**: `Session`, `Run`, `Actor` types and `ActorRegistry`
 - **source/feed/titleGen.ts**: Pure `generateTitle(event)` — kind-based titles, max 80 chars
 - **source/feed/filter.ts**: `shouldExcludeFromFeed()` — hides subagent.stop and task tool events
