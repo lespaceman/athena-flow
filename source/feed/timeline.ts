@@ -4,7 +4,6 @@ import {
 	compactText,
 	fit,
 	formatClock,
-	formatRunLabel,
 	summarizeToolInput,
 } from '../utils/format.js';
 
@@ -92,82 +91,88 @@ export function eventSummary(event: FeedEvent): string {
 		case 'run.start':
 			return compactText(
 				event.data.trigger.prompt_preview || 'interactive',
-				84,
+				200,
 			);
 		case 'run.end':
 			return compactText(
 				`status=${event.data.status} tools=${event.data.counters.tool_uses} fail=${event.data.counters.tool_failures} perm=${event.data.counters.permission_requests} blk=${event.data.counters.blocks}`,
-				84,
+				200,
 			);
 		case 'user.prompt':
-			return compactText(event.data.prompt, 84);
+			return compactText(event.data.prompt, 200);
 		case 'tool.pre': {
 			const args = summarizeToolInput(event.data.tool_input);
-			return compactText(`${event.data.tool_name} ${args}`.trim(), 84);
+			return compactText(`${event.data.tool_name} ${args}`.trim(), 200);
 		}
 		case 'tool.post':
-			return compactText(event.data.tool_name, 84);
+			return compactText(event.data.tool_name, 200);
 		case 'tool.failure':
-			return compactText(`${event.data.tool_name} ${event.data.error}`, 84);
+			return compactText(`${event.data.tool_name} ${event.data.error}`, 200);
 		case 'subagent.start':
-			return compactText(`${event.data.agent_type} ${event.data.agent_id}`, 84);
+			return compactText(
+				`${event.data.agent_type} ${event.data.agent_id}`,
+				200,
+			);
 		case 'subagent.stop':
-			return compactText(`${event.data.agent_type} ${event.data.agent_id}`, 84);
+			return compactText(
+				`${event.data.agent_type} ${event.data.agent_id}`,
+				200,
+			);
 		case 'permission.request':
 			return compactText(
 				`${event.data.tool_name} ${summarizeToolInput(event.data.tool_input)}`.trim(),
-				84,
+				200,
 			);
 		case 'permission.decision': {
 			const detail =
 				event.data.decision_type === 'deny'
 					? event.data.message || event.data.reason
 					: event.data.reason;
-			return compactText(detail || event.data.decision_type, 84);
+			return compactText(detail || event.data.decision_type, 200);
 		}
 		case 'stop.request':
 			return compactText(
 				`stop_hook_active=${event.data.stop_hook_active}`,
-				84,
+				200,
 			);
 		case 'stop.decision':
-			return compactText(event.data.reason || event.data.decision_type, 84);
+			return compactText(event.data.reason || event.data.decision_type, 200);
 		case 'session.start':
 			return compactText(
 				`source=${event.data.source}${event.data.model ? ` model=${event.data.model}` : ''}`,
-				84,
+				200,
 			);
 		case 'session.end':
-			return compactText(`reason=${event.data.reason}`, 84);
+			return compactText(`reason=${event.data.reason}`, 200);
 		case 'notification':
-			return compactText(event.data.message, 84);
+			return compactText(event.data.message, 200);
 		case 'compact.pre':
-			return compactText(`trigger=${event.data.trigger}`, 84);
+			return compactText(`trigger=${event.data.trigger}`, 200);
 		case 'setup':
-			return compactText(`trigger=${event.data.trigger}`, 84);
+			return compactText(`trigger=${event.data.trigger}`, 200);
 		case 'unknown.hook':
-			return compactText(event.data.hook_event_name, 84);
+			return compactText(event.data.hook_event_name, 200);
 		case 'todo.add':
 			return compactText(
 				`${event.data.priority?.toUpperCase() ?? 'P1'} ${event.data.text}`,
-				84,
+				200,
 			);
 		case 'todo.update': {
 			const patchFields = Object.keys(event.data.patch);
 			return compactText(
 				`${event.data.todo_id} ${patchFields.length > 0 ? patchFields.join(',') : 'update'}`,
-				84,
+				200,
 			);
 		}
 		case 'todo.done':
 			return compactText(
 				`${event.data.todo_id} ${event.data.reason || 'done'}`,
-				84,
+				200,
 			);
 		case 'agent.message':
-			return compactText(event.data.message, 84);
+			return compactText(event.data.message, 200);
 		default:
-			return compactText('event', 84);
+			return compactText('event', 200);
 	}
 }
 
@@ -283,23 +288,22 @@ export function formatFeedLine(
 	expanded: boolean,
 	matched: boolean,
 ): string {
-	const prefix = `${focused ? '>' : ' '} ${matched ? '*' : ' '} `;
-	const suffix = entry.expandable ? (expanded ? ' v' : ' >') : '  ';
-	const time = fit(formatClock(entry.ts), 8);
-	const run = fit(formatRunLabel(entry.runId), 5);
+	const suffix = entry.expandable ? (expanded ? ' \u25BE' : ' \u25B8') : '  ';
+	const time = fit(formatClock(entry.ts), 5);
 	const op = fit(entry.op, 10);
 	const actor = fit(entry.actor, 8);
-	const base = `${time} ${run} ${op} ${actor} ${entry.summary}`;
-	const bodyWidth = Math.max(0, width - prefix.length - suffix.length);
-	return fit(`${prefix}${fit(base, bodyWidth)}${suffix}`, width);
+	const summaryWidth = Math.max(0, width - 28);
+	const summary = fit(entry.summary, summaryWidth);
+	return fit(`${time} ${op} ${actor} ${summary}${suffix}`, width);
 }
 
 export function formatFeedHeaderLine(width: number): string {
-	const time = fit('TIME', 8);
-	const run = fit('RUN', 5);
+	const time = fit('TIME', 5);
 	const op = fit('OP', 10);
 	const actor = fit('ACTOR', 8);
-	return fit(`${time} ${run} ${op} ${actor} SUMMARY`, width);
+	const summaryWidth = Math.max(0, width - 28);
+	const summaryLabel = fit('SUMMARY', summaryWidth);
+	return fit(`${time} ${op} ${actor} ${summaryLabel}  `, width);
 }
 
 export function toRunStatus(

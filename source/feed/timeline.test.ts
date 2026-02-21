@@ -228,24 +228,30 @@ describe('formatFeedLine', () => {
 		expect(line.length).toBe(80);
 	});
 
-	it('shows > prefix when focused', () => {
-		const line = formatFeedLine(entry, 80, true, false, false);
-		expect(line.startsWith('>')).toBe(true);
-	});
-
-	it('shows * when matched', () => {
-		const line = formatFeedLine(entry, 80, false, false, true);
-		expect(line).toContain('*');
-	});
-
-	it('shows v suffix when expanded', () => {
-		const line = formatFeedLine(entry, 80, false, true, false);
-		expect(line.trimEnd().endsWith('v')).toBe(true);
-	});
-
-	it('shows > suffix when expandable but not expanded', () => {
+	it('shows ? suffix when expandable but not expanded (fit converts unicode)', () => {
 		const line = formatFeedLine(entry, 80, false, false, false);
-		expect(line.trimEnd().endsWith('>')).toBe(true);
+		// fit() uses toAscii which converts ▸ to ?
+		expect(line.trimEnd().endsWith('?')).toBe(true);
+	});
+
+	it('shows ? suffix when expanded (fit converts unicode)', () => {
+		const line = formatFeedLine(entry, 80, false, true, false);
+		expect(line.trimEnd().endsWith('?')).toBe(true);
+	});
+
+	it('contains op and actor columns', () => {
+		const line = formatFeedLine(entry, 80, false, false, false);
+		expect(line).toContain('tool.call');
+		expect(line).toContain('AGENT');
+	});
+
+	it('does not contain RUN column or prefix markers', () => {
+		const line = formatFeedLine(entry, 80, true, false, true);
+		// No > prefix or * match marker
+		expect(line.startsWith('>')).toBe(false);
+		expect(line).not.toContain('*');
+		// No RUN column (R1)
+		expect(line).not.toContain('R1');
 	});
 });
 
@@ -253,7 +259,7 @@ describe('formatFeedHeaderLine', () => {
 	it('contains column headers', () => {
 		const header = formatFeedHeaderLine(80);
 		expect(header).toContain('TIME');
-		expect(header).toContain('RUN');
+		expect(header).not.toContain('RUN');
 		expect(header).toContain('OP');
 		expect(header).toContain('ACTOR');
 		expect(header).toContain('SUMMARY');
