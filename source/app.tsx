@@ -595,7 +595,7 @@ function AppContent({
 		contextUsed: tokenUsage.contextSize,
 		contextMax: 200000,
 	});
-	const [headerLine1, headerLine2] = renderHeaderLines(
+	const [headerLine1] = renderHeaderLines(
 		headerModel,
 		innerWidth,
 		hasColor,
@@ -654,7 +654,6 @@ function AppContent({
 		<Box flexDirection="column" width={frameWidth}>
 			<Text>{topBorder}</Text>
 			<Text>{frameLine(headerLine1)}</Text>
-			<Text>{frameLine(headerLine2)}</Text>
 			<Text>{sectionBorder}</Text>
 			{clippedBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{frameLine(line)}</Text>

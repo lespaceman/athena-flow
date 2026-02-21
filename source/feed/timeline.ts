@@ -1,4 +1,4 @@
-import {type FeedEvent} from './types.js';
+import {feedGlyphs} from '../glyphs/index.js';
 import {type Message} from '../types/index.js';
 import {
 	compactText,
@@ -6,6 +6,11 @@ import {
 	formatClock,
 	summarizeToolInput,
 } from '../utils/format.js';
+import {
+	extractFriendlyServerName,
+	parseToolName,
+} from '../utils/toolNameParser.js';
+import {type FeedEvent} from './types.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
@@ -80,9 +85,32 @@ export function eventOperation(event: FeedEvent): string {
 			return 'todo.done';
 		case 'agent.message':
 			return 'agent.msg';
+		case 'teammate.idle':
+			return 'tm.idle';
+		case 'task.completed':
+			return 'task.ok';
+		case 'config.change':
+			return 'cfg.chg';
 		default:
 			return 'event';
 	}
+}
+
+function formatToolSummary(
+	toolName: string,
+	args: string,
+	errorSuffix?: string,
+): string {
+	const parsed = parseToolName(toolName);
+	let name: string;
+	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
+		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
+		name = `[${friendlyServer}] ${parsed.mcpAction}`;
+	} else {
+		name = toolName;
+	}
+	const parts = [name, args, errorSuffix].filter(Boolean).join(' ');
+	return compactText(parts, 200);
 }
 
 export function eventSummary(event: FeedEvent): string {
@@ -101,12 +129,12 @@ export function eventSummary(event: FeedEvent): string {
 			return compactText(event.data.prompt, 200);
 		case 'tool.pre': {
 			const args = summarizeToolInput(event.data.tool_input);
-			return compactText(`${event.data.tool_name} ${args}`.trim(), 200);
+			return formatToolSummary(event.data.tool_name, args);
 		}
 		case 'tool.post':
-			return compactText(event.data.tool_name, 200);
+			return formatToolSummary(event.data.tool_name, '');
 		case 'tool.failure':
-			return compactText(`${event.data.tool_name} ${event.data.error}`, 200);
+			return formatToolSummary(event.data.tool_name, '', event.data.error);
 		case 'subagent.start':
 		case 'subagent.stop':
 			return compactText(
@@ -114,9 +142,9 @@ export function eventSummary(event: FeedEvent): string {
 				200,
 			);
 		case 'permission.request':
-			return compactText(
-				`${event.data.tool_name} ${summarizeToolInput(event.data.tool_input)}`.trim(),
-				200,
+			return formatToolSummary(
+				event.data.tool_name,
+				summarizeToolInput(event.data.tool_input),
 			);
 		case 'permission.decision': {
 			const detail =
@@ -166,6 +194,18 @@ export function eventSummary(event: FeedEvent): string {
 			);
 		case 'agent.message':
 			return compactText(event.data.message, 200);
+		case 'teammate.idle':
+			return compactText(
+				`${event.data.teammate_name} idle in ${event.data.team_name}`,
+				200,
+			);
+		case 'task.completed':
+			return compactText(event.data.task_subject, 200);
+		case 'config.change':
+			return compactText(
+				`${event.data.source}${event.data.file_path ? ` ${event.data.file_path}` : ''}`,
+				200,
+			);
 		default:
 			return compactText('event', 200);
 	}
@@ -276,7 +316,9 @@ export function deriveRunTitle(
 	return 'Untitled run';
 }
 
-import {feedGlyphs} from '../glyphs/index.js';
+/** Column positions in formatted feed line (0-indexed char offsets). */
+export const FEED_OP_COL_START = 6; // after "HH:MM "
+export const FEED_OP_COL_END = 16; // 6 + 10 (op width)
 
 export function formatFeedLine(
 	entry: TimelineEntry,

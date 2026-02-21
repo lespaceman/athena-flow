@@ -1,5 +1,6 @@
 import {type FeedEvent} from '../feed/types.js';
 import {extractToolOutput} from './toolExtractors.js';
+import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
 import {highlight} from 'cli-highlight';
 import {Marked} from 'marked';
 import {markedTerminal} from 'marked-terminal';
@@ -91,6 +92,22 @@ function renderList(items: {primary: string; secondary?: string}[]): string[] {
 	);
 }
 
+function buildToolHeader(toolName: string): string[] {
+	const parsed = parseToolName(toolName);
+	if (!parsed.isMcp || !parsed.mcpServer || !parsed.mcpAction) {
+		return [chalk.bold.cyan(`${g['tool.bullet']} ${toolName}`)];
+	}
+	const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
+	const divider = '─'.repeat(40);
+	return [
+		chalk.bold.cyan('Tool'),
+		chalk.dim(divider),
+		`Namespace: ${chalk.cyan('mcp')}`,
+		`Server:    ${chalk.cyan(friendlyServer)}`,
+		`Action:    ${chalk.cyan(parsed.mcpAction)}`,
+	];
+}
+
 function renderToolPost(
 	event: Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}>,
 	width: number,
@@ -99,9 +116,15 @@ function renderToolPost(
 
 	// tool.failure has error string instead of tool_response
 	if (event.kind === 'tool.failure') {
-		const header = chalk.bold.red(`${g['tool.bullet']} ${tool_name} (FAILED)`);
+		const headerLines = buildToolHeader(tool_name);
 		return {
-			lines: [header, '', chalk.red(event.data.error)],
+			lines: [
+				...headerLines,
+				'',
+				chalk.red('FAILED'),
+				'',
+				chalk.red(event.data.error),
+			],
 			showLineNumbers: false,
 		};
 	}
@@ -112,28 +135,36 @@ function renderToolPost(
 		event.data.tool_response,
 	);
 
-	const header = chalk.bold.cyan(`${g['tool.bullet']} ${tool_name}`);
+	const headerLines = buildToolHeader(tool_name);
 
 	switch (output.type) {
 		case 'code':
 			return {
-				lines: [header, '', ...highlightCode(output.content, output.language)],
+				lines: [
+					...headerLines,
+					'',
+					...highlightCode(output.content, output.language),
+				],
 				showLineNumbers: true,
 			};
 		case 'diff':
 			return {
-				lines: [header, '', ...renderDiff(output.oldText, output.newText)],
+				lines: [
+					...headerLines,
+					'',
+					...renderDiff(output.oldText, output.newText),
+				],
 				showLineNumbers: true,
 			};
 		case 'list':
 			return {
-				lines: [header, '', ...renderList(output.items)],
+				lines: [...headerLines, '', ...renderList(output.items)],
 				showLineNumbers: false,
 			};
 		case 'text':
 			return {
 				lines: [
-					header,
+					...headerLines,
 					'',
 					...renderMarkdownToLines(output.content, width - 2),
 				],
@@ -146,10 +177,10 @@ function renderToolPre(
 	event: Extract<FeedEvent, {kind: 'tool.pre'} | {kind: 'permission.request'}>,
 ): DetailRenderResult {
 	const {tool_name, tool_input} = event.data;
-	const header = chalk.bold.cyan(`${g['tool.bullet']} ${tool_name}`);
+	const headerLines = buildToolHeader(tool_name);
 	const json = JSON.stringify(tool_input, null, 2);
 	return {
-		lines: [header, '', ...highlightCode(json, 'json')],
+		lines: [...headerLines, '', ...highlightCode(json, 'json')],
 		showLineNumbers: true,
 	};
 }

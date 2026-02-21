@@ -198,11 +198,19 @@ describe('summarizeValue', () => {
 });
 
 describe('summarizeToolInput', () => {
-	it('joins first 2 key=value pairs', () => {
-		expect(summarizeToolInput({a: 1, b: 'hi', c: true})).toBe('a=1 b="hi"');
+	it('shows all entries when 2 or fewer', () => {
+		expect(summarizeToolInput({a: 1, b: 2})).toBe('a=1 b=2');
 	});
 
-	it('handles empty input', () => {
+	it('appends +N for entries beyond 2', () => {
+		expect(summarizeToolInput({a: 1, b: 2, c: 3, d: 4})).toBe('a=1 b=2 +2');
+	});
+
+	it('appends +1 for exactly 3 entries', () => {
+		expect(summarizeToolInput({a: 1, b: 2, c: 3})).toBe('a=1 b=2 +1');
+	});
+
+	it('returns empty string for empty input', () => {
 		expect(summarizeToolInput({})).toBe('');
 	});
 

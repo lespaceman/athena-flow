@@ -244,6 +244,7 @@ export function buildBodyLines({
 						isError: entry.error,
 						theme,
 						ascii: todo.ascii,
+						op: entry.op,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
 				}

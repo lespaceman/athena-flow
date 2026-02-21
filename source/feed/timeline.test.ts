@@ -90,6 +90,33 @@ describe('eventOperation', () => {
 		expect(eventOperation(ev)).toBe('tool.call');
 	});
 
+	it('returns tm.idle for teammate.idle', () => {
+		const ev = {
+			...base(),
+			kind: 'teammate.idle' as const,
+			data: {teammate_name: 'alice', team_name: 'backend'},
+		};
+		expect(eventOperation(ev)).toBe('tm.idle');
+	});
+
+	it('returns task.ok for task.completed', () => {
+		const ev = {
+			...base(),
+			kind: 'task.completed' as const,
+			data: {task_id: 't1', task_subject: 'Fix bug'},
+		};
+		expect(eventOperation(ev)).toBe('task.ok');
+	});
+
+	it('returns cfg.chg for config.change', () => {
+		const ev = {
+			...base(),
+			kind: 'config.change' as const,
+			data: {source: 'user', file_path: '.claude/settings.json'},
+		};
+		expect(eventOperation(ev)).toBe('cfg.chg');
+	});
+
 	it('returns perm.deny for permission.decision deny', () => {
 		const ev = {
 			...base({kind: 'permission.decision'}),
@@ -97,6 +124,120 @@ describe('eventOperation', () => {
 			data: {decision_type: 'deny' as const, message: 'no'},
 		};
 		expect(eventOperation(ev)).toBe('perm.deny');
+	});
+});
+
+describe('eventSummary', () => {
+	it('formats teammate.idle summary', () => {
+		const ev = {
+			...base(),
+			kind: 'teammate.idle' as const,
+			data: {teammate_name: 'alice', team_name: 'backend'},
+		};
+		expect(eventSummary(ev)).toBe('alice idle in backend');
+	});
+
+	it('formats task.completed summary', () => {
+		const ev = {
+			...base(),
+			kind: 'task.completed' as const,
+			data: {task_id: 't1', task_subject: 'Fix the login bug'},
+		};
+		expect(eventSummary(ev)).toBe('Fix the login bug');
+	});
+
+	it('formats config.change summary', () => {
+		const ev = {
+			...base(),
+			kind: 'config.change' as const,
+			data: {source: 'user', file_path: '.claude/settings.json'},
+		};
+		expect(eventSummary(ev)).toBe('user .claude/settings.json');
+	});
+});
+
+describe('eventSummary MCP formatting', () => {
+	it('formats MCP tool.pre with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {url: 'https://example.com'},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+	});
+
+	it('formats built-in tool.pre without brackets', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/foo.ts'},
+			},
+		};
+		const summary = eventSummary(ev);
+		expect(summary).toContain('Read');
+		expect(summary).not.toContain('[');
+	});
+
+	it('formats MCP permission.request with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'permission.request' as const,
+			data: {
+				tool_name: 'mcp__plugin_web-testing-toolkit_agent-web-interface__click',
+				tool_input: {eid: 'btn-1'},
+				permission_suggestions: [],
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] click');
+	});
+
+	it('formats MCP tool.post with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {},
+				tool_response: {},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+	});
+
+	it('formats MCP tool.failure with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {},
+				error: 'timeout',
+				is_interrupt: false,
+			},
+		};
+		const summary = eventSummary(ev);
+		expect(summary).toContain('[agent-web-interface] navigate');
+		expect(summary).toContain('timeout');
+	});
+
+	it('formats non-plugin MCP tool without plugin prefix', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'mcp__my-server__do_thing',
+				tool_input: {},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[my-server] do_thing');
 	});
 });
 
