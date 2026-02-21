@@ -47,6 +47,7 @@ type Props = {
 	initialSessionId?: string;
 	showSessionPicker?: boolean;
 	workflowRef?: string;
+	ascii?: boolean;
 };
 
 type AppPhase =
@@ -57,6 +58,11 @@ type FocusMode = 'feed' | 'input' | 'todo';
 type InputMode = 'normal' | 'cmd' | 'search';
 
 /** Fallback for crashed PermissionDialog -- lets user press Escape to deny. */
+function isUtf8Locale(): boolean {
+	const lang = process.env['LANG'] ?? process.env['LC_ALL'] ?? '';
+	return /utf-?8/i.test(lang);
+}
+
 function PermissionErrorFallback({onDeny}: {onDeny: () => void}) {
 	const theme = useTheme();
 	useInput((_input, key) => {
@@ -94,6 +100,7 @@ function AppContent({
 	onShowSessions,
 	inputHistory,
 	workflowRef,
+	ascii,
 }: Omit<Props, 'showSessionPicker' | 'theme'> & {
 	initialSessionId?: string;
 	onClear: () => void;
@@ -575,6 +582,8 @@ function AppContent({
 	});
 
 	const hasColor = !process.env['NO_COLOR'];
+	// TODO: thread useAscii into rendering components in subsequent tasks
+	const _useAscii = ascii || !hasColor || !isUtf8Locale();
 	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
@@ -644,6 +653,7 @@ function AppContent({
 			},
 			runLabel,
 			focusMode,
+			ascii: _useAscii,
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
 	});
@@ -706,6 +716,7 @@ export default function App({
 	initialSessionId,
 	showSessionPicker,
 	workflowRef,
+	ascii,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
@@ -767,6 +778,7 @@ export default function App({
 					onShowSessions={handleShowSessions}
 					inputHistory={inputHistory}
 					workflowRef={workflowRef}
+					ascii={ascii}
 				/>
 			</HookProvider>
 		</ThemeProvider>

@@ -43,6 +43,7 @@ export type TodoViewState = {
 	};
 	runLabel: string;
 	focusMode: string;
+	ascii: boolean;
 };
 
 export type RunOverlayState = {

@@ -93,6 +93,10 @@ const cli = meow(
 			workflow: {
 				type: 'string',
 			},
+			ascii: {
+				type: 'boolean',
+				default: false,
+			},
 		},
 	},
 );
@@ -182,5 +186,6 @@ render(
 		initialSessionId={initialSessionId}
 		showSessionPicker={showSessionPicker}
 		workflowRef={cli.flags.workflow}
+		ascii={cli.flags.ascii}
 	/>,
 );
