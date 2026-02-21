@@ -234,6 +234,55 @@ describe('extractToolOutput', () => {
 				expect(result.content).toBe('File created successfully');
 			}
 		});
+
+		it('shows written content as text for .md files', () => {
+			const result = extractToolOutput(
+				'Write',
+				{file_path: 'docs/plan.md', content: '# Plan\n\n**Step 1:** do thing'},
+				{filePath: 'docs/plan.md', success: true},
+			);
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('# Plan\n\n**Step 1:** do thing');
+			}
+		});
+
+		it('shows written content as code for .ts files', () => {
+			const result = extractToolOutput(
+				'Write',
+				{file_path: 'src/index.ts', content: 'export const x = 1;'},
+				{filePath: 'src/index.ts', success: true},
+			);
+			expect(result.type).toBe('code');
+			if (result.type === 'code') {
+				expect(result.content).toBe('export const x = 1;');
+				expect(result.language).toBe('typescript');
+			}
+		});
+
+		it('shows written content as text for unknown extension', () => {
+			const result = extractToolOutput(
+				'Write',
+				{file_path: 'Dockerfile', content: 'FROM node:20'},
+				{filePath: 'Dockerfile', success: true},
+			);
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('FROM node:20');
+			}
+		});
+
+		it('falls back to "Wrote path" when no content in input', () => {
+			const result = extractToolOutput(
+				'Write',
+				{file_path: '/tmp/test.ts'},
+				{filePath: '/tmp/test.ts', success: true},
+			);
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('Wrote /tmp/test.ts');
+			}
+		});
 	});
 
 	describe('Grep', () => {

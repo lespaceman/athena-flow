@@ -178,10 +178,21 @@ function extractWrite(
 	const text = extractTextContent(response);
 	if (text && typeof response !== 'object')
 		return {type: 'text', content: text};
+
+	const content = typeof input['content'] === 'string' ? input['content'] : '';
 	const filePath = String(
 		prop(response, 'filePath') ?? input['file_path'] ?? '',
 	);
-	return {type: 'text', content: `Wrote ${filePath}`};
+
+	if (!content) {
+		return {type: 'text', content: `Wrote ${filePath}`};
+	}
+
+	const language = detectLanguage(input['file_path']);
+	if (isMarkdownRenderable(language)) {
+		return {type: 'text', content, maxLines: 10};
+	}
+	return {type: 'code', content, language, maxLines: 10};
 }
 
 function extractGrep(
