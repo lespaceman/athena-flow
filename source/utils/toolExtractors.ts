@@ -41,6 +41,10 @@ function detectLanguage(filePath: unknown): string | undefined {
 	return EXT_TO_LANGUAGE[filePath.slice(dot).toLowerCase()];
 }
 
+function isMarkdownRenderable(language: string | undefined): boolean {
+	return language === undefined || language === 'markdown';
+}
+
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {
 		return (obj as Record<string, unknown>)[key];
@@ -146,12 +150,14 @@ function extractRead(
 		if (content) break;
 	}
 
-	return {
-		type: 'code',
-		content: content ?? extractTextContent(response),
-		language: detectLanguage(input['file_path']),
-		maxLines: 10,
-	};
+	const language = detectLanguage(input['file_path']);
+	const resolved = content ?? extractTextContent(response);
+
+	if (isMarkdownRenderable(language)) {
+		return {type: 'text', content: resolved, maxLines: 10};
+	}
+
+	return {type: 'code', content: resolved, language, maxLines: 10};
 }
 
 function extractEdit(

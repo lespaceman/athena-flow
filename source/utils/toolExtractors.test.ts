@@ -120,6 +120,72 @@ describe('extractToolOutput', () => {
 				}),
 			);
 		});
+
+		it('returns text type for .md files (markdown renderer)', () => {
+			const result = extractToolOutput('Read', {file_path: 'docs/README.md'}, [
+				{
+					type: 'text',
+					file: {
+						content: '# Hello\n\n**bold** text',
+						numLines: 2,
+						startLine: 1,
+						totalLines: 2,
+					},
+				},
+			]);
+			expect(result.type).toBe('text');
+			if (result.type === 'text') {
+				expect(result.content).toBe('# Hello\n\n**bold** text');
+			}
+		});
+
+		it('returns text type for .txt files (markdown renderer)', () => {
+			const result = extractToolOutput('Read', {file_path: 'notes.txt'}, [
+				{
+					type: 'text',
+					file: {
+						content: 'plain text content',
+						numLines: 1,
+						startLine: 1,
+						totalLines: 1,
+					},
+				},
+			]);
+			expect(result.type).toBe('text');
+		});
+
+		it('returns text type for files with no recognized extension (markdown renderer)', () => {
+			const result = extractToolOutput('Read', {file_path: 'Makefile'}, [
+				{
+					type: 'text',
+					file: {
+						content: 'all:\n\techo hi',
+						numLines: 2,
+						startLine: 1,
+						totalLines: 2,
+					},
+				},
+			]);
+			expect(result.type).toBe('text');
+		});
+
+		it('returns code type for recognized code files', () => {
+			const result = extractToolOutput('Read', {file_path: 'config.json'}, [
+				{
+					type: 'text',
+					file: {
+						content: '{"key": "value"}',
+						numLines: 1,
+						startLine: 1,
+						totalLines: 1,
+					},
+				},
+			]);
+			expect(result.type).toBe('code');
+			if (result.type === 'code') {
+				expect(result.language).toBe('json');
+			}
+		});
 	});
 
 	describe('Edit', () => {
