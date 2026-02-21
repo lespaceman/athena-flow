@@ -5,7 +5,13 @@ import {
 	formatFeedHeaderLine,
 } from '../feed/timeline.js';
 import {type TodoPanelItem} from '../feed/todoPanel.js';
-import {symbolForTodoStatus} from '../feed/todoPanel.js';
+import {
+	glyphForTodoStatus,
+	todoCaret,
+	todoDivider,
+	todoScrollUp,
+	todoScrollDown,
+} from '../feed/todoPanel.js';
 import {compactText, fit, fitAnsi, formatRunLabel} from './format.js';
 
 export type DetailViewState = {
@@ -34,14 +40,9 @@ export type TodoViewState = {
 	todoPanel: {
 		todoScroll: number;
 		todoCursor: number;
-		openCount: number;
-		doingCount: number;
-		doneCount: number;
-		blockedCount: number;
-		todoShowDone: boolean;
+		remainingCount: number;
 		visibleTodoItems: TodoPanelItem[];
 	};
-	runLabel: string;
 	focusMode: string;
 	ascii: boolean;
 };
@@ -106,12 +107,7 @@ export function buildBodyLines({
 			}
 		}
 	} else {
-		const {
-			actualTodoRows,
-			todoPanel: tp,
-			runLabel,
-			focusMode: todoFocus,
-		} = todo;
+		const {actualTodoRows, todoPanel: tp, focusMode: todoFocus} = todo;
 		const {actualRunOverlayRows, runSummaries, runFilter} = runOverlay;
 		const {
 			feedHeaderRows,
@@ -126,24 +122,63 @@ export function buildBodyLines({
 		} = feed;
 
 		if (actualTodoRows > 0) {
-			const todoHeader = `[TODO] (${runLabel}) ${tp.openCount} open / ${tp.doingCount} doing / ${tp.doneCount} done${tp.blockedCount > 0 ? ` / ${tp.blockedCount} blocked` : ''}${tp.todoShowDone ? ' [all]' : ' [open]'}`;
-			bodyLines.push(fit(todoHeader, innerWidth));
+			const {
+				todoScroll: tScroll,
+				todoCursor: tCursor,
+				remainingCount,
+				visibleTodoItems: items,
+			} = tp;
+			const ascii = todo.ascii;
 
-			for (let i = 0; i < actualTodoRows - 1; i++) {
-				const todoItem = tp.visibleTodoItems[tp.todoScroll + i];
-				if (!todoItem) {
+			// Header line: "TODO" left-aligned, "N remaining" right-aligned
+			const headerLeft = 'TODO';
+			const headerRight = `${remainingCount} remaining`;
+			const headerGap = Math.max(
+				1,
+				innerWidth - headerLeft.length - headerRight.length,
+			);
+			bodyLines.push(
+				fit(`${headerLeft}${' '.repeat(headerGap)}${headerRight}`, innerWidth),
+			);
+
+			const itemSlots = actualTodoRows - 2; // minus header and divider
+			const totalItems = items.length;
+			const hasScrollUp = tScroll > 0;
+			const hasScrollDown = tScroll + itemSlots < totalItems;
+
+			// Scroll affordances consume item slots when present
+			let renderSlots = itemSlots;
+			if (hasScrollUp) renderSlots--;
+			if (hasScrollDown) renderSlots--;
+
+			if (hasScrollUp) {
+				bodyLines.push(fit(todoScrollUp(ascii), innerWidth));
+			}
+
+			for (let i = 0; i < renderSlots; i++) {
+				const item = items[tScroll + i];
+				if (!item) {
 					bodyLines.push(fit('', innerWidth));
 					continue;
 				}
-				const focused =
-					todoFocus === 'todo' && tp.todoCursor === tp.todoScroll + i;
-				const link = todoItem.linkedEventId
-					? ` <- ${todoItem.linkedEventId}`
-					: '';
-				const owner = todoItem.owner ? ` @${todoItem.owner}` : '';
-				const line = `${focused ? '>' : ' '} ${symbolForTodoStatus(todoItem.status)} ${todoItem.priority} ${compactText(todoItem.text, 48)}${link}${owner}`;
-				bodyLines.push(fit(line, innerWidth));
+				const isFocused = todoFocus === 'todo' && tCursor === tScroll + i;
+				const caret = isFocused ? todoCaret(ascii) : ' ';
+				const glyph = glyphForTodoStatus(item.status, ascii);
+				const prefix = `${caret} ${glyph}  `;
+				const maxTitleWidth = Math.max(1, innerWidth - prefix.length);
+				const title = fitAnsi(item.text, maxTitleWidth).trimEnd();
+				bodyLines.push(fit(`${prefix}${title}`, innerWidth));
 			}
+
+			if (hasScrollDown) {
+				const moreCount = totalItems - (tScroll + renderSlots);
+				bodyLines.push(
+					fit(`${todoScrollDown(ascii)}  +${moreCount} more`, innerWidth),
+				);
+			}
+
+			// Divider line
+			bodyLines.push(fit(todoDivider(innerWidth, ascii), innerWidth));
 		}
 
 		if (actualRunOverlayRows > 0) {
