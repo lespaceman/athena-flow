@@ -81,15 +81,15 @@ describe('fit', () => {
 });
 
 describe('formatClock', () => {
-	it('formats timestamp as HH:MM:SS', () => {
+	it('formats timestamp as HH:MM', () => {
 		// Use a fixed UTC time and construct with local offset
 		const d = new Date(2026, 0, 15, 9, 5, 3);
-		expect(formatClock(d.getTime())).toBe('09:05:03');
+		expect(formatClock(d.getTime())).toBe('09:05');
 	});
 
 	it('formats midnight', () => {
 		const d = new Date(2026, 0, 1, 0, 0, 0);
-		expect(formatClock(d.getTime())).toBe('00:00:00');
+		expect(formatClock(d.getTime())).toBe('00:00');
 	});
 });
 
