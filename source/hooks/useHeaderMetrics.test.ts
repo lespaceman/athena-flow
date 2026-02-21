@@ -133,6 +133,51 @@ describe('useHeaderMetrics', () => {
 		expect(result.current.totalToolCallCount).toBe(2);
 	});
 
+	it('counts subagent-attributed tool events separately from root', () => {
+		const events = [
+			makeFeedEvent({
+				event_id: 'sub-start',
+				kind: 'subagent.start',
+				title: 'Subagent started',
+				actor_id: 'agent:root',
+				data: {agent_id: 'sa-1', agent_type: 'Explore'},
+			}),
+			makeFeedEvent({
+				event_id: 'sa-tool-1',
+				kind: 'tool.pre',
+				title: '● Bash',
+				actor_id: 'subagent:sa-1',
+				data: {tool_name: 'Bash', tool_input: {}},
+			}),
+			makeFeedEvent({
+				event_id: 'sa-tool-2',
+				kind: 'tool.pre',
+				title: '● Read',
+				actor_id: 'subagent:sa-1',
+				data: {tool_name: 'Read', tool_input: {}},
+			}),
+			makeFeedEvent({
+				event_id: 'root-tool-1',
+				kind: 'tool.pre',
+				title: '● Grep',
+				actor_id: 'agent:root',
+				data: {tool_name: 'Grep', tool_input: {}},
+			}),
+		];
+
+		const {result} = renderHook(() => useHeaderMetrics(events));
+		expect(result.current.toolCallCount).toBe(1);
+		expect(result.current.subagentMetrics).toEqual([
+			{
+				agentId: 'sa-1',
+				agentType: 'Explore',
+				toolCallCount: 2,
+				tokenCount: null,
+			},
+		]);
+		expect(result.current.totalToolCallCount).toBe(3);
+	});
+
 	it('counts permission decision outcomes', () => {
 		const events = [
 			makeFeedEvent({
