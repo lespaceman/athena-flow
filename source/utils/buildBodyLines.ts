@@ -235,6 +235,7 @@ export function buildBodyLines({
 						isFocused,
 						isExpanded,
 						isMatched,
+						todo.ascii,
 					);
 					const styled = styleFeedLine(plain, {
 						focused: isFocused,

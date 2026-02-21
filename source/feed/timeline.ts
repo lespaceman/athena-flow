@@ -37,11 +37,9 @@ export function eventOperation(event: FeedEvent): string {
 		case 'run.start':
 			return 'run.start';
 		case 'run.end':
-			return event.data.status === 'completed'
-				? 'run.ok'
-				: event.data.status === 'failed'
-					? 'run.fail'
-					: 'run.abort';
+			if (event.data.status === 'completed') return 'run.ok';
+			if (event.data.status === 'failed') return 'run.fail';
+			return 'run.abort';
 		case 'user.prompt':
 			return 'prompt';
 		case 'tool.pre':
@@ -110,10 +108,6 @@ export function eventSummary(event: FeedEvent): string {
 		case 'tool.failure':
 			return compactText(`${event.data.tool_name} ${event.data.error}`, 200);
 		case 'subagent.start':
-			return compactText(
-				`${event.data.agent_type} ${event.data.agent_id}`,
-				200,
-			);
 		case 'subagent.stop':
 			return compactText(
 				`${event.data.agent_type} ${event.data.agent_id}`,
@@ -282,20 +276,45 @@ export function deriveRunTitle(
 	return 'Untitled run';
 }
 
+type FeedGlyphKeys = 'expandCollapsed' | 'expandExpanded';
+
+const FEED_GLYPH_TABLE = {
+	unicode: {
+		expandCollapsed: '▸',
+		expandExpanded: '▾',
+	} satisfies Record<FeedGlyphKeys, string>,
+	ascii: {
+		expandCollapsed: '>',
+		expandExpanded: 'v',
+	} satisfies Record<FeedGlyphKeys, string>,
+} as const;
+
+export function feedGlyphs(ascii = false) {
+	return ascii ? FEED_GLYPH_TABLE.ascii : FEED_GLYPH_TABLE.unicode;
+}
+
 export function formatFeedLine(
 	entry: TimelineEntry,
 	width: number,
 	focused: boolean,
 	expanded: boolean,
 	matched: boolean,
+	ascii = false,
 ): string {
-	const suffix = entry.expandable ? (expanded ? ' \u25BE' : ' \u25B8') : '  ';
+	const g = feedGlyphs(ascii);
+	const glyph = entry.expandable
+		? expanded
+			? g.expandExpanded
+			: g.expandCollapsed
+		: ' ';
+	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
 	const op = fit(entry.op, 10);
 	const actor = fit(entry.actor, 8);
-	const summaryWidth = Math.max(0, width - 28);
-	const summary = fit(entry.summary, summaryWidth);
-	return fit(`${time} ${op} ${actor} ${summary}${suffix}`, width);
+	const bodyWidth = Math.max(0, width - 2); // reserve 2 chars for suffix
+	const summaryWidth = Math.max(0, bodyWidth - 26); // 5+1+10+1+8+1 = 26
+	const body = fit(`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`, bodyWidth);
+	return `${body}${suffix}`;
 }
 
 export function formatFeedHeaderLine(width: number): string {

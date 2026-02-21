@@ -229,15 +229,24 @@ describe('formatFeedLine', () => {
 		expect(line.length).toBe(80);
 	});
 
-	it('shows ? suffix when expandable but not expanded (fit converts unicode)', () => {
+	it('shows ▸ suffix when expandable but not expanded (unicode)', () => {
 		const line = formatFeedLine(entry, 80, false, false, false);
-		// fit() uses toAscii which converts ▸ to ?
-		expect(line.trimEnd().endsWith('?')).toBe(true);
+		expect(line.trimEnd().endsWith('▸')).toBe(true);
 	});
 
-	it('shows ? suffix when expanded (fit converts unicode)', () => {
+	it('shows ▾ suffix when expanded (unicode)', () => {
 		const line = formatFeedLine(entry, 80, false, true, false);
-		expect(line.trimEnd().endsWith('?')).toBe(true);
+		expect(line.trimEnd().endsWith('▾')).toBe(true);
+	});
+
+	it('shows > suffix in ascii mode', () => {
+		const line = formatFeedLine(entry, 80, false, false, false, true);
+		expect(line.trimEnd().endsWith('>')).toBe(true);
+	});
+
+	it('shows v suffix when expanded in ascii mode', () => {
+		const line = formatFeedLine(entry, 80, false, true, false, true);
+		expect(line.trimEnd().endsWith('v')).toBe(true);
 	});
 
 	it('contains op and actor columns', () => {
