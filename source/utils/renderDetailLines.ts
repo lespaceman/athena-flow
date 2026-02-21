@@ -2,7 +2,7 @@ import {type FeedEvent} from '../feed/types.js';
 import {extractToolOutput} from './toolExtractors.js';
 import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
 import {highlight} from 'cli-highlight';
-import {Marked} from 'marked';
+import {Marked, type Tokens} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import chalk from 'chalk';
 import {getGlyphs} from '../glyphs/index.js';
@@ -42,6 +42,20 @@ function createMarkedRenderer(width: number): Marked {
 			table: chalk.reset,
 		}) as Parameters<typeof m.use>[0],
 	);
+	m.use({
+		renderer: {
+			list(token: Tokens.List): string {
+				let body = '';
+				for (let i = 0; i < token.items.length; i++) {
+					const item = token.items[i]!;
+					const bullet = token.ordered ? `${i + 1}. ` : '  • ';
+					const text = m.parseInline(item.text);
+					body += bullet + (typeof text === 'string' ? text : item.text) + '\n';
+				}
+				return body;
+			},
+		},
+	});
 	return m;
 }
 

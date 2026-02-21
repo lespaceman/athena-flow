@@ -31,6 +31,21 @@ describe('renderDetailLines', () => {
 		expect(joined).not.toContain('**bold**');
 	});
 
+	it('renders bold inside list items in agent.message', () => {
+		const event = makeEvent({
+			kind: 'agent.message',
+			data: {
+				message: '* **Critical:** leaked data\n* **Warning:** slow query',
+				source: 'hook',
+				scope: 'root',
+			},
+		});
+		const result = renderDetailLines(event, 80);
+		const joined = result.lines.join('\n');
+		expect(joined).not.toContain('**Critical:**');
+		expect(joined).toContain('Critical:');
+	});
+
 	it('renders user.prompt as markdown', () => {
 		const event = makeEvent({
 			kind: 'user.prompt',
