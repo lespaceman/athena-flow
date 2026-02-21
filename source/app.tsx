@@ -18,7 +18,6 @@ import {useTodoKeyboard} from './hooks/useTodoKeyboard.js';
 import {useTimeline} from './hooks/useTimeline.js';
 import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
-import {useSpinnerFrame} from './hooks/useSpinnerFrame.js';
 import {buildBodyLines} from './utils/buildBodyLines.js';
 import {buildFrameLines} from './utils/buildFrameLines.js';
 import {buildHeaderModel} from './utils/headerModel.js';
@@ -571,8 +570,6 @@ function AppContent({
 
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
-	const hasDoingTodos = todoPanel.doingCount > 0;
-	const spinnerFrame = useSpinnerFrame(hasDoingTodos);
 	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
@@ -638,7 +635,6 @@ function AppContent({
 			},
 			focusMode,
 			ascii: useAscii,
-			spinnerFrame,
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
 	});

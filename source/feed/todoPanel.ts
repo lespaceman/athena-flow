@@ -25,20 +25,6 @@ export function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
 	}
 }
 
-export const SPINNER_FRAMES = [
-	'⠋',
-	'⠙',
-	'⠹',
-	'⠸',
-	'⠼',
-	'⠴',
-	'⠦',
-	'⠧',
-	'⠇',
-	'⠏',
-];
-export const ASCII_SPINNER_FRAMES = ['|', '/', '-', '\\'];
-
 export type TodoGlyphs = {
 	statusGlyph: (status: TodoPanelStatus) => string;
 	caret: string;
@@ -47,14 +33,12 @@ export type TodoGlyphs = {
 	scrollDown: string;
 };
 
-export function todoGlyphs(ascii = false, spinnerFrame = 0): TodoGlyphs {
-	const frames = ascii ? ASCII_SPINNER_FRAMES : SPINNER_FRAMES;
-	const doingGlyph = frames[spinnerFrame % frames.length]!;
+export function todoGlyphs(ascii = false): TodoGlyphs {
 	return {
 		statusGlyph: (status: TodoPanelStatus) => {
 			switch (status) {
 				case 'doing':
-					return doingGlyph;
+					return ascii ? '*' : '●';
 				case 'done':
 					return ascii ? 'x' : '✓';
 				default:

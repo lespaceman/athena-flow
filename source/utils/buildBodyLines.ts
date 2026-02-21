@@ -38,7 +38,6 @@ export type TodoViewState = {
 	};
 	focusMode: string;
 	ascii: boolean;
-	spinnerFrame: number;
 };
 
 export type RunOverlayState = {
@@ -122,7 +121,7 @@ export function buildBodyLines({
 				remainingCount,
 				visibleTodoItems: items,
 			} = tp;
-			const g = todoGlyphs(todo.ascii, todo.spinnerFrame);
+			const g = todoGlyphs(todo.ascii);
 
 			// Header line: "TODO" left-aligned, "N remaining" right-aligned
 			const headerLeft = 'TODO';
