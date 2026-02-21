@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import {feedGlyphs} from '../glyphs/index.js';
 import {type Message} from '../types/index.js';
 import {
@@ -109,7 +110,9 @@ function formatToolSummary(
 	} else {
 		name = toolName;
 	}
-	const parts = [name, args, errorSuffix].filter(Boolean).join(' ');
+	const dimArgs = args ? chalk.dim(args) : '';
+	const dimError = errorSuffix ? chalk.dim(errorSuffix) : '';
+	const parts = [name, dimArgs, dimError].filter(Boolean).join(' ');
 	return compactText(parts, 200);
 }
 
@@ -318,7 +321,7 @@ export function deriveRunTitle(
 
 /** Column positions in formatted feed line (0-indexed char offsets). */
 export const FEED_OP_COL_START = 6; // after "HH:MM "
-export const FEED_OP_COL_END = 16; // 6 + 10 (op width)
+export const FEED_OP_COL_END = 22; // 6 + 16 (op width)
 
 export function formatFeedLine(
 	entry: TimelineEntry,
@@ -336,10 +339,10 @@ export function formatFeedLine(
 		: ' ';
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
-	const op = fit(entry.op, 10);
+	const op = fit(entry.op, 16);
 	const actor = fit(entry.actor, 8);
 	const bodyWidth = Math.max(0, width - 2); // reserve 2 chars for suffix
-	const summaryWidth = Math.max(0, bodyWidth - 26); // 5+1+10+1+8+1 = 26
+	const summaryWidth = Math.max(0, bodyWidth - 32); // 5+1+16+1+8+1 = 32
 	const body = fit(
 		`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`,
 		bodyWidth,
@@ -349,9 +352,9 @@ export function formatFeedLine(
 
 export function formatFeedHeaderLine(width: number): string {
 	const time = fit('TIME', 5);
-	const op = fit('OP', 10);
+	const op = fit('OP', 16);
 	const actor = fit('ACTOR', 8);
-	const summaryWidth = Math.max(0, width - 28);
+	const summaryWidth = Math.max(0, width - 34); // 5+1+16+1+8+1+2 = 34
 	const summaryLabel = fit('SUMMARY', summaryWidth);
 	return fit(`${time} ${op} ${actor} ${summaryLabel}  `, width);
 }
