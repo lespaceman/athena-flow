@@ -162,7 +162,7 @@ describe('actorLabel', () => {
 	});
 
 	it('truncates long subagent names', () => {
-		expect(actorLabel('subagent:very-long-name-here')).toBe('SA-very-...');
+		expect(actorLabel('subagent:very-long-name-here')).toBe('SA-very-l...');
 	});
 
 	it('uppercases and truncates unknown actors', () => {

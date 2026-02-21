@@ -1,4 +1,3 @@
-import chalk from 'chalk';
 import {feedGlyphs} from '../glyphs/index.js';
 import {type Message} from '../types/index.js';
 import {
@@ -23,6 +22,8 @@ export type TimelineEntry = {
 	actor: string;
 	actorId: string;
 	summary: string;
+	/** Char offset within summary where dim styling should begin (undefined = no dim). */
+	summaryDimStart?: number;
 	searchText: string;
 	error: boolean;
 	expandable: boolean;
@@ -97,11 +98,13 @@ export function eventOperation(event: FeedEvent): string {
 	}
 }
 
+type ToolSummaryResult = {text: string; dimStart?: number};
+
 function formatToolSummary(
 	toolName: string,
 	args: string,
 	errorSuffix?: string,
-): string {
+): ToolSummaryResult {
 	const parsed = parseToolName(toolName);
 	let name: string;
 	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
@@ -110,13 +113,37 @@ function formatToolSummary(
 	} else {
 		name = toolName;
 	}
-	const dimArgs = args ? chalk.dim(args) : '';
-	const dimError = errorSuffix ? chalk.dim(errorSuffix) : '';
-	const parts = [name, dimArgs, dimError].filter(Boolean).join(' ');
-	return compactText(parts, 200);
+	const secondary = [args, errorSuffix].filter(Boolean).join(' ');
+	if (!secondary) {
+		return {text: compactText(name, 200)};
+	}
+	const full = `${name} ${secondary}`;
+	return {text: compactText(full, 200), dimStart: name.length + 1};
 }
 
-export function eventSummary(event: FeedEvent): string {
+export type SummaryResult = {text: string; dimStart?: number};
+
+export function eventSummary(event: FeedEvent): SummaryResult {
+	switch (event.kind) {
+		case 'tool.pre': {
+			const args = summarizeToolInput(event.data.tool_input);
+			return formatToolSummary(event.data.tool_name, args);
+		}
+		case 'tool.post':
+			return formatToolSummary(event.data.tool_name, '');
+		case 'tool.failure':
+			return formatToolSummary(event.data.tool_name, '', event.data.error);
+		case 'permission.request':
+			return formatToolSummary(
+				event.data.tool_name,
+				summarizeToolInput(event.data.tool_input),
+			);
+		default:
+			return {text: eventSummaryText(event)};
+	}
+}
+
+function eventSummaryText(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
 			return compactText(
@@ -130,24 +157,11 @@ export function eventSummary(event: FeedEvent): string {
 			);
 		case 'user.prompt':
 			return compactText(event.data.prompt, 200);
-		case 'tool.pre': {
-			const args = summarizeToolInput(event.data.tool_input);
-			return formatToolSummary(event.data.tool_name, args);
-		}
-		case 'tool.post':
-			return formatToolSummary(event.data.tool_name, '');
-		case 'tool.failure':
-			return formatToolSummary(event.data.tool_name, '', event.data.error);
 		case 'subagent.start':
 		case 'subagent.stop':
 			return compactText(
 				`${event.data.agent_type} ${event.data.agent_id}`,
 				200,
-			);
-		case 'permission.request':
-			return formatToolSummary(
-				event.data.tool_name,
-				summarizeToolInput(event.data.tool_input),
 			);
 		case 'permission.decision': {
 			const detail =
@@ -322,6 +336,7 @@ export function deriveRunTitle(
 /** Column positions in formatted feed line (0-indexed char offsets). */
 export const FEED_OP_COL_START = 6; // after "HH:MM "
 export const FEED_OP_COL_END = 22; // 6 + 16 (op width)
+export const FEED_SUMMARY_COL_START = 36; // 5+1+16+1+12+1 = 36
 
 export function formatFeedLine(
 	entry: TimelineEntry,
@@ -340,9 +355,9 @@ export function formatFeedLine(
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
 	const op = fit(entry.op, 16);
-	const actor = fit(entry.actor, 8);
+	const actor = fit(entry.actor, 12);
 	const bodyWidth = Math.max(0, width - 2); // reserve 2 chars for suffix
-	const summaryWidth = Math.max(0, bodyWidth - 32); // 5+1+16+1+8+1 = 32
+	const summaryWidth = Math.max(0, bodyWidth - 36); // 5+1+16+1+12+1 = 36
 	const body = fit(
 		`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`,
 		bodyWidth,
@@ -353,8 +368,8 @@ export function formatFeedLine(
 export function formatFeedHeaderLine(width: number): string {
 	const time = fit('TIME', 5);
 	const op = fit('OP', 16);
-	const actor = fit('ACTOR', 8);
-	const summaryWidth = Math.max(0, width - 34); // 5+1+16+1+8+1+2 = 34
+	const actor = fit('ACTOR', 12);
+	const summaryWidth = Math.max(0, width - 38); // 5+1+16+1+12+1+2 = 38
 	const summaryLabel = fit('SUMMARY', summaryWidth);
 	return fit(`${time} ${op} ${actor} ${summaryLabel}  `, width);
 }
