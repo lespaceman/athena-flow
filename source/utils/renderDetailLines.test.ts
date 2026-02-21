@@ -77,7 +77,9 @@ describe('renderDetailLines', () => {
 			data: {
 				tool_name: 'Read',
 				tool_input: {file_path: 'docs/README.md'},
-				tool_response: [{type: 'text', file: {content: '# Title\n\n**bold** text'}}],
+				tool_response: [
+					{type: 'text', file: {content: '# Title\n\n**bold** text'}},
+				],
 			},
 		});
 		const result = renderDetailLines(event, 80);

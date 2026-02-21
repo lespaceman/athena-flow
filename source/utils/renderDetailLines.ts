@@ -2,10 +2,9 @@ import {type FeedEvent} from '../feed/types.js';
 import {extractToolOutput} from './toolExtractors.js';
 import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
 import {highlight} from 'cli-highlight';
-import {Marked, type Tokens} from 'marked';
-import {markedTerminal} from 'marked-terminal';
 import chalk from 'chalk';
 import {getGlyphs} from '../glyphs/index.js';
+import {createMarkedInstance} from './markedFactory.js';
 
 const g = getGlyphs();
 
@@ -16,55 +15,12 @@ export type DetailRenderResult = {
 
 const MAX_HIGHLIGHT_SIZE = 50_000;
 
-function createMarkedRenderer(width: number): Marked {
-	const m = new Marked();
-	m.use(
-		markedTerminal({
-			width,
-			reflowText: true,
-			tab: 2,
-			showSectionPrefix: false,
-			unescape: true,
-			emoji: true,
-			paragraph: chalk.reset,
-			strong: chalk.bold,
-			em: chalk.italic,
-			del: chalk.dim.strikethrough,
-			heading: chalk.bold,
-			firstHeading: chalk.bold.underline,
-			codespan: chalk.yellow,
-			code: chalk.gray,
-			blockquote: chalk.gray.italic,
-			link: chalk.cyan,
-			href: chalk.cyan.underline,
-			hr: chalk.dim,
-			listitem: chalk.reset,
-			table: chalk.reset,
-		}) as Parameters<typeof m.use>[0],
-	);
-	m.use({
-		renderer: {
-			list(token: Tokens.List): string {
-				let body = '';
-				for (let i = 0; i < token.items.length; i++) {
-					const item = token.items[i]!;
-					const bullet = token.ordered ? `${i + 1}. ` : '  • ';
-					const text = m.parseInline(item.text);
-					body += bullet + (typeof text === 'string' ? text : item.text) + '\n';
-				}
-				return body;
-			},
-		},
-	});
-	return m;
-}
-
 export function renderMarkdownToLines(
 	content: string,
 	width: number,
 ): string[] {
 	if (!content.trim()) return ['(empty)'];
-	const m = createMarkedRenderer(width);
+	const m = createMarkedInstance(width);
 	try {
 		const result = m.parse(content);
 		const rendered = typeof result === 'string' ? result.trimEnd() : content;

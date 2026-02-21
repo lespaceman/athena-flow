@@ -175,9 +175,10 @@ function extractWrite(
 	input: Record<string, unknown>,
 	response: unknown,
 ): RawOutput {
-	const text = extractTextContent(response);
-	if (text && typeof response !== 'object')
-		return {type: 'text', content: text};
+	// Plain string response (e.g. "File created successfully") — show as-is
+	if (typeof response === 'string') {
+		return {type: 'text', content: response};
+	}
 
 	const content = typeof input['content'] === 'string' ? input['content'] : '';
 	const filePath = String(
