@@ -124,6 +124,7 @@ export function createFeedMapper(): FeedMapper {
 		toolPreIndex.clear();
 		eventIdByRequestId.clear();
 		eventKindByRequestId.clear();
+		activeSubagentStack.length = 0;
 		currentRun = {
 			run_id: getRunId(),
 			session_id: runtimeEvent.sessionId,
@@ -152,7 +153,13 @@ export function createFeedMapper(): FeedMapper {
 		return results;
 	}
 
-	// Tool actor: always 'agent:root' — wire protocol has no agent_id on tool events
+	const activeSubagentStack: string[] = []; // LIFO stack of active subagent actor IDs
+
+	function resolveToolActor(): string {
+		return activeSubagentStack.length > 0
+			? activeSubagentStack[activeSubagentStack.length - 1]!
+			: 'agent:root';
+	}
 
 	function resolveToolUseId(
 		event: RuntimeEvent,
@@ -257,7 +264,7 @@ export function createFeedMapper(): FeedMapper {
 				const fe = makeEvent(
 					'tool.pre',
 					'info',
-					'agent:root',
+					resolveToolActor(),
 					{
 						tool_name: event.toolName ?? (p.tool_name as string),
 						tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -281,7 +288,7 @@ export function createFeedMapper(): FeedMapper {
 					makeEvent(
 						'tool.post',
 						'info',
-						'agent:root',
+						resolveToolActor(),
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
 							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -304,7 +311,7 @@ export function createFeedMapper(): FeedMapper {
 					makeEvent(
 						'tool.failure',
 						'error',
-						'agent:root',
+						resolveToolActor(),
 						{
 							tool_name: event.toolName ?? (p.tool_name as string),
 							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
@@ -368,6 +375,7 @@ export function createFeedMapper(): FeedMapper {
 				if (agentId) {
 					actors.ensureSubagent(agentId, agentType ?? 'unknown');
 					if (currentRun) currentRun.actors.subagent_ids.push(agentId);
+					activeSubagentStack.push(`subagent:${agentId}`);
 				}
 				results.push(
 					makeEvent(
@@ -387,6 +395,11 @@ export function createFeedMapper(): FeedMapper {
 			case 'SubagentStop': {
 				results.push(...ensureRunArray(event));
 				const agentId = event.agentId ?? (p.agent_id as string | undefined);
+				if (agentId) {
+					const actorId = `subagent:${agentId}`;
+					const idx = activeSubagentStack.lastIndexOf(actorId);
+					if (idx !== -1) activeSubagentStack.splice(idx, 1);
+				}
 				results.push(
 					makeEvent(
 						'subagent.stop',

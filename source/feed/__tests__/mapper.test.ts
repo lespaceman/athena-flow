@@ -156,7 +156,7 @@ describe('FeedMapper', () => {
 	});
 
 	describe('tool mapping', () => {
-		it('tool events are always attributed to agent:root (wire protocol has no agent_id on tool events)', () => {
+		it('tool events without active subagent are attributed to agent:root', () => {
 			const mapper = createFeedMapper();
 			const results = mapper.mapEvent(
 				makeRuntimeEvent('PreToolUse', {
@@ -831,6 +831,356 @@ describe('FeedMapper', () => {
 			expect(evt).toBeDefined();
 			expect(evt!.data.source).toBe('policy_settings');
 			expect(evt!.ui?.badge).toBeUndefined();
+		});
+	});
+
+	describe('subagent tool attribution', () => {
+		it('attributes tool events between SubagentStart and SubagentStop to the subagent', () => {
+			const mapper = createFeedMapper();
+			// Start a run
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			// Start subagent
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			// PreToolUse while subagent active
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const toolPre = results.find(r => r.kind === 'tool.pre');
+			expect(toolPre!.actor_id).toBe('subagent:sa-1');
+		});
+
+		it('attributes PostToolUse to the subagent while active', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PostToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PostToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						tool_response: {content: 'x'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const toolPost = results.find(r => r.kind === 'tool.post');
+			expect(toolPost!.actor_id).toBe('subagent:sa-1');
+		});
+
+		it('attributes PostToolUseFailure to the subagent while active', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PostToolUseFailure', {
+					toolName: 'Bash',
+					payload: {
+						hook_event_name: 'PostToolUseFailure',
+						tool_name: 'Bash',
+						tool_input: {command: 'bad'},
+						error: 'fail',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const failure = results.find(r => r.kind === 'tool.failure');
+			expect(failure!.actor_id).toBe('subagent:sa-1');
+		});
+
+		it('reverts to agent:root after SubagentStop', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStop', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStop',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						stop_hook_active: false,
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const toolPre = results.find(r => r.kind === 'tool.pre');
+			expect(toolPre!.actor_id).toBe('agent:root');
+		});
+
+		it('handles nested subagents with stack (LIFO)', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			// Start outer
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'outer',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'outer',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			// Start inner
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'inner',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'inner',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			// Tool while inner active -> inner
+			let results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			expect(results.find(r => r.kind === 'tool.pre')!.actor_id).toBe(
+				'subagent:inner',
+			);
+			// Stop inner
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStop', {
+					agentId: 'inner',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStop',
+						agent_id: 'inner',
+						agent_type: 'task',
+						stop_hook_active: false,
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			// Tool after inner stopped -> outer
+			results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/b.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			expect(results.find(r => r.kind === 'tool.pre')!.actor_id).toBe(
+				'subagent:outer',
+			);
+		});
+
+		it('clears active subagent stack on run boundaries', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'first',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			// New run boundary
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'second',
+					},
+				}),
+			);
+			// Tool after run boundary -> agent:root
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('PreToolUse', {
+					toolName: 'Read',
+					payload: {
+						hook_event_name: 'PreToolUse',
+						tool_name: 'Read',
+						tool_input: {file_path: '/a.ts'},
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const toolPre = results.find(r => r.kind === 'tool.pre');
+			expect(toolPre!.actor_id).toBe('agent:root');
 		});
 	});
 
