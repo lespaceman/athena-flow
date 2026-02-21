@@ -6,8 +6,9 @@ import {getStatusColors} from './hookEventUtils.js';
 import {truncateLine} from '../utils/truncate.js';
 import {ToolResultContainer} from './ToolOutput/index.js';
 import MarkdownText from './ToolOutput/MarkdownText.js';
+import {getGlyphs} from '../glyphs/index.js';
 
-const BULLET = '\u25cf'; // ●
+const BULLET = getGlyphs()['tool.bullet'];
 
 export default function TaskAgentEvent({
 	event,

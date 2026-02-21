@@ -3,6 +3,7 @@ import {Box, Text, useInput} from 'ink';
 import {useSpinner} from '../hooks/useSpinner.js';
 import {type TodoItem} from '../types/todo.js';
 import {useTheme} from '../theme/index.js';
+import {getGlyphs} from '../glyphs/index.js';
 
 type Props = {
 	tasks: TodoItem[];
@@ -13,11 +14,13 @@ type Props = {
 
 // -- State rendering constants ------------------------------------------------
 
+const g = getGlyphs();
+
 const STATE_SYMBOLS = {
-	completed: '\u2713',
+	completed: g['task.completed'],
 	in_progress: '', // Replaced by spinner
-	pending: '\u00b7',
-	failed: '\u2717',
+	pending: g['task.pending'],
+	failed: g['task.failed'],
 } as const;
 
 // -- Sub-components -----------------------------------------------------------
@@ -81,7 +84,7 @@ export default function TaskList({
 
 	const completedCount = tasks.filter(t => t.status === 'completed').length;
 	const totalCount = tasks.length;
-	const toggleIndicator = collapsed ? '\u25b6' : '\u25bc';
+	const toggleIndicator = collapsed ? g['task.collapsed'] : g['task.expanded'];
 
 	const inProgressTask = tasks.find(t => t.status === 'in_progress');
 	const failedTask = tasks.find(t => t.status === 'failed');
@@ -94,11 +97,13 @@ export default function TaskList({
 		if (failedTask) {
 			statusText = (
 				<Text color={theme.status.error}>
-					{'\u2717'} Failed: {failedTask.content}
+					{g['task.failed']} Failed: {failedTask.content}
 				</Text>
 			);
 		} else if (allDone) {
-			statusText = <Text color={theme.status.success}>{'\u2713'} Done</Text>;
+			statusText = (
+				<Text color={theme.status.success}>{g['task.completed']} Done</Text>
+			);
 		} else if (inProgressTask) {
 			statusText = (
 				<Text color={theme.status.info}>

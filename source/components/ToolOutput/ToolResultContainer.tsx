@@ -1,5 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
+import {getGlyphs} from '../../glyphs/index.js';
+
+const GUTTER_CHAR = getGlyphs()['tool.gutter'];
 
 // Layout: [GUTTER 2 ("⎿ ")][CONTENT...][RIGHT_PAD 2]
 const GUTTER_WIDTH = 2;
@@ -45,7 +48,7 @@ export default function ToolResultContainer({
 			<Box>
 				<Box width={GUTTER_WIDTH} flexShrink={0}>
 					<Text dimColor={dimGutter} color={gutterColor}>
-						{'\u23bf'}{' '}
+						{GUTTER_CHAR}{' '}
 					</Text>
 				</Box>
 				<Box flexDirection="column" width={availableWidth}>
@@ -69,7 +72,7 @@ export default function ToolResultContainer({
 		<Box>
 			<Box width={GUTTER_WIDTH} flexShrink={0}>
 				<Text dimColor={dimGutter} color={gutterColor}>
-					{'\u23bf'}{' '}
+					{GUTTER_CHAR}{' '}
 				</Text>
 			</Box>
 			<Box flexDirection="column" width={availableWidth}>

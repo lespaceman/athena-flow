@@ -5,6 +5,7 @@ import {parseToolName, formatInlineParams} from '../utils/toolNameParser.js';
 import {truncateLine} from '../utils/truncate.js';
 import {getStatusColors} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
+import {getGlyphs} from '../glyphs/index.js';
 
 type Props = {
 	event: FeedEvent;
@@ -13,7 +14,7 @@ type Props = {
 	parentWidth?: number;
 };
 
-const BULLET = '\u25cf'; // ●
+const BULLET = getGlyphs()['tool.bullet'];
 const MAX_EXPANDED_LINES = 40;
 
 export default function UnifiedToolCallEvent({

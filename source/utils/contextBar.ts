@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import {progressGlyphs} from '../glyphs/index.js';
 
 export function formatTokenCount(value: number | null): string {
 	if (value === null) return '0';
@@ -31,17 +32,17 @@ export function renderContextBar(
 
 	let bar: string;
 	if (hasColor) {
-		const filledChar = '█';
-		const emptyChar = '░';
-		const filledStr = filledChar.repeat(filled);
-		const emptyStr = emptyChar.repeat(empty);
+		const pg = progressGlyphs();
+		const filledStr = pg.filled.repeat(filled);
+		const emptyStr = pg.empty.repeat(empty);
 		const pct = used !== null ? used / max : 0;
 		const colorFn =
 			pct > 0.9 ? chalk.red : pct > 0.7 ? chalk.yellow : chalk.green;
 		bar = colorFn(filledStr) + chalk.dim(emptyStr);
 	} else {
-		const filledStr = '='.repeat(filled);
-		const emptyStr = '-'.repeat(empty);
+		const pg = progressGlyphs(true);
+		const filledStr = pg.filled.repeat(filled);
+		const emptyStr = pg.empty.repeat(empty);
 		bar = `[${filledStr}${emptyStr}]`;
 	}
 

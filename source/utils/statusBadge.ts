@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import {getGlyphs} from '../glyphs/index.js';
 
 export type HeaderStatus = 'active' | 'idle' | 'error' | 'stopped';
 
@@ -9,14 +10,16 @@ const NO_COLOR_MAP: Record<HeaderStatus, string> = {
 	stopped: '[STOPPED]',
 };
 
+const g = getGlyphs();
+
 const COLOR_MAP: Record<
 	HeaderStatus,
 	{glyph: string; label: string; color: (s: string) => string}
 > = {
-	active: {glyph: '●', label: 'ACTIVE', color: chalk.cyan},
-	idle: {glyph: '●', label: 'IDLE', color: chalk.dim},
-	error: {glyph: '■', label: 'ERROR', color: chalk.red},
-	stopped: {glyph: '■', label: 'STOPPED', color: chalk.yellow},
+	active: {glyph: g['status.active'], label: 'ACTIVE', color: chalk.cyan},
+	idle: {glyph: g['status.active'], label: 'IDLE', color: chalk.dim},
+	error: {glyph: g['status.error'], label: 'ERROR', color: chalk.red},
+	stopped: {glyph: g['status.error'], label: 'STOPPED', color: chalk.yellow},
 };
 
 export function getStatusBadge(

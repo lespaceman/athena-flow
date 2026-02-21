@@ -2,6 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import {type Theme} from '../theme/index.js';
 import ToolResultContainer from './ToolOutput/ToolResultContainer.js';
+import {getGlyphs} from '../glyphs/index.js';
 
 export type StatusKey = 'pending' | 'passthrough' | 'blocked' | 'json_output';
 
@@ -14,18 +15,20 @@ export function getStatusColors(theme: Theme) {
 	} as const;
 }
 
+const g = getGlyphs();
+
 export const STATUS_SYMBOLS = {
-	pending: '\u25cb', // ○
-	passthrough: '\u25cf', // ●
-	blocked: '\u2717', // ✗
-	json_output: '\u2192', // →
+	pending: g['status.pending'],
+	passthrough: g['status.passthrough'],
+	blocked: g['status.blocked'],
+	json_output: g['tool.arrow'],
 } as const;
 
 export const SUBAGENT_SYMBOLS = {
-	pending: '\u25c7', // ◇ (open diamond)
-	passthrough: '\u25c6', // ◆ (filled diamond)
-	blocked: '\u2717', // ✗ (same as regular)
-	json_output: '\u2192', // → (same as regular)
+	pending: g['subagent.pending'],
+	passthrough: g['subagent.passthrough'],
+	blocked: g['status.blocked'],
+	json_output: g['tool.arrow'],
 } as const;
 
 export function truncateStr(s: string, maxLen: number): string {
