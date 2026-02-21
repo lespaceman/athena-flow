@@ -4,8 +4,15 @@ import {
 	formatFeedLine,
 	formatFeedHeaderLine,
 } from '../feed/timeline.js';
-import {type TodoPanelItem, todoGlyphs} from '../feed/todoPanel.js';
+import {
+	type TodoPanelItem,
+	type TodoGlyphColors,
+	todoGlyphs,
+} from '../feed/todoPanel.js';
+import chalk from 'chalk';
 import {compactText, fitAnsi, formatRunLabel} from './format.js';
+import {styleFeedLine} from '../feed/feedLineStyle.js';
+import {type Theme} from '../theme/types.js';
 
 export type DetailViewState = {
 	expandedEntry: TimelineEntry;
@@ -38,6 +45,7 @@ export type TodoViewState = {
 	};
 	focusMode: string;
 	ascii: boolean;
+	colors?: TodoGlyphColors;
 };
 
 export type RunOverlayState = {
@@ -53,6 +61,7 @@ export type BuildBodyLinesOptions = {
 	feed: FeedViewState;
 	todo: TodoViewState;
 	runOverlay: RunOverlayState;
+	theme: Theme;
 };
 
 export function buildBodyLines({
@@ -62,6 +71,7 @@ export function buildBodyLines({
 	feed,
 	todo,
 	runOverlay,
+	theme,
 }: BuildBodyLinesOptions): string[] {
 	const bodyLines: string[] = [];
 
@@ -121,7 +131,7 @@ export function buildBodyLines({
 				remainingCount,
 				visibleTodoItems: items,
 			} = tp;
-			const g = todoGlyphs(todo.ascii);
+			const g = todoGlyphs(todo.ascii, todo.colors);
 
 			// Header line: "TODO" left-aligned, "N remaining" right-aligned
 			const headerLeft = 'TODO';
@@ -194,7 +204,12 @@ export function buildBodyLines({
 		}
 
 		if (feedHeaderRows > 0) {
-			bodyLines.push(formatFeedHeaderLine(innerWidth));
+			bodyLines.push(
+				fitAnsi(
+					chalk.hex(theme.textMuted)(formatFeedHeaderLine(innerWidth)),
+					innerWidth,
+				),
+			);
 		}
 
 		if (feedContentRows > 0) {
@@ -211,15 +226,24 @@ export function buildBodyLines({
 						bodyLines.push(fitAnsi('', innerWidth));
 						continue;
 					}
-					bodyLines.push(
-						formatFeedLine(
-							entry,
-							innerWidth,
-							feedFocus === 'feed' && idx === feedCursor,
-							expandedId === entry.id,
-							searchMatchSet.has(idx),
-						),
+					const isFocused = feedFocus === 'feed' && idx === feedCursor;
+					const isExpanded = expandedId === entry.id;
+					const isMatched = searchMatchSet.has(idx);
+					const plain = formatFeedLine(
+						entry,
+						innerWidth,
+						isFocused,
+						isExpanded,
+						isMatched,
 					);
+					const styled = styleFeedLine(plain, {
+						focused: isFocused,
+						matched: isMatched,
+						actorId: entry.actorId ?? 'system',
+						isError: entry.error,
+						theme,
+					});
+					bodyLines.push(fitAnsi(styled, innerWidth));
 				}
 			}
 		}

@@ -216,6 +216,7 @@ describe('formatFeedLine', () => {
 		runId: 'R1',
 		op: 'tool.call',
 		actor: 'AGENT',
+		actorId: 'agent:root',
 		summary: 'Bash cmd',
 		searchText: 'bash cmd',
 		error: false,

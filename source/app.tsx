@@ -114,6 +114,7 @@ function AppContent({
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 
+	const theme = useTheme();
 	const hookServer = useHookContext();
 	const {
 		feedEvents,
@@ -635,8 +636,14 @@ function AppContent({
 			},
 			focusMode,
 			ascii: useAscii,
+			colors: {
+				doing: theme.status.warning,
+				done: theme.status.success,
+				pending: theme.status.neutral,
+			},
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
+		theme,
 	});
 
 	// ── Render ──────────────────────────────────────────────

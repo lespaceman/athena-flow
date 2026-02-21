@@ -70,7 +70,7 @@ export function useTimeline({
 		for (const item of stableItems) {
 			if (item.type === 'message') {
 				const id = `M${String(messageCounter++).padStart(3, '0')}`;
-				const summary = compactText(item.data.content, 84);
+				const summary = compactText(item.data.content, 200);
 				const details = item.data.content;
 				entries.push({
 					id,
@@ -78,6 +78,7 @@ export function useTimeline({
 					runId: activeRunId,
 					op: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
 					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
+					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
 					summary,
 					searchText: `${summary}\n${details}`,
 					error: false,
@@ -99,6 +100,7 @@ export function useTimeline({
 				runId: event.run_id,
 				op: eventOperation(event),
 				actor: actorLabel(event.actor_id),
+				actorId: event.actor_id,
 				summary,
 				searchText: `${summary}\n${details}`,
 				error: isEventError(event),

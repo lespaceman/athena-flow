@@ -15,6 +15,7 @@ export type TimelineEntry = {
 	runId?: string;
 	op: string;
 	actor: string;
+	actorId: string;
 	summary: string;
 	searchText: string;
 	error: boolean;
