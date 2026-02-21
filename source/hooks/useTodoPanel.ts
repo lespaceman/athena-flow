@@ -27,6 +27,7 @@ export type UseTodoPanelResult = {
 	doingCount: number;
 	blockedCount: number;
 	openCount: number;
+	remainingCount: number;
 	setTodoVisible: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoShowDone: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoCursor: React.Dispatch<React.SetStateAction<number>>;
@@ -73,8 +74,20 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		[todoItems, todoShowDone],
 	);
 
-	const visibleTodoItemsRef = useRef(visibleTodoItems);
-	visibleTodoItemsRef.current = visibleTodoItems;
+	const sortedItems = useMemo(() => {
+		const statusOrder: Record<TodoPanelStatus, number> = {
+			doing: 0,
+			open: 1,
+			blocked: 1,
+			done: 2,
+		};
+		return [...visibleTodoItems].sort(
+			(a, b) => (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1),
+		);
+	}, [visibleTodoItems]);
+
+	const visibleTodoItemsRef = useRef(sortedItems);
+	visibleTodoItemsRef.current = sortedItems;
 
 	const doneCount = todoItems.filter(todo => todo.status === 'done').length;
 	const doingCount = todoItems.filter(todo => todo.status === 'doing').length;
@@ -82,13 +95,14 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		todo => todo.status === 'blocked',
 	).length;
 	const openCount = todoItems.filter(todo => todo.status === 'open').length;
+	const remainingCount = todoItems.filter(todo => todo.status !== 'done').length;
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
 		setTodoCursor(prev =>
-			Math.min(prev, Math.max(0, visibleTodoItems.length - 1)),
+			Math.min(prev, Math.max(0, sortedItems.length - 1)),
 		);
-	}, [visibleTodoItems.length]);
+	}, [sortedItems.length]);
 
 	const todoListHeight = 0; // Will be set by caller via adjustTodoScroll
 
@@ -125,11 +139,12 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		extraTodos,
 		todoStatusOverrides,
 		todoItems,
-		visibleTodoItems,
+		visibleTodoItems: sortedItems,
 		doneCount,
 		doingCount,
 		blockedCount,
 		openCount,
+		remainingCount,
 		setTodoVisible,
 		setTodoShowDone,
 		setTodoCursor,
