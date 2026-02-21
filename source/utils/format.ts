@@ -93,9 +93,14 @@ export function summarizeValue(value: unknown): string {
 }
 
 export function summarizeToolInput(input: Record<string, unknown>): string {
-	const pairs = Object.entries(input)
+	const entries = Object.entries(input);
+	const pairs = entries
 		.slice(0, 2)
 		.map(([key, value]) => `${key}=${summarizeValue(value)}`);
+	const overflow = entries.length - 2;
+	if (overflow > 0) {
+		pairs.push(`+${overflow}`);
+	}
 	return pairs.join(' ');
 }
 
