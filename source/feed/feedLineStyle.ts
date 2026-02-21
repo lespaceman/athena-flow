@@ -29,6 +29,20 @@ export function styleFeedLine(
 
 	let styled = base(line);
 
+	// Color expand indicator glyphs (before focus/match logic)
+	const trimmed = line.trimEnd();
+	if (trimmed.endsWith('▸')) {
+		const glyphPos = trimmed.lastIndexOf('▸');
+		const before = line.slice(0, glyphPos);
+		const after = line.slice(glyphPos + 1); // trailing spaces
+		styled = base(before) + chalk.hex(theme.accent)('▸') + base(after);
+	} else if (trimmed.endsWith('▾')) {
+		const glyphPos = trimmed.lastIndexOf('▾');
+		const before = line.slice(0, glyphPos);
+		const after = line.slice(glyphPos + 1);
+		styled = base(before) + chalk.hex(theme.status.success)('▾') + base(after);
+	}
+
 	// Focused: inverse accent on entire line
 	if (focused) {
 		styled = chalk.hex(theme.accent).inverse(line);

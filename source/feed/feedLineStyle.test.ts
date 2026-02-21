@@ -81,6 +81,34 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('▌');
 	});
 
+	it('colors ▸ suffix with accent color', () => {
+		const line = '08:55 tool.call  AGENT    Read source/app.tsx              ▸';
+		const result = styleFeedLine(line, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		// accent #89b4fa → RGB 137;180;250
+		expect(result).toContain('38;2;137;180;250');
+		expect(result).toContain('▸');
+	});
+
+	it('colors ▾ suffix with success color', () => {
+		const line = '08:55 tool.call  AGENT    Read source/app.tsx              ▾';
+		const result = styleFeedLine(line, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		// status.success #a6e3a1 → RGB 166;227;161
+		expect(result).toContain('38;2;166;227;161');
+		expect(result).toContain('▾');
+	});
+
 	it('focused takes priority over matched (no ▌)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: true,
