@@ -6,6 +6,10 @@ import {
 	formatClock,
 	summarizeToolInput,
 } from '../utils/format.js';
+import {
+	extractFriendlyServerName,
+	parseToolName,
+} from '../utils/toolNameParser.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
@@ -91,6 +95,23 @@ export function eventOperation(event: FeedEvent): string {
 	}
 }
 
+function formatToolSummary(
+	toolName: string,
+	args: string,
+	errorSuffix?: string,
+): string {
+	const parsed = parseToolName(toolName);
+	let name: string;
+	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
+		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
+		name = `[${friendlyServer}] ${parsed.mcpAction}`;
+	} else {
+		name = toolName;
+	}
+	const parts = [name, args, errorSuffix].filter(Boolean).join(' ');
+	return compactText(parts, 200);
+}
+
 export function eventSummary(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
@@ -107,12 +128,12 @@ export function eventSummary(event: FeedEvent): string {
 			return compactText(event.data.prompt, 200);
 		case 'tool.pre': {
 			const args = summarizeToolInput(event.data.tool_input);
-			return compactText(`${event.data.tool_name} ${args}`.trim(), 200);
+			return formatToolSummary(event.data.tool_name, args);
 		}
 		case 'tool.post':
-			return compactText(event.data.tool_name, 200);
+			return formatToolSummary(event.data.tool_name, '');
 		case 'tool.failure':
-			return compactText(`${event.data.tool_name} ${event.data.error}`, 200);
+			return formatToolSummary(event.data.tool_name, '', event.data.error);
 		case 'subagent.start':
 		case 'subagent.stop':
 			return compactText(
@@ -120,9 +141,9 @@ export function eventSummary(event: FeedEvent): string {
 				200,
 			);
 		case 'permission.request':
-			return compactText(
-				`${event.data.tool_name} ${summarizeToolInput(event.data.tool_input)}`.trim(),
-				200,
+			return formatToolSummary(
+				event.data.tool_name,
+				summarizeToolInput(event.data.tool_input),
 			);
 		case 'permission.decision': {
 			const detail =

@@ -17,7 +17,7 @@ export type ParsedToolName = {
  * extracts the last hyphenated segment: `agent-web-interface`.
  * For regular servers like `agent-web-interface`, returns as-is.
  */
-function extractFriendlyServerName(mcpServer: string): string {
+export function extractFriendlyServerName(mcpServer: string): string {
 	// Plugin pattern: plugin_<toolkit-name>_<server-name>
 	const pluginMatch = /^plugin_[^_]+_(.+)$/.exec(mcpServer);
 	if (pluginMatch) {

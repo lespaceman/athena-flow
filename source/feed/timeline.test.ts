@@ -156,6 +156,91 @@ describe('eventSummary', () => {
 	});
 });
 
+describe('eventSummary MCP formatting', () => {
+	it('formats MCP tool.pre with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {url: 'https://example.com'},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+	});
+
+	it('formats built-in tool.pre without brackets', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/foo.ts'},
+			},
+		};
+		const summary = eventSummary(ev);
+		expect(summary).toContain('Read');
+		expect(summary).not.toContain('[');
+	});
+
+	it('formats MCP permission.request with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'permission.request' as const,
+			data: {
+				tool_name: 'mcp__plugin_web-testing-toolkit_agent-web-interface__click',
+				tool_input: {eid: 'btn-1'},
+				permission_suggestions: [],
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] click');
+	});
+
+	it('formats MCP tool.post with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {},
+				tool_response: {},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+	});
+
+	it('formats MCP tool.failure with [server] action', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {},
+				error: 'timeout',
+				is_interrupt: false,
+			},
+		};
+		const summary = eventSummary(ev);
+		expect(summary).toContain('[agent-web-interface] navigate');
+		expect(summary).toContain('timeout');
+	});
+
+	it('formats non-plugin MCP tool without plugin prefix', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'mcp__my-server__do_thing',
+				tool_input: {},
+			},
+		};
+		expect(eventSummary(ev)).toContain('[my-server] do_thing');
+	});
+});
+
 describe('isEventError', () => {
 	it('returns true for tool.failure', () => {
 		const ev = {
