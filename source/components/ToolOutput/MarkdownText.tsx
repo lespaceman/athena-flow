@@ -95,7 +95,8 @@ function createMarked(width: number): Marked {
 				for (let i = 0; i < token.items.length; i++) {
 					const item = token.items[i]!;
 					const bullet = token.ordered ? `${i + 1}. ` : '  • ';
-					const text = m.parser(item.tokens);
+					const inlined = m.parseInline(item.text);
+					const text = typeof inlined === 'string' ? inlined : item.text;
 					body += bullet + text + '\n';
 				}
 				return body;

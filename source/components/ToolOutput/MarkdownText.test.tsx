@@ -16,6 +16,14 @@ describe('MarkdownText', () => {
 		expect(frame).toContain('world');
 	});
 
+	it('renders bold inside list items', () => {
+		const content = '* **Critical:** leaked data\n* **Warning:** slow query';
+		const {lastFrame} = render(<MarkdownText content={content} />);
+		const frame = lastFrame() ?? '';
+		expect(frame).not.toContain('**Critical:**');
+		expect(frame).toContain('Critical:');
+	});
+
 	it('truncates when output exceeds maxLines', () => {
 		const content = Array.from({length: 50}, (_, i) => `Line ${i}`).join(
 			'\n\n',
