@@ -233,4 +233,134 @@ describe('createTokenAccumulator', () => {
 		// input_tokens=100, no cache → contextSize=100
 		expect(acc.getUsage().contextSize).toBe(100);
 	});
+
+	it('extracts usage from {type: "assistant"} CLI envelope events', () => {
+		const acc = createTokenAccumulator();
+
+		// Real CLI format: {type: "assistant", message: {type: "message", usage: {...}}}
+		acc.feed(
+			JSON.stringify({
+				type: 'assistant',
+				message: {
+					type: 'message',
+					role: 'assistant',
+					usage: {
+						input_tokens: 3,
+						output_tokens: 23,
+						cache_read_input_tokens: 23170,
+						cache_creation_input_tokens: 11540,
+					},
+				},
+				session_id: 'test-session',
+			}) + '\n',
+		);
+
+		const usage = acc.getUsage();
+		expect(usage.input).toBe(3);
+		expect(usage.output).toBe(23);
+		expect(usage.cacheRead).toBe(23170);
+		expect(usage.cacheWrite).toBe(11540);
+		expect(usage.contextSize).toBe(3 + 23170 + 11540);
+	});
+
+	it('accumulates tokens across multiple assistant envelope events', () => {
+		const acc = createTokenAccumulator();
+
+		// Turn 1
+		acc.feed(
+			JSON.stringify({
+				type: 'assistant',
+				message: {
+					type: 'message',
+					usage: {
+						input_tokens: 100,
+						output_tokens: 50,
+						cache_read_input_tokens: 500,
+						cache_creation_input_tokens: 20,
+					},
+				},
+			}) + '\n',
+		);
+
+		// Turn 2
+		acc.feed(
+			JSON.stringify({
+				type: 'assistant',
+				message: {
+					type: 'message',
+					usage: {
+						input_tokens: 200,
+						output_tokens: 80,
+						cache_read_input_tokens: 1000,
+						cache_creation_input_tokens: 0,
+					},
+				},
+			}) + '\n',
+		);
+
+		const usage = acc.getUsage();
+		// Tokens accumulate
+		expect(usage.input).toBe(300);
+		expect(usage.output).toBe(130);
+		expect(usage.cacheRead).toBe(1500);
+		expect(usage.cacheWrite).toBe(20);
+		// contextSize tracks latest turn only
+		expect(usage.contextSize).toBe(200 + 1000 + 0);
+	});
+
+	it('result event sets contextSize from cumulative usage when no prior assistant events', () => {
+		const acc = createTokenAccumulator();
+
+		// Only a result event (no prior assistant events set contextSize)
+		acc.feed(
+			JSON.stringify({
+				type: 'result',
+				usage: {
+					input_tokens: 3,
+					output_tokens: 23,
+					cache_read_input_tokens: 23170,
+					cache_creation_input_tokens: 11540,
+				},
+			}) + '\n',
+		);
+
+		const usage = acc.getUsage();
+		// contextSize should be derived from result when no per-turn data exists
+		expect(usage.contextSize).toBe(3 + 23170 + 11540);
+	});
+
+	it('result event does not overwrite contextSize when assistant events already set it', () => {
+		const acc = createTokenAccumulator();
+
+		// Per-turn assistant event sets contextSize
+		acc.feed(
+			JSON.stringify({
+				type: 'assistant',
+				message: {
+					type: 'message',
+					usage: {
+						input_tokens: 200,
+						output_tokens: 80,
+						cache_read_input_tokens: 1000,
+						cache_creation_input_tokens: 0,
+					},
+				},
+			}) + '\n',
+		);
+		expect(acc.getUsage().contextSize).toBe(1200);
+
+		// Result event should NOT overwrite per-turn contextSize
+		acc.feed(
+			JSON.stringify({
+				type: 'result',
+				usage: {
+					input_tokens: 500,
+					output_tokens: 200,
+					cache_read_input_tokens: 5000,
+					cache_creation_input_tokens: 100,
+				},
+			}) + '\n',
+		);
+		expect(acc.getUsage().contextSize).toBe(1200);
+	});
 });

@@ -1,3 +1,6 @@
+import stringWidth from 'string-width';
+import sliceAnsi from 'slice-ansi';
+
 export function toAscii(value: string): string {
 	return value.replace(/[^\x20-\x7e]/g, '?');
 }
@@ -19,19 +22,16 @@ export function fit(text: string, width: number): string {
 }
 
 /**
- * ANSI-aware fit: truncates by visual width while preserving escape codes.
- * Uses slice-ansi + string-width (transitive deps from Ink).
+ * ANSI-aware fit: truncates by visual width while preserving ANSI escape
+ * codes and non-ASCII content characters. Uses string-width for measurement
+ * and slice-ansi for truncation.
+ *
+ * Note: string-width may undercount some complex scripts (Devanagari, Tamil)
+ * due to terminal rendering inconsistencies. This can cause slight padding
+ * misalignment for those characters, but preserves readable content.
  */
 export function fitAnsi(text: string, width: number): string {
 	if (width <= 0) return '';
-	// Lazy-load to avoid top-level await for ESM-only packages
-	const stripAnsi = fitAnsi._stripAnsi;
-	const stringWidth = fitAnsi._stringWidth;
-	const sliceAnsi = fitAnsi._sliceAnsi;
-	if (!stripAnsi || !stringWidth || !sliceAnsi) {
-		// Fallback if not initialized — use plain fit
-		return fit(text, width);
-	}
 	const visualWidth = stringWidth(text);
 	if (visualWidth <= width) {
 		const pad = width - visualWidth;
@@ -39,25 +39,6 @@ export function fitAnsi(text: string, width: number): string {
 	}
 	if (width <= 3) return sliceAnsi(text, 0, width);
 	return sliceAnsi(text, 0, width - 3) + '...';
-}
-
-// These are set by initAnsiHelpers() at startup
-fitAnsi._stripAnsi = undefined as ((text: string) => string) | undefined;
-fitAnsi._stringWidth = undefined as ((text: string) => number) | undefined;
-fitAnsi._sliceAnsi = undefined as
-	| ((text: string, start: number, end: number) => string)
-	| undefined;
-
-export async function initAnsiHelpers(): Promise<void> {
-	const [{default: stripAnsi}, {default: stringWidth}, {default: sliceAnsi}] =
-		await Promise.all([
-			import('strip-ansi'),
-			import('string-width'),
-			import('slice-ansi'),
-		]);
-	fitAnsi._stripAnsi = stripAnsi;
-	fitAnsi._stringWidth = stringWidth;
-	fitAnsi._sliceAnsi = sliceAnsi;
 }
 
 export function formatClock(timestamp: number): string {

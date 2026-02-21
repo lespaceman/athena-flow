@@ -3,7 +3,8 @@ import type {TokenUsage} from '../types/headerMetrics.js';
 /**
  * Token usage fields in the Claude stream-json `usage` object.
  *
- * Each `{type: "message"}` object carries per-turn usage.
+ * Per-turn usage comes from either raw API `{type: "message"}` objects
+ * or CLI envelope `{type: "assistant", message: {usage: ...}}` objects.
  * The final `{type: "result"}` carries cumulative session totals.
  */
 type StreamUsage = {
@@ -16,6 +17,8 @@ type StreamUsage = {
 type StreamMessage = {
 	type: string;
 	usage?: StreamUsage;
+	/** CLI envelope: {type: "assistant", message: {usage: ...}} */
+	message?: {type?: string; usage?: StreamUsage; [key: string]: unknown};
 	[key: string]: unknown;
 };
 
@@ -24,7 +27,7 @@ type StreamMessage = {
  * from Claude's `--output-format stream-json` stdout.
  *
  * Handles partial lines across chunk boundaries (line buffering).
- * Extracts usage from `{type: "message"}` and `{type: "result"}` objects.
+ * Extracts usage from `{type: "assistant"}`, `{type: "message"}`, and `{type: "result"}` events.
  */
 export function createTokenAccumulator() {
 	let buffer = '';
@@ -45,30 +48,45 @@ export function createTokenAccumulator() {
 			return; // Not valid JSON — skip
 		}
 
-		// Accept usage from complete messages (per-turn) and result (cumulative)
-		if (
-			(parsed.type === 'message' || parsed.type === 'result') &&
-			parsed.usage
-		) {
-			const u = parsed.usage;
-			// For "result", the usage is cumulative — replace instead of adding.
-			// For "message", accumulate across turns.
-			if (parsed.type === 'result') {
-				inputTokens = u.input_tokens ?? inputTokens;
-				outputTokens = u.output_tokens ?? outputTokens;
-				cacheRead = u.cache_read_input_tokens ?? cacheRead;
-				cacheWrite = u.cache_creation_input_tokens ?? cacheWrite;
-				// Don't update contextSize from result — it's cumulative, not per-turn
+		// Resolve usage from either:
+		// - Raw API format: {type: "message", usage: {...}}
+		// - CLI envelope:   {type: "assistant", message: {usage: {...}}}
+		// - Result event:   {type: "result", usage: {...}}
+		const isPerTurn =
+			parsed.type === 'message' ||
+			(parsed.type === 'assistant' && parsed.message?.usage != null);
+		const isResult = parsed.type === 'result';
+
+		const usage =
+			isPerTurn && parsed.type === 'assistant'
+				? parsed.message!.usage
+				: parsed.usage;
+
+		if ((isPerTurn || isResult) && usage) {
+			if (isResult) {
+				// Result usage is cumulative — replace instead of adding
+				inputTokens = usage.input_tokens ?? inputTokens;
+				outputTokens = usage.output_tokens ?? outputTokens;
+				cacheRead = usage.cache_read_input_tokens ?? cacheRead;
+				cacheWrite = usage.cache_creation_input_tokens ?? cacheWrite;
+				// Use result to derive contextSize only if no per-turn data set it
+				if (contextSize === 0) {
+					contextSize =
+						(usage.input_tokens ?? 0) +
+						(usage.cache_read_input_tokens ?? 0) +
+						(usage.cache_creation_input_tokens ?? 0);
+				}
 			} else {
-				inputTokens += u.input_tokens ?? 0;
-				outputTokens += u.output_tokens ?? 0;
-				cacheRead += u.cache_read_input_tokens ?? 0;
-				cacheWrite += u.cache_creation_input_tokens ?? 0;
+				// Per-turn: accumulate across turns
+				inputTokens += usage.input_tokens ?? 0;
+				outputTokens += usage.output_tokens ?? 0;
+				cacheRead += usage.cache_read_input_tokens ?? 0;
+				cacheWrite += usage.cache_creation_input_tokens ?? 0;
 				// Track latest turn's prompt size (context window usage)
 				contextSize =
-					(u.input_tokens ?? 0) +
-					(u.cache_read_input_tokens ?? 0) +
-					(u.cache_creation_input_tokens ?? 0);
+					(usage.input_tokens ?? 0) +
+					(usage.cache_read_input_tokens ?? 0) +
+					(usage.cache_creation_input_tokens ?? 0);
 			}
 		}
 	}
