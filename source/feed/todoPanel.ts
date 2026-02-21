@@ -64,16 +64,3 @@ export function todoScrollUp(ascii = false): string {
 export function todoScrollDown(ascii = false): string {
 	return ascii ? 'v' : '▼';
 }
-
-export function symbolForTodoStatus(status: TodoPanelStatus): string {
-	switch (status) {
-		case 'done':
-			return '[x]';
-		case 'doing':
-			return '[>]';
-		case 'blocked':
-			return '[!]';
-		default:
-			return '[ ]';
-	}
-}
