@@ -277,7 +277,6 @@ export function deriveRunTitle(
 }
 
 import {feedGlyphs} from '../glyphs/index.js';
-export {feedGlyphs};
 
 export function formatFeedLine(
 	entry: TimelineEntry,

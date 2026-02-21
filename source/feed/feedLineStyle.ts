@@ -1,6 +1,6 @@
 import chalk, {type ChalkInstance} from 'chalk';
 import {type Theme} from '../theme/types.js';
-import {GLYPH_REGISTRY} from '../glyphs/index.js';
+import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 
 /** All known collapsed glyphs (unicode + ascii). */
 const COLLAPSED_GLYPHS = new Set([
@@ -20,6 +20,7 @@ export type FeedLineStyleOptions = {
 	actorId: string;
 	isError: boolean;
 	theme: Theme;
+	ascii?: boolean;
 };
 
 function actorStyle(actorId: string, theme: Theme): ChalkInstance {
@@ -33,7 +34,7 @@ export function styleFeedLine(
 	line: string,
 	opts: FeedLineStyleOptions,
 ): string {
-	const {focused, matched, actorId, isError, theme} = opts;
+	const {focused, matched, actorId, isError, theme, ascii} = opts;
 
 	// Focused row: inverse accent on entire line, no glyph coloring needed
 	if (focused) {
@@ -70,7 +71,7 @@ export function styleFeedLine(
 	// Search match: prepend accent ▌ (replacing first char)
 	if (matched) {
 		styled =
-			chalk.hex(theme.accent)(GLYPH_REGISTRY['feed.searchMatch'].unicode) +
+			chalk.hex(theme.accent)(getGlyphs(ascii)['feed.searchMatch']) +
 			styled.slice(1);
 	}
 

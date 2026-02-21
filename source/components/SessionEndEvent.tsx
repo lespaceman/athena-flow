@@ -3,6 +3,9 @@ import {Box, Text} from 'ink';
 import type {FeedEvent} from '../feed/types.js';
 import {getStatusColors} from './hookEventUtils.js';
 import {useTheme} from '../theme/index.js';
+import {getGlyphs} from '../glyphs/index.js';
+
+const g = getGlyphs();
 
 type Props = {
 	event: FeedEvent;
@@ -12,7 +15,7 @@ export default function SessionEndEvent({event}: Props) {
 	const theme = useTheme();
 	const statusColors = getStatusColors(theme);
 	const color = statusColors.passthrough;
-	const symbol = '\u2713'; // ✓
+	const symbol = g['task.completed'];
 
 	// Format timestamp
 	const time = new Date(event.ts).toLocaleTimeString('en-US', {

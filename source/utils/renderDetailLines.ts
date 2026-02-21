@@ -4,6 +4,9 @@ import {highlight} from 'cli-highlight';
 import {Marked} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import chalk from 'chalk';
+import {getGlyphs} from '../glyphs/index.js';
+
+const g = getGlyphs();
 
 export type DetailRenderResult = {
 	lines: string[];
@@ -96,7 +99,7 @@ function renderToolPost(
 
 	// tool.failure has error string instead of tool_response
 	if (event.kind === 'tool.failure') {
-		const header = chalk.bold.red(`● ${tool_name} (FAILED)`);
+		const header = chalk.bold.red(`${g['tool.bullet']} ${tool_name} (FAILED)`);
 		return {
 			lines: [header, '', chalk.red(event.data.error)],
 			showLineNumbers: false,
@@ -109,7 +112,7 @@ function renderToolPost(
 		event.data.tool_response,
 	);
 
-	const header = chalk.bold.cyan(`● ${tool_name}`);
+	const header = chalk.bold.cyan(`${g['tool.bullet']} ${tool_name}`);
 
 	switch (output.type) {
 		case 'code':
@@ -143,7 +146,7 @@ function renderToolPre(
 	event: Extract<FeedEvent, {kind: 'tool.pre'} | {kind: 'permission.request'}>,
 ): DetailRenderResult {
 	const {tool_name, tool_input} = event.data;
-	const header = chalk.bold.cyan(`● ${tool_name}`);
+	const header = chalk.bold.cyan(`${g['tool.bullet']} ${tool_name}`);
 	const json = JSON.stringify(tool_input, null, 2);
 	return {
 		lines: [header, '', ...highlightCode(json, 'json')],

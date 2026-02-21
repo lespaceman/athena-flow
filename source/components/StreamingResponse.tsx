@@ -1,6 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {useTheme} from '../theme/index.js';
+import {getGlyphs} from '../glyphs/index.js';
+
+const g = getGlyphs();
 
 type Props = {
 	text: string;
@@ -16,7 +19,9 @@ export default function StreamingResponse({text, isStreaming}: Props) {
 	return (
 		<Box flexDirection="column" marginBottom={1}>
 			<Text bold color={theme.accent}>
-				{isStreaming ? '◐ Streaming' : '● Response'}
+				{isStreaming
+					? `${g['status.streaming']} Streaming`
+					: `${g['status.active']} Response`}
 			</Text>
 			<Text wrap="wrap" color={theme.text}>
 				{text}

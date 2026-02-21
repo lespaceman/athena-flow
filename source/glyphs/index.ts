@@ -61,6 +61,10 @@ export type ToolGlyphSet = DomainSet<'tool'>;
 export type SubagentGlyphSet = DomainSet<'subagent'>;
 export type TaskGlyphSet = DomainSet<'task'>;
 export type ProgressGlyphSet = DomainSet<'progress'>;
+export type MessageGlyphSet = DomainSet<'message'>;
+export type PermissionGlyphSet = DomainSet<'permission'>;
+export type StopGlyphSet = DomainSet<'stop'>;
+export type ConfigGlyphSet = DomainSet<'config'>;
 
 export function feedGlyphs(ascii = false): FeedGlyphSet {
 	return domainSet('feed', ascii);
@@ -92,6 +96,22 @@ export function taskGlyphs(ascii = false): TaskGlyphSet {
 
 export function progressGlyphs(ascii = false): ProgressGlyphSet {
 	return domainSet('progress', ascii);
+}
+
+export function messageGlyphs(ascii = false): MessageGlyphSet {
+	return domainSet('message', ascii);
+}
+
+export function permissionGlyphs(ascii = false): PermissionGlyphSet {
+	return domainSet('permission', ascii);
+}
+
+export function stopGlyphs(ascii = false): StopGlyphSet {
+	return domainSet('stop', ascii);
+}
+
+export function configGlyphs(ascii = false): ConfigGlyphSet {
+	return domainSet('config', ascii);
 }
 
 // Re-export types needed by consumers

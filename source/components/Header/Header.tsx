@@ -4,6 +4,9 @@ import {formatTokens, formatModelName} from '../../utils/formatters.js';
 import type {ClaudeState} from '../../types/headerMetrics.js';
 import {getStateColors, STATE_LABELS} from './constants.js';
 import {useTheme} from '../../theme/index.js';
+import {getGlyphs} from '../../glyphs/index.js';
+
+const g = getGlyphs();
 
 type Props = {
 	version: string;
@@ -53,7 +56,7 @@ export default function Header({
 				<Text
 					color={isServerRunning ? theme.status.success : theme.status.error}
 				>
-					●
+					{g['status.active']}
 				</Text>
 			</Box>
 		</Box>

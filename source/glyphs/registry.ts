@@ -33,6 +33,8 @@ export type GlyphKey =
 	| 'status.pending'
 	| 'status.passthrough'
 	| 'status.blocked'
+	| 'status.streaming'
+	| 'status.idle'
 	// Tool
 	| 'tool.bullet'
 	| 'tool.gutter'
@@ -40,6 +42,8 @@ export type GlyphKey =
 	// Subagent
 	| 'subagent.pending'
 	| 'subagent.passthrough'
+	| 'subagent.start'
+	| 'subagent.done'
 	// Task
 	| 'task.completed'
 	| 'task.pending'
@@ -49,6 +53,16 @@ export type GlyphKey =
 	// Progress
 	| 'progress.filled'
 	| 'progress.empty'
+	// Message
+	| 'message.user'
+	| 'message.agent'
+	// Permission
+	| 'permission.warn'
+	| 'permission.timeout'
+	// Stop
+	| 'stop.icon'
+	// Config
+	| 'config.icon'
 	// General
 	| 'general.ellipsis'
 	| 'general.divider';
@@ -87,6 +101,8 @@ export const GLYPH_REGISTRY: Record<
 	'status.pending': {unicode: '○', ascii: 'o'},
 	'status.passthrough': {unicode: '●', ascii: '*'},
 	'status.blocked': {unicode: '✗', ascii: 'x'},
+	'status.streaming': {unicode: '◐', ascii: '~'},
+	'status.idle': {unicode: '⏸', ascii: '-'},
 
 	// Tool
 	'tool.bullet': {unicode: '●', ascii: '*'},
@@ -96,6 +112,8 @@ export const GLYPH_REGISTRY: Record<
 	// Subagent
 	'subagent.pending': {unicode: '◇', ascii: 'o'},
 	'subagent.passthrough': {unicode: '◆', ascii: '*'},
+	'subagent.start': {unicode: '↯', ascii: '*'},
+	'subagent.done': {unicode: '⏹', ascii: '.'},
 
 	// Task
 	'task.completed': {unicode: '✓', ascii: 'x'},
@@ -107,6 +125,20 @@ export const GLYPH_REGISTRY: Record<
 	// Progress
 	'progress.filled': {unicode: '█', ascii: '='},
 	'progress.empty': {unicode: '░', ascii: '-'},
+
+	// Message
+	'message.user': {unicode: '❯', ascii: '>'},
+	'message.agent': {unicode: '◆', ascii: '>'},
+
+	// Permission
+	'permission.warn': {unicode: '⚠', ascii: '!'},
+	'permission.timeout': {unicode: '⧗', ascii: '?'},
+
+	// Stop
+	'stop.icon': {unicode: '⊘', ascii: 'X'},
+
+	// Config
+	'config.icon': {unicode: '⚙', ascii: '*'},
 
 	// General
 	'general.ellipsis': {unicode: '…', ascii: '...'},

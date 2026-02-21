@@ -73,7 +73,7 @@ describe('generateTitle', () => {
 			decision_type: 'no_opinion',
 			reason: 'timeout',
 		});
-		expect(generateTitle(event)).toBe('⏳ No opinion: timeout');
+		expect(generateTitle(event)).toBe('⧗ No opinion: timeout');
 	});
 
 	it('generates notification title from message', () => {
@@ -104,7 +104,7 @@ describe('generateTitle', () => {
 			agent_id: 'a1',
 			agent_type: 'Explore',
 		});
-		expect(generateTitle(event)).toBe('⚡ Subagent: Explore');
+		expect(generateTitle(event)).toBe('↯ Subagent: Explore');
 	});
 
 	it('generates user.prompt title with preview', () => {
