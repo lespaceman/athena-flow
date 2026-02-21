@@ -15,6 +15,7 @@ import {
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {resolveTheme} from './theme/index.js';
 import {getMostRecentSession} from './utils/sessionIndex.js';
+import type {WorkflowConfig} from './workflows/types.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -121,8 +122,29 @@ const pluginDirs = [
 	...projectConfig.plugins,
 	...(cli.flags.plugin ?? []),
 ];
-const pluginMcpConfig =
-	pluginDirs.length > 0 ? registerPlugins(pluginDirs) : undefined;
+const pluginResult =
+	pluginDirs.length > 0
+		? registerPlugins(pluginDirs)
+		: {mcpConfig: undefined, workflows: [] as WorkflowConfig[]};
+const pluginMcpConfig = pluginResult.mcpConfig;
+const workflows = pluginResult.workflows;
+
+// Select active workflow
+let activeWorkflow: WorkflowConfig | undefined;
+if (cli.flags.workflow && workflows.length > 0) {
+	activeWorkflow = workflows.find(w => w.name === cli.flags.workflow);
+	if (!activeWorkflow) {
+		console.error(
+			`Warning: Workflow '${cli.flags.workflow}' not found. Available: ${workflows.map(w => w.name).join(', ')}`,
+		);
+	}
+} else if (workflows.length === 1) {
+	activeWorkflow = workflows[0];
+} else if (workflows.length > 1) {
+	console.error(
+		`Multiple workflows found: ${workflows.map(w => w.name).join(', ')}. Use --workflow=<name> to select one.`,
+	);
+}
 
 // Merge additionalDirectories from global and project configs
 const additionalDirectories = [
@@ -132,6 +154,19 @@ const additionalDirectories = [
 
 // Resolve model: project config > global config > env var > Claude settings
 const configModel = projectConfig.model || globalConfig.model;
+
+// Workflow may require a less restrictive isolation preset
+if (activeWorkflow?.isolation) {
+	const presetOrder = ['strict', 'minimal', 'permissive'];
+	const workflowIdx = presetOrder.indexOf(activeWorkflow.isolation);
+	const userIdx = presetOrder.indexOf(isolationPreset);
+	if (workflowIdx > userIdx) {
+		console.error(
+			`Workflow '${activeWorkflow.name}' requires '${activeWorkflow.isolation}' isolation (upgrading from '${isolationPreset}')`,
+		);
+		isolationPreset = activeWorkflow.isolation as IsolationPreset;
+	}
+}
 
 // Build isolation config with preset, additional directories, and plugin dirs
 const isolationConfig: IsolationConfig = {
@@ -185,7 +220,8 @@ render(
 		theme={theme}
 		initialSessionId={initialSessionId}
 		showSessionPicker={showSessionPicker}
-		workflowRef={cli.flags.workflow}
+		workflowRef={cli.flags.workflow ?? activeWorkflow?.name}
+		workflow={activeWorkflow}
 		ascii={cli.flags.ascii}
 	/>,
 );

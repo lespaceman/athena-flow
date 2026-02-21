@@ -10,13 +10,22 @@ import os from 'node:os';
 import path from 'node:path';
 import {register} from '../commands/registry.js';
 import {loadPlugin} from './loader.js';
+import type {WorkflowConfig} from '../workflows/types.js';
+
+export type PluginRegistrationResult = {
+	mcpConfig?: string;
+	workflows: WorkflowConfig[];
+};
 
 /**
  * Load plugins from the given directories, register their commands,
- * and return a merged MCP config path if any plugins define MCP servers.
+ * and return merged MCP config + discovered workflows.
  */
-export function registerPlugins(pluginDirs: string[]): string | undefined {
+export function registerPlugins(
+	pluginDirs: string[],
+): PluginRegistrationResult {
 	const mergedServers: Record<string, unknown> = {};
+	const workflows: WorkflowConfig[] = [];
 
 	for (const dir of pluginDirs) {
 		const commands = loadPlugin(dir);
@@ -42,11 +51,22 @@ export function registerPlugins(pluginDirs: string[]): string | undefined {
 
 			Object.assign(mergedServers, config.mcpServers ?? {});
 		}
+
+		// Discover workflow config
+		const workflowPath = path.join(dir, 'workflow.json');
+		if (fs.existsSync(workflowPath)) {
+			const workflow = JSON.parse(
+				fs.readFileSync(workflowPath, 'utf-8'),
+			) as WorkflowConfig;
+			workflows.push(workflow);
+		}
 	}
 
-	if (Object.keys(mergedServers).length === 0) return undefined;
+	let mcpConfig: string | undefined;
+	if (Object.keys(mergedServers).length > 0) {
+		mcpConfig = path.join(os.tmpdir(), `athena-mcp-${process.pid}.json`);
+		fs.writeFileSync(mcpConfig, JSON.stringify({mcpServers: mergedServers}));
+	}
 
-	const merged = path.join(os.tmpdir(), `athena-mcp-${process.pid}.json`);
-	fs.writeFileSync(merged, JSON.stringify({mcpServers: mergedServers}));
-	return merged;
+	return {mcpConfig, workflows};
 }

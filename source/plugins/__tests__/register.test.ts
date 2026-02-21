@@ -42,7 +42,11 @@ const manifest = JSON.stringify({
 
 function addPlugin(
 	dir: string,
-	opts?: {mcpServers?: Record<string, unknown>; skillName?: string},
+	opts?: {
+		mcpServers?: Record<string, unknown>;
+		skillName?: string;
+		workflow?: Record<string, unknown>;
+	},
 ) {
 	files[dir] = '';
 	files[`${dir}/.claude-plugin/plugin.json`] = manifest;
@@ -50,6 +54,10 @@ function addPlugin(
 
 	if (opts?.mcpServers) {
 		files[`${dir}/.mcp.json`] = JSON.stringify({mcpServers: opts.mcpServers});
+	}
+
+	if (opts?.workflow) {
+		files[`${dir}/workflow.json`] = JSON.stringify(opts.workflow);
 	}
 
 	if (opts?.skillName) {
@@ -67,12 +75,13 @@ beforeEach(() => {
 });
 
 describe('registerPlugins', () => {
-	it('returns undefined when no plugins have MCP configs', () => {
+	it('returns undefined mcpConfig when no plugins have MCP configs', () => {
 		addPlugin('/plugins/a', {skillName: 'cmd-a'});
 
 		const result = registerPlugins(['/plugins/a']);
 
-		expect(result).toBeUndefined();
+		expect(result.mcpConfig).toBeUndefined();
+		expect(result.workflows).toEqual([]);
 	});
 
 	it('returns a merged MCP config path when plugins have .mcp.json', () => {
@@ -83,8 +92,8 @@ describe('registerPlugins', () => {
 
 		const result = registerPlugins(['/plugins/a']);
 
-		expect(result).toBeDefined();
-		expect(typeof result).toBe('string');
+		expect(result.mcpConfig).toBeDefined();
+		expect(typeof result.mcpConfig).toBe('string');
 	});
 
 	it('merges mcpServers from multiple plugins', async () => {
@@ -160,5 +169,35 @@ describe('registerPlugins', () => {
 		});
 
 		expect(() => registerPlugins(['/plugins/a', '/plugins/b'])).not.toThrow();
+	});
+
+	it('discovers workflow.json from plugin directories', () => {
+		const workflow = {
+			name: 'e2e-test-builder',
+			promptTemplate: 'Use /add-e2e-tests {input}',
+			loop: {
+				enabled: true,
+				completionPromise: 'E2E COMPLETE',
+				maxIterations: 15,
+			},
+			isolation: 'minimal',
+		};
+		addPlugin('/plugins/a', {workflow});
+
+		const result = registerPlugins(['/plugins/a']);
+
+		expect(result.workflows).toHaveLength(1);
+		expect(result.workflows[0]!.name).toBe('e2e-test-builder');
+		expect(result.workflows[0]!.promptTemplate).toBe(
+			'Use /add-e2e-tests {input}',
+		);
+	});
+
+	it('returns empty workflows array when no workflow.json exists', () => {
+		addPlugin('/plugins/a');
+
+		const result = registerPlugins(['/plugins/a']);
+
+		expect(result.workflows).toEqual([]);
 	});
 });
