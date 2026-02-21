@@ -639,7 +639,7 @@ function AppContent({
 			colors: {
 				doing: theme.status.warning,
 				done: theme.status.success,
-				pending: theme.status.neutral,
+				default: theme.status.neutral,
 			},
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},

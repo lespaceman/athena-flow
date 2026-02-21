@@ -133,9 +133,11 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - Event handlers extracted as pure functions taking `(ctx, callbacks)` — not closures inside hooks
 - New CLI flag mappings go in `FLAG_REGISTRY` array in `flagRegistry.ts`, not procedural code in `spawnClaude.ts`
 - Feature branches use git worktrees in `.worktrees/` (gitignored)
+- **Glyph tables**: Use `GLYPH_TABLE` pattern with `satisfies Record<Keys, string>` + `as const` for unicode/ascii glyph pairs. Color application is separate via `chalk.hex()`. See `source/feed/todoPanel.ts` as reference.
 
 ## Testing Patterns
 
+- **chalk in tests**: vitest runs with color level 0. Tests verifying ANSI output need `chalk.level = 3` with `try/finally` to restore.
 - Prefer one comprehensive test over many repetitive flag tests
 - For CLI arg mapping, test multiple options in a single test instead of one test per flag
 - Focus tests on behavior (callbacks, cleanup, error handling) not trivial pass-through logic
@@ -161,4 +163,5 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - **Ink `<Static>` is write-once**: Every event is immediately stable — no waiting for PostToolUse before rendering
 - **Session lifecycle is per-message**: Each `spawnClaude()` creates a new session (SessionStart→Stop→SessionEnd). State flags like `sessionEnded` must reset on new `SessionStart` or they affect future sessions
 - **Ink border width overhead**: `borderStyle="round"` consumes 2 chars (left+right borders). Components computing width from `process.stdout.columns` inside bordered boxes must subtract border + padding overhead or content will overflow and break the border rendering.
+- **No timer hooks at root**: Never place timer-based state hooks (setInterval/animation) at the root component level — they cause full-tree re-renders. Scope them to the smallest possible subtree.
 - **Independent events with causality**: Every feed event is its own independent static line (no pairing or waiting), but events link to parents via `cause.parent_event_id` (e.g., `tool.post` → `tool.pre`, `permission.decision` → `permission.request`). Components render independently; correlation is for data attribution, not render grouping.

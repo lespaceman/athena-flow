@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import {type TodoItem} from '../types/todo.js';
 
 export type TodoPanelStatus = 'open' | 'doing' | 'blocked' | 'done';
@@ -33,21 +34,65 @@ export type TodoGlyphs = {
 	scrollDown: string;
 };
 
-export function todoGlyphs(ascii = false): TodoGlyphs {
+export type TodoGlyphColors = {
+	doing: string;
+	done: string;
+	default: string;
+};
+
+type GlyphKeys = TodoPanelStatus | 'caret' | 'dividerChar' | 'scrollUp' | 'scrollDown';
+
+const GLYPH_TABLE = {
+	unicode: {
+		doing: '■',
+		done: '✓',
+		open: '□',
+		blocked: '□',
+		caret: '▶',
+		dividerChar: '─',
+		scrollUp: '▲',
+		scrollDown: '▼',
+	} satisfies Record<GlyphKeys, string>,
+	ascii: {
+		doing: '*',
+		done: 'x',
+		open: '-',
+		blocked: '-',
+		caret: '>',
+		dividerChar: '-',
+		scrollUp: '^',
+		scrollDown: 'v',
+	} satisfies Record<GlyphKeys, string>,
+} as const;
+
+function colorForStatus(
+	status: TodoPanelStatus,
+	colors: TodoGlyphColors,
+): string {
+	switch (status) {
+		case 'doing':
+			return colors.doing;
+		case 'done':
+			return colors.done;
+		default:
+			return colors.default;
+	}
+}
+
+export function todoGlyphs(
+	ascii = false,
+	colors?: TodoGlyphColors,
+): TodoGlyphs {
+	const table = ascii ? GLYPH_TABLE.ascii : GLYPH_TABLE.unicode;
 	return {
-		statusGlyph: (status: TodoPanelStatus) => {
-			switch (status) {
-				case 'doing':
-					return ascii ? '*' : '●';
-				case 'done':
-					return ascii ? 'x' : '✓';
-				default:
-					return ascii ? '-' : '○';
-			}
+		statusGlyph(status: TodoPanelStatus): string {
+			const raw = table[status];
+			if (!colors) return raw;
+			return chalk.hex(colorForStatus(status, colors))(raw);
 		},
-		caret: ascii ? '>' : '▶',
-		dividerChar: ascii ? '-' : '─',
-		scrollUp: ascii ? '^' : '▲',
-		scrollDown: ascii ? 'v' : '▼',
+		caret: table.caret,
+		dividerChar: table.dividerChar,
+		scrollUp: table.scrollUp,
+		scrollDown: table.scrollDown,
 	};
 }

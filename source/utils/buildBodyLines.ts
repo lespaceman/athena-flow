@@ -239,7 +239,7 @@ export function buildBodyLines({
 					const styled = styleFeedLine(plain, {
 						focused: isFocused,
 						matched: isMatched,
-						actorId: entry.actorId ?? 'system',
+						actorId: entry.actorId,
 						isError: entry.error,
 						theme,
 					});
