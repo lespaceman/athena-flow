@@ -276,22 +276,8 @@ export function deriveRunTitle(
 	return 'Untitled run';
 }
 
-type FeedGlyphKeys = 'expandCollapsed' | 'expandExpanded';
-
-const FEED_GLYPH_TABLE = {
-	unicode: {
-		expandCollapsed: '▸',
-		expandExpanded: '▾',
-	} satisfies Record<FeedGlyphKeys, string>,
-	ascii: {
-		expandCollapsed: '>',
-		expandExpanded: 'v',
-	} satisfies Record<FeedGlyphKeys, string>,
-} as const;
-
-export function feedGlyphs(ascii = false) {
-	return ascii ? FEED_GLYPH_TABLE.ascii : FEED_GLYPH_TABLE.unicode;
-}
+import {feedGlyphs} from '../glyphs/index.js';
+export {feedGlyphs};
 
 export function formatFeedLine(
 	entry: TimelineEntry,
@@ -313,7 +299,10 @@ export function formatFeedLine(
 	const actor = fit(entry.actor, 8);
 	const bodyWidth = Math.max(0, width - 2); // reserve 2 chars for suffix
 	const summaryWidth = Math.max(0, bodyWidth - 26); // 5+1+10+1+8+1 = 26
-	const body = fit(`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`, bodyWidth);
+	const body = fit(
+		`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`,
+		bodyWidth,
+	);
 	return `${body}${suffix}`;
 }
 

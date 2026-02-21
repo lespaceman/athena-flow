@@ -34,6 +34,7 @@ import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
 import {fit, fitAnsi} from './utils/format.js';
+import {frameGlyphs} from './glyphs/index.js';
 
 type Props = {
 	projectDir: string;
@@ -264,11 +265,12 @@ function AppContent({
 		expandedEntry,
 	} = layout;
 
-	const topBorder = `┌${'─'.repeat(innerWidth)}┐`;
-	const bottomBorder = `└${'─'.repeat(innerWidth)}┘`;
-	const sectionBorder = `├${'─'.repeat(innerWidth)}┤`;
+	const fr = frameGlyphs(!!ascii);
+	const topBorder = `${fr.topLeft}${fr.horizontal.repeat(innerWidth)}${fr.topRight}`;
+	const bottomBorder = `${fr.bottomLeft}${fr.horizontal.repeat(innerWidth)}${fr.bottomRight}`;
+	const sectionBorder = `${fr.teeLeft}${fr.horizontal.repeat(innerWidth)}${fr.teeRight}`;
 	const frameLine = (content: string): string =>
-		`│${fitAnsi(content, innerWidth)}│`;
+		`${fr.vertical}${fitAnsi(content, innerWidth)}${fr.vertical}`;
 
 	// ── Refs for callbacks ──────────────────────────────────
 

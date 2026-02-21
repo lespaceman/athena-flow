@@ -109,6 +109,46 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('▾');
 	});
 
+	it('colors ASCII > suffix with accent color', () => {
+		const line = '08:55 tool.call  AGENT    Read source/app.tsx             >';
+		const result = styleFeedLine(line, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		// accent #89b4fa → RGB 137;180;250
+		expect(result).toContain('38;2;137;180;250');
+		expect(result).toContain('>');
+	});
+
+	it('colors ASCII v suffix with success color', () => {
+		const line = '08:55 tool.call  AGENT    Read source/app.tsx             v';
+		const result = styleFeedLine(line, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		// status.success #a6e3a1 → RGB 166;227;161
+		expect(result).toContain('38;2;166;227;161');
+		expect(result).toContain('v');
+	});
+
+	it('applies dim for system actor for terminal contrast', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'system',
+			isError: false,
+			theme: darkTheme,
+		});
+		// Should contain dim escape code \x1b[2m
+		expect(result).toContain('\x1b[2m');
+	});
+
 	it('focused takes priority over matched (no ▌)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: true,
