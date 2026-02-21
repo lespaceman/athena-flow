@@ -71,6 +71,22 @@ describe('renderDetailLines', () => {
 		expect(result.lines.some(l => l.includes('const'))).toBe(true);
 	});
 
+	it('renders Read .md file content as markdown (not syntax-highlighted)', () => {
+		const event = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: 'docs/README.md'},
+				tool_response: [{type: 'text', file: {content: '# Title\n\n**bold** text'}}],
+			},
+		});
+		const result = renderDetailLines(event, 80);
+		expect(result.showLineNumbers).toBe(false);
+		const joined = result.lines.join('\n');
+		expect(joined).not.toContain('**bold**');
+		expect(joined).toContain('bold');
+	});
+
 	it('renders tool.post Edit as diff', () => {
 		const event = makeEvent({
 			kind: 'tool.post',
