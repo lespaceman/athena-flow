@@ -80,6 +80,12 @@ export function eventOperation(event: FeedEvent): string {
 			return 'todo.done';
 		case 'agent.message':
 			return 'agent.msg';
+		case 'teammate.idle':
+			return 'tm.idle';
+		case 'task.completed':
+			return 'task.ok';
+		case 'config.change':
+			return 'cfg.chg';
 		default:
 			return 'event';
 	}
@@ -166,6 +172,18 @@ export function eventSummary(event: FeedEvent): string {
 			);
 		case 'agent.message':
 			return compactText(event.data.message, 200);
+		case 'teammate.idle':
+			return compactText(
+				`${event.data.teammate_name} idle in ${event.data.team_name}`,
+				200,
+			);
+		case 'task.completed':
+			return compactText(event.data.task_subject, 200);
+		case 'config.change':
+			return compactText(
+				`${event.data.source}${event.data.file_path ? ` ${event.data.file_path}` : ''}`,
+				200,
+			);
 		default:
 			return compactText('event', 200);
 	}

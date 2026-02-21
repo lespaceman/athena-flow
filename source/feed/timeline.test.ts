@@ -90,6 +90,33 @@ describe('eventOperation', () => {
 		expect(eventOperation(ev)).toBe('tool.call');
 	});
 
+	it('returns tm.idle for teammate.idle', () => {
+		const ev = {
+			...base(),
+			kind: 'teammate.idle' as const,
+			data: {teammate_name: 'alice', team_name: 'backend'},
+		};
+		expect(eventOperation(ev)).toBe('tm.idle');
+	});
+
+	it('returns task.ok for task.completed', () => {
+		const ev = {
+			...base(),
+			kind: 'task.completed' as const,
+			data: {task_id: 't1', task_subject: 'Fix bug'},
+		};
+		expect(eventOperation(ev)).toBe('task.ok');
+	});
+
+	it('returns cfg.chg for config.change', () => {
+		const ev = {
+			...base(),
+			kind: 'config.change' as const,
+			data: {source: 'user', file_path: '.claude/settings.json'},
+		};
+		expect(eventOperation(ev)).toBe('cfg.chg');
+	});
+
 	it('returns perm.deny for permission.decision deny', () => {
 		const ev = {
 			...base({kind: 'permission.decision'}),
@@ -97,6 +124,35 @@ describe('eventOperation', () => {
 			data: {decision_type: 'deny' as const, message: 'no'},
 		};
 		expect(eventOperation(ev)).toBe('perm.deny');
+	});
+});
+
+describe('eventSummary', () => {
+	it('formats teammate.idle summary', () => {
+		const ev = {
+			...base(),
+			kind: 'teammate.idle' as const,
+			data: {teammate_name: 'alice', team_name: 'backend'},
+		};
+		expect(eventSummary(ev)).toBe('alice idle in backend');
+	});
+
+	it('formats task.completed summary', () => {
+		const ev = {
+			...base(),
+			kind: 'task.completed' as const,
+			data: {task_id: 't1', task_subject: 'Fix the login bug'},
+		};
+		expect(eventSummary(ev)).toBe('Fix the login bug');
+	});
+
+	it('formats config.change summary', () => {
+		const ev = {
+			...base(),
+			kind: 'config.change' as const,
+			data: {source: 'user', file_path: '.claude/settings.json'},
+		};
+		expect(eventSummary(ev)).toBe('user .claude/settings.json');
 	});
 });
 
