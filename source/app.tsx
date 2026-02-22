@@ -35,6 +35,7 @@ import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
 import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
+import type {WorkflowConfig} from './workflows/types.js';
 
 type Props = {
 	projectDir: string;
@@ -48,6 +49,7 @@ type Props = {
 	initialSessionId?: string;
 	showSessionPicker?: boolean;
 	workflowRef?: string;
+	workflow?: WorkflowConfig;
 	ascii?: boolean;
 };
 
@@ -97,6 +99,7 @@ function AppContent({
 	onShowSessions,
 	inputHistory,
 	workflowRef,
+	workflow,
 	ascii,
 }: Omit<Props, 'showSessionPicker' | 'theme'> & {
 	initialSessionId?: string;
@@ -142,6 +145,7 @@ function AppContent({
 		isolation,
 		pluginMcpConfig,
 		verbose,
+		workflow,
 	);
 	const {exit} = useApp();
 	const {stdout} = useStdout();
@@ -705,6 +709,7 @@ export default function App({
 	initialSessionId,
 	showSessionPicker,
 	workflowRef,
+	workflow,
 	ascii,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
@@ -767,6 +772,7 @@ export default function App({
 					onShowSessions={handleShowSessions}
 					inputHistory={inputHistory}
 					workflowRef={workflowRef}
+					workflow={workflow}
 					ascii={ascii}
 				/>
 			</HookProvider>

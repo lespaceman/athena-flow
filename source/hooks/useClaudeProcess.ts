@@ -9,6 +9,12 @@ import {
 } from '../types/isolation.js';
 import type {TokenUsage} from '../types/headerMetrics.js';
 import {createTokenAccumulator} from '../utils/parseStreamJson.js';
+import type {WorkflowConfig} from '../workflows/types.js';
+import {
+	applyPromptTemplate,
+	writeLoopState,
+	removeLoopState,
+} from '../workflows/index.js';
 
 // Re-export type for backwards compatibility
 export type {UseClaudeProcessResult};
@@ -63,6 +69,7 @@ export function useClaudeProcess(
 	isolation?: IsolationConfig | IsolationPreset,
 	pluginMcpConfig?: string,
 	verbose?: boolean,
+	workflow?: WorkflowConfig,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const abortRef = useRef<AbortController>(new AbortController());
@@ -95,6 +102,11 @@ export function useClaudeProcess(
 		});
 
 		processRef.current.kill();
+
+		// Clean up ralph-loop state to prevent zombie loops
+		if (workflow?.loop?.enabled) {
+			removeLoopState(projectDir);
+		}
 
 		// Wait for exit or timeout
 		await Promise.race([exitPromise, timeoutPromise]);
@@ -130,8 +142,18 @@ export function useClaudeProcess(
 				contextSize: prev.contextSize,
 			}));
 
+			// Apply workflow: transform prompt and arm loop
+			let effectivePrompt = prompt;
+			if (workflow) {
+				effectivePrompt = applyPromptTemplate(workflow.promptTemplate, prompt);
+				if (workflow.loop) {
+					removeLoopState(projectDir); // Clean any stale state
+					writeLoopState(projectDir, effectivePrompt, workflow.loop);
+				}
+			}
+
 			const child = spawnClaude({
-				prompt,
+				prompt: effectivePrompt,
 				projectDir,
 				instanceId,
 				sessionId,
@@ -208,7 +230,15 @@ export function useClaudeProcess(
 
 			processRef.current = child;
 		},
-		[projectDir, instanceId, isolation, pluginMcpConfig, verbose, kill],
+		[
+			projectDir,
+			instanceId,
+			isolation,
+			pluginMcpConfig,
+			verbose,
+			workflow,
+			kill,
+		],
 	);
 
 	// Cleanup on unmount - kill any running process
