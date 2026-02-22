@@ -19,49 +19,49 @@ The current `WorkflowConfig` lives inside individual plugin directories. This ti
 
 ```json
 {
-  "name": "e2e-testing",
-  "description": "End-to-end testing workflow with browser automation",
-  "version": "1.0.0",
-  "plugins": [
-    "e2e-test-builder@owner/marketplace-repo",
-    "ralph-loop@owner/marketplace-repo"
-  ],
-  "promptTemplate": "Use /add-e2e-tests {input}",
-  "loop": {
-    "enabled": true,
-    "completionPromise": "E2E COMPLETE",
-    "maxIterations": 15
-  },
-  "isolation": "minimal",
-  "model": "sonnet",
-  "env": {
-    "BASE_URL": "",
-    "HEADLESS": "true"
-  }
+	"name": "e2e-testing",
+	"description": "End-to-end testing workflow with browser automation",
+	"version": "1.0.0",
+	"plugins": [
+		"e2e-test-builder@owner/marketplace-repo",
+		"ralph-loop@owner/marketplace-repo"
+	],
+	"promptTemplate": "Use /add-e2e-tests {input}",
+	"loop": {
+		"enabled": true,
+		"completionPromise": "E2E COMPLETE",
+		"maxIterations": 15
+	},
+	"isolation": "minimal",
+	"model": "sonnet",
+	"env": {
+		"BASE_URL": "",
+		"HEADLESS": "true"
+	}
 }
 ```
 
 ### Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | yes | Unique workflow identifier (kebab-case) |
-| `description` | string | no | Human-readable description |
-| `version` | string | no | Semver version |
-| `plugins` | string[] | yes | Marketplace plugin refs to auto-install |
-| `promptTemplate` | string | yes | Template with `{input}` placeholder, typically invokes a command |
-| `loop` | LoopConfig | no | Ralph loop settings (defaults to `{ enabled: false }`) |
-| `isolation` | string | no | Isolation preset: `strict`, `minimal`, or `permissive` |
-| `model` | string | no | Preferred model alias (e.g., `sonnet`, `opus`) |
-| `env` | Record<string, string> | no | Environment variables passed to spawned Claude process |
+| Field            | Type                   | Required | Description                                                      |
+| ---------------- | ---------------------- | -------- | ---------------------------------------------------------------- |
+| `name`           | string                 | yes      | Unique workflow identifier (kebab-case)                          |
+| `description`    | string                 | no       | Human-readable description                                       |
+| `version`        | string                 | no       | Semver version                                                   |
+| `plugins`        | string[]               | yes      | Marketplace plugin refs to auto-install                          |
+| `promptTemplate` | string                 | yes      | Template with `{input}` placeholder, typically invokes a command |
+| `loop`           | LoopConfig             | no       | Ralph loop settings (defaults to `{ enabled: false }`)           |
+| `isolation`      | string                 | no       | Isolation preset: `strict`, `minimal`, or `permissive`           |
+| `model`          | string                 | no       | Preferred model alias (e.g., `sonnet`, `opus`)                   |
+| `env`            | Record<string, string> | no       | Environment variables passed to spawned Claude process           |
 
 ### LoopConfig
 
 ```typescript
 type LoopConfig = {
-  enabled: boolean;
-  completionPromise: string;
-  maxIterations: number;
+	enabled: boolean;
+	completionPromise: string;
+	maxIterations: number;
 };
 ```
 
@@ -100,8 +100,8 @@ Users set the `workflow` field in `.athena/config.json`:
 
 ```json
 {
-  "workflow": "e2e-testing",
-  "plugins": []
+	"workflow": "e2e-testing",
+	"plugins": []
 }
 ```
 

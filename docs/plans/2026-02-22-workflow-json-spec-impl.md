@@ -15,6 +15,7 @@
 ### Task 1: Update WorkflowConfig type
 
 **Files:**
+
 - Modify: `source/workflows/types.ts`
 - No test file (type-only change, tested via downstream tasks)
 
@@ -50,6 +51,7 @@ export type WorkflowConfig = {
 ```
 
 Key changes from current type:
+
 - `requiredPlugins?: string[]` → `plugins: string[]` (required, renamed)
 - `loop` becomes optional (defaults to disabled)
 - Added `version?`, `model?`, `env?`
@@ -84,6 +86,7 @@ git commit -m "feat(workflows): update WorkflowConfig type with plugins, env, mo
 ### Task 2: Add `workflow` field to AthenaConfig
 
 **Files:**
+
 - Modify: `source/plugins/config.ts`
 - Modify: `source/plugins/__tests__/config.test.ts`
 
@@ -159,7 +162,13 @@ const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
 3. Add `workflow: raw.workflow` to the return statement:
 
 ```typescript
-return {plugins, additionalDirectories, model: raw.model, theme: raw.theme, workflow: raw.workflow};
+return {
+	plugins,
+	additionalDirectories,
+	model: raw.model,
+	theme: raw.theme,
+	workflow: raw.workflow,
+};
 ```
 
 4. Update `EMPTY_CONFIG` (no change needed — `workflow` is optional and defaults to `undefined`).
@@ -186,6 +195,7 @@ git commit -m "feat(config): add workflow field to AthenaConfig"
 ### Task 3: Create workflow registry
 
 **Files:**
+
 - Create: `source/workflows/registry.ts`
 - Create: `source/workflows/__tests__/registry.test.ts`
 
@@ -228,9 +238,8 @@ vi.mock('node:os', () => ({
 	},
 }));
 
-const {resolveWorkflow, listWorkflows, removeWorkflow} = await import(
-	'../registry.js'
-);
+const {resolveWorkflow, listWorkflows, removeWorkflow} =
+	await import('../registry.js');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) {
@@ -246,9 +255,8 @@ describe('resolveWorkflow', () => {
 			plugins: ['test-builder@owner/repo'],
 			promptTemplate: 'Use /test {input}',
 		};
-		files[
-			'/home/testuser/.config/athena/workflows/e2e-testing/workflow.json'
-		] = JSON.stringify(workflow);
+		files['/home/testuser/.config/athena/workflows/e2e-testing/workflow.json'] =
+			JSON.stringify(workflow);
 
 		const result = resolveWorkflow('e2e-testing');
 
@@ -270,9 +278,8 @@ describe('listWorkflows', () => {
 
 describe('removeWorkflow', () => {
 	it('removes an installed workflow', () => {
-		files[
-			'/home/testuser/.config/athena/workflows/e2e-testing/workflow.json'
-		] = JSON.stringify({name: 'e2e-testing'});
+		files['/home/testuser/.config/athena/workflows/e2e-testing/workflow.json'] =
+			JSON.stringify({name: 'e2e-testing'});
 		dirs.add('/home/testuser/.config/athena/workflows/e2e-testing');
 
 		removeWorkflow('e2e-testing');
@@ -408,6 +415,7 @@ git commit -m "feat(workflows): add standalone workflow registry"
 ### Task 4: Create workflow plugin installer
 
 **Files:**
+
 - Create: `source/workflows/installer.ts`
 - Create: `source/workflows/__tests__/installer.test.ts`
 
@@ -534,6 +542,7 @@ git commit -m "feat(workflows): add plugin installer for marketplace refs"
 ### Task 5: Update barrel export
 
 **Files:**
+
 - Modify: `source/workflows/index.ts`
 
 **Step 1: Add new exports**
@@ -573,6 +582,7 @@ git commit -m "feat(workflows): export registry and installer from barrel"
 ### Task 6: Wire workflow resolution into CLI startup
 
 **Files:**
+
 - Modify: `source/cli.tsx`
 
 **Step 1: Add imports**
@@ -656,6 +666,7 @@ git commit -m "feat(cli): resolve workflow from registry and auto-install plugin
 ### Task 7: Pass workflow env vars and model to spawnClaude
 
 **Files:**
+
 - Modify: `source/utils/spawnClaude.ts`
 - Modify: `source/types/process.ts`
 - Modify: `source/hooks/useClaudeProcess.ts`
@@ -750,6 +761,7 @@ git commit -m "feat(workflows): pass env vars and model from workflow to Claude 
 ### Task 8: Handle optional loop in useClaudeProcess
 
 **Files:**
+
 - Modify: `source/hooks/useClaudeProcess.ts`
 
 The `loop` field is now optional on `WorkflowConfig`. The existing code at line 149 already guards with `if (workflow.loop)`, and line 107 guards with `if (workflow?.loop?.enabled)`. However, the `writeLoopState` function requires a `LoopConfig` argument. Since `loop` is optional, we need to ensure the guard is sufficient.

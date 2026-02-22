@@ -71,5 +71,11 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
-	return {plugins, additionalDirectories, model: raw.model, theme: raw.theme, workflow: raw.workflow};
+	return {
+		plugins,
+		additionalDirectories,
+		model: raw.model,
+		theme: raw.theme,
+		workflow: raw.workflow,
+	};
 }
