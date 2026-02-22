@@ -11,6 +11,7 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
+import type {SessionStore} from '../sessions/store.js';
 import type {
 	AgentMessageData,
 	StopRequestData,
@@ -135,8 +136,17 @@ export function useFeed(
 	runtime: Runtime,
 	messages: Message[] = [],
 	initialAllowedTools?: string[],
+	sessionStore?: SessionStore,
 ): UseFeedResult {
-	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
+	const initialStored = useMemo(
+		() => (sessionStore ? sessionStore.restore() : undefined),
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[], // Only restore once on mount
+	);
+
+	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>(
+		() => initialStored?.feedEvents ?? [],
+	);
 	const [rules, setRules] = useState<HookRule[]>(() =>
 		buildInitialRules(initialAllowedTools),
 	);
@@ -145,7 +155,9 @@ export function useFeed(
 	);
 	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
-	const mapperRef = useRef<FeedMapper>(createFeedMapper());
+	const mapperRef = useRef<FeedMapper>(createFeedMapper(initialStored));
+	const sessionStoreRef = useRef(sessionStore);
+	sessionStoreRef.current = sessionStore;
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
 	const feedEventsRef = useRef<FeedEvent[]>([]);
@@ -319,6 +331,17 @@ export function useFeed(
 			// Map to feed events
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
+			// Persist to session store
+			if (sessionStoreRef.current) {
+				sessionStoreRef.current.recordRuntimeEvent(runtimeEvent);
+				if (newFeedEvents.length > 0) {
+					sessionStoreRef.current.recordFeedEvents(
+						runtimeEvent.id,
+						newFeedEvents,
+					);
+				}
+			}
+
 			// Sync enrichment: extract agent final message on stop/subagent.stop
 			const enriched: FeedEvent[] = [];
 			for (const fe of newFeedEvents) {
@@ -339,9 +362,11 @@ export function useFeed(
 
 				setFeedEvents(prev => {
 					const updated = [...prev, ...newFeedEvents];
-					return updated.length > MAX_EVENTS
-						? updated.slice(-MAX_EVENTS)
-						: updated;
+					// No cap when using persistent sessions — SQLite is the source of truth
+					if (!sessionStoreRef.current && updated.length > MAX_EVENTS) {
+						return updated.slice(-MAX_EVENTS);
+					}
+					return updated;
 				});
 			}
 		});
