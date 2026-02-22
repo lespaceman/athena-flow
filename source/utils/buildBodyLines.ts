@@ -206,7 +206,7 @@ export function buildBodyLines({
 		if (feedHeaderRows > 0) {
 			bodyLines.push(
 				fitAnsi(
-					chalk.hex(theme.textMuted)(formatFeedHeaderLine(innerWidth)),
+					chalk.bold.hex(theme.textMuted)(formatFeedHeaderLine(innerWidth)),
 					innerWidth,
 				),
 			);
@@ -245,6 +245,7 @@ export function buildBodyLines({
 						theme,
 						ascii: todo.ascii,
 						op: entry.op,
+						summaryDimStart: entry.summaryDimStart,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
 				}

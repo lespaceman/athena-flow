@@ -134,7 +134,7 @@ describe('eventSummary', () => {
 			kind: 'teammate.idle' as const,
 			data: {teammate_name: 'alice', team_name: 'backend'},
 		};
-		expect(eventSummary(ev)).toBe('alice idle in backend');
+		expect(eventSummary(ev).text).toBe('alice idle in backend');
 	});
 
 	it('formats task.completed summary', () => {
@@ -143,7 +143,7 @@ describe('eventSummary', () => {
 			kind: 'task.completed' as const,
 			data: {task_id: 't1', task_subject: 'Fix the login bug'},
 		};
-		expect(eventSummary(ev)).toBe('Fix the login bug');
+		expect(eventSummary(ev).text).toBe('Fix the login bug');
 	});
 
 	it('formats config.change summary', () => {
@@ -152,7 +152,7 @@ describe('eventSummary', () => {
 			kind: 'config.change' as const,
 			data: {source: 'user', file_path: '.claude/settings.json'},
 		};
-		expect(eventSummary(ev)).toBe('user .claude/settings.json');
+		expect(eventSummary(ev).text).toBe('user .claude/settings.json');
 	});
 });
 
@@ -167,7 +167,7 @@ describe('eventSummary MCP formatting', () => {
 				tool_input: {url: 'https://example.com'},
 			},
 		};
-		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+		expect(eventSummary(ev).text).toContain('[agent-web-interface] navigate');
 	});
 
 	it('formats built-in tool.pre without brackets', () => {
@@ -179,9 +179,9 @@ describe('eventSummary MCP formatting', () => {
 				tool_input: {file_path: '/foo.ts'},
 			},
 		};
-		const summary = eventSummary(ev);
-		expect(summary).toContain('Read');
-		expect(summary).not.toContain('[');
+		const {text} = eventSummary(ev);
+		expect(text).toContain('Read');
+		expect(text).not.toContain('[');
 	});
 
 	it('formats MCP permission.request with [server] action', () => {
@@ -194,7 +194,7 @@ describe('eventSummary MCP formatting', () => {
 				permission_suggestions: [],
 			},
 		};
-		expect(eventSummary(ev)).toContain('[agent-web-interface] click');
+		expect(eventSummary(ev).text).toContain('[agent-web-interface] click');
 	});
 
 	it('formats MCP tool.post with [server] action', () => {
@@ -208,7 +208,7 @@ describe('eventSummary MCP formatting', () => {
 				tool_response: {},
 			},
 		};
-		expect(eventSummary(ev)).toContain('[agent-web-interface] navigate');
+		expect(eventSummary(ev).text).toContain('[agent-web-interface] navigate');
 	});
 
 	it('formats MCP tool.failure with [server] action', () => {
@@ -223,9 +223,9 @@ describe('eventSummary MCP formatting', () => {
 				is_interrupt: false,
 			},
 		};
-		const summary = eventSummary(ev);
-		expect(summary).toContain('[agent-web-interface] navigate');
-		expect(summary).toContain('timeout');
+		const {text} = eventSummary(ev);
+		expect(text).toContain('[agent-web-interface] navigate');
+		expect(text).toContain('timeout');
 	});
 
 	it('formats non-plugin MCP tool without plugin prefix', () => {
@@ -237,7 +237,33 @@ describe('eventSummary MCP formatting', () => {
 				tool_input: {},
 			},
 		};
-		expect(eventSummary(ev)).toContain('[my-server] do_thing');
+		expect(eventSummary(ev).text).toContain('[my-server] do_thing');
+	});
+
+	it('returns dimStart for tool.pre with args', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/foo.ts'},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.dimStart).toBe('Read'.length + 1);
+	});
+
+	it('returns no dimStart for tool.post without args', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {},
+				tool_response: {},
+			},
+		};
+		expect(eventSummary(ev).dimStart).toBeUndefined();
 	});
 });
 

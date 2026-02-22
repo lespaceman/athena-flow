@@ -92,7 +92,7 @@ export function useTimeline({
 			if (event.kind === 'run.start') {
 				activeRunId = event.run_id;
 			}
-			const summary = eventSummary(event);
+			const {text: summary, dimStart: summaryDimStart} = eventSummary(event);
 			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
 			entries.push({
 				id: event.event_id,
@@ -102,6 +102,7 @@ export function useTimeline({
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
 				summary,
+				summaryDimStart,
 				searchText: `${summary}\n${details}`,
 				error: isEventError(event),
 				expandable: isEventExpandable(event),
