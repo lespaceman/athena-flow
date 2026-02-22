@@ -45,6 +45,12 @@ vi.mock('node:os', () => ({
 	},
 }));
 
+vi.mock('../../plugins/marketplace.js', () => ({
+	isMarketplaceRef: (entry: string) =>
+		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
+	resolveMarketplaceWorkflow: () => '/tmp/resolved-workflow.json',
+}));
+
 const {resolveWorkflow, installWorkflow, listWorkflows, removeWorkflow} =
 	await import('../registry.js');
 
@@ -108,6 +114,17 @@ describe('installWorkflow', () => {
 				'/home/testuser/.config/athena/workflows/my-workflow/workflow.json'
 			],
 		).toBeDefined();
+	});
+
+	it('installs from marketplace ref', () => {
+		files['/tmp/resolved-workflow.json'] = JSON.stringify({
+			name: 'remote-workflow',
+			plugins: ['plugin@owner/repo'],
+			promptTemplate: '{input}',
+		});
+
+		const name = installWorkflow('remote-workflow@owner/repo');
+		expect(name).toBe('remote-workflow');
 	});
 
 	it('uses explicit name over workflow name field', () => {

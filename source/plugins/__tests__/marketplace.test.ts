@@ -26,7 +26,7 @@ vi.mock('node:child_process', () => ({
 	execFileSync: (...args: unknown[]) => execFileSyncMock(...args),
 }));
 
-const {isMarketplaceRef, resolveMarketplacePlugin} =
+const {isMarketplaceRef, resolveMarketplacePlugin, resolveMarketplaceWorkflow} =
 	await import('../marketplace.js');
 
 beforeEach(() => {
@@ -355,5 +355,72 @@ describe('resolveMarketplacePlugin', () => {
 				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
 			),
 		).toThrow('"plugins" must be an array');
+	});
+});
+
+describe('resolveMarketplaceWorkflow', () => {
+	const cacheBase =
+		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-plugin-marketplace';
+	const manifestPath = `${cacheBase}/.claude-plugin/marketplace.json`;
+
+	const manifestWithWorkflows = JSON.stringify({
+		name: 'athena-plugin-marketplace',
+		owner: {name: 'Test Team'},
+		plugins: [],
+		workflows: [
+			{
+				name: 'e2e-test-builder',
+				source: './workflows/e2e-test-builder/workflow.json',
+				description: 'E2E test builder workflow',
+			},
+		],
+	});
+
+	it('resolves a workflow from the manifest', () => {
+		dirs.add(cacheBase);
+		files[manifestPath] = manifestWithWorkflows;
+		files[`${cacheBase}/workflows/e2e-test-builder/workflow.json`] = '{}';
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		const result = resolveMarketplaceWorkflow(
+			'e2e-test-builder@lespaceman/athena-plugin-marketplace',
+		);
+
+		expect(result).toBe(
+			`${cacheBase}/workflows/e2e-test-builder/workflow.json`,
+		);
+	});
+
+	it('throws when workflow not found in manifest', () => {
+		dirs.add(cacheBase);
+		files[manifestPath] = manifestWithWorkflows;
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		expect(() =>
+			resolveMarketplaceWorkflow(
+				'nonexistent@lespaceman/athena-plugin-marketplace',
+			),
+		).toThrow(
+			'Workflow "nonexistent" not found in marketplace lespaceman/athena-plugin-marketplace. Available workflows: e2e-test-builder',
+		);
+	});
+
+	it('throws when manifest has no workflows array', () => {
+		dirs.add(cacheBase);
+		files[manifestPath] = JSON.stringify({
+			name: 'marketplace',
+			owner: {name: 'Test'},
+			plugins: [],
+		});
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		expect(() =>
+			resolveMarketplaceWorkflow(
+				'some-workflow@lespaceman/athena-plugin-marketplace',
+			),
+		).toThrow('Available workflows: (none)');
 	});
 });

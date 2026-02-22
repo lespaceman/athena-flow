@@ -33,6 +33,7 @@ export type MarketplaceManifest = {
 		pluginRoot?: string;
 	};
 	plugins: MarketplaceEntry[];
+	workflows?: MarketplaceEntry[];
 };
 
 const MARKETPLACE_REF_RE = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
@@ -201,4 +202,63 @@ export function resolveMarketplacePlugin(ref: string): string {
 	}
 
 	return pluginDir;
+}
+
+/**
+ * Resolve a marketplace workflow reference to an absolute workflow.json path.
+ */
+export function resolveMarketplaceWorkflow(ref: string): string {
+	try {
+		execFileSync('git', ['--version'], {stdio: 'ignore'});
+	} catch {
+		throw new Error(
+			'git is not installed. Install git to use marketplace workflows.',
+		);
+	}
+
+	const {pluginName: workflowName, owner, repo} = parseRef(ref);
+	const cacheDir = path.join(os.homedir(), '.config', 'athena', 'marketplaces');
+	const repoDir = ensureRepo(cacheDir, owner, repo);
+
+	const manifestPath = path.join(repoDir, '.claude-plugin', 'marketplace.json');
+	if (!fs.existsSync(manifestPath)) {
+		throw new Error(`Marketplace manifest not found: ${manifestPath}`);
+	}
+
+	const manifest = JSON.parse(
+		fs.readFileSync(manifestPath, 'utf-8'),
+	) as MarketplaceManifest;
+
+	const workflows = manifest.workflows ?? [];
+	const entry = workflows.find(w => w.name === workflowName);
+	if (!entry) {
+		const available = workflows.map(w => w.name).join(', ') || '(none)';
+		throw new Error(
+			`Workflow "${workflowName}" not found in marketplace ${owner}/${repo}. Available workflows: ${available}`,
+		);
+	}
+
+	if (typeof entry.source !== 'string') {
+		throw new Error(
+			`Workflow "${workflowName}" uses a remote source type which is not supported.`,
+		);
+	}
+
+	const workflowPath = path.resolve(repoDir, entry.source);
+
+	// Guard against path traversal
+	if (
+		!workflowPath.startsWith(repoDir + path.sep) &&
+		workflowPath !== repoDir
+	) {
+		throw new Error(
+			`Workflow "${workflowName}" source resolves outside the marketplace repo: ${workflowPath}`,
+		);
+	}
+
+	if (!fs.existsSync(workflowPath)) {
+		throw new Error(`Workflow source not found: ${workflowPath}`);
+	}
+
+	return workflowPath;
 }

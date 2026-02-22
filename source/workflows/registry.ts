@@ -8,6 +8,10 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {
+	isMarketplaceRef,
+	resolveMarketplaceWorkflow,
+} from '../plugins/marketplace.js';
 import type {WorkflowConfig} from './types.js';
 
 function registryDir(): string {
@@ -39,9 +43,7 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 	}
 
 	if (typeof raw['promptTemplate'] !== 'string') {
-		throw new Error(
-			`Invalid workflow.json: "promptTemplate" must be a string`,
-		);
+		throw new Error(`Invalid workflow.json: "promptTemplate" must be a string`);
 	}
 
 	return raw as unknown as WorkflowConfig;
@@ -51,7 +53,12 @@ export function resolveWorkflow(name: string): WorkflowConfig {
  * Install a workflow from a local file path.
  * Copies the workflow.json into the registry under the given name.
  */
-export function installWorkflow(sourcePath: string, name?: string): string {
+export function installWorkflow(source: string, name?: string): string {
+	// Resolve marketplace ref to local path
+	const sourcePath = isMarketplaceRef(source)
+		? resolveMarketplaceWorkflow(source)
+		: source;
+
 	const content = fs.readFileSync(sourcePath, 'utf-8');
 	const workflow = JSON.parse(content) as WorkflowConfig;
 	const workflowName = name ?? workflow.name;
