@@ -81,8 +81,8 @@ type LoopConfig = {
 ### Installation Commands
 
 ```bash
-# Install from git repo
-athena workflow install https://github.com/owner/repo --name e2e-testing
+# Install from marketplace (resolves via marketplace.json workflows array)
+athena workflow install e2e-test-builder@lespaceman/athena-plugin-marketplace
 
 # Install from local file
 athena workflow install ./my-workflow.json
@@ -94,6 +94,26 @@ athena workflow list
 athena workflow remove e2e-testing
 ```
 
+### Marketplace Integration
+
+Marketplace repos advertise workflows in their `marketplace.json` manifest:
+
+```json
+{
+	"plugins": [...],
+	"workflows": [
+		{
+			"name": "e2e-test-builder",
+			"source": "./plugins/e2e-test-builder/workflow.json",
+			"description": "Iterative E2E test builder with ralph loop"
+		}
+	]
+}
+```
+
+`resolveMarketplaceWorkflow(ref)` resolves the ref to an absolute path to the workflow.json file,
+then `installWorkflow()` copies it to the standalone registry.
+
 ### Activation
 
 Users set the `workflow` field in `.athena/config.json`:
@@ -101,9 +121,11 @@ Users set the `workflow` field in `.athena/config.json`:
 ```json
 {
 	"workflow": "e2e-testing",
-	"plugins": []
+	"plugins": ["site-knowledge@lespaceman/athena-plugin-marketplace"]
 }
 ```
+
+Workflows auto-install their plugins. The `plugins` array is for standalone plugins not covered by the workflow.
 
 ## Runtime Flow
 
@@ -123,21 +145,18 @@ Users set the `workflow` field in `.athena/config.json`:
 
 ### New Files
 
-- **`source/workflows/registry.ts`**: `resolveWorkflow(name)`, `installWorkflow(source, name?)`, `listWorkflows()`, `removeWorkflow(name)`. Reads/writes `~/.config/athena/workflows/`.
+- **`source/workflows/registry.ts`**: `resolveWorkflow(name)`, `installWorkflow(source, name?)`, `listWorkflows()`, `removeWorkflow(name)`. Reads/writes `~/.config/athena/workflows/`. `installWorkflow` accepts both local paths and marketplace refs.
 - **`source/workflows/installer.ts`**: `installWorkflowPlugins(workflow: WorkflowConfig)` — iterates `workflow.plugins[]`, calls `resolveMarketplacePlugin()` for each, returns resolved plugin directory paths.
 
 ### Modified Files
 
 - **`source/plugins/config.ts`**: Add `workflow?: string` field to `AthenaConfig`. Parse it from config.json.
-- **`source/workflows/types.ts`**: Add `version?: string`, `env?: Record<string, string>`, `model?: string` to `WorkflowConfig`. Make `plugins` required (was `requiredPlugins`).
+- **`source/plugins/marketplace.ts`**: Add `workflows?: MarketplaceEntry[]` to `MarketplaceManifest`. Add `resolveMarketplaceWorkflow(ref)` — resolves workflow refs from marketplace manifest `workflows` array.
+- **`source/workflows/types.ts`**: Add `version?: string`, `env?: Record<string, string>`, `model?: string` to `WorkflowConfig`. Make `plugins` required (was `requiredPlugins`). Make `loop` optional (defaults to disabled).
 - **`source/cli.tsx`**: After `readConfig()`, if `workflow` is set, call `resolveWorkflow()` → `installWorkflowPlugins()` → prepend to `pluginDirs` before `registerPlugins()`.
 - **`source/hooks/useClaudeProcess.ts`**: Pass workflow `env` vars to `spawnClaude()`. Use workflow `model` as default (CLI flag overrides).
-
-### Unchanged
-
-- `registerPlugins()` — already takes `pluginDirs[]`
-- `applyWorkflow.ts` — prompt template + loop state logic stays the same
-- Marketplace resolver — already handles `name@owner/repo` refs
+- **`source/types/process.ts`**: Add `env?: Record<string, string>` to `SpawnClaudeOptions`.
+- **`source/utils/spawnClaude.ts`**: Merge workflow env vars into spawned process env (process.env wins over workflow env).
 
 ## Error Handling
 

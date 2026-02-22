@@ -65,13 +65,24 @@ The runtime layer abstracts how hook events are received and exposes a uniform `
 - **source/hooks/hookController.ts**: Event dispatch chain (first-match-wins) — replaces old `eventHandlers.ts`
 - Auto-passthrough timeout: 4000ms (before forwarder's 5000ms timeout)
 
-### Plugin Loading Flow
+### Plugin & Workflow Loading Flow
 
 ```
-cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + commands
-                     ↓
-              isolationConfig.pluginDirs → spawnClaude() → --plugin-dir flags → Claude
+cli.tsx (readConfig) → config.workflow?
+                         ↓ yes
+                       resolveWorkflow(name) → ~/.config/athena/workflows/{name}/workflow.json
+                         ↓
+                       installWorkflowPlugins(workflow) → resolveMarketplacePlugin() per ref
+                         ↓
+                       workflowPluginDirs ++ configPluginDirs → registerPlugins() → { mcpConfig, workflows } + commands
+                         ↓                                       ↓
+                  isolationConfig.pluginDirs →             activeWorkflow selected →
+                  spawnClaude(env, model) →                useClaudeProcess → applyPromptTemplate + writeLoopState
 ```
+
+Workflows are the primary orchestration layer. They live in a standalone registry (`~/.config/athena/workflows/`)
+and auto-install their plugins from marketplace repos. The `plugins` array in config.json is for standalone
+plugins not covered by a workflow (e.g., `site-knowledge`). Both coexist — workflow plugins load first.
 
 ### Key Files
 
@@ -94,6 +105,11 @@ cli.tsx (readConfig) → pluginDirs → registerPlugins() → mcpConfig + comman
 - **source/hooks/useFocusableList.ts**: Hook for arrow-key navigation state (cursor, expand/collapse)
 - **source/components/PostToolResult.tsx**: Renders standalone PostToolUse/PostToolUseFailure as `⎿ result`
 - **source/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
+- **source/workflows/types.ts**: `WorkflowConfig` (name, plugins, promptTemplate, loop?, isolation?, model?, env?), `LoopConfig` types
+- **source/workflows/registry.ts**: `resolveWorkflow`, `installWorkflow`, `listWorkflows`, `removeWorkflow` — manages `~/.config/athena/workflows/`
+- **source/workflows/installer.ts**: `installWorkflowPlugins(workflow)` — resolves marketplace plugin refs to dirs
+- **source/workflows/applyWorkflow.ts**: `applyPromptTemplate`, `writeLoopState`, `removeLoopState` utilities
+- **source/workflows/index.ts**: Barrel re-export for workflow module
 
 ### Feed Model (`source/feed/`)
 
@@ -156,7 +172,10 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 ## Architectural Patterns
 
 - **Protocol forward compatibility**: Unknown hook event names are auto-passthroughed, version check is `>= 1` (not exact match)
-- **MCP collision detection**: `registerPlugins()` throws if two plugins define the same MCP server name
+- **MCP collision detection**: `registerPlugins()` returns `PluginRegistrationResult` (`{ mcpConfig, workflows }`), throws if two plugins define the same MCP server name
+- **Workflow registry**: Workflows live in `~/.config/athena/workflows/{name}/workflow.json`. Activated via `workflow` field in config.json or `--workflow` CLI flag. Auto-install plugins from marketplace refs at startup via `installWorkflowPlugins()`. Workflow env vars don't override process env (user env wins). `--model` CLI flag overrides workflow model preference.
+- **Marketplace workflow resolution**: `resolveMarketplaceWorkflow(ref)` looks up `workflows` array in marketplace manifest. `installWorkflow()` accepts both local paths and marketplace refs like `name@owner/repo`.
+- **Workflow discovery (legacy)**: `registerPlugins()` also discovers `workflow.json` files embedded in plugin directories as a fallback
 - **Flag registry**: Adding a new Claude CLI flag = add one `FlagDef` entry to `FLAG_REGISTRY`, no other changes needed
 - **Error boundaries**: Every `<HookEvent>` and dialog is wrapped in `<ErrorBoundary>` with recoverable fallbacks (Escape key)
 - **Settings isolation**: Always passes `--setting-sources ""` to Claude — athena fully controls what Claude sees
