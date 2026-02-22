@@ -1,5 +1,8 @@
 /**
- * Workflow configuration — loaded from workflow.json in plugin directories.
+ * Workflow configuration — loaded from workflow.json.
+ *
+ * Workflows live in ~/.config/athena/workflows/{name}/workflow.json
+ * and orchestrate multiple plugins via marketplace refs.
  */
 
 export type LoopConfig = {
@@ -11,8 +14,11 @@ export type LoopConfig = {
 export type WorkflowConfig = {
 	name: string;
 	description?: string;
+	version?: string;
+	plugins: string[];
 	promptTemplate: string;
-	loop: LoopConfig;
+	loop?: LoopConfig;
 	isolation?: string;
-	requiredPlugins?: string[];
+	model?: string;
+	env?: Record<string, string>;
 };
