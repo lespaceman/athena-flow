@@ -146,10 +146,12 @@ if (workflowName) {
 }
 
 const pluginDirs = [
-	...workflowPluginDirs,
-	...globalConfig.plugins,
-	...projectConfig.plugins,
-	...(cli.flags.plugin ?? []),
+	...new Set([
+		...workflowPluginDirs,
+		...globalConfig.plugins,
+		...projectConfig.plugins,
+		...(cli.flags.plugin ?? []),
+	]),
 ];
 const pluginResult =
 	pluginDirs.length > 0
