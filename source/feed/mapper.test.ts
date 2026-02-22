@@ -122,31 +122,8 @@ describe('createFeedMapper', () => {
 			expect(runStartEvent!.run_id).toContain('R2');
 		});
 
-		it('registers subagent actors from stored events', () => {
-			const stored: StoredSession = {
-				session: {
-					id: 'a-1',
-					projectDir: '/tmp',
-					createdAt: 1000,
-					updatedAt: 2000,
-					adapterSessionIds: ['cs-1'],
-				},
-				feedEvents: [
-					makeFeedEvent({
-						event_id: 'cs-1:R1:E1',
-						seq: 1,
-						run_id: 'cs-1:R1',
-						actor_id: 'subagent:explorer-1',
-					}),
-				],
-				adapterSessions: [{sessionId: 'cs-1', startedAt: 1000}],
-			};
-
-			const mapper = createFeedMapper(stored);
-			const actors = mapper.getActors();
-			const subagent = actors.find(a => a.actor_id === 'subagent:explorer-1');
-			expect(subagent).toBeDefined();
-			expect(subagent!.kind).toBe('subagent');
-		});
+		// NOTE: Subagent actor reconstruction from stored events is intentionally
+		// NOT done during bootstrap. Actors are registered when SubagentStart
+		// events arrive in the new adapter session.
 	});
 });

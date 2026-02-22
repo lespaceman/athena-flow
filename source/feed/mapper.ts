@@ -57,6 +57,15 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 			};
 		}
 
+		// Restore runSeq from highest run number in stored events
+		for (const e of stored.feedEvents) {
+			const m = e.run_id.match(/:R(\d+)$/);
+			if (m) {
+				const n = parseInt(m[1]!, 10);
+				if (n > runSeq) runSeq = n;
+			}
+		}
+
 		// Rebuild currentRun from last open run
 		let lastRunStart: FeedEvent | undefined;
 		let lastRunEnd: FeedEvent | undefined;
@@ -65,9 +74,6 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 			if (e.kind === 'run.end') lastRunEnd = e;
 		}
 		if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
-			// Extract run number from run_id (format: "sess-id:R<n>")
-			const runMatch = lastRunStart.run_id.match(/:R(\d+)$/);
-			if (runMatch) runSeq = parseInt(runMatch[1]!, 10);
 
 			const triggerData = lastRunStart.data as {
 				trigger: {type: string; prompt_preview?: string};
