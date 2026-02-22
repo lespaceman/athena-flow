@@ -201,3 +201,29 @@ describe('marketplace ref integration', () => {
 		]);
 	});
 });
+
+describe('workflow field', () => {
+	it('reads workflow name from project config', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			workflow: 'e2e-testing',
+		});
+
+		expect(readConfig('/project').workflow).toBe('e2e-testing');
+	});
+
+	it('reads workflow name from global config', () => {
+		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
+			workflow: 'code-review',
+		});
+
+		expect(readGlobalConfig().workflow).toBe('code-review');
+	});
+
+	it('returns undefined workflow when not set', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+		});
+
+		expect(readConfig('/project').workflow).toBeUndefined();
+	});
+});

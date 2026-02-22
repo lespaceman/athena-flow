@@ -19,6 +19,8 @@ export type AthenaConfig = {
 	model?: string;
 	/** Color theme: 'dark' or 'light' */
 	theme?: string;
+	/** Workflow name from standalone registry */
+	workflow?: string;
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -54,6 +56,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		additionalDirectories?: string[];
 		model?: string;
 		theme?: string;
+		workflow?: string;
 	};
 
 	const plugins = (raw.plugins ?? []).map(p => {
@@ -68,5 +71,5 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
-	return {plugins, additionalDirectories, model: raw.model, theme: raw.theme};
+	return {plugins, additionalDirectories, model: raw.model, theme: raw.theme, workflow: raw.workflow};
 }
