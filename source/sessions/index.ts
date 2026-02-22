@@ -14,6 +14,7 @@ export {
 	listSessions,
 	getSessionMeta,
 	removeSession,
+	findSessionByAdapterId,
 	getMostRecentAthenaSession,
 	sessionsDir,
 } from './registry.js';
