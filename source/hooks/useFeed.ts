@@ -23,6 +23,7 @@ function generateId(): string {
 }
 
 const MAX_EVENTS = 200;
+const MAX_EVENTS_PERSISTENT = 2000;
 
 // ── Types ────────────────────────────────────────────────
 
@@ -331,15 +332,9 @@ export function useFeed(
 			// Map to feed events
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
-			// Persist to session store
+			// Persist atomically to session store
 			if (sessionStoreRef.current) {
-				sessionStoreRef.current.recordRuntimeEvent(runtimeEvent);
-				if (newFeedEvents.length > 0) {
-					sessionStoreRef.current.recordFeedEvents(
-						runtimeEvent.id,
-						newFeedEvents,
-					);
-				}
+				sessionStoreRef.current.recordEvent(runtimeEvent, newFeedEvents);
 			}
 
 			// Sync enrichment: extract agent final message on stop/subagent.stop
@@ -362,11 +357,10 @@ export function useFeed(
 
 				setFeedEvents(prev => {
 					const updated = [...prev, ...newFeedEvents];
-					// No cap when using persistent sessions — SQLite is the source of truth
-					if (!sessionStoreRef.current && updated.length > MAX_EVENTS) {
-						return updated.slice(-MAX_EVENTS);
-					}
-					return updated;
+					const cap = sessionStoreRef.current
+						? MAX_EVENTS_PERSISTENT
+						: MAX_EVENTS;
+					return updated.length > cap ? updated.slice(-cap) : updated;
 				});
 			}
 		});

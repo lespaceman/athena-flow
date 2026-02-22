@@ -20,6 +20,8 @@ export type SessionStoreOptions = {
 export type SessionStore = {
 	recordRuntimeEvent(event: RuntimeEvent): void;
 	recordFeedEvents(runtimeEventId: string, feedEvents: FeedEvent[]): void;
+	/** Atomically records a runtime event and its derived feed events in a single transaction. */
+	recordEvent(event: RuntimeEvent, feedEvents: FeedEvent[]): void;
 	restore(): StoredSession;
 	getAthenaSession(): AthenaSession;
 	updateLabel(label: string): void;
@@ -125,6 +127,28 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		insertMany();
 	}
 
+	const recordEventAtomic = db.transaction(
+		(event: RuntimeEvent, feedEvents: FeedEvent[]) => {
+			recordRuntimeEvent(event);
+			for (const fe of feedEvents) {
+				insertFeedEvent.run(
+					fe.event_id,
+					event.id,
+					fe.seq,
+					fe.kind,
+					fe.run_id,
+					fe.actor_id,
+					fe.ts,
+					JSON.stringify(fe),
+				);
+			}
+		},
+	);
+
+	function recordEvent(event: RuntimeEvent, feedEvents: FeedEvent[]): void {
+		recordEventAtomic(event, feedEvents);
+	}
+
 	function restore(): StoredSession {
 		const sessionRow = db
 			.prepare('SELECT * FROM session WHERE id = ?')
@@ -204,6 +228,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 	return {
 		recordRuntimeEvent,
 		recordFeedEvents,
+		recordEvent,
 		restore,
 		getAthenaSession,
 		updateLabel,

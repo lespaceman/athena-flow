@@ -117,6 +117,23 @@ describe('SessionStore', () => {
 		expect(restored.session.updatedAt).toBe(t2);
 	});
 
+	it('recordEvent atomically writes runtime and feed events', () => {
+		store = createSessionStore({
+			sessionId: 's-atomic',
+			projectDir: '/tmp',
+			dbPath: ':memory:',
+		});
+
+		const rtEvent = makeRuntimeEvent({id: 'rt-atomic'});
+		const fe1 = makeFeedEvent({event_id: 'run1:E1', seq: 1});
+		const fe2 = makeFeedEvent({event_id: 'run1:E2', seq: 2});
+		store.recordEvent(rtEvent, [fe1, fe2]);
+
+		const restored = store.restore();
+		expect(restored.feedEvents).toHaveLength(2);
+		expect(restored.session.adapterSessionIds).toContain('claude-session-1');
+	});
+
 	it('returns empty feedEvents when nothing recorded', () => {
 		store = createSessionStore({
 			sessionId: 's5',

@@ -53,6 +53,7 @@ export function initSchema(db: Database.Database): void {
 	db.exec(`
 		CREATE INDEX IF NOT EXISTS idx_feed_kind ON feed_events(kind);
 		CREATE INDEX IF NOT EXISTS idx_feed_run ON feed_events(run_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_run_seq ON feed_events(run_id, seq);
 		CREATE INDEX IF NOT EXISTS idx_runtime_seq ON runtime_events(seq);
 	`);
 

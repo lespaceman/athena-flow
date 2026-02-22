@@ -3,6 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import Database from 'better-sqlite3';
 import type {AthenaSession} from './types.js';
+import {SCHEMA_VERSION} from './schema.js';
 
 export function sessionsDir(): string {
 	return path.join(os.homedir(), '.config', 'athena', 'sessions');
@@ -17,6 +18,16 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 
 	try {
 		const db = new Database(dbPath, {readonly: true});
+
+		// Bail if schema version is newer than supported
+		const versionRow = db
+			.prepare('SELECT version FROM schema_version')
+			.get() as {version: number} | undefined;
+		if (versionRow && versionRow.version > SCHEMA_VERSION) {
+			db.close();
+			return null;
+		}
+
 		const row = db.prepare('SELECT * FROM session LIMIT 1').get() as
 			| {
 					id: string;
