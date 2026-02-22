@@ -162,14 +162,9 @@ function AppContent({
 	const terminalWidth = stdout?.columns ?? 80;
 	const terminalRows = stdout?.rows ?? 24;
 
-	// Auto-spawn Claude when resuming a session.
-	const autoSpawnedRef = useRef(false);
-	useEffect(() => {
-		if (initialSessionId && !autoSpawnedRef.current) {
-			autoSpawnedRef.current = true;
-			spawnClaude('', initialSessionId);
-		}
-	}, [initialSessionId, spawnClaude]);
+	// Hold initialSessionId as intent — consumed on first user prompt submission.
+	// Deferred spawn: no Claude process runs until user provides real input.
+	const initialSessionRef = useRef(initialSessionId);
 
 	const metrics = useHeaderMetrics(feedEvents);
 	const elapsed = useDuration(metrics.sessionStartTime);
@@ -302,7 +297,12 @@ function AppContent({
 			const result = parseInput(value);
 			if (result.type === 'prompt') {
 				addMessage('user', result.text);
-				spawnClaude(result.text, currentSessionId ?? undefined);
+				const sessionToResume = currentSessionId ?? initialSessionRef.current;
+				spawnClaude(result.text, sessionToResume ?? undefined);
+				// Clear intent after first use — subsequent prompts use currentSessionId from mapper
+				if (initialSessionRef.current) {
+					initialSessionRef.current = undefined;
+				}
 				return;
 			}
 			addMessage('user', value);

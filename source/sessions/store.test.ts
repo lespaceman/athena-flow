@@ -146,4 +146,39 @@ describe('SessionStore', () => {
 		expect(restored.feedEvents).toEqual([]);
 		expect(restored.adapterSessions).toEqual([]);
 	});
+
+	it('recordFeedEvents persists feed-only events with null runtime_event_id', () => {
+		store = createSessionStore({
+			sessionId: 'test-session',
+			projectDir: '/tmp/test',
+			dbPath: ':memory:',
+		});
+
+		const fe = makeFeedEvent({
+			event_id: 'decision-1',
+			kind: 'permission.decision',
+		});
+		store.recordFeedEvents([fe]);
+
+		const restored = store.restore();
+		const found = restored.feedEvents.find(e => e.event_id === 'decision-1');
+		expect(found).toBeDefined();
+		expect(found!.kind).toBe('permission.decision');
+	});
+
+	it('recordFeedEvents increments event_count atomically', () => {
+		store = createSessionStore({
+			sessionId: 'test-session',
+			projectDir: '/tmp/test',
+			dbPath: ':memory:',
+		});
+
+		store.recordFeedEvents([makeFeedEvent(), makeFeedEvent({event_id: 'e2'})]);
+		const session = store.getAthenaSession();
+		expect(session.eventCount).toBe(2);
+
+		store.recordFeedEvents([makeFeedEvent({event_id: 'e3'})]);
+		const session2 = store.getAthenaSession();
+		expect(session2.eventCount).toBe(3);
+	});
 });

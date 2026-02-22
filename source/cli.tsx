@@ -17,9 +17,12 @@ import {
 } from './plugins/index.js';
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {resolveTheme} from './theme/index.js';
-import {getMostRecentSession} from './utils/sessionIndex.js';
-import {getMostRecentAthenaSession} from './sessions/registry.js';
 import crypto from 'node:crypto';
+import {
+	getSessionMeta,
+	findSessionByAdapterId,
+	getMostRecentAthenaSession,
+} from './sessions/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 
@@ -215,7 +218,7 @@ const themeName =
 	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
 const theme = resolveTheme(themeName);
 
-// Resolve --continue flag: with value = specific session ID, without value = most recent
+// Resolve --continue flag: Athena session registry is the sole identity authority.
 // meow parses --continue (no value) as undefined for type: 'string', so check process.argv
 const hasContinueFlag = process.argv.includes('--continue');
 const showSessionPicker = cli.flags.sessions;
@@ -224,23 +227,40 @@ let initialSessionId: string | undefined;
 let athenaSessionId: string;
 
 if (cli.flags.continue) {
-	// --continue=<sessionId> — use as both adapter and athena session ID
-	initialSessionId = cli.flags.continue;
-	athenaSessionId = cli.flags.continue;
+	// --continue=<id> — treat as Athena session ID first
+	const meta = getSessionMeta(cli.flags.continue);
+	if (meta) {
+		athenaSessionId = meta.id;
+		initialSessionId = meta.adapterSessionIds.at(-1);
+	} else {
+		// Backwards compat: maybe user passed a Claude adapter session ID
+		const owner = findSessionByAdapterId(
+			cli.flags.continue,
+			cli.flags.projectDir,
+		);
+		if (owner) {
+			athenaSessionId = owner.id;
+			initialSessionId = cli.flags.continue;
+		} else {
+			console.error(
+				`Session not found: ${cli.flags.continue}. Starting new session.`,
+			);
+			athenaSessionId = crypto.randomUUID();
+		}
+	}
 } else if (hasContinueFlag) {
-	// --continue (no value) — resume most recent sessions
-	const recentAdapter = getMostRecentSession(cli.flags.projectDir);
-	if (recentAdapter) {
-		initialSessionId = recentAdapter.sessionId;
+	// --continue (bare) — resume most recent Athena session
+	const recent = getMostRecentAthenaSession(cli.flags.projectDir);
+	if (recent) {
+		athenaSessionId = recent.id;
+		initialSessionId = recent.adapterSessionIds.at(-1);
 	} else {
 		console.error('No previous sessions found. Starting new session.');
+		athenaSessionId = crypto.randomUUID();
 	}
-	const recentAthena = getMostRecentAthenaSession(cli.flags.projectDir);
-	athenaSessionId = recentAthena?.id ?? crypto.randomUUID();
 } else {
 	athenaSessionId = crypto.randomUUID();
 }
-
 const instanceId = process.pid;
 render(
 	<App
@@ -253,11 +273,11 @@ render(
 		modelName={modelName}
 		theme={theme}
 		initialSessionId={initialSessionId}
+		athenaSessionId={athenaSessionId}
 		showSessionPicker={showSessionPicker}
 		workflowRef={cli.flags.workflow ?? activeWorkflow?.name}
 		workflow={activeWorkflow}
 		ascii={cli.flags.ascii}
 		showSetup={showSetup}
-		athenaSessionId={athenaSessionId}
 	/>,
 );

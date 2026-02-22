@@ -8,9 +8,9 @@ import type {
 	FeedEventCause,
 } from './types.js';
 import type {Session, Run, Actor} from './entities.js';
+import type {StoredSession} from '../sessions/types.js';
 import {ActorRegistry} from './entities.js';
 import {generateTitle} from './titleGen.js';
-import type {StoredSession} from '../sessions/types.js';
 
 export type FeedMapper = {
 	mapEvent(event: RuntimeEvent): FeedEvent[];
@@ -27,8 +27,72 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 	let seq = 0;
 	let runSeq = 0;
 
+	// Bootstrap from stored session
+	if (stored) {
+		// Restore seq counter from stored events
+		for (const e of stored.feedEvents) {
+			if (e.seq > seq) seq = e.seq;
+		}
+
+		// Restore session identity from last adapter session
+		const lastAdapterId = stored.session.adapterSessionIds.at(-1);
+		if (lastAdapterId) {
+			currentSession = {
+				session_id: lastAdapterId,
+				started_at: stored.session.createdAt,
+				source: 'resume',
+			};
+		}
+
+		// Rebuild currentRun from last open run
+		let lastRunStart: FeedEvent | undefined;
+		let lastRunEnd: FeedEvent | undefined;
+		for (const e of stored.feedEvents) {
+			if (e.kind === 'run.start') lastRunStart = e;
+			if (e.kind === 'run.end') lastRunEnd = e;
+		}
+		if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
+			// Extract run number from run_id (format: "sess-id:R<n>")
+			const runMatch = lastRunStart.run_id.match(/:R(\d+)$/);
+			if (runMatch) runSeq = parseInt(runMatch[1]!, 10);
+
+			const triggerData = lastRunStart.data as {
+				trigger: {type: string; prompt_preview?: string};
+			};
+			currentRun = {
+				run_id: lastRunStart.run_id,
+				session_id: lastRunStart.session_id,
+				started_at: lastRunStart.ts,
+				trigger: triggerData.trigger as Run['trigger'],
+				status: 'running',
+				actors: {root_agent_id: 'agent:root', subagent_ids: []},
+				counters: {
+					tool_uses: 0,
+					tool_failures: 0,
+					permission_requests: 0,
+					blocks: 0,
+				},
+			};
+			// Rebuild counters from events in this run
+			for (const e of stored.feedEvents) {
+				if (e.run_id !== currentRun.run_id) continue;
+				if (e.kind === 'tool.pre') currentRun.counters.tool_uses++;
+				if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;
+				if (e.kind === 'permission.request')
+					currentRun.counters.permission_requests++;
+			}
+		}
+	}
+
 	// Correlation indexes — keyed on undocumented request_id (best-effort).
 	// mapDecision() returns null when requestId is missing from the index.
+	//
+	// NOTE: These indexes are NOT rebuilt from stored session data on restore.
+	// This is intentional: a new run (triggered by SessionStart or UserPromptSubmit)
+	// clears all indexes via ensureRunArray(), and old adapter session request IDs
+	// won't recur in the new adapter session. The brief window between restore and
+	// first new event has empty indexes, which is benign — no decisions can arrive
+	// for events from the old adapter session.
 	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
 	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
@@ -388,20 +452,38 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 
 			case 'Stop': {
 				results.push(...ensureRunArray(event));
-				results.push(
-					makeEvent(
-						'stop.request',
-						'info',
-						'agent:root',
-						{
-							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-							last_assistant_message: p.last_assistant_message as
-								| string
-								| undefined,
-						} satisfies import('./types.js').StopRequestData,
-						event,
-					),
+				const stopEvt = makeEvent(
+					'stop.request',
+					'info',
+					'agent:root',
+					{
+						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
+						last_assistant_message: p.last_assistant_message as
+							| string
+							| undefined,
+					} satisfies import('./types.js').StopRequestData,
+					event,
 				);
+				results.push(stopEvt);
+
+				// Enrich: synthesize agent.message from last_assistant_message
+				const stopMsg = p.last_assistant_message as string | undefined;
+				if (stopMsg) {
+					results.push(
+						makeEvent(
+							'agent.message',
+							'info',
+							'agent:root',
+							{
+								message: stopMsg,
+								source: 'hook',
+								scope: 'root',
+							} satisfies import('./types.js').AgentMessageData,
+							event,
+							{parent_event_id: stopEvt.event_id},
+						),
+					);
+				}
 				break;
 			}
 
@@ -438,25 +520,44 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 					const idx = activeSubagentStack.lastIndexOf(actorId);
 					if (idx !== -1) activeSubagentStack.splice(idx, 1);
 				}
-				results.push(
-					makeEvent(
-						'subagent.stop',
-						'info',
-						`subagent:${agentId ?? 'unknown'}`,
-						{
-							agent_id: agentId ?? '',
-							agent_type: event.agentType ?? (p.agent_type as string) ?? '',
-							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-							agent_transcript_path: p.agent_transcript_path as
-								| string
-								| undefined,
-							last_assistant_message: p.last_assistant_message as
-								| string
-								| undefined,
-						} satisfies import('./types.js').SubagentStopData,
-						event,
-					),
+				const subStopActorId = `subagent:${agentId ?? 'unknown'}`;
+				const subStopEvt = makeEvent(
+					'subagent.stop',
+					'info',
+					subStopActorId,
+					{
+						agent_id: agentId ?? '',
+						agent_type: event.agentType ?? (p.agent_type as string) ?? '',
+						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
+						agent_transcript_path: p.agent_transcript_path as
+							| string
+							| undefined,
+						last_assistant_message: p.last_assistant_message as
+							| string
+							| undefined,
+					} satisfies import('./types.js').SubagentStopData,
+					event,
 				);
+				results.push(subStopEvt);
+
+				// Enrich: synthesize agent.message from last_assistant_message
+				const subMsg = p.last_assistant_message as string | undefined;
+				if (subMsg) {
+					results.push(
+						makeEvent(
+							'agent.message',
+							'info',
+							subStopActorId,
+							{
+								message: subMsg,
+								source: 'hook',
+								scope: 'subagent',
+							} satisfies import('./types.js').AgentMessageData,
+							event,
+							{parent_event_id: subStopEvt.event_id},
+						),
+					);
+				}
 				break;
 			}
 

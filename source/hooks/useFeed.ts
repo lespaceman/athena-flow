@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState, useCallback, useMemo} from 'react';
 import type {Runtime, RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
 import type {FeedEvent} from '../feed/types.js';
+import type {SessionStore} from '../sessions/store.js';
 import type {Session, Run, Actor} from '../feed/entities.js';
 import type {HookRule} from '../types/rules.js';
 import type {PermissionDecision} from '../types/server.js';
@@ -11,19 +12,11 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
-import type {SessionStore} from '../sessions/store.js';
-import type {
-	AgentMessageData,
-	StopRequestData,
-	SubagentStopData,
-} from '../feed/types.js';
-
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 const MAX_EVENTS = 200;
-const MAX_EVENTS_PERSISTENT = 2000;
 
 // ── Types ────────────────────────────────────────────────
 
@@ -54,45 +47,6 @@ export function extractPermissionSnapshot(
 		tool_use_id: event.toolUseId ?? (p.tool_use_id as string | undefined),
 		suggestions: p.permission_suggestions,
 	};
-}
-
-export function enrichStopEvent(stopEvent: FeedEvent): FeedEvent | null {
-	const isSubagent = stopEvent.kind === 'subagent.stop';
-	const scope = isSubagent ? 'subagent' : 'root';
-	const actorId = isSubagent ? stopEvent.actor_id : 'agent:root';
-
-	const message = isSubagent
-		? (stopEvent.data as SubagentStopData).last_assistant_message
-		: (stopEvent.data as StopRequestData).last_assistant_message;
-
-	if (!message) return null;
-
-	const data: AgentMessageData = {
-		message,
-		source: 'hook',
-		scope,
-	};
-
-	return {
-		event_id: `${stopEvent.event_id}:msg`,
-		seq: stopEvent.seq + 0.5,
-		ts: stopEvent.ts + 1,
-		session_id: stopEvent.session_id,
-		run_id: stopEvent.run_id,
-		kind: 'agent.message',
-		level: 'info',
-		actor_id: actorId,
-		title:
-			scope === 'subagent'
-				? '\u{1F4AC} Subagent response'
-				: '\u{1F4AC} Agent response',
-		body: message,
-		cause: {
-			parent_event_id: stopEvent.event_id,
-			transcript_path: stopEvent.cause?.transcript_path,
-		},
-		data,
-	} as FeedEvent;
 }
 
 export type UseFeedResult = {
@@ -139,15 +93,7 @@ export function useFeed(
 	initialAllowedTools?: string[],
 	sessionStore?: SessionStore,
 ): UseFeedResult {
-	const initialStored = useMemo(
-		() => (sessionStore ? sessionStore.restore() : undefined),
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[], // Only restore once on mount
-	);
-
-	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>(
-		() => initialStored?.feedEvents ?? [],
-	);
+	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
 	const [rules, setRules] = useState<HookRule[]>(() =>
 		buildInitialRules(initialAllowedTools),
 	);
@@ -156,9 +102,8 @@ export function useFeed(
 	);
 	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
-	const mapperRef = useRef<FeedMapper>(createFeedMapper(initialStored));
-	const sessionStoreRef = useRef(sessionStore);
-	sessionStoreRef.current = sessionStore;
+	const mapperRef = useRef<FeedMapper>(createFeedMapper());
+	const sessionStoreRef = useRef<SessionStore | undefined>(sessionStore);
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
 	const feedEventsRef = useRef<FeedEvent[]>([]);
@@ -332,20 +277,10 @@ export function useFeed(
 			// Map to feed events
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
-			// Persist atomically to session store
+			// Persist runtime event + derived feed events
 			if (sessionStoreRef.current) {
 				sessionStoreRef.current.recordEvent(runtimeEvent, newFeedEvents);
 			}
-
-			// Sync enrichment: extract agent final message on stop/subagent.stop
-			const enriched: FeedEvent[] = [];
-			for (const fe of newFeedEvents) {
-				if (fe.kind === 'stop.request' || fe.kind === 'subagent.stop') {
-					const msgEvent = enrichStopEvent(fe);
-					if (msgEvent) enriched.push(msgEvent);
-				}
-			}
-			newFeedEvents.push(...enriched);
 
 			if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
 				// Auto-dequeue permissions/questions from incoming events
@@ -357,10 +292,9 @@ export function useFeed(
 
 				setFeedEvents(prev => {
 					const updated = [...prev, ...newFeedEvents];
-					const cap = sessionStoreRef.current
-						? MAX_EVENTS_PERSISTENT
-						: MAX_EVENTS;
-					return updated.length > cap ? updated.slice(-cap) : updated;
+					return updated.length > MAX_EVENTS
+						? updated.slice(-MAX_EVENTS)
+						: updated;
 				});
 			}
 		});
@@ -370,6 +304,11 @@ export function useFeed(
 				if (abortRef.current.signal.aborted) return;
 				const feedEvent = mapperRef.current.mapDecision(eventId, decision);
 				if (feedEvent) {
+					// Persist decision event (feed-only, no runtime event)
+					if (sessionStoreRef.current) {
+						sessionStoreRef.current.recordFeedEvents([feedEvent]);
+					}
+
 					setFeedEvents(prev => [...prev, feedEvent]);
 
 					// Auto-dequeue permissions/questions when decision arrives

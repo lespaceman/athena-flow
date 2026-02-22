@@ -8,8 +8,10 @@ import {
 	getSessionMeta,
 	removeSession,
 	getMostRecentAthenaSession,
+	findSessionByAdapterId,
 	sessionsDir,
 } from './registry.js';
+import type {RuntimeEvent} from '../runtime/types.js';
 
 describe('session registry', () => {
 	let tmpDir: string;
@@ -122,5 +124,52 @@ describe('session registry', () => {
 		const recent = getMostRecentAthenaSession('/proj');
 		expect(recent).not.toBeNull();
 		expect(recent!.id).toBe('new');
+	});
+});
+
+describe('findSessionByAdapterId', () => {
+	let tmpDir: string;
+	const projectDir = '/test/project';
+
+	beforeEach(() => {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-reg-test-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(tmpDir, {recursive: true, force: true});
+	});
+
+	it('finds athena session that owns a given adapter session ID', () => {
+		const sessionId = 'athena-session-1';
+		const dbPath = path.join(tmpDir, sessionId, 'session.db');
+		const store = createSessionStore({sessionId, projectDir, dbPath});
+
+		const runtimeEvent: RuntimeEvent = {
+			id: 'req-1',
+			timestamp: Date.now(),
+			hookName: 'SessionStart',
+			sessionId: 'claude-adapter-abc',
+			context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},
+			interaction: {expectsDecision: false},
+			payload: {
+				hook_event_name: 'SessionStart',
+				session_id: 'claude-adapter-abc',
+			},
+		};
+		store.recordEvent(runtimeEvent, []);
+		store.close();
+
+		const result = findSessionByAdapterId(
+			'claude-adapter-abc',
+			projectDir,
+			tmpDir,
+		);
+		expect(result).not.toBeNull();
+		expect(result!.id).toBe(sessionId);
+	});
+
+	it('returns null when adapter ID not found', () => {
+		const result = findSessionByAdapterId('nonexistent', projectDir, tmpDir);
+		expect(result).toBeNull();
 	});
 });

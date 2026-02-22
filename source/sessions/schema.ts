@@ -57,6 +57,14 @@ export function initSchema(db: Database.Database): void {
 		CREATE INDEX IF NOT EXISTS idx_runtime_seq ON runtime_events(seq);
 	`);
 
+	// Migration: add event_count column (idempotent via try/catch since
+	// SQLite doesn't support ALTER TABLE ... ADD COLUMN IF NOT EXISTS)
+	try {
+		db.exec('ALTER TABLE session ADD COLUMN event_count INTEGER DEFAULT 0');
+	} catch {
+		// Column already exists — ignore
+	}
+
 	// Upsert schema version
 	const existing = db.prepare('SELECT version FROM schema_version').get() as
 		| {version: number}

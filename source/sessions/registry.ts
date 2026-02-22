@@ -35,6 +35,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 					created_at: number;
 					updated_at: number;
 					label: string | null;
+					event_count: number | null;
 			  }
 			| undefined;
 
@@ -50,6 +51,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 			label: row.label ?? undefined,
+			eventCount: row.event_count ?? 0,
 			adapterSessionIds: adapters.map(a => a.session_id),
 		};
 	} catch {
@@ -89,6 +91,30 @@ export function removeSession(sessionId: string): void {
 	if (fs.existsSync(dir)) {
 		fs.rmSync(dir, {recursive: true, force: true});
 	}
+}
+
+export function findSessionByAdapterId(
+	adapterId: string,
+	projectDir: string,
+	baseDir?: string,
+): AthenaSession | null {
+	const dir = baseDir ?? sessionsDir();
+	if (!fs.existsSync(dir)) return null;
+
+	const entries = fs.readdirSync(dir, {withFileTypes: true});
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const dbPath = path.join(dir, entry.name, 'session.db');
+		const session = readSessionFromDb(dbPath);
+		if (
+			session &&
+			(!projectDir || session.projectDir === projectDir) &&
+			session.adapterSessionIds.includes(adapterId)
+		) {
+			return session;
+		}
+	}
+	return null;
 }
 
 export function getMostRecentAthenaSession(
