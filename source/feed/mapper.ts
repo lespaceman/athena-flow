@@ -27,6 +27,19 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 	let seq = 0;
 	let runSeq = 0;
 
+	// Correlation indexes — keyed on undocumented request_id (best-effort).
+	// mapDecision() returns null when requestId is missing from the index.
+	//
+	// NOTE: These indexes are NOT rebuilt from stored session data on restore.
+	// This is intentional: a new run (triggered by SessionStart or UserPromptSubmit)
+	// clears all indexes via ensureRunArray(), and old adapter session request IDs
+	// won't recur in the new adapter session. The brief window between restore and
+	// first new event has empty indexes, which is benign — no decisions can arrive
+	// for events from the old adapter session.
+	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
+	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
+	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
+
 	// Bootstrap from stored session
 	if (stored) {
 		// Restore seq counter from stored events
@@ -80,56 +93,6 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 				if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;
 				if (e.kind === 'permission.request')
 					currentRun.counters.permission_requests++;
-			}
-		}
-	}
-
-	// Correlation indexes — keyed on undocumented request_id (best-effort).
-	// mapDecision() returns null when requestId is missing from the index.
-	//
-	// NOTE: These indexes are NOT rebuilt from stored session data on restore.
-	// This is intentional: a new run (triggered by SessionStart or UserPromptSubmit)
-	// clears all indexes via ensureRunArray(), and old adapter session request IDs
-	// won't recur in the new adapter session. The brief window between restore and
-	// first new event has empty indexes, which is benign — no decisions can arrive
-	// for events from the old adapter session.
-	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
-	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
-	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
-
-	// Bootstrap from stored session if provided
-	if (stored && stored.feedEvents.length > 0) {
-		const lastEvent = stored.feedEvents[stored.feedEvents.length - 1]!;
-		seq = lastEvent.seq;
-
-		// Count distinct run_ids to set runSeq
-		const runIds = new Set(stored.feedEvents.map(e => e.run_id));
-		runSeq = runIds.size;
-
-		// Reconstruct session from last session.start event
-		let lastSessionStart: FeedEvent | undefined;
-		for (let i = stored.feedEvents.length - 1; i >= 0; i--) {
-			if (stored.feedEvents[i]!.kind === 'session.start') {
-				lastSessionStart = stored.feedEvents[i];
-				break;
-			}
-		}
-		if (lastSessionStart) {
-			const d = lastSessionStart.data as Record<string, unknown>;
-			currentSession = {
-				session_id: lastSessionStart.session_id,
-				started_at: lastSessionStart.ts,
-				source: d?.source as string | undefined,
-				model: d?.model as string | undefined,
-			};
-		}
-
-		// Reconstruct actors from feed events
-		const actorIds = new Set(stored.feedEvents.map(e => e.actor_id));
-		for (const actorId of actorIds) {
-			if (actorId.startsWith('subagent:')) {
-				const agentId = actorId.slice('subagent:'.length);
-				actors.ensureSubagent(agentId, 'unknown');
 			}
 		}
 	}
