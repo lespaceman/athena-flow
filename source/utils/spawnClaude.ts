@@ -85,8 +85,8 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		cwd: projectDir,
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: {
-			...process.env,
 			...(extraEnv ?? {}),
+			...process.env,
 			ATHENA_INSTANCE_ID: String(instanceId),
 		},
 	});

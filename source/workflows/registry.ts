@@ -27,7 +27,24 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 		);
 	}
 
-	return JSON.parse(fs.readFileSync(workflowPath, 'utf-8')) as WorkflowConfig;
+	const raw = JSON.parse(fs.readFileSync(workflowPath, 'utf-8')) as Record<
+		string,
+		unknown
+	>;
+
+	if (!Array.isArray(raw['plugins'])) {
+		throw new Error(
+			`Invalid workflow.json: "plugins" must be an array (got ${typeof raw['plugins']})`,
+		);
+	}
+
+	if (typeof raw['promptTemplate'] !== 'string') {
+		throw new Error(
+			`Invalid workflow.json: "promptTemplate" must be a string`,
+		);
+	}
+
+	return raw as unknown as WorkflowConfig;
 }
 
 /**

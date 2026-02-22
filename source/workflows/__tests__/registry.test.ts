@@ -10,7 +10,7 @@ vi.mock('node:fs', () => ({
 			if (!(p in files)) throw new Error(`ENOENT: ${p}`);
 			return files[p];
 		},
-		mkdirSync: (_p: string, _opts?: unknown) => {
+		mkdirSync: () => {
 			/* noop */
 		},
 		writeFileSync: (p: string, content: string) => {
@@ -72,6 +72,22 @@ describe('resolveWorkflow', () => {
 
 	it('throws when workflow is not installed', () => {
 		expect(() => resolveWorkflow('nonexistent')).toThrow(/not found/);
+	});
+
+	it('throws when workflow.json has invalid plugins field', () => {
+		files['/home/testuser/.config/athena/workflows/bad/workflow.json'] =
+			JSON.stringify({name: 'bad', plugins: 'not-an-array'});
+
+		expect(() => resolveWorkflow('bad')).toThrow(/plugins.*must be an array/);
+	});
+
+	it('throws when workflow.json is missing promptTemplate', () => {
+		files['/home/testuser/.config/athena/workflows/bad2/workflow.json'] =
+			JSON.stringify({name: 'bad2', plugins: []});
+
+		expect(() => resolveWorkflow('bad2')).toThrow(
+			/promptTemplate.*must be a string/,
+		);
 	});
 });
 
