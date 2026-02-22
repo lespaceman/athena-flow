@@ -35,6 +35,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 					created_at: number;
 					updated_at: number;
 					label: string | null;
+					event_count: number | null;
 			  }
 			| undefined;
 
@@ -50,6 +51,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			createdAt: row.created_at,
 			updatedAt: row.updated_at,
 			label: row.label ?? undefined,
+			eventCount: row.event_count ?? 0,
 			adapterSessionIds: adapters.map(a => a.session_id),
 		};
 	} catch {
