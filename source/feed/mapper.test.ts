@@ -20,9 +20,7 @@ function makeFeedEvent(overrides: Partial<FeedEvent> = {}): FeedEvent {
 	} as unknown as FeedEvent;
 }
 
-function makeRuntimeEvent(
-	overrides: Partial<RuntimeEvent> = {},
-): RuntimeEvent {
+function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
 	return {
 		id: 'rt-1',
 		timestamp: Date.now(),
@@ -146,9 +144,7 @@ describe('createFeedMapper', () => {
 
 			const mapper = createFeedMapper(stored);
 			const actors = mapper.getActors();
-			const subagent = actors.find(
-				a => a.actor_id === 'subagent:explorer-1',
-			);
+			const subagent = actors.find(a => a.actor_id === 'subagent:explorer-1');
 			expect(subagent).toBeDefined();
 			expect(subagent!.kind).toBe('subagent');
 		});

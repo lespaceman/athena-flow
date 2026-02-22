@@ -13,6 +13,7 @@
 ### Task 1: Create statusBadge.ts
 
 **Files:**
+
 - Create: `source/utils/statusBadge.ts`
 
 **Step 1: Write the failing test**
@@ -39,7 +40,13 @@ describe('getStatusBadge', () => {
 	});
 
 	it('all statuses produce non-empty output', () => {
-		const statuses: HeaderStatus[] = ['running', 'succeeded', 'failed', 'stopped', 'idle'];
+		const statuses: HeaderStatus[] = [
+			'running',
+			'succeeded',
+			'failed',
+			'stopped',
+			'idle',
+		];
 		for (const s of statuses) {
 			expect(getStatusBadge(s, true).length).toBeGreaterThan(0);
 			expect(getStatusBadge(s, false).length).toBeGreaterThan(0);
@@ -60,27 +67,35 @@ Create `source/utils/statusBadge.ts`:
 ```typescript
 import chalk from 'chalk';
 
-export type HeaderStatus = 'running' | 'succeeded' | 'failed' | 'stopped' | 'idle';
+export type HeaderStatus =
+	| 'running'
+	| 'succeeded'
+	| 'failed'
+	| 'stopped'
+	| 'idle';
 
 type BadgeDef = {glyph: string; label: string; color: (s: string) => string};
 
 const BADGES: Record<HeaderStatus, BadgeDef> = {
-	running:   {glyph: '●', label: 'RUNNING',   color: chalk.cyan},
+	running: {glyph: '●', label: 'RUNNING', color: chalk.cyan},
 	succeeded: {glyph: '●', label: 'SUCCEEDED', color: chalk.green},
-	failed:    {glyph: '■', label: 'FAILED',    color: chalk.red},
-	stopped:   {glyph: '■', label: 'STOPPED',   color: chalk.yellow},
-	idle:      {glyph: '●', label: 'IDLE',       color: chalk.dim},
+	failed: {glyph: '■', label: 'FAILED', color: chalk.red},
+	stopped: {glyph: '■', label: 'STOPPED', color: chalk.yellow},
+	idle: {glyph: '●', label: 'IDLE', color: chalk.dim},
 };
 
 const NO_COLOR_BADGES: Record<HeaderStatus, string> = {
-	running:   '[RUN]',
+	running: '[RUN]',
 	succeeded: '[OK]',
-	failed:    '[FAIL]',
-	stopped:   '[STOP]',
-	idle:      '[IDLE]',
+	failed: '[FAIL]',
+	stopped: '[STOP]',
+	idle: '[IDLE]',
 };
 
-export function getStatusBadge(status: HeaderStatus, hasColor: boolean): string {
+export function getStatusBadge(
+	status: HeaderStatus,
+	hasColor: boolean,
+): string {
 	if (!hasColor) return NO_COLOR_BADGES[status];
 	const b = BADGES[status];
 	return b.color(`${b.glyph} ${b.label}`);
@@ -104,6 +119,7 @@ git commit -m "feat(header): add statusBadge module with NO_COLOR fallback"
 ### Task 2: Create HeaderModel type and buildHeaderModel()
 
 **Files:**
+
 - Create: `source/utils/headerModel.ts`
 
 **Step 1: Write the failing test**
@@ -116,7 +132,11 @@ import {buildHeaderModel} from './headerModel.js';
 
 const baseInput = {
 	session: {session_id: 'abc123', agent_type: 'claude-code'},
-	currentRun: null as {run_id: string; trigger: {prompt_preview?: string}; started_at: number} | null,
+	currentRun: null as {
+		run_id: string;
+		trigger: {prompt_preview?: string};
+		started_at: number;
+	} | null,
 	runSummaries: [] as {status: string; endedAt?: number}[],
 	metrics: {failures: 0, blocks: 0},
 	todoPanel: {doneCount: 0, doingCount: 0, todoItems: {length: 0}},
@@ -136,7 +156,11 @@ describe('buildHeaderModel', () => {
 	it('returns running status with active run', () => {
 		const model = buildHeaderModel({
 			...baseInput,
-			currentRun: {run_id: 'run1', trigger: {prompt_preview: 'Fix the bug'}, started_at: 999000},
+			currentRun: {
+				run_id: 'run1',
+				trigger: {prompt_preview: 'Fix the bug'},
+				started_at: 999000,
+			},
 		});
 		expect(model.status).toBe('running');
 		expect(model.run_title).toBe('Fix the bug');
@@ -147,7 +171,11 @@ describe('buildHeaderModel', () => {
 	it('prefers workflow_ref over run_title', () => {
 		const model = buildHeaderModel({
 			...baseInput,
-			currentRun: {run_id: 'run1', trigger: {prompt_preview: 'Fix the bug'}, started_at: 999000},
+			currentRun: {
+				run_id: 'run1',
+				trigger: {prompt_preview: 'Fix the bug'},
+				started_at: 999000,
+			},
 			workflowRef: 'web.login.smoke@7c91f2',
 		});
 		expect(model.workflow_ref).toBe('web.login.smoke@7c91f2');
@@ -221,17 +249,34 @@ export interface HeaderModel {
 
 export interface HeaderModelInput {
 	session: {session_id?: string; agent_type?: string} | null;
-	currentRun: {run_id: string; trigger: {prompt_preview?: string}; started_at: number} | null;
+	currentRun: {
+		run_id: string;
+		trigger: {prompt_preview?: string};
+		started_at: number;
+	} | null;
 	runSummaries: {status: string; endedAt?: number}[];
 	metrics: {failures: number; blocks: number};
-	todoPanel: {doneCount: number; doingCount: number; todoItems: {length: number}};
+	todoPanel: {
+		doneCount: number;
+		doingCount: number;
+		todoItems: {length: number};
+	};
 	tailFollow: boolean;
 	now: number;
 	workflowRef?: string;
 }
 
 export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
-	const {session, currentRun, runSummaries, metrics, todoPanel, tailFollow, now, workflowRef} = input;
+	const {
+		session,
+		currentRun,
+		runSummaries,
+		metrics,
+		todoPanel,
+		tailFollow,
+		now,
+		workflowRef,
+	} = input;
 
 	const status: HeaderStatus = (() => {
 		if (currentRun) return 'running';
@@ -243,9 +288,10 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		return 'idle';
 	})();
 
-	const progress = todoPanel.todoItems.length > 0
-		? {done: todoPanel.doneCount, total: todoPanel.todoItems.length}
-		: undefined;
+	const progress =
+		todoPanel.todoItems.length > 0
+			? {done: todoPanel.doneCount, total: todoPanel.todoItems.length}
+			: undefined;
 
 	const lastSummary = runSummaries[runSummaries.length - 1];
 
@@ -260,7 +306,8 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		err_count: metrics.failures,
 		block_count: metrics.blocks,
 		elapsed_ms: currentRun ? now - currentRun.started_at : undefined,
-		ended_at: !currentRun && lastSummary?.endedAt ? lastSummary.endedAt : undefined,
+		ended_at:
+			!currentRun && lastSummary?.endedAt ? lastSummary.endedAt : undefined,
 		tail_mode: tailFollow,
 	};
 }
@@ -283,6 +330,7 @@ git commit -m "feat(header): add HeaderModel type and buildHeaderModel()"
 ### Task 3: Create renderHeaderLines()
 
 **Files:**
+
 - Create: `source/utils/renderHeaderLines.ts`
 - Create: `source/utils/renderHeaderLines.test.ts`
 
@@ -326,7 +374,11 @@ const idleModel: HeaderModel = {
 
 describe('renderHeaderLines invariants', () => {
 	const widths = [60, 80, 100, 120];
-	const models = [fullModel, idleModel, {...fullModel, status: 'failed' as const}];
+	const models = [
+		fullModel,
+		idleModel,
+		{...fullModel, status: 'failed' as const},
+	];
 
 	for (const width of widths) {
 		for (const model of models) {
@@ -345,10 +397,18 @@ describe('renderHeaderLines invariants', () => {
 	}
 
 	it('right rail is stable across status changes at same width', () => {
-		const statuses = ['running', 'succeeded', 'failed', 'stopped', 'idle'] as const;
+		const statuses = [
+			'running',
+			'succeeded',
+			'failed',
+			'stopped',
+			'idle',
+		] as const;
 		const width = 100;
 		const railPositions = statuses.map(s => {
-			const lines = stripped(renderHeaderLines({...fullModel, status: s}, width, true));
+			const lines = stripped(
+				renderHeaderLines({...fullModel, status: s}, width, true),
+			);
 			// Find position of status badge (last non-space content on line 1)
 			const line1 = lines[0]!;
 			return line1.length - line1.trimEnd().length;
@@ -413,7 +473,12 @@ describe('renderHeaderLines content', () => {
 	});
 
 	it('shows ended time when run complete', () => {
-		const model = {...fullModel, status: 'succeeded' as const, elapsed_ms: undefined, ended_at: 1708444497000};
+		const model = {
+			...fullModel,
+			status: 'succeeded' as const,
+			elapsed_ms: undefined,
+			ended_at: 1708444497000,
+		};
 		const lines = stripped(renderHeaderLines(model, 120, false));
 		expect(lines[1]).toContain('ended');
 	});
@@ -510,8 +575,8 @@ export function renderHeaderLines(
 
 	// ── Clock (right rail, line 1) ──
 	const now = Date.now();
-	const fullClock = formatClock(now);          // HH:MM:SS (8 chars)
-	const shortClock = fullClock.slice(0, 5);    // HH:MM (5 chars)
+	const fullClock = formatClock(now); // HH:MM:SS (8 chars)
+	const shortClock = fullClock.slice(0, 5); // HH:MM (5 chars)
 
 	// Right rail: "  <badge>  <clock>" — fixed width
 	const railGap = 2;
@@ -522,9 +587,7 @@ export function renderHeaderLines(
 	const clock = useShortClock ? shortClock : fullClock;
 	const railWidth = useShortClock ? shortRailWidth : fullRailWidth;
 
-	const rightRail1 = hasColor
-		? `  ${badge}  ${clock}`
-		: `  ${badge}  ${clock}`;
+	const rightRail1 = hasColor ? `  ${badge}  ${clock}` : `  ${badge}  ${clock}`;
 
 	// ── Left tokens (line 1) ──
 	const leftBudget1 = maxLen - railWidth;
@@ -536,15 +599,27 @@ export function renderHeaderLines(
 	// ── Right rail (line 2): err/blk ──
 	const healthParts: string[] = [];
 	if (model.err_count > 0) {
-		healthParts.push(hasColor ? chalk.red(`err ${model.err_count}`) : `err ${model.err_count}`);
+		healthParts.push(
+			hasColor ? chalk.red(`err ${model.err_count}`) : `err ${model.err_count}`,
+		);
 	}
 	if (model.block_count > 0) {
-		healthParts.push(hasColor ? chalk.yellow(`blk ${model.block_count}`) : `blk ${model.block_count}`);
+		healthParts.push(
+			hasColor
+				? chalk.yellow(`blk ${model.block_count}`)
+				: `blk ${model.block_count}`,
+		);
 	}
 	const rightRail2 = healthParts.length > 0 ? `  ${healthParts.join(' ')}` : '';
-	const rightRail2Visual = healthParts.length > 0
-		? 2 + healthParts.reduce((acc, p) => acc + (hasColor ? stringWidth(p) : p.length), 0) + (healthParts.length - 1)
-		: 0;
+	const rightRail2Visual =
+		healthParts.length > 0
+			? 2 +
+				healthParts.reduce(
+					(acc, p) => acc + (hasColor ? stringWidth(p) : p.length),
+					0,
+				) +
+				(healthParts.length - 1)
+			: 0;
 
 	// ── Left tokens (line 2) ──
 	const leftBudget2 = maxLen - rightRail2Visual;
@@ -559,7 +634,11 @@ export function renderHeaderLines(
 	return [line1, line2, sep];
 }
 
-function buildLine1Left(model: HeaderModel, budget: number, hasColor: boolean): string {
+function buildLine1Left(
+	model: HeaderModel,
+	budget: number,
+	hasColor: boolean,
+): string {
 	const athena = hasColor ? chalk.bold('ATHENA') : 'ATHENA';
 	const athenaWidth = 6; // "ATHENA"
 
@@ -571,21 +650,36 @@ function buildLine1Left(model: HeaderModel, budget: number, hasColor: boolean): 
 	if (model.workflow_ref) {
 		const label = hasColor ? chalk.dim('workflow: ') : 'workflow: ';
 		const labelWidth = 10; // "workflow: "
-		const maxValueWidth = Math.max(1, budget - athenaWidth - 3 - labelWidth - 3); // 3 for " · "
+		const maxValueWidth = Math.max(
+			1,
+			budget - athenaWidth - 3 - labelWidth - 3,
+		); // 3 for " · "
 		const value = truncateStr(model.workflow_ref, maxValueWidth);
-		tokens.push({text: `${label}${value}`, visualWidth: labelWidth + value.length});
+		tokens.push({
+			text: `${label}${value}`,
+			visualWidth: labelWidth + value.length,
+		});
 	} else if (model.run_title) {
 		const label = hasColor ? chalk.dim('run: ') : 'run: ';
 		const labelWidth = 5;
-		const maxValueWidth = Math.max(1, budget - athenaWidth - 3 - labelWidth - 3);
+		const maxValueWidth = Math.max(
+			1,
+			budget - athenaWidth - 3 - labelWidth - 3,
+		);
 		const value = truncateStr(model.run_title, maxValueWidth);
-		tokens.push({text: `${label}${value}`, visualWidth: labelWidth + value.length});
+		tokens.push({
+			text: `${label}${value}`,
+			visualWidth: labelWidth + value.length,
+		});
 	}
 
 	// Run ID token
 	if (model.run_id_short) {
 		const label = hasColor ? chalk.dim('run ') : 'run ';
-		tokens.push({text: `${label}${model.run_id_short}`, visualWidth: 4 + model.run_id_short.length});
+		tokens.push({
+			text: `${label}${model.run_id_short}`,
+			visualWidth: 4 + model.run_id_short.length,
+		});
 	}
 
 	// Engine token (dropped first when tight)
@@ -613,21 +707,24 @@ function buildLine1Left(model: HeaderModel, budget: number, hasColor: boolean): 
 		const titleToken = tokens[0];
 		const available = budget - athenaWidth - sepWidth;
 		if (available > 3) {
-			const truncated = truncateStr(
-				hasColor ? '' : '',
-				0,
-			);
+			const truncated = truncateStr(hasColor ? '' : '', 0);
 			// Re-derive with available budget
 			if (model.workflow_ref) {
 				const label = 'workflow: ';
 				const valBudget = Math.max(1, available - label.length);
 				const val = truncateStr(model.workflow_ref, valBudget);
-				included.push({text: `${hasColor ? chalk.dim(label) : label}${val}`, visualWidth: label.length + val.length});
+				included.push({
+					text: `${hasColor ? chalk.dim(label) : label}${val}`,
+					visualWidth: label.length + val.length,
+				});
 			} else if (model.run_title) {
 				const label = 'run: ';
 				const valBudget = Math.max(1, available - label.length);
 				const val = truncateStr(model.run_title, valBudget);
-				included.push({text: `${hasColor ? chalk.dim(label) : label}${val}`, visualWidth: label.length + val.length});
+				included.push({
+					text: `${hasColor ? chalk.dim(label) : label}${val}`,
+					visualWidth: label.length + val.length,
+				});
 			}
 		}
 	}
@@ -636,7 +733,11 @@ function buildLine1Left(model: HeaderModel, budget: number, hasColor: boolean): 
 	return parts.join(sep);
 }
 
-function buildLine2Left(model: HeaderModel, budget: number, hasColor: boolean): string {
+function buildLine2Left(
+	model: HeaderModel,
+	budget: number,
+	hasColor: boolean,
+): string {
 	const parts: string[] = [];
 
 	if (model.progress) {
@@ -646,7 +747,9 @@ function buildLine2Left(model: HeaderModel, budget: number, hasColor: boolean): 
 
 	if (model.elapsed_ms !== undefined) {
 		const label = hasColor ? chalk.dim('elapsed ') : 'elapsed ';
-		parts.push(`${label}${formatDuration(Math.floor(model.elapsed_ms / 1000))}`);
+		parts.push(
+			`${label}${formatDuration(Math.floor(model.elapsed_ms / 1000))}`,
+		);
 	} else if (model.ended_at !== undefined) {
 		const label = hasColor ? chalk.dim('ended ') : 'ended ';
 		parts.push(`${label}${formatClock(model.ended_at)}`);
@@ -661,7 +764,12 @@ function truncateStr(s: string, max: number): string {
 	return s.slice(0, max - 1) + '…';
 }
 
-function padLine(left: string, right: string, maxLen: number, hasColor: boolean): string {
+function padLine(
+	left: string,
+	right: string,
+	maxLen: number,
+	hasColor: boolean,
+): string {
 	const leftWidth = hasColor ? stringWidth(left) : left.length;
 	const rightWidth = hasColor ? stringWidth(right) : right.length;
 	const gap = Math.max(0, maxLen - leftWidth - rightWidth);
@@ -690,6 +798,7 @@ git commit -m "feat(header): add renderHeaderLines with truncation and NO_COLOR 
 ### Task 4: Add --workflow CLI arg
 
 **Files:**
+
 - Modify: `source/cli.tsx:63-93` (flags section)
 - Modify: `source/cli.tsx:168-181` (render call)
 - Modify: `source/app.tsx:37-48` (Props type)
@@ -744,6 +853,7 @@ git commit -m "feat(cli): add --workflow flag for header workflow reference"
 ### Task 5: Wire new header into app.tsx
 
 **Files:**
+
 - Modify: `source/app.tsx:551-586` (frame lines section)
 - Modify: `source/app.tsx:634-639` (render section)
 
@@ -762,11 +872,13 @@ In the frame lines section, add after the existing `buildFrameLines` call:
 const hasColor = !process.env['NO_COLOR'];
 const headerModel = buildHeaderModel({
 	session,
-	currentRun: currentRun ? {
-		run_id: currentRun.run_id,
-		trigger: currentRun.trigger,
-		started_at: currentRun.started_at,
-	} : null,
+	currentRun: currentRun
+		? {
+				run_id: currentRun.run_id,
+				trigger: currentRun.trigger,
+				started_at: currentRun.started_at,
+			}
+		: null,
 	runSummaries,
 	metrics,
 	todoPanel,
@@ -774,7 +886,11 @@ const headerModel = buildHeaderModel({
 	now: Date.now(),
 	workflowRef: props.workflowRef, // threaded from CLI
 });
-const [headerLine1, headerLine2, headerSep] = renderHeaderLines(headerModel, innerWidth, hasColor);
+const [headerLine1, headerLine2, headerSep] = renderHeaderLines(
+	headerModel,
+	innerWidth,
+	hasColor,
+);
 ```
 
 **Step 2: Update the render section**
@@ -814,6 +930,7 @@ git commit -m "feat(header): wire renderHeaderLines into app, replacing buildFra
 ### Task 6: Clean up buildFrameLines
 
 **Files:**
+
 - Modify: `source/utils/buildFrameLines.ts`
 
 **Step 1: Remove header line generation from buildFrameLines**

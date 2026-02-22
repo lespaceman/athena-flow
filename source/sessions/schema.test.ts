@@ -37,9 +37,9 @@ describe('session schema', () => {
 		db = new Database(':memory:');
 		initSchema(db);
 
-		const row = db
-			.prepare('SELECT version FROM schema_version')
-			.get() as {version: number};
+		const row = db.prepare('SELECT version FROM schema_version').get() as {
+			version: number;
+		};
 		expect(row.version).toBe(SCHEMA_VERSION);
 	});
 });

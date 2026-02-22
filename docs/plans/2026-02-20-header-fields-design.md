@@ -19,18 +19,18 @@ Line 2 (Metrics + Progress):
 
 ## Truncation Priorities
 
-| Token | Priority | Truncation behavior |
-|-------|----------|-------------------|
-| ATHENA | 100 | Never dropped |
-| Status badge + clock | 90 | Never dropped |
-| Context bar | 80 | Shrink bar width, keep numbers |
-| Session ID | 70 | Truncate to `sess_...xyz` then `S1234` |
-| Workflow name | 60 | Truncate value, then drop |
-| Runs count | 50 | Drop label, keep number |
-| Harness | 40 | Drop entirely |
-| Progress | 30 | Drop entirely |
-| Elapsed/ended | 20 | Drop entirely |
-| Err/blk counts | 10 | Drop if zero |
+| Token                | Priority | Truncation behavior                    |
+| -------------------- | -------- | -------------------------------------- |
+| ATHENA               | 100      | Never dropped                          |
+| Status badge + clock | 90       | Never dropped                          |
+| Context bar          | 80       | Shrink bar width, keep numbers         |
+| Session ID           | 70       | Truncate to `sess_...xyz` then `S1234` |
+| Workflow name        | 60       | Truncate value, then drop              |
+| Runs count           | 50       | Drop label, keep number                |
+| Harness              | 40       | Drop entirely                          |
+| Progress             | 30       | Drop entirely                          |
+| Elapsed/ended        | 20       | Drop entirely                          |
+| Err/blk counts       | 10       | Drop if zero                           |
 
 ## New Fields
 
@@ -71,32 +71,32 @@ Line 2 (Metrics + Progress):
 
 ```typescript
 type HeaderModel = {
-  // Existing (kept)
-  engine: string | null;
-  status: HeaderStatus;
-  clock: string;
-  progress: {done: number; total: number} | null;
-  elapsed_ms: number | null;
-  ended_at: number | null;
-  error_count: number;
-  block_count: number;
+	// Existing (kept)
+	engine: string | null;
+	status: HeaderStatus;
+	clock: string;
+	progress: {done: number; total: number} | null;
+	elapsed_ms: number | null;
+	ended_at: number | null;
+	error_count: number;
+	block_count: number;
 
-  // Changed
-  session_id: string;        // full (was session_id_short)
-  workflow: string;           // always present, default "default"
+	// Changed
+	session_id: string; // full (was session_id_short)
+	workflow: string; // always present, default "default"
 
-  // New
-  harness: string;           // auto-detected
-  run_count: number;         // from runSummaries.length
-  context: {
-    used: number | null;     // null until hook event provides it
-    max: number;             // default 200000
-  };
+	// New
+	harness: string; // auto-detected
+	run_count: number; // from runSummaries.length
+	context: {
+		used: number | null; // null until hook event provides it
+		max: number; // default 200000
+	};
 
-  // Removed
-  // session_id_short (replaced by full session_id)
-  // run_id_short (run ID demoted)
-  // run_title (replaced by workflow)
+	// Removed
+	// session_id_short (replaced by full session_id)
+	// run_id_short (run ID demoted)
+	// run_title (replaced by workflow)
 };
 ```
 
@@ -106,11 +106,11 @@ Pure function (not a React component — renderHeaderLines works with strings):
 
 ```typescript
 function renderContextBar(
-  used: number | null,
-  max: number,
-  width: number,
-  hasColor: boolean
-): string
+	used: number | null,
+	max: number,
+	width: number,
+	hasColor: boolean,
+): string;
 ```
 
 - Returns formatted string like `ctx ██████░░░░ 67k/200k`

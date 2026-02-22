@@ -15,6 +15,7 @@
 ### Task 1: Add `renderContextBar` pure function
 
 **Files:**
+
 - Create: `source/utils/contextBar.ts`
 - Create: `source/utils/contextBar.test.ts`
 
@@ -116,7 +117,10 @@ export function renderContextBar(
 
 	// Bar width = total width - label - numbers - bracket chars (2 for NO_COLOR)
 	const bracketOverhead = hasColor ? 0 : 2; // [ and ]
-	const barWidth = Math.max(6, width - label.length - numbers.length - bracketOverhead);
+	const barWidth = Math.max(
+		6,
+		width - label.length - numbers.length - bracketOverhead,
+	);
 
 	const ratio = used !== null ? Math.min(1, Math.max(0, used / max)) : 0;
 	const filled = Math.round(ratio * barWidth);
@@ -130,7 +134,8 @@ export function renderContextBar(
 		const emptyStr = emptyChar.repeat(empty);
 		// Color thresholds
 		const pct = used !== null ? used / max : 0;
-		const colorFn = pct > 0.8 ? chalk.red : pct > 0.5 ? chalk.yellow : chalk.green;
+		const colorFn =
+			pct > 0.8 ? chalk.red : pct > 0.5 ? chalk.yellow : chalk.green;
 		bar = colorFn(filledStr) + chalk.dim(emptyStr);
 	} else {
 		const filledStr = '='.repeat(filled);
@@ -159,6 +164,7 @@ git commit -m "feat(header): add renderContextBar with color thresholds and NO_C
 ### Task 2: Add `detectHarness` utility
 
 **Files:**
+
 - Create: `source/utils/detectHarness.ts`
 - Create: `source/utils/detectHarness.test.ts`
 
@@ -234,6 +240,7 @@ git commit -m "feat(header): add detectHarness utility for auto-detecting coding
 ### Task 3: Update `HeaderModel` type and `buildHeaderModel()`
 
 **Files:**
+
 - Modify: `source/utils/headerModel.ts`
 - Modify: `source/utils/headerModel.test.ts`
 
@@ -284,7 +291,11 @@ it('includes context with null used and default max', () => {
 it('no longer has run_id_short or run_title fields', () => {
 	const model = buildHeaderModel({
 		...baseInput,
-		currentRun: {run_id: 'run1', trigger: {prompt_preview: 'test'}, started_at: 999000},
+		currentRun: {
+			run_id: 'run1',
+			trigger: {prompt_preview: 'test'},
+			started_at: 999000,
+		},
 	});
 	expect(model).not.toHaveProperty('run_id_short');
 	expect(model).not.toHaveProperty('run_title');
@@ -319,6 +330,7 @@ Modify `source/utils/headerModel.ts`:
 **Step 4: Fix any existing tests that reference removed fields**
 
 Update existing tests in `headerModel.test.ts`:
+
 - Change `model.session_id_short` → `model.session_id`
 - Remove assertions on `run_id_short` and `run_title`
 - Update the `baseInput` if needed
@@ -341,6 +353,7 @@ git commit -m "feat(header): update HeaderModel with session_id, workflow, harne
 ### Task 4: Update `renderHeaderLines()` with new layout
 
 **Files:**
+
 - Modify: `source/utils/renderHeaderLines.ts`
 - Modify: `source/utils/renderHeaderLines.test.ts`
 
@@ -372,15 +385,18 @@ Expected: FAIL — old layout doesn't match new assertions
 Modify `source/utils/renderHeaderLines.ts`:
 
 **Line 1 left tokens** (replace existing token-building logic):
+
 ```
 ATHENA (priority 100)
 session_id (priority 70) — truncation: full → sess_...xyz → S1234
 wf:<workflow> (priority 60)
 harness:<harness> (priority 40)
 ```
+
 Remove: run ID token, workflow:/run: token logic
 
 **Line 2 left parts** (replace existing):
+
 ```
 renderContextBar(context.used, context.max, barWidth, hasColor) (priority 80)
 runs:<run_count> (priority 50)
@@ -390,6 +406,7 @@ ended HH:MM:SS (priority 20)
 ```
 
 **Line 2 right parts** (keep as-is):
+
 ```
 err X (red, if > 0) (priority 10)
 blk X (yellow, if > 0) (priority 10)
@@ -398,6 +415,7 @@ blk X (yellow, if > 0) (priority 10)
 Add import: `renderContextBar` from `./contextBar.js`
 
 Add session_id truncation helper:
+
 ```typescript
 function truncateSessionId(id: string, maxWidth: number): string {
 	if (id.length <= maxWidth) return id;
@@ -429,38 +447,41 @@ git commit -m "feat(header): new 2-line layout with context bar, session_id, har
 ### Task 5: Wire into `app.tsx`
 
 **Files:**
+
 - Modify: `source/app.tsx` (around lines 579-600)
 
 **Step 1: Update `buildHeaderModel` call in app.tsx**
 
 The call at ~line 579 currently passes:
+
 ```typescript
 buildHeaderModel({
 	session,
-	currentRun: currentRun ? { run_id, trigger, started_at } : null,
+	currentRun: currentRun ? {run_id, trigger, started_at} : null,
 	runSummaries,
 	metrics,
 	todoPanel,
 	tailFollow: feedNav.tailFollow,
 	now,
 	workflowRef,
-})
+});
 ```
 
 Update to also pass `contextUsed` and `contextMax` (null for now until hook event is wired):
+
 ```typescript
 buildHeaderModel({
 	session,
-	currentRun: currentRun ? { run_id, trigger, started_at } : null,
+	currentRun: currentRun ? {run_id, trigger, started_at} : null,
 	runSummaries,
 	metrics,
 	todoPanel,
 	tailFollow: feedNav.tailFollow,
 	now,
 	workflowRef,
-	contextUsed: null,     // TODO: wire from future hook event
+	contextUsed: null, // TODO: wire from future hook event
 	contextMax: 200000,
-})
+});
 ```
 
 **Step 2: Verify no TypeScript errors**

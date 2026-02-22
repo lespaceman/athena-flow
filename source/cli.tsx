@@ -218,31 +218,25 @@ const theme = resolveTheme(themeName);
 // Resolve --continue flag: with value = specific session ID, without value = most recent
 // meow parses --continue (no value) as undefined for type: 'string', so check process.argv
 const hasContinueFlag = process.argv.includes('--continue');
-let initialSessionId: string | undefined;
 const showSessionPicker = cli.flags.sessions;
 
+let initialSessionId: string | undefined;
+let athenaSessionId: string;
+
 if (cli.flags.continue) {
-	// --continue=<sessionId>
+	// --continue=<sessionId> — use as both adapter and athena session ID
 	initialSessionId = cli.flags.continue;
+	athenaSessionId = cli.flags.continue;
 } else if (hasContinueFlag) {
-	// --continue (no value) — resume most recent
-	const recent = getMostRecentSession(cli.flags.projectDir);
-	if (recent) {
-		initialSessionId = recent.sessionId;
+	// --continue (no value) — resume most recent sessions
+	const recentAdapter = getMostRecentSession(cli.flags.projectDir);
+	if (recentAdapter) {
+		initialSessionId = recentAdapter.sessionId;
 	} else {
 		console.error('No previous sessions found. Starting new session.');
 	}
-}
-
-// Resolve athena session ID for persistent storage
-let athenaSessionId: string;
-if (cli.flags.continue) {
-	// --continue=<id> — treat as athena session ID
-	athenaSessionId = cli.flags.continue;
-} else if (hasContinueFlag) {
-	// --continue (no value) — resume most recent athena session
-	const recent = getMostRecentAthenaSession(cli.flags.projectDir);
-	athenaSessionId = recent?.id ?? crypto.randomUUID();
+	const recentAthena = getMostRecentAthenaSession(cli.flags.projectDir);
+	athenaSessionId = recentAthena?.id ?? crypto.randomUUID();
 } else {
 	athenaSessionId = crypto.randomUUID();
 }

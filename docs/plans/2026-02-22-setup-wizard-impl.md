@@ -13,6 +13,7 @@
 ### Task 1: Add `setupComplete` and `harness` to AthenaConfig
 
 **Files:**
+
 - Modify: `source/plugins/config.ts:14-24`
 - Test: `source/plugins/__tests__/config.test.ts`
 
@@ -22,16 +23,16 @@ Add a test that verifies `readConfigFile` parses `setupComplete` and `harness` f
 
 ```typescript
 it('parses setupComplete and harness fields', () => {
-  vol.fromJSON({
-    '/project/.athena/config.json': JSON.stringify({
-      plugins: [],
-      setupComplete: true,
-      harness: 'claude-code',
-    }),
-  });
-  const config = readConfig('/project');
-  expect(config.setupComplete).toBe(true);
-  expect(config.harness).toBe('claude-code');
+	vol.fromJSON({
+		'/project/.athena/config.json': JSON.stringify({
+			plugins: [],
+			setupComplete: true,
+			harness: 'claude-code',
+		}),
+	});
+	const config = readConfig('/project');
+	expect(config.setupComplete).toBe(true);
+	expect(config.harness).toBe('claude-code');
 });
 ```
 
@@ -46,13 +47,13 @@ In `source/plugins/config.ts`, update the `AthenaConfig` type:
 
 ```typescript
 export type AthenaConfig = {
-  plugins: string[];
-  additionalDirectories: string[];
-  model?: string;
-  theme?: string;
-  workflow?: string;
-  setupComplete?: boolean;
-  harness?: 'claude-code' | 'codex';
+	plugins: string[];
+	additionalDirectories: string[];
+	model?: string;
+	theme?: string;
+	workflow?: string;
+	setupComplete?: boolean;
+	harness?: 'claude-code' | 'codex';
 };
 ```
 
@@ -60,13 +61,13 @@ Update `readConfigFile` return (line ~83-90) to include the new fields:
 
 ```typescript
 return {
-  plugins,
-  additionalDirectories,
-  model: raw.model,
-  theme: raw.theme,
-  workflow: raw.workflow,
-  setupComplete: raw.setupComplete as boolean | undefined,
-  harness: raw.harness as AthenaConfig['harness'],
+	plugins,
+	additionalDirectories,
+	model: raw.model,
+	theme: raw.theme,
+	workflow: raw.workflow,
+	setupComplete: raw.setupComplete as boolean | undefined,
+	harness: raw.harness as AthenaConfig['harness'],
 };
 ```
 
@@ -87,18 +88,21 @@ The setup wizard needs to write config. Add this function to `source/plugins/con
  * Merges with existing config if present. Creates directories as needed.
  */
 export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
-  const homeDir = os.homedir();
-  const configDir = path.join(homeDir, '.config', 'athena');
-  const configPath = path.join(configDir, 'config.json');
+	const homeDir = os.homedir();
+	const configDir = path.join(homeDir, '.config', 'athena');
+	const configPath = path.join(configDir, 'config.json');
 
-  let existing: Record<string, unknown> = {};
-  if (fs.existsSync(configPath)) {
-    existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
-  }
+	let existing: Record<string, unknown> = {};
+	if (fs.existsSync(configPath)) {
+		existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
+			string,
+			unknown
+		>;
+	}
 
-  const merged = { ...existing, ...updates };
-  fs.mkdirSync(configDir, { recursive: true });
-  fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+	const merged = {...existing, ...updates};
+	fs.mkdirSync(configDir, {recursive: true});
+	fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
 }
 ```
 
@@ -106,19 +110,22 @@ export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
 
 ```typescript
 it('writeGlobalConfig merges with existing config', () => {
-  vol.fromJSON({
-    [path.join(os.homedir(), '.config/athena/config.json')]: JSON.stringify({
-      plugins: ['existing'],
-      theme: 'dark',
-    }),
-  });
-  writeGlobalConfig({ setupComplete: true, harness: 'claude-code' });
-  const written = JSON.parse(
-    vol.readFileSync(path.join(os.homedir(), '.config/athena/config.json'), 'utf-8') as string,
-  );
-  expect(written.plugins).toEqual(['existing']);
-  expect(written.setupComplete).toBe(true);
-  expect(written.harness).toBe('claude-code');
+	vol.fromJSON({
+		[path.join(os.homedir(), '.config/athena/config.json')]: JSON.stringify({
+			plugins: ['existing'],
+			theme: 'dark',
+		}),
+	});
+	writeGlobalConfig({setupComplete: true, harness: 'claude-code'});
+	const written = JSON.parse(
+		vol.readFileSync(
+			path.join(os.homedir(), '.config/athena/config.json'),
+			'utf-8',
+		) as string,
+	);
+	expect(written.plugins).toEqual(['existing']);
+	expect(written.setupComplete).toBe(true);
+	expect(written.harness).toBe('claude-code');
 });
 ```
 
@@ -139,6 +146,7 @@ git commit -m "feat(config): add setupComplete, harness fields and writeGlobalCo
 ### Task 2: Create StepSelector component
 
 **Files:**
+
 - Create: `source/setup/components/StepSelector.tsx`
 - Test: `source/setup/components/__tests__/StepSelector.test.tsx`
 
@@ -214,53 +222,57 @@ import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 
 export type SelectorOption = {
-  label: string;
-  value: string;
-  disabled?: boolean;
+	label: string;
+	value: string;
+	disabled?: boolean;
 };
 
 type Props = {
-  options: SelectorOption[];
-  onSelect: (value: string) => void;
-  isActive?: boolean;
+	options: SelectorOption[];
+	onSelect: (value: string) => void;
+	isActive?: boolean;
 };
 
-export default function StepSelector({options, onSelect, isActive = true}: Props) {
-  const [cursor, setCursor] = useState(0);
+export default function StepSelector({
+	options,
+	onSelect,
+	isActive = true,
+}: Props) {
+	const [cursor, setCursor] = useState(0);
 
-  useInput(
-    (input, key) => {
-      if (key.downArrow) {
-        setCursor(prev => Math.min(prev + 1, options.length - 1));
-      } else if (key.upArrow) {
-        setCursor(prev => Math.max(prev - 1, 0));
-      } else if (key.return) {
-        const opt = options[cursor];
-        if (opt && !opt.disabled) {
-          onSelect(opt.value);
-        }
-      }
-    },
-    {isActive},
-  );
+	useInput(
+		(input, key) => {
+			if (key.downArrow) {
+				setCursor(prev => Math.min(prev + 1, options.length - 1));
+			} else if (key.upArrow) {
+				setCursor(prev => Math.max(prev - 1, 0));
+			} else if (key.return) {
+				const opt = options[cursor];
+				if (opt && !opt.disabled) {
+					onSelect(opt.value);
+				}
+			}
+		},
+		{isActive},
+	);
 
-  return (
-    <Box flexDirection="column">
-      {options.map((opt, i) => {
-        const isCursor = i === cursor;
-        const prefix = isCursor ? '❯' : ' ';
-        return (
-          <Text
-            key={opt.value}
-            dimColor={opt.disabled}
-            color={isCursor && !opt.disabled ? 'cyan' : undefined}
-          >
-            {prefix} {opt.label}
-          </Text>
-        );
-      })}
-    </Box>
-  );
+	return (
+		<Box flexDirection="column">
+			{options.map((opt, i) => {
+				const isCursor = i === cursor;
+				const prefix = isCursor ? '❯' : ' ';
+				return (
+					<Text
+						key={opt.value}
+						dimColor={opt.disabled}
+						color={isCursor && !opt.disabled ? 'cyan' : undefined}
+					>
+						{prefix} {opt.label}
+					</Text>
+				);
+			})}
+		</Box>
+	);
 }
 ```
 
@@ -281,6 +293,7 @@ git commit -m "feat(setup): add StepSelector component with disabled option supp
 ### Task 3: Create StepStatus component
 
 **Files:**
+
 - Create: `source/setup/components/StepStatus.tsx`
 - Test: `source/setup/components/__tests__/StepStatus.test.tsx`
 
@@ -330,22 +343,21 @@ import React from 'react';
 import {Text, Box} from 'ink';
 
 type Props = {
-  status: 'verifying' | 'success' | 'error';
-  message: string;
+	status: 'verifying' | 'success' | 'error';
+	message: string;
 };
 
 export default function StepStatus({status, message}: Props) {
-  const icon =
-    status === 'success' ? '✓' : status === 'error' ? '✗' : '⠋';
-  const color =
-    status === 'success' ? 'green' : status === 'error' ? 'red' : 'yellow';
+	const icon = status === 'success' ? '✓' : status === 'error' ? '✗' : '⠋';
+	const color =
+		status === 'success' ? 'green' : status === 'error' ? 'red' : 'yellow';
 
-  return (
-    <Box>
-      <Text color={color}>{icon} </Text>
-      <Text color={color}>{message}</Text>
-    </Box>
-  );
+	return (
+		<Box>
+			<Text color={color}>{icon} </Text>
+			<Text color={color}>{message}</Text>
+		</Box>
+	);
 }
 ```
 
@@ -363,6 +375,7 @@ git commit -m "feat(setup): add StepStatus component"
 ### Task 4: Create useSetupState hook
 
 **Files:**
+
 - Create: `source/setup/useSetupState.ts`
 - Test: `source/setup/__tests__/useSetupState.test.ts`
 
@@ -374,48 +387,60 @@ import {renderHook, act} from '@testing-library/react';
 import {useSetupState} from '../useSetupState.js';
 
 describe('useSetupState', () => {
-  it('starts at step 0 in selecting state', () => {
-    const {result} = renderHook(() => useSetupState());
-    expect(result.current.stepIndex).toBe(0);
-    expect(result.current.stepState).toBe('selecting');
-  });
+	it('starts at step 0 in selecting state', () => {
+		const {result} = renderHook(() => useSetupState());
+		expect(result.current.stepIndex).toBe(0);
+		expect(result.current.stepState).toBe('selecting');
+	});
 
-  it('transitions to verifying then success', () => {
-    const {result} = renderHook(() => useSetupState());
-    act(() => result.current.startVerifying());
-    expect(result.current.stepState).toBe('verifying');
-    act(() => result.current.markSuccess());
-    expect(result.current.stepState).toBe('success');
-  });
+	it('transitions to verifying then success', () => {
+		const {result} = renderHook(() => useSetupState());
+		act(() => result.current.startVerifying());
+		expect(result.current.stepState).toBe('verifying');
+		act(() => result.current.markSuccess());
+		expect(result.current.stepState).toBe('success');
+	});
 
-  it('advances to next step', () => {
-    const {result} = renderHook(() => useSetupState());
-    act(() => result.current.startVerifying());
-    act(() => result.current.markSuccess());
-    act(() => result.current.advance());
-    expect(result.current.stepIndex).toBe(1);
-    expect(result.current.stepState).toBe('selecting');
-  });
+	it('advances to next step', () => {
+		const {result} = renderHook(() => useSetupState());
+		act(() => result.current.startVerifying());
+		act(() => result.current.markSuccess());
+		act(() => result.current.advance());
+		expect(result.current.stepIndex).toBe(1);
+		expect(result.current.stepState).toBe('selecting');
+	});
 
-  it('transitions to error and allows retry', () => {
-    const {result} = renderHook(() => useSetupState());
-    act(() => result.current.startVerifying());
-    act(() => result.current.markError());
-    expect(result.current.stepState).toBe('error');
-    act(() => result.current.retry());
-    expect(result.current.stepState).toBe('selecting');
-  });
+	it('transitions to error and allows retry', () => {
+		const {result} = renderHook(() => useSetupState());
+		act(() => result.current.startVerifying());
+		act(() => result.current.markError());
+		expect(result.current.stepState).toBe('error');
+		act(() => result.current.retry());
+		expect(result.current.stepState).toBe('selecting');
+	});
 
-  it('reports isComplete when past last step', () => {
-    const {result} = renderHook(() => useSetupState());
-    // Step 0
-    act(() => { result.current.startVerifying(); result.current.markSuccess(); result.current.advance(); });
-    // Step 1
-    act(() => { result.current.startVerifying(); result.current.markSuccess(); result.current.advance(); });
-    // Step 2
-    act(() => { result.current.startVerifying(); result.current.markSuccess(); result.current.advance(); });
-    expect(result.current.isComplete).toBe(true);
-  });
+	it('reports isComplete when past last step', () => {
+		const {result} = renderHook(() => useSetupState());
+		// Step 0
+		act(() => {
+			result.current.startVerifying();
+			result.current.markSuccess();
+			result.current.advance();
+		});
+		// Step 1
+		act(() => {
+			result.current.startVerifying();
+			result.current.markSuccess();
+			result.current.advance();
+		});
+		// Step 2
+		act(() => {
+			result.current.startVerifying();
+			result.current.markSuccess();
+			result.current.advance();
+		});
+		expect(result.current.isComplete).toBe(true);
+	});
 });
 ```
 
@@ -434,29 +459,29 @@ const TOTAL_STEPS = 3;
 export type StepState = 'selecting' | 'verifying' | 'success' | 'error';
 
 export function useSetupState() {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [stepState, setStepState] = useState<StepState>('selecting');
+	const [stepIndex, setStepIndex] = useState(0);
+	const [stepState, setStepState] = useState<StepState>('selecting');
 
-  const startVerifying = useCallback(() => setStepState('verifying'), []);
-  const markSuccess = useCallback(() => setStepState('success'), []);
-  const markError = useCallback(() => setStepState('error'), []);
-  const retry = useCallback(() => setStepState('selecting'), []);
+	const startVerifying = useCallback(() => setStepState('verifying'), []);
+	const markSuccess = useCallback(() => setStepState('success'), []);
+	const markError = useCallback(() => setStepState('error'), []);
+	const retry = useCallback(() => setStepState('selecting'), []);
 
-  const advance = useCallback(() => {
-    setStepIndex(prev => prev + 1);
-    setStepState('selecting');
-  }, []);
+	const advance = useCallback(() => {
+		setStepIndex(prev => prev + 1);
+		setStepState('selecting');
+	}, []);
 
-  return {
-    stepIndex,
-    stepState,
-    isComplete: stepIndex >= TOTAL_STEPS,
-    startVerifying,
-    markSuccess,
-    markError,
-    retry,
-    advance,
-  };
+	return {
+		stepIndex,
+		stepState,
+		isComplete: stepIndex >= TOTAL_STEPS,
+		startVerifying,
+		markSuccess,
+		markError,
+		retry,
+		advance,
+	};
 }
 ```
 
@@ -474,6 +499,7 @@ git commit -m "feat(setup): add useSetupState hook with step state machine"
 ### Task 5: Create ThemeStep component
 
 **Files:**
+
 - Create: `source/setup/steps/ThemeStep.tsx`
 - Test: `source/setup/steps/__tests__/ThemeStep.test.tsx`
 
@@ -518,22 +544,22 @@ import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector.js';
 
 type Props = {
-  onComplete: (theme: string) => void;
+	onComplete: (theme: string) => void;
 };
 
 export default function ThemeStep({onComplete}: Props) {
-  return (
-    <Box flexDirection="column">
-      <Text bold>Select theme:</Text>
-      <StepSelector
-        options={[
-          {label: 'Dark', value: 'dark'},
-          {label: 'Light', value: 'light'},
-        ]}
-        onSelect={onComplete}
-      />
-    </Box>
-  );
+	return (
+		<Box flexDirection="column">
+			<Text bold>Select theme:</Text>
+			<StepSelector
+				options={[
+					{label: 'Dark', value: 'dark'},
+					{label: 'Light', value: 'light'},
+				]}
+				onSelect={onComplete}
+			/>
+		</Box>
+	);
 }
 ```
 
@@ -551,6 +577,7 @@ git commit -m "feat(setup): add ThemeStep component"
 ### Task 6: Create HarnessStep component
 
 **Files:**
+
 - Create: `source/setup/steps/HarnessStep.tsx`
 - Test: `source/setup/steps/__tests__/HarnessStep.test.tsx`
 
@@ -607,52 +634,61 @@ import StepStatus from '../components/StepStatus.js';
 import {detectClaudeVersion} from '../../utils/detectClaudeVersion.js';
 
 type Props = {
-  onComplete: (harness: string) => void;
-  onError: (message: string) => void;
+	onComplete: (harness: string) => void;
+	onError: (message: string) => void;
 };
 
 export default function HarnessStep({onComplete, onError}: Props) {
-  const [status, setStatus] = useState<'selecting' | 'verifying' | 'success' | 'error'>('selecting');
-  const [message, setMessage] = useState('');
+	const [status, setStatus] = useState<
+		'selecting' | 'verifying' | 'success' | 'error'
+	>('selecting');
+	const [message, setMessage] = useState('');
 
-  const handleSelect = useCallback(
-    (value: string) => {
-      if (value !== 'claude-code') return;
-      setStatus('verifying');
-      // Run detection asynchronously to not block render
-      setTimeout(() => {
-        const version = detectClaudeVersion();
-        if (version) {
-          setMessage(`Claude Code v${version} detected`);
-          setStatus('success');
-          onComplete('claude-code');
-        } else {
-          setMessage('Claude Code not found. Install from https://docs.anthropic.com/en/docs/claude-code');
-          setStatus('error');
-          onError('Claude Code not found');
-        }
-      }, 0);
-    },
-    [onComplete, onError],
-  );
+	const handleSelect = useCallback(
+		(value: string) => {
+			if (value !== 'claude-code') return;
+			setStatus('verifying');
+			// Run detection asynchronously to not block render
+			setTimeout(() => {
+				const version = detectClaudeVersion();
+				if (version) {
+					setMessage(`Claude Code v${version} detected`);
+					setStatus('success');
+					onComplete('claude-code');
+				} else {
+					setMessage(
+						'Claude Code not found. Install from https://docs.anthropic.com/en/docs/claude-code',
+					);
+					setStatus('error');
+					onError('Claude Code not found');
+				}
+			}, 0);
+		},
+		[onComplete, onError],
+	);
 
-  return (
-    <Box flexDirection="column">
-      <Text bold>Select harness:</Text>
-      {status === 'selecting' && (
-        <StepSelector
-          options={[
-            {label: 'Claude Code', value: 'claude-code'},
-            {label: 'Codex (coming soon)', value: 'codex', disabled: true},
-          ]}
-          onSelect={handleSelect}
-        />
-      )}
-      {(status === 'verifying' || status === 'success' || status === 'error') && (
-        <StepStatus status={status} message={message || 'Verifying Claude Code...'} />
-      )}
-    </Box>
-  );
+	return (
+		<Box flexDirection="column">
+			<Text bold>Select harness:</Text>
+			{status === 'selecting' && (
+				<StepSelector
+					options={[
+						{label: 'Claude Code', value: 'claude-code'},
+						{label: 'Codex (coming soon)', value: 'codex', disabled: true},
+					]}
+					onSelect={handleSelect}
+				/>
+			)}
+			{(status === 'verifying' ||
+				status === 'success' ||
+				status === 'error') && (
+				<StepStatus
+					status={status}
+					message={message || 'Verifying Claude Code...'}
+				/>
+			)}
+		</Box>
+	);
 }
 ```
 
@@ -670,6 +706,7 @@ git commit -m "feat(setup): add HarnessStep with Claude Code verification"
 ### Task 7: Create WorkflowStep component
 
 **Files:**
+
 - Create: `source/setup/steps/WorkflowStep.tsx`
 - Test: `source/setup/steps/__tests__/WorkflowStep.test.tsx`
 
@@ -733,62 +770,74 @@ import StepStatus from '../components/StepStatus.js';
 import {installWorkflow, resolveWorkflow} from '../../workflows/index.js';
 
 // Marketplace ref for the e2e-test-builder workflow
-const E2E_WORKFLOW_REF = 'e2e-test-builder@lespaceman/athena-plugin-marketplace';
+const E2E_WORKFLOW_REF =
+	'e2e-test-builder@lespaceman/athena-plugin-marketplace';
 
 type Props = {
-  onComplete: (workflowName: string) => void;
-  onError: (message: string) => void;
-  onSkip: () => void;
+	onComplete: (workflowName: string) => void;
+	onError: (message: string) => void;
+	onSkip: () => void;
 };
 
 export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
-  const [status, setStatus] = useState<'selecting' | 'verifying' | 'success' | 'error'>('selecting');
-  const [message, setMessage] = useState('');
+	const [status, setStatus] = useState<
+		'selecting' | 'verifying' | 'success' | 'error'
+	>('selecting');
+	const [message, setMessage] = useState('');
 
-  const handleSelect = useCallback(
-    (value: string) => {
-      if (value === 'none') {
-        onSkip();
-        return;
-      }
-      setStatus('verifying');
-      setTimeout(() => {
-        try {
-          const name = installWorkflow(E2E_WORKFLOW_REF);
-          // Verify it resolves
-          resolveWorkflow(name);
-          setMessage(`Workflow "${name}" installed`);
-          setStatus('success');
-          onComplete(name);
-        } catch (err) {
-          const msg = (err as Error).message;
-          setMessage(`Installation failed: ${msg}`);
-          setStatus('error');
-          onError(msg);
-        }
-      }, 0);
-    },
-    [onComplete, onError, onSkip],
-  );
+	const handleSelect = useCallback(
+		(value: string) => {
+			if (value === 'none') {
+				onSkip();
+				return;
+			}
+			setStatus('verifying');
+			setTimeout(() => {
+				try {
+					const name = installWorkflow(E2E_WORKFLOW_REF);
+					// Verify it resolves
+					resolveWorkflow(name);
+					setMessage(`Workflow "${name}" installed`);
+					setStatus('success');
+					onComplete(name);
+				} catch (err) {
+					const msg = (err as Error).message;
+					setMessage(`Installation failed: ${msg}`);
+					setStatus('error');
+					onError(msg);
+				}
+			}, 0);
+		},
+		[onComplete, onError, onSkip],
+	);
 
-  return (
-    <Box flexDirection="column">
-      <Text bold>Select workflow to install:</Text>
-      {status === 'selecting' && (
-        <StepSelector
-          options={[
-            {label: 'e2e-test-builder', value: 'e2e-test-builder'},
-            {label: 'bug-triage (coming soon)', value: 'bug-triage', disabled: true},
-            {label: 'None — configure later', value: 'none'},
-          ]}
-          onSelect={handleSelect}
-        />
-      )}
-      {(status === 'verifying' || status === 'success' || status === 'error') && (
-        <StepStatus status={status} message={message || 'Installing workflow...'} />
-      )}
-    </Box>
-  );
+	return (
+		<Box flexDirection="column">
+			<Text bold>Select workflow to install:</Text>
+			{status === 'selecting' && (
+				<StepSelector
+					options={[
+						{label: 'e2e-test-builder', value: 'e2e-test-builder'},
+						{
+							label: 'bug-triage (coming soon)',
+							value: 'bug-triage',
+							disabled: true,
+						},
+						{label: 'None — configure later', value: 'none'},
+					]}
+					onSelect={handleSelect}
+				/>
+			)}
+			{(status === 'verifying' ||
+				status === 'success' ||
+				status === 'error') && (
+				<StepStatus
+					status={status}
+					message={message || 'Installing workflow...'}
+				/>
+			)}
+		</Box>
+	);
 }
 ```
 
@@ -806,6 +855,7 @@ git commit -m "feat(setup): add WorkflowStep with marketplace install and verifi
 ### Task 8: Create SetupWizard orchestrator
 
 **Files:**
+
 - Create: `source/setup/SetupWizard.tsx`
 - Test: `source/setup/__tests__/SetupWizard.test.tsx`
 
@@ -857,102 +907,131 @@ import StepStatus from './components/StepStatus.js';
 import {writeGlobalConfig} from '../plugins/config.js';
 
 type SetupResult = {
-  theme: string;
-  harness?: string;
-  workflow?: string;
+	theme: string;
+	harness?: string;
+	workflow?: string;
 };
 
 type Props = {
-  onComplete: (result: SetupResult) => void;
+	onComplete: (result: SetupResult) => void;
 };
 
 export default function SetupWizard({onComplete}: Props) {
-  const {stepIndex, stepState, isComplete, startVerifying, markSuccess, markError, retry, advance} = useSetupState();
-  const [result, setResult] = useState<SetupResult>({theme: 'dark'});
+	const {
+		stepIndex,
+		stepState,
+		isComplete,
+		startVerifying,
+		markSuccess,
+		markError,
+		retry,
+		advance,
+	} = useSetupState();
+	const [result, setResult] = useState<SetupResult>({theme: 'dark'});
 
-  // Step completion handlers
-  const handleThemeComplete = useCallback((theme: string) => {
-    setResult(prev => ({...prev, theme}));
-    markSuccess();
-  }, [markSuccess]);
+	// Step completion handlers
+	const handleThemeComplete = useCallback(
+		(theme: string) => {
+			setResult(prev => ({...prev, theme}));
+			markSuccess();
+		},
+		[markSuccess],
+	);
 
-  const handleThemeAdvance = useCallback(() => {
-    advance();
-  }, [advance]);
+	const handleThemeAdvance = useCallback(() => {
+		advance();
+	}, [advance]);
 
-  const handleHarnessComplete = useCallback((harness: string) => {
-    setResult(prev => ({...prev, harness}));
-    markSuccess();
-  }, [markSuccess]);
+	const handleHarnessComplete = useCallback(
+		(harness: string) => {
+			setResult(prev => ({...prev, harness}));
+			markSuccess();
+		},
+		[markSuccess],
+	);
 
-  const handleWorkflowComplete = useCallback((workflow: string) => {
-    setResult(prev => ({...prev, workflow}));
-    markSuccess();
-  }, [markSuccess]);
+	const handleWorkflowComplete = useCallback(
+		(workflow: string) => {
+			setResult(prev => ({...prev, workflow}));
+			markSuccess();
+		},
+		[markSuccess],
+	);
 
-  const handleWorkflowSkip = useCallback(() => {
-    markSuccess();
-  }, [markSuccess]);
+	const handleWorkflowSkip = useCallback(() => {
+		markSuccess();
+	}, [markSuccess]);
 
-  // Auto-advance on success after short delay (for user to see checkmark)
-  React.useEffect(() => {
-    if (stepState === 'success') {
-      const timer = setTimeout(() => {
-        if (!isComplete) {
-          advance();
-        }
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [stepState, advance, isComplete]);
+	// Auto-advance on success after short delay (for user to see checkmark)
+	React.useEffect(() => {
+		if (stepState === 'success') {
+			const timer = setTimeout(() => {
+				if (!isComplete) {
+					advance();
+				}
+			}, 500);
+			return () => clearTimeout(timer);
+		}
+	}, [stepState, advance, isComplete]);
 
-  // Write config and notify parent on completion
-  React.useEffect(() => {
-    if (isComplete) {
-      writeGlobalConfig({
-        setupComplete: true,
-        theme: result.theme,
-        harness: result.harness,
-        workflow: result.workflow,
-      });
-      onComplete(result);
-    }
-  }, [isComplete, result, onComplete]);
+	// Write config and notify parent on completion
+	React.useEffect(() => {
+		if (isComplete) {
+			writeGlobalConfig({
+				setupComplete: true,
+				theme: result.theme,
+				harness: result.harness,
+				workflow: result.workflow,
+			});
+			onComplete(result);
+		}
+	}, [isComplete, result, onComplete]);
 
-  const stepLabels = ['Theme', 'Harness', 'Workflow'];
+	const stepLabels = ['Theme', 'Harness', 'Workflow'];
 
-  return (
-    <Box flexDirection="column" paddingX={2} paddingY={1}>
-      <Text bold>athena-cli Setup</Text>
-      <Text dimColor>Step {Math.min(stepIndex + 1, 3)} of 3 — {stepLabels[stepIndex] ?? 'Complete'}</Text>
-      <Box marginTop={1} flexDirection="column">
-        {stepIndex === 0 && stepState === 'selecting' && (
-          <ThemeStep onComplete={handleThemeComplete} />
-        )}
-        {stepIndex === 0 && stepState === 'success' && (
-          <StepStatus status="success" message={`Theme: ${result.theme}`} />
-        )}
+	return (
+		<Box flexDirection="column" paddingX={2} paddingY={1}>
+			<Text bold>athena-cli Setup</Text>
+			<Text dimColor>
+				Step {Math.min(stepIndex + 1, 3)} of 3 —{' '}
+				{stepLabels[stepIndex] ?? 'Complete'}
+			</Text>
+			<Box marginTop={1} flexDirection="column">
+				{stepIndex === 0 && stepState === 'selecting' && (
+					<ThemeStep onComplete={handleThemeComplete} />
+				)}
+				{stepIndex === 0 && stepState === 'success' && (
+					<StepStatus status="success" message={`Theme: ${result.theme}`} />
+				)}
 
-        {stepIndex === 1 && (stepState === 'selecting' || stepState === 'verifying' || stepState === 'success' || stepState === 'error') && (
-          <HarnessStep
-            onComplete={handleHarnessComplete}
-            onError={() => markError()}
-          />
-        )}
-        {stepIndex === 1 && stepState === 'error' && (
-          <Text color="yellow">Press 'r' to retry</Text>
-        )}
+				{stepIndex === 1 &&
+					(stepState === 'selecting' ||
+						stepState === 'verifying' ||
+						stepState === 'success' ||
+						stepState === 'error') && (
+						<HarnessStep
+							onComplete={handleHarnessComplete}
+							onError={() => markError()}
+						/>
+					)}
+				{stepIndex === 1 && stepState === 'error' && (
+					<Text color="yellow">Press 'r' to retry</Text>
+				)}
 
-        {stepIndex === 2 && (stepState === 'selecting' || stepState === 'verifying' || stepState === 'success' || stepState === 'error') && (
-          <WorkflowStep
-            onComplete={handleWorkflowComplete}
-            onError={() => markError()}
-            onSkip={handleWorkflowSkip}
-          />
-        )}
-      </Box>
-    </Box>
-  );
+				{stepIndex === 2 &&
+					(stepState === 'selecting' ||
+						stepState === 'verifying' ||
+						stepState === 'success' ||
+						stepState === 'error') && (
+						<WorkflowStep
+							onComplete={handleWorkflowComplete}
+							onError={() => markError()}
+							onSkip={handleWorkflowSkip}
+						/>
+					)}
+			</Box>
+		</Box>
+	);
 }
 ```
 
@@ -970,6 +1049,7 @@ git commit -m "feat(setup): add SetupWizard orchestrator component"
 ### Task 9: Add `setup` AppPhase to app.tsx
 
 **Files:**
+
 - Modify: `source/app.tsx:56-58` (AppPhase type)
 - Modify: `source/app.tsx:700-781` (App component)
 
@@ -979,9 +1059,9 @@ At line 56, add the `setup` phase:
 
 ```typescript
 type AppPhase =
-  | {type: 'setup'}
-  | {type: 'session-select'}
-  | {type: 'main'; initialSessionId?: string};
+	| {type: 'setup'}
+	| {type: 'session-select'}
+	| {type: 'main'; initialSessionId?: string};
 ```
 
 **Step 2: Add setup phase rendering in App component**
@@ -996,18 +1076,18 @@ In the `App` component (around line 717-720), update the initial phase logic:
 
 ```typescript
 const initialPhase: AppPhase = showSetup
-  ? {type: 'setup'}
-  : showSessionPicker
-    ? {type: 'session-select'}
-    : {type: 'main', initialSessionId};
+	? {type: 'setup'}
+	: showSessionPicker
+		? {type: 'session-select'}
+		: {type: 'main', initialSessionId};
 ```
 
 Add `showSetup` to the Props type:
 
 ```typescript
 type Props = {
-  // ...existing fields
-  showSetup?: boolean;
+	// ...existing fields
+	showSetup?: boolean;
 };
 ```
 
@@ -1045,6 +1125,7 @@ git commit -m "feat(app): add setup AppPhase with SetupWizard rendering"
 ### Task 10: Add first-run detection and `setup` subcommand to cli.tsx
 
 **Files:**
+
 - Modify: `source/cli.tsx`
 
 **Step 1: Add first-run detection**
@@ -1054,9 +1135,9 @@ After line 119 (after `readGlobalConfig()`), add:
 ```typescript
 // Detect first run or 'setup' subcommand
 const isSetupCommand = cli.input[0] === 'setup';
-const isFirstRun = !globalConfig.setupComplete && !fs.existsSync(
-  path.join(os.homedir(), '.config', 'athena', 'config.json'),
-);
+const isFirstRun =
+	!globalConfig.setupComplete &&
+	!fs.existsSync(path.join(os.homedir(), '.config', 'athena', 'config.json'));
 const showSetup = isSetupCommand || isFirstRun;
 ```
 
@@ -1072,7 +1153,7 @@ import os from 'node:os';
 At the `render(<App ...>)` call (around line 224), add:
 
 ```typescript
-showSetup={showSetup}
+showSetup = {showSetup};
 ```
 
 **Step 3: Run typecheck and lint**
@@ -1092,6 +1173,7 @@ git commit -m "feat(cli): add first-run detection and setup subcommand"
 ### Task 11: Create `/setup` slash command
 
 **Files:**
+
 - Create: `source/commands/builtins/setup.ts`
 - Modify: `source/commands/builtins/index.ts`
 
@@ -1101,14 +1183,14 @@ git commit -m "feat(cli): add first-run detection and setup subcommand"
 import {type UICommand} from '../types.js';
 
 const setup: UICommand = {
-  name: 'setup',
-  description: 'Re-run the setup wizard',
-  category: 'ui',
-  execute: (ctx) => {
-    // Signal the App to transition to setup phase.
-    // We use showSessions() pattern — add showSetup() to UICommandContext.
-    ctx.showSetup();
-  },
+	name: 'setup',
+	description: 'Re-run the setup wizard',
+	category: 'ui',
+	execute: ctx => {
+		// Signal the App to transition to setup phase.
+		// We use showSessions() pattern — add showSetup() to UICommandContext.
+		ctx.showSetup();
+	},
 };
 
 export default setup;
@@ -1120,8 +1202,8 @@ In `source/commands/types.ts`, add to `UICommandContext`:
 
 ```typescript
 export type UICommandContext = {
-  // ...existing fields
-  showSetup: () => void;
+	// ...existing fields
+	showSetup: () => void;
 };
 ```
 
@@ -1213,10 +1295,12 @@ git commit -m "fix: address lint and test issues from setup wizard integration"
 **Step 1: Test first-run**
 
 Delete global config to simulate first run:
+
 ```bash
 mv ~/.config/athena/config.json ~/.config/athena/config.json.bak
 npm run start
 ```
+
 Expected: Setup wizard launches automatically
 
 **Step 2: Test subcommand**
@@ -1224,6 +1308,7 @@ Expected: Setup wizard launches automatically
 ```bash
 npm run build && node dist/cli.js setup
 ```
+
 Expected: Setup wizard launches
 
 **Step 3: Restore config**

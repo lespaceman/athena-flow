@@ -18,8 +18,6 @@ export type SessionStoreOptions = {
 };
 
 export type SessionStore = {
-	recordRuntimeEvent(event: RuntimeEvent): void;
-	recordFeedEvents(runtimeEventId: string, feedEvents: FeedEvent[]): void;
 	/** Atomically records a runtime event and its derived feed events in a single transaction. */
 	recordEvent(event: RuntimeEvent, feedEvents: FeedEvent[]): void;
 	restore(): StoredSession;
@@ -106,27 +104,6 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		updateSessionTimestamp.run(event.timestamp, opts.sessionId);
 	}
 
-	function recordFeedEvents(
-		runtimeEventId: string,
-		feedEvents: FeedEvent[],
-	): void {
-		const insertMany = db.transaction(() => {
-			for (const fe of feedEvents) {
-				insertFeedEvent.run(
-					fe.event_id,
-					runtimeEventId,
-					fe.seq,
-					fe.kind,
-					fe.run_id,
-					fe.actor_id,
-					fe.ts,
-					JSON.stringify(fe),
-				);
-			}
-		});
-		insertMany();
-	}
-
 	const recordEventAtomic = db.transaction(
 		(event: RuntimeEvent, feedEvents: FeedEvent[]) => {
 			recordRuntimeEvent(event);
@@ -211,7 +188,40 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 	}
 
 	function getAthenaSession(): AthenaSession {
-		return restore().session;
+		const sessionRow = db
+			.prepare('SELECT * FROM session WHERE id = ?')
+			.get(opts.sessionId) as
+			| {
+					id: string;
+					project_dir: string;
+					created_at: number;
+					updated_at: number;
+					label: string | null;
+			  }
+			| undefined;
+
+		const adapterRows = db
+			.prepare('SELECT session_id FROM adapter_sessions ORDER BY started_at')
+			.all() as {session_id: string}[];
+
+		if (!sessionRow) {
+			return {
+				id: opts.sessionId,
+				projectDir: opts.projectDir,
+				createdAt: now,
+				updatedAt: now,
+				adapterSessionIds: adapterRows.map(r => r.session_id),
+			};
+		}
+
+		return {
+			id: sessionRow.id,
+			projectDir: sessionRow.project_dir,
+			createdAt: sessionRow.created_at,
+			updatedAt: sessionRow.updated_at,
+			label: sessionRow.label ?? undefined,
+			adapterSessionIds: adapterRows.map(r => r.session_id),
+		};
 	}
 
 	function updateLabel(label: string): void {
@@ -226,8 +236,6 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 	}
 
 	return {
-		recordRuntimeEvent,
-		recordFeedEvents,
 		recordEvent,
 		restore,
 		getAthenaSession,

@@ -1,5 +1,4 @@
 import React, {createContext, useContext, useMemo} from 'react';
-import fs from 'node:fs';
 import path from 'node:path';
 import {useFeed} from '../hooks/useFeed.js';
 import {createClaudeHookRuntime} from '../runtime/adapters/claudeHooks/index.js';
@@ -25,15 +24,15 @@ export function HookProvider({
 		[projectDir, instanceId],
 	);
 
-	const sessionStore = useMemo(() => {
-		const dir = path.join(sessionsDir(), athenaSessionId);
-		fs.mkdirSync(dir, {recursive: true});
-		return createSessionStore({
-			sessionId: athenaSessionId,
-			projectDir,
-			dbPath: path.join(dir, 'session.db'),
-		});
-	}, [athenaSessionId, projectDir]);
+	const sessionStore = useMemo(
+		() =>
+			createSessionStore({
+				sessionId: athenaSessionId,
+				projectDir,
+				dbPath: path.join(sessionsDir(), athenaSessionId, 'session.db'),
+			}),
+		[athenaSessionId, projectDir],
+	);
 
 	const hookServer = useFeed(runtime, [], allowedTools, sessionStore);
 

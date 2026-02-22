@@ -9,16 +9,16 @@ Replace the current bracket-glyph TODO panel (`[x]`, `[>]`, `[ ]`) with a Unicod
 
 ## Glyphs
 
-| Status       | Unicode | ASCII | Color (when available) |
-|-------------|---------|-------|----------------------|
-| In progress | `⟳`    | `~`   | Cyan                 |
-| Todo        | `○`    | `-`   | Default foreground   |
-| Done        | `✓`    | `x`   | Dim gray (whole line)|
-| Blocked     | `○`    | `-`   | Same as todo         |
-| Caret       | `▶`    | `>`   | Cyan (bright)        |
-| Divider     | `─` repeated | `-` repeated | Dim          |
-| Scroll up   | `▲`    | `^`   | Dim                  |
-| Scroll down | `▼`    | `v`   | Dim                  |
+| Status      | Unicode      | ASCII        | Color (when available) |
+| ----------- | ------------ | ------------ | ---------------------- |
+| In progress | `⟳`          | `~`          | Cyan                   |
+| Todo        | `○`          | `-`          | Default foreground     |
+| Done        | `✓`          | `x`          | Dim gray (whole line)  |
+| Blocked     | `○`          | `-`          | Same as todo           |
+| Caret       | `▶`          | `>`          | Cyan (bright)          |
+| Divider     | `─` repeated | `-` repeated | Dim                    |
+| Scroll up   | `▲`          | `^`          | Dim                    |
+| Scroll down | `▼`          | `v`          | Dim                    |
 
 ## Header
 
@@ -56,6 +56,7 @@ Always: in_progress → todo/blocked → done. Blocked items render identically 
 ## ASCII Detection
 
 Unicode is default. Fall back to ASCII when:
+
 - `--ascii` CLI flag is set
 - `NO_COLOR` env var is set
 - Non-UTF-8 locale detected

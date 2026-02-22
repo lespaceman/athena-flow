@@ -49,7 +49,7 @@ describe('SessionStore', () => {
 		});
 
 		const rtEvent = makeRuntimeEvent({id: 'rt-1', sessionId: 'cs-1'});
-		store.recordRuntimeEvent(rtEvent);
+		store.recordEvent(rtEvent, []);
 
 		const restored = store.restore();
 		expect(restored.session.id).toBe('s1');
@@ -64,11 +64,9 @@ describe('SessionStore', () => {
 		});
 
 		const rtEvent = makeRuntimeEvent({id: 'rt-2'});
-		store.recordRuntimeEvent(rtEvent);
-
 		const fe1 = makeFeedEvent({event_id: 'run1:E1', seq: 1});
 		const fe2 = makeFeedEvent({event_id: 'run1:E2', seq: 2});
-		store.recordFeedEvents('rt-2', [fe1, fe2]);
+		store.recordEvent(rtEvent, [fe1, fe2]);
 
 		const restored = store.restore();
 		expect(restored.feedEvents).toHaveLength(2);
@@ -83,14 +81,17 @@ describe('SessionStore', () => {
 			dbPath: ':memory:',
 		});
 
-		store.recordRuntimeEvent(
+		store.recordEvent(
 			makeRuntimeEvent({id: 'rt-a', sessionId: 'adapter-1'}),
+			[],
 		);
-		store.recordRuntimeEvent(
+		store.recordEvent(
 			makeRuntimeEvent({id: 'rt-b', sessionId: 'adapter-1'}),
+			[],
 		);
-		store.recordRuntimeEvent(
+		store.recordEvent(
 			makeRuntimeEvent({id: 'rt-c', sessionId: 'adapter-2'}),
+			[],
 		);
 
 		const restored = store.restore();
@@ -110,8 +111,8 @@ describe('SessionStore', () => {
 
 		const t1 = 1000;
 		const t2 = 2000;
-		store.recordRuntimeEvent(makeRuntimeEvent({id: 'r1', timestamp: t1}));
-		store.recordRuntimeEvent(makeRuntimeEvent({id: 'r2', timestamp: t2}));
+		store.recordEvent(makeRuntimeEvent({id: 'r1', timestamp: t1}), []);
+		store.recordEvent(makeRuntimeEvent({id: 'r2', timestamp: t2}), []);
 
 		const restored = store.restore();
 		expect(restored.session.updatedAt).toBe(t2);

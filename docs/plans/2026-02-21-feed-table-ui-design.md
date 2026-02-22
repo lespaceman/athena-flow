@@ -13,17 +13,20 @@
 ## 1. Header — Single Line, Compressed
 
 **Before (2 lines):**
+
 ```
 ATHENA   Workflow: default   Harness: claude        ● IDLE
 Session ID: abc123…def456         Context ███░░░ 29k/200k
 ```
 
 **After (1 line):**
+
 ```
 ATHENA FLOW   Workflow: default   Harness: claude   S: a1b2…f456   Ctx: 29k/200k
 ```
 
 Changes:
+
 - Rename `ATHENA` → `ATHENA FLOW` (bold)
 - Remove status badge (● IDLE / ● ACTIVE / ● ERROR) entirely
 - Replace context progress bar (`███░░░`) with plain text `Ctx: 29k/200k`
@@ -32,6 +35,7 @@ Changes:
 - Token drop priority: Session ID (lowest) → Harness → Workflow → ATHENA FLOW (never dropped)
 
 **Files:**
+
 - `source/utils/renderHeaderLines.ts` — rewrite to return `[string]`, remove `renderContextBar` import, add plain-text context format
 - `source/utils/renderHeaderLines.test.ts` — update all tests for single-line output
 - `source/app.tsx` L656-657 — remove second `frameLine(headerLine2)` render
@@ -48,6 +52,7 @@ When tools have 5+ arguments, silently dropping all but 2 loses context.
 Two or fewer entries: no change.
 
 **Files:**
+
 - `source/utils/format.ts` — modify `summarizeToolInput()` at L95
 - `source/utils/format.test.ts` — add tests for overflow indicator
 
@@ -60,12 +65,14 @@ Raw MCP names like `mcp__plugin_web-testing-toolkit_agent-web-interface__navigat
 Uses existing `parseToolName()` from `source/utils/toolNameParser.ts`.
 
 New helper `formatToolSummary(toolName, args, errorSuffix?)`:
+
 - MCP tools: `[agent-web-interface] navigate {url: https://...}`
 - Built-in tools: `Read file_path="/foo.ts"` (unchanged)
 
 Applies to `eventSummary()` cases: `tool.pre`, `tool.post`, `tool.failure`, `permission.request`.
 
 **Files:**
+
 - `source/feed/timeline.ts` — add import of `parseToolName`, add `formatToolSummary()` helper, update 4 `eventSummary()` cases
 - `source/feed/timeline.test.ts` — add tests for MCP and non-MCP tool summaries
 
@@ -75,20 +82,22 @@ Applies to `eventSummary()` cases: `tool.pre`, `tool.post`, `tool.failure`, `per
 
 The OP column (10-char fixed width) gets category-based coloring, separate from actor coloring on the rest of the row.
 
-| OP prefix | Color | Theme key |
-|---|---|---|
-| `tool.*` | amber | `status.warning` |
-| `perm.*` | purple | `accentSecondary` |
-| `stop.*` | cyan | `status.info` |
-| `run.*`, `sess.*` | gray | `textMuted` |
-| error OPs | red | `status.error` |
+| OP prefix         | Color  | Theme key         |
+| ----------------- | ------ | ----------------- |
+| `tool.*`          | amber  | `status.warning`  |
+| `perm.*`          | purple | `accentSecondary` |
+| `stop.*`          | cyan   | `status.info`     |
+| `run.*`, `sess.*` | gray   | `textMuted`       |
+| error OPs         | red    | `status.error`    |
 
 **Rules:**
+
 - Focused row: inverse accent on entire line (no OP color) — existing behavior
 - Error row: red overrides OP color — existing behavior
 - Missing `op` field: no OP coloring (backward compat)
 
 **Files:**
+
 - `source/feed/timeline.ts` — export column position constants (`FEED_OP_COL_START=6`, `FEED_OP_COL_END=16`)
 - `source/feed/feedLineStyle.ts` — add `op?: string` to `FeedLineStyleOptions`, add `opCategoryColor()`, refactor `styleFeedLine()` to color OP segment separately
 - `source/feed/feedLineStyle.test.ts` — add tests for OP category coloring
@@ -100,13 +109,14 @@ The OP column (10-char fixed width) gets category-based coloring, separate from 
 
 Three event kinds currently fall through to `default: 'event'` in `eventOperation()`. Add explicit cases:
 
-| Event kind | OP code | `eventSummary()` format |
-|---|---|---|
-| `teammate.idle` | `tm.idle` | `"<teammate_name> idle in <team_name>"` |
-| `task.completed` | `task.ok` | `"<task_subject>"` |
-| `config.change` | `cfg.chg` | `"<source> <file_path>"` |
+| Event kind       | OP code   | `eventSummary()` format                 |
+| ---------------- | --------- | --------------------------------------- |
+| `teammate.idle`  | `tm.idle` | `"<teammate_name> idle in <team_name>"` |
+| `task.completed` | `task.ok` | `"<task_subject>"`                      |
+| `config.change`  | `cfg.chg` | `"<source> <file_path>"`                |
 
 **Files:**
+
 - `source/feed/timeline.ts` — add 3 cases to `eventOperation()` and `eventSummary()`
 - `source/feed/timeline.test.ts` — add tests for each new event kind
 
@@ -127,5 +137,6 @@ Action:    scroll_element_into_view
 Non-MCP tools: keep current `● ToolName` format (unchanged).
 
 **Files:**
+
 - `source/utils/renderDetailLines.ts` — add `buildToolHeader()` helper using `parseToolName()`, update `renderToolPre()` and `renderToolPost()`
 - `source/utils/renderDetailLines.test.ts` — add tests for MCP and non-MCP detail headers

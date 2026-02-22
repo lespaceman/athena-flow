@@ -19,16 +19,17 @@ An **athena session** is a persistent container with its own ID, independent of 
 
 ```typescript
 type AthenaSession = {
-  id: string                     // nanoid or UUID
-  projectDir: string             // project this session belongs to
-  createdAt: number              // epoch ms
-  updatedAt: number              // last event timestamp
-  label?: string                 // user-provided name
-  adapterSessionIds: string[]    // Claude session_ids within this athena session
-}
+	id: string; // nanoid or UUID
+	projectDir: string; // project this session belongs to
+	createdAt: number; // epoch ms
+	updatedAt: number; // last event timestamp
+	label?: string; // user-provided name
+	adapterSessionIds: string[]; // Claude session_ids within this athena session
+};
 ```
 
 **Lifecycle:**
+
 - **Create**: `athena` without `--continue` → new session, new SQLite DB
 - **Continue**: `athena --continue [id]` → load existing session, replay events, accept new adapter events
 - **List**: `athena --sessions` → show athena sessions with metadata
@@ -64,23 +65,23 @@ Restore:
 
 ```typescript
 type SessionStore = {
-  // Runtime-compatible (decorates underlying Runtime)
-  start(): void
-  stop(): void
-  onEvent(handler: RuntimeEventHandler): () => void
-  sendDecision(eventId: string, decision: RuntimeDecision): void
+	// Runtime-compatible (decorates underlying Runtime)
+	start(): void;
+	stop(): void;
+	onEvent(handler: RuntimeEventHandler): () => void;
+	sendDecision(eventId: string, decision: RuntimeDecision): void;
 
-  // Session operations
-  getAthenaSession(): AthenaSession
-  recordFeedEvents(runtimeEventId: string, feedEvents: FeedEvent[]): void
-  restore(): StoredSession
-}
+	// Session operations
+	getAthenaSession(): AthenaSession;
+	recordFeedEvents(runtimeEventId: string, feedEvents: FeedEvent[]): void;
+	restore(): StoredSession;
+};
 
 type StoredSession = {
-  session: AthenaSession
-  feedEvents: FeedEvent[]
-  adapterSessions: AdapterSessionRecord[]
-}
+	session: AthenaSession;
+	feedEvents: FeedEvent[];
+	adapterSessions: AdapterSessionRecord[];
+};
 ```
 
 ### Why SessionStore never calls the mapper
@@ -141,6 +142,7 @@ CREATE INDEX idx_runtime_seq ON runtime_events(seq);
 ```
 
 **Dual storage rationale:**
+
 - `runtime_events` is the immutable log — if FeedEvent schema evolves, re-derive from raw payloads
 - `feed_events` enables fast restore without replaying through the mapper
 - `runtime_event_id` foreign key maintains traceability
@@ -155,7 +157,7 @@ CREATE INDEX idx_runtime_seq ON runtime_events(seq);
 
 ```typescript
 // New signature
-function useFeed(runtime: Runtime, sessionStore?: SessionStore): UseFeedResult
+function useFeed(runtime: Runtime, sessionStore?: SessionStore): UseFeedResult;
 ```
 
 - **On mount (restore):** If sessionStore has stored events, hydrate feedEvents directly and bootstrap mapper via `createFeedMapper(stored)`
@@ -166,7 +168,7 @@ function useFeed(runtime: Runtime, sessionStore?: SessionStore): UseFeedResult
 
 ```typescript
 // New signature
-function createFeedMapper(stored?: StoredSession): FeedMapper
+function createFeedMapper(stored?: StoredSession): FeedMapper;
 ```
 
 When `stored` is provided, initializes internal state (currentSession, currentRun, actors, seq counters) from last known values so new live events get correct sequence numbers and actor attribution.
@@ -177,11 +179,11 @@ Creates `SessionStore` alongside `Runtime`:
 
 ```typescript
 const sessionStore = useMemo(() => {
-  if (athenaSessionId) {
-    return createSessionStore(athenaSessionId, projectDir)
-  }
-  return createSessionStore(generateId(), projectDir)
-}, [athenaSessionId, projectDir])
+	if (athenaSessionId) {
+		return createSessionStore(athenaSessionId, projectDir);
+	}
+	return createSessionStore(generateId(), projectDir);
+}, [athenaSessionId, projectDir]);
 ```
 
 ### cli.tsx
@@ -192,13 +194,13 @@ const sessionStore = useMemo(() => {
 
 ## CLI Surface
 
-| Flag | Behavior |
-|------|----------|
-| `athena` | Creates a new athena session |
-| `athena --continue` | Resumes most recent athena session for current project |
-| `athena --continue <id>` | Resumes specific athena session by ID |
-| `athena --sessions` | Lists athena sessions with metadata |
-| `athena --label "name"` | Sets a label on the current session |
+| Flag                     | Behavior                                               |
+| ------------------------ | ------------------------------------------------------ |
+| `athena`                 | Creates a new athena session                           |
+| `athena --continue`      | Resumes most recent athena session for current project |
+| `athena --continue <id>` | Resumes specific athena session by ID                  |
+| `athena --sessions`      | Lists athena sessions with metadata                    |
+| `athena --label "name"`  | Sets a label on the current session                    |
 
 ## Module Structure
 

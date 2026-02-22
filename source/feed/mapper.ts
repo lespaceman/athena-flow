@@ -43,9 +43,13 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 		runSeq = runIds.size;
 
 		// Reconstruct session from last session.start event
-		const lastSessionStart = [...stored.feedEvents]
-			.reverse()
-			.find(e => e.kind === 'session.start');
+		let lastSessionStart: FeedEvent | undefined;
+		for (let i = stored.feedEvents.length - 1; i >= 0; i--) {
+			if (stored.feedEvents[i]!.kind === 'session.start') {
+				lastSessionStart = stored.feedEvents[i];
+				break;
+			}
+		}
 		if (lastSessionStart) {
 			const d = lastSessionStart.data as Record<string, unknown>;
 			currentSession = {

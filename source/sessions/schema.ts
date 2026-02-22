@@ -58,9 +58,9 @@ export function initSchema(db: Database.Database): void {
 	`);
 
 	// Upsert schema version
-	const existing = db
-		.prepare('SELECT version FROM schema_version')
-		.get() as {version: number} | undefined;
+	const existing = db.prepare('SELECT version FROM schema_version').get() as
+		| {version: number}
+		| undefined;
 	if (!existing) {
 		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
 			SCHEMA_VERSION,

@@ -4,7 +4,7 @@ export type {
 	AdapterSessionRecord,
 	StoredSession,
 } from './types.js';
-export type {SessionStore, SessionStoreOptions} from './store.js';
+export type {SessionStore} from './store.js';
 
 // Factories
 export {createSessionStore} from './store.js';

@@ -13,16 +13,16 @@ A plugin can include a `workflow.json` at its root directory (alongside `.claude
 
 ```json
 {
-  "name": "e2e-test-builder",
-  "description": "Iterative E2E test coverage builder",
-  "promptTemplate": "Use /add-e2e-tests {input}",
-  "loop": {
-    "enabled": true,
-    "completionPromise": "E2E COMPLETE",
-    "maxIterations": 15
-  },
-  "isolation": "minimal",
-  "requiredPlugins": ["ralph-loop"]
+	"name": "e2e-test-builder",
+	"description": "Iterative E2E test coverage builder",
+	"promptTemplate": "Use /add-e2e-tests {input}",
+	"loop": {
+		"enabled": true,
+		"completionPromise": "E2E COMPLETE",
+		"maxIterations": 15
+	},
+	"isolation": "minimal",
+	"requiredPlugins": ["ralph-loop"]
 }
 ```
 
@@ -50,9 +50,10 @@ Matches what ralph-loop's Stop hook expects:
 active: true
 iteration: 0
 max_iterations: 15
-completion_promise: "E2E COMPLETE"
-started_at: "2026-02-22T10:30:00Z"
+completion_promise: 'E2E COMPLETE'
+started_at: '2026-02-22T10:30:00Z'
 ---
+
 Use /add-e2e-tests login flow on xyz.com
 ```
 
@@ -141,18 +142,18 @@ user types "login flow on xyz.com"
 
 ## File Changes
 
-| File | Change |
-|------|--------|
-| `source/workflows/types.ts` | **New** — `WorkflowConfig` type |
-| `source/workflows/applyWorkflow.ts` | **New** — `applyPromptTemplate()`, `writeLoopState()`, `removeLoopState()` |
-| `source/workflows/index.ts` | **New** — barrel export |
-| `source/plugins/register.ts` | **Modify** — discover `workflow.json` in plugin dirs, return alongside MCP config |
-| `source/plugins/types.ts` | **Modify** — add `WorkflowConfig` to registration result |
-| `source/plugins/index.ts` | **Modify** — re-export workflow types |
-| `source/cli.tsx` | **Modify** — receive workflows from `registerPlugins()`, select active workflow, validate required plugins, override isolation, pass to `App` |
-| `source/app.tsx` | **Modify** — accept workflow prop, auto-set `workflowRef`, pass to `useClaudeProcess` |
-| `source/hooks/useClaudeProcess.ts` | **Modify** — accept workflow, apply template + write state before spawn, cleanup on kill |
-| e2e-test-builder plugin | **Modify** — add `workflow.json` to plugin root |
+| File                                | Change                                                                                                                                        |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source/workflows/types.ts`         | **New** — `WorkflowConfig` type                                                                                                               |
+| `source/workflows/applyWorkflow.ts` | **New** — `applyPromptTemplate()`, `writeLoopState()`, `removeLoopState()`                                                                    |
+| `source/workflows/index.ts`         | **New** — barrel export                                                                                                                       |
+| `source/plugins/register.ts`        | **Modify** — discover `workflow.json` in plugin dirs, return alongside MCP config                                                             |
+| `source/plugins/types.ts`           | **Modify** — add `WorkflowConfig` to registration result                                                                                      |
+| `source/plugins/index.ts`           | **Modify** — re-export workflow types                                                                                                         |
+| `source/cli.tsx`                    | **Modify** — receive workflows from `registerPlugins()`, select active workflow, validate required plugins, override isolation, pass to `App` |
+| `source/app.tsx`                    | **Modify** — accept workflow prop, auto-set `workflowRef`, pass to `useClaudeProcess`                                                         |
+| `source/hooks/useClaudeProcess.ts`  | **Modify** — accept workflow, apply template + write state before spawn, cleanup on kill                                                      |
+| e2e-test-builder plugin             | **Modify** — add `workflow.json` to plugin root                                                                                               |
 
 ### Not changed
 

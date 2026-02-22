@@ -8,21 +8,23 @@ Add a first-run setup wizard to athena-cli that guides users through theme selec
 
 ## Triggers
 
-| Trigger | Detection | Behavior |
-|---------|-----------|----------|
-| First run | No `~/.config/athena/config.json` OR `setupComplete !== true` | Auto-launch setup before main app |
-| `athena-cli setup` | `cli.input[0] === 'setup'` | Force setup regardless of config state |
-| `/setup` command | Skill invocation inside running session | Phase transition back to `setup`, return to `main` on completion |
+| Trigger            | Detection                                                     | Behavior                                                         |
+| ------------------ | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| First run          | No `~/.config/athena/config.json` OR `setupComplete !== true` | Auto-launch setup before main app                                |
+| `athena-cli setup` | `cli.input[0] === 'setup'`                                    | Force setup regardless of config state                           |
+| `/setup` command   | Skill invocation inside running session                       | Phase transition back to `setup`, return to `main` on completion |
 
 ## Wizard Steps
 
 ### Step 1: Theme Selection
+
 - Arrow-key selection: Dark / Light
 - Apply theme immediately in wizard UI as preview
 - **Verification:** Theme object resolves → ✓
 - Writes `theme` to partial config
 
 ### Step 2: Harness Verification
+
 - Options: "Claude Code" (selectable), "Codex (coming soon)" (disabled)
 - On selecting Claude Code: run `detectClaudeVersion()`
   - Success → ✓ "Claude Code v{version} detected"
@@ -30,6 +32,7 @@ Add a first-run setup wizard to athena-cli that guides users through theme selec
 - Writes `harness: 'claude-code'` to partial config
 
 ### Step 3: Workflow Installation
+
 - Options: "e2e-test-builder" (selectable), "bug-triage (coming soon)" (disabled), "None — skip"
 - On selecting e2e-test-builder:
   - Run marketplace install flow programmatically (clone → read marketplace.json → copy workflow.json to registry)
@@ -39,6 +42,7 @@ Add a first-run setup wizard to athena-cli that guides users through theme selec
 - Writes `workflow` to partial config
 
 ### Completion
+
 - Show summary of all choices
 - Merge partial config → write to `~/.config/athena/config.json`
 - Set `setupComplete: true`
@@ -47,6 +51,7 @@ Add a first-run setup wizard to athena-cli that guides users through theme selec
 ## Step State Machine
 
 Each step follows:
+
 ```
 idle → selecting → verifying → success | error
                                          ↓
@@ -77,9 +82,9 @@ source/
 
 ```typescript
 type AthenaConfig = {
-  // ...existing fields
-  setupComplete?: boolean;
-  harness?: 'claude-code' | 'codex';
+	// ...existing fields
+	setupComplete?: boolean;
+	harness?: 'claude-code' | 'codex';
 };
 ```
 

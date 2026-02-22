@@ -13,6 +13,7 @@
 ### Task 1: Add `--ascii` CLI flag and ascii mode detection
 
 **Files:**
+
 - Modify: `source/cli.tsx:66-98` (add flag)
 - Modify: `source/app.tsx:38-50` (add prop), `source/app.tsx:577` (compute ascii)
 
@@ -64,6 +65,7 @@ git commit -m "feat(todo): add --ascii CLI flag and ascii mode detection"
 ### Task 2: Redesign glyph function with Unicode/ASCII variants
 
 **Files:**
+
 - Modify: `source/feed/todoPanel.ts`
 - Modify: `source/feed/todoPanel.test.ts`
 
@@ -119,18 +121,27 @@ Expected: FAIL — functions not defined
 In `source/feed/todoPanel.ts`, replace `symbolForTodoStatus` and add new exports:
 
 ```typescript
-export function glyphForTodoStatus(status: TodoPanelStatus, ascii = false): string {
+export function glyphForTodoStatus(
+	status: TodoPanelStatus,
+	ascii = false,
+): string {
 	if (ascii) {
 		switch (status) {
-			case 'doing': return '~';
-			case 'done': return 'x';
-			default: return '-'; // open, blocked
+			case 'doing':
+				return '~';
+			case 'done':
+				return 'x';
+			default:
+				return '-'; // open, blocked
 		}
 	}
 	switch (status) {
-		case 'doing': return '⟳';
-		case 'done': return '✓';
-		default: return '○'; // open, blocked
+		case 'doing':
+			return '⟳';
+		case 'done':
+			return '✓';
+		default:
+			return '○'; // open, blocked
 	}
 }
 
@@ -170,6 +181,7 @@ git commit -m "feat(todo): add Unicode/ASCII glyph functions for todo panel"
 ### Task 3: Add sorted items to useTodoPanel
 
 **Files:**
+
 - Modify: `source/hooks/useTodoPanel.ts`
 
 **Step 1: Add `sortedItems` computed property**
@@ -222,6 +234,7 @@ git commit -m "feat(todo): sort items doing→open→done and expose remainingCo
 ### Task 4: Redesign buildBodyLines TODO rendering
 
 **Files:**
+
 - Modify: `source/utils/buildBodyLines.ts`
 - Modify: `source/utils/buildBodyLines.ts` — update `TodoViewState` type
 
@@ -251,14 +264,24 @@ Replace lines 127-146 with the new rendering logic:
 
 ```typescript
 if (actualTodoRows > 0) {
-	const {todoScroll: tScroll, todoCursor: tCursor, remainingCount, visibleTodoItems: items} = tp;
+	const {
+		todoScroll: tScroll,
+		todoCursor: tCursor,
+		remainingCount,
+		visibleTodoItems: items,
+	} = tp;
 	const ascii = todo.ascii;
 
 	// Header line: "TODO" left, "N remaining" right
 	const headerLeft = 'TODO';
 	const headerRight = `${remainingCount} remaining`;
-	const headerGap = Math.max(1, innerWidth - headerLeft.length - headerRight.length);
-	bodyLines.push(fit(`${headerLeft}${' '.repeat(headerGap)}${headerRight}`, innerWidth));
+	const headerGap = Math.max(
+		1,
+		innerWidth - headerLeft.length - headerRight.length,
+	);
+	bodyLines.push(
+		fit(`${headerLeft}${' '.repeat(headerGap)}${headerRight}`, innerWidth),
+	);
 
 	const itemSlots = actualTodoRows - 2; // minus header and divider
 	const totalItems = items.length;
@@ -285,15 +308,18 @@ if (actualTodoRows > 0) {
 		const glyph = glyphForTodoStatus(item.status, ascii);
 		const prefix = `${caret} ${glyph}  `;
 		const maxTitleWidth = innerWidth - prefix.length;
-		const title = maxTitleWidth > 3
-			? fitAnsi(item.text, maxTitleWidth).trimEnd()
-			: item.text.slice(0, Math.max(1, maxTitleWidth));
+		const title =
+			maxTitleWidth > 3
+				? fitAnsi(item.text, maxTitleWidth).trimEnd()
+				: item.text.slice(0, Math.max(1, maxTitleWidth));
 		bodyLines.push(fit(`${prefix}${title}`, innerWidth));
 	}
 
 	if (hasScrollDown) {
 		const moreCount = totalItems - (tScroll + renderSlots);
-		bodyLines.push(fit(`${todoScrollDown(ascii)}  +${moreCount} more`, innerWidth));
+		bodyLines.push(
+			fit(`${todoScrollDown(ascii)}  +${moreCount} more`, innerWidth),
+		);
 	}
 
 	// Divider line
@@ -306,6 +332,7 @@ Update imports at top of file: replace `symbolForTodoStatus` import with `glyphF
 **Step 3: Update app.tsx to pass new fields**
 
 In the `buildBodyLines` call in `source/app.tsx`, update the `todo` object to match the new `TodoViewState`:
+
 - Add `ascii: useAscii`
 - Add `remainingCount` from todoPanel
 - Remove `runLabel`, `todoShowDone`, and the individual count fields
@@ -332,6 +359,7 @@ git commit -m "feat(todo): redesign TODO panel with Unicode glyphs, scroll affor
 ### Task 5: Update useLayout for space-aware done-dropping
 
 **Files:**
+
 - Modify: `source/hooks/useLayout.ts`
 
 **Step 1: Make TODO panel height dynamic**
@@ -362,6 +390,7 @@ git commit -m "feat(todo): dynamic panel height with generous max for scroll"
 ### Task 6: Remove old symbolForTodoStatus and clean up
 
 **Files:**
+
 - Modify: `source/feed/todoPanel.ts` (remove `symbolForTodoStatus`)
 - Modify: `source/utils/buildBodyLines.ts` (remove old import if still present)
 - Modify: `source/feed/todoPanel.test.ts` (remove old test)
@@ -402,6 +431,7 @@ Expected: PASS
 **Step 2: Manual smoke test**
 
 Run: `npm run start` and verify:
+
 - TODO panel renders with Unicode glyphs (`⟳`, `○`, `✓`, `▶`)
 - Header shows `TODO  N remaining`
 - Items sorted: in-progress first, then todo, then done (dim)

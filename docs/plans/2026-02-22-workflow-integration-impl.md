@@ -15,6 +15,7 @@
 ### Task 1: WorkflowConfig Type
 
 **Files:**
+
 - Create: `source/workflows/types.ts`
 
 **Step 1: Write the type file**
@@ -67,6 +68,7 @@ git commit -m "feat(workflows): add WorkflowConfig type and barrel export"
 ### Task 2: Workflow Application Utilities — Tests
 
 **Files:**
+
 - Create: `source/workflows/applyWorkflow.test.ts`
 
 **Step 1: Write failing tests**
@@ -121,9 +123,9 @@ describe('applyPromptTemplate', () => {
 	});
 
 	it('replaces only the first {input} occurrence', () => {
-		expect(
-			applyPromptTemplate('{input} and {input}', 'hello'),
-		).toBe('hello and {input}');
+		expect(applyPromptTemplate('{input} and {input}', 'hello')).toBe(
+			'hello and {input}',
+		);
 	});
 });
 
@@ -207,6 +209,7 @@ git commit -m "test(workflows): add failing tests for applyWorkflow utilities"
 ### Task 3: Workflow Application Utilities — Implementation
 
 **Files:**
+
 - Create: `source/workflows/applyWorkflow.ts`
 
 **Step 1: Implement the utilities**
@@ -298,6 +301,7 @@ git commit -m "feat(workflows): implement applyPromptTemplate, writeLoopState, r
 ### Task 4: Workflow Discovery in Plugin Registration — Tests
 
 **Files:**
+
 - Modify: `source/plugins/__tests__/register.test.ts` (or create if doesn't exist)
 
 Check if `register.test.ts` exists first. If it does, add tests. If not, create a new test file.
@@ -305,6 +309,7 @@ Check if `register.test.ts` exists first. If it does, add tests. If not, create 
 **Step 1: Write failing test for workflow discovery**
 
 Add a test that verifies `registerPlugins()` returns discovered workflows. The test should:
+
 - Set up a mock plugin dir with a `workflow.json`
 - Call `registerPlugins()`
 - Assert the returned object includes `workflows` array with the parsed config
@@ -329,6 +334,7 @@ git commit -m "test(plugins): add failing test for workflow discovery in registe
 ### Task 5: Workflow Discovery in Plugin Registration — Implementation
 
 **Files:**
+
 - Modify: `source/plugins/register.ts`
 - Modify: `source/plugins/index.ts`
 
@@ -388,17 +394,20 @@ git commit -m "feat(plugins): discover workflow.json during plugin registration"
 ### Task 6: Wire Workflow into cli.tsx
 
 **Files:**
+
 - Modify: `source/cli.tsx:119-143`
 
 **Step 1: Update the `registerPlugins()` call site**
 
 Current code (line 124-125):
+
 ```typescript
 const pluginMcpConfig =
 	pluginDirs.length > 0 ? registerPlugins(pluginDirs) : undefined;
 ```
 
 Change to:
+
 ```typescript
 const pluginResult =
 	pluginDirs.length > 0
@@ -494,6 +503,7 @@ git commit -m "feat(cli): wire workflow discovery, selection, and isolation over
 ### Task 7: Pass Workflow Through App to useClaudeProcess
 
 **Files:**
+
 - Modify: `source/app.tsx:39-52` (Props type)
 - Modify: `source/app.tsx:88-106` (AppContent params)
 - Modify: `source/app.tsx:696-774` (App component — pass workflow through)
@@ -539,7 +549,7 @@ const {
 	isolation,
 	pluginMcpConfig,
 	verbose,
-	workflow,  // new parameter
+	workflow, // new parameter
 );
 ```
 
@@ -574,6 +584,7 @@ git commit -m "feat(app): thread workflow prop through App to useClaudeProcess"
 ### Task 8: Apply Workflow in useClaudeProcess
 
 **Files:**
+
 - Modify: `source/hooks/useClaudeProcess.ts:60-66` (function signature)
 - Modify: `source/hooks/useClaudeProcess.ts:113-149` (spawn callback)
 - Modify: `source/hooks/useClaudeProcess.ts:81-111` (kill callback)
@@ -660,6 +671,7 @@ git commit -m "feat(useClaudeProcess): apply workflow template and manage ralph-
 ### Task 9: Add workflow.json to e2e-test-builder Plugin
 
 **Files:**
+
 - Create: `workflow.json` in the e2e-test-builder plugin directory
 
 The e2e-test-builder plugin lives in the marketplace repo. For now, create the file locally in the cached plugin directory to test. The permanent home is in the marketplace repo.
@@ -686,6 +698,7 @@ Path: The plugin root where `.claude-plugin/plugin.json` lives. Based on earlier
 **Step 2: Verify end-to-end**
 
 Start athena-cli and verify:
+
 1. The workflow is discovered (check header shows `e2e-test-builder`)
 2. Isolation is upgraded to `minimal`
 3. Type a prompt like `login flow on example.com`

@@ -15,6 +15,7 @@
 ### Task 1: Install better-sqlite3 and Add Session Types
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `source/sessions/types.ts`
 - Create: `source/sessions/index.ts`
@@ -61,7 +62,11 @@ Create `source/sessions/types.test.ts`:
 
 ```typescript
 import {describe, it, expect} from 'vitest';
-import type {AthenaSession, StoredSession, AdapterSessionRecord} from './types.js';
+import type {
+	AthenaSession,
+	StoredSession,
+	AdapterSessionRecord,
+} from './types.js';
 
 describe('session types', () => {
 	it('AthenaSession satisfies expected shape', () => {
@@ -98,7 +103,11 @@ describe('session types', () => {
 Create `source/sessions/index.ts`:
 
 ```typescript
-export type {AthenaSession, AdapterSessionRecord, StoredSession} from './types.js';
+export type {
+	AthenaSession,
+	AdapterSessionRecord,
+	StoredSession,
+} from './types.js';
 ```
 
 **Step 5: Run test to verify it passes**
@@ -118,6 +127,7 @@ git commit -m "feat(sessions): add session types and install better-sqlite3"
 ### Task 2: SQLite Schema Module
 
 **Files:**
+
 - Create: `source/sessions/schema.ts`
 - Test: `source/sessions/schema.test.ts`
 
@@ -165,9 +175,9 @@ describe('session schema', () => {
 		db = new Database(':memory:');
 		initSchema(db);
 
-		const row = db
-			.prepare('SELECT version FROM schema_version')
-			.get() as {version: number};
+		const row = db.prepare('SELECT version FROM schema_version').get() as {
+			version: number;
+		};
 		expect(row.version).toBe(SCHEMA_VERSION);
 	});
 });
@@ -242,9 +252,9 @@ export function initSchema(db: Database.Database): void {
 	`);
 
 	// Upsert schema version
-	const existing = db
-		.prepare('SELECT version FROM schema_version')
-		.get() as {version: number} | undefined;
+	const existing = db.prepare('SELECT version FROM schema_version').get() as
+		| {version: number}
+		| undefined;
 	if (!existing) {
 		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
 			SCHEMA_VERSION,
@@ -270,6 +280,7 @@ git commit -m "feat(sessions): add SQLite schema module with WAL mode"
 ### Task 3: SessionStore — Core Recording
 
 **Files:**
+
 - Create: `source/sessions/store.ts`
 - Test: `source/sessions/store.test.ts`
 
@@ -556,9 +567,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 			| undefined;
 
 		const adapterRows = db
-			.prepare(
-				'SELECT * FROM adapter_sessions ORDER BY started_at',
-			)
+			.prepare('SELECT * FROM adapter_sessions ORDER BY started_at')
 			.all() as Array<{
 			session_id: string;
 			started_at: number;
@@ -641,7 +650,11 @@ Expected: PASS
 Add to `source/sessions/index.ts`:
 
 ```typescript
-export type {AthenaSession, AdapterSessionRecord, StoredSession} from './types.js';
+export type {
+	AthenaSession,
+	AdapterSessionRecord,
+	StoredSession,
+} from './types.js';
 export {createSessionStore} from './store.js';
 export type {SessionStore, SessionStoreOptions} from './store.js';
 ```
@@ -658,6 +671,7 @@ git commit -m "feat(sessions): add SessionStore with SQLite recording and restor
 ### Task 4: Session Registry
 
 **Files:**
+
 - Create: `source/sessions/registry.ts`
 - Test: `source/sessions/registry.test.ts`
 
@@ -925,6 +939,7 @@ git commit -m "feat(sessions): add session registry for listing and managing ses
 ### Task 5: Extend createFeedMapper to Accept StoredSession
 
 **Files:**
+
 - Modify: `source/feed/mapper.ts:22-33` (factory signature + state init)
 - Test: `source/feed/mapper.test.ts` (add restore test)
 
@@ -948,9 +963,24 @@ describe('createFeedMapper with stored session', () => {
 			},
 			feedEvents: [
 				// Simulate a previous run with 3 events
-				makeFeedEvent({event_id: 'R1:E1', seq: 1, run_id: 'R1', kind: 'session.start'}),
-				makeFeedEvent({event_id: 'R1:E2', seq: 2, run_id: 'R1', kind: 'tool.pre'}),
-				makeFeedEvent({event_id: 'R1:E3', seq: 3, run_id: 'R1', kind: 'session.end'}),
+				makeFeedEvent({
+					event_id: 'R1:E1',
+					seq: 1,
+					run_id: 'R1',
+					kind: 'session.start',
+				}),
+				makeFeedEvent({
+					event_id: 'R1:E2',
+					seq: 2,
+					run_id: 'R1',
+					kind: 'tool.pre',
+				}),
+				makeFeedEvent({
+					event_id: 'R1:E3',
+					seq: 3,
+					run_id: 'R1',
+					kind: 'session.end',
+				}),
 			],
 			adapterSessions: [{sessionId: 'cs-1', startedAt: 1000}],
 		};
@@ -983,6 +1013,7 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 ```
 
 Add import at top:
+
 ```typescript
 import type {StoredSession} from '../sessions/types.js';
 ```
@@ -1021,17 +1052,29 @@ if (stored && stored.feedEvents.length > 0) {
 			run_id: lastRunStart.run_id,
 			session_id: lastRunStart.session_id,
 			started_at: lastRunStart.ts,
-			trigger: (lastRunStart.data as any)?.trigger ?? {type: 'unknown', prompt_preview: ''},
+			trigger: (lastRunStart.data as any)?.trigger ?? {
+				type: 'unknown',
+				prompt_preview: '',
+			},
 			status: 'completed',
 			actors: {root_agent_id: 'agent:root', subagent_ids: []},
-			counters: {tool_uses: 0, tool_failures: 0, permission_requests: 0, blocks: 0},
+			counters: {
+				tool_uses: 0,
+				tool_failures: 0,
+				permission_requests: 0,
+				blocks: 0,
+			},
 		};
 	}
 
 	// Reconstruct actors from feed events
 	const actorIds = new Set(stored.feedEvents.map(e => e.actor_id));
 	for (const actorId of actorIds) {
-		if (actorId === 'user' || actorId === 'system' || actorId === 'agent:root') {
+		if (
+			actorId === 'user' ||
+			actorId === 'system' ||
+			actorId === 'agent:root'
+		) {
 			actors.getOrCreate(actorId);
 		} else if (actorId.startsWith('subagent:')) {
 			actors.getOrCreate(actorId);
@@ -1062,6 +1105,7 @@ git commit -m "feat(feed): extend createFeedMapper to bootstrap state from Store
 ### Task 6: Integrate SessionStore into useFeed
 
 **Files:**
+
 - Modify: `source/hooks/useFeed.ts:134-138` (signature), `~148` (mapper init), `~310-345` (event handler), `~24` (MAX_EVENTS)
 - Test: `source/hooks/useFeed.test.ts` (add session store integration tests)
 
@@ -1104,6 +1148,7 @@ Expected: FAIL — useFeed doesn't accept sessionStore
 In `source/hooks/useFeed.ts`:
 
 1. Change signature (line ~134):
+
 ```typescript
 export function useFeed(
 	runtime: Runtime,
@@ -1114,11 +1159,13 @@ export function useFeed(
 ```
 
 2. Add import:
+
 ```typescript
 import type {SessionStore} from '../sessions/store.js';
 ```
 
 3. Modify mapper initialization (line ~148):
+
 ```typescript
 // If we have a session store, attempt restore and bootstrap mapper
 const initialStored = sessionStore ? sessionStore.restore() : undefined;
@@ -1129,6 +1176,7 @@ const [feedEvents, setFeedEvents] = useState<FeedEvent[]>(
 ```
 
 4. In the onEvent handler (around line ~320), after `mapEvent`, record to store:
+
 ```typescript
 const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
 
@@ -1142,12 +1190,14 @@ if (sessionStoreRef.current) {
 ```
 
 5. Use a ref for sessionStore to avoid stale closures:
+
 ```typescript
 const sessionStoreRef = useRef(sessionStore);
 sessionStoreRef.current = sessionStore;
 ```
 
 6. Remove the MAX_EVENTS cap (line ~340-345) or make it conditional:
+
 ```typescript
 setFeedEvents(prev => {
 	const updated = [...prev, ...newFeedEvents];
@@ -1181,6 +1231,7 @@ git commit -m "feat(feed): integrate SessionStore into useFeed for recording and
 ### Task 7: Wire SessionStore into HookProvider and App
 
 **Files:**
+
 - Modify: `source/context/HookContext.tsx:11-27` (add sessionStore creation)
 - Modify: `source/app.tsx:41-56` (add athenaSessionId prop), `~724-729` (phase routing)
 - Modify: `source/cli.tsx:91-97` (flag changes), `~214-231` (resolution logic)
@@ -1262,6 +1313,7 @@ if (cli.flags.continue) {
 **Step 4: Handle --label flag**
 
 Add to meow flags definition:
+
 ```typescript
 label: {
 	type: 'string',
@@ -1290,6 +1342,7 @@ git commit -m "feat(sessions): wire SessionStore into HookProvider and CLI flags
 ### Task 8: Update Session Picker for Athena Sessions
 
 **Files:**
+
 - Modify: `source/app.tsx:~743-746` (session picker data source)
 - Modify: any session picker component that renders the list
 
@@ -1325,6 +1378,7 @@ git commit -m "feat(sessions): update session picker to use athena session regis
 ### Task 9: End-to-End Integration Test
 
 **Files:**
+
 - Create: `source/sessions/integration.test.ts`
 
 **Step 1: Write integration test**
@@ -1403,15 +1457,21 @@ git commit -m "test(sessions): add end-to-end integration test for session lifec
 ### Task 10: Final Cleanup and Barrel Exports
 
 **Files:**
+
 - Modify: `source/sessions/index.ts` (ensure all public API exported)
 - Verify: All imports use `.js` extensions (ESM requirement)
 
 **Step 1: Verify barrel export is complete**
 
 `source/sessions/index.ts` should export:
+
 ```typescript
 // Types
-export type {AthenaSession, AdapterSessionRecord, StoredSession} from './types.js';
+export type {
+	AthenaSession,
+	AdapterSessionRecord,
+	StoredSession,
+} from './types.js';
 export type {SessionStore, SessionStoreOptions} from './store.js';
 
 // Factories

@@ -6,9 +6,7 @@ import {createSessionStore} from './store.js';
 import {createFeedMapper} from '../feed/mapper.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 
-function makeRuntimeEvent(
-	overrides: Partial<RuntimeEvent> = {},
-): RuntimeEvent {
+function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
 	return {
 		id: 'evt-1',
 		timestamp: Date.now(),
@@ -59,9 +57,7 @@ describe('session store integration', () => {
 		});
 
 		it('persists across close/reopen cycles', () => {
-			tmpDir = fs.mkdtempSync(
-				path.join(os.tmpdir(), 'athena-integration-'),
-			);
+			tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-integration-'));
 			const dbPath = path.join(tmpDir, 'test-session', 'session.db');
 
 			// Phase 1: Write

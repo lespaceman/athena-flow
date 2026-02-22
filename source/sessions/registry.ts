@@ -16,15 +16,15 @@ function sessionDbPath(sessionId: string): string {
 function readSessionFromDb(dbPath: string): AthenaSession | null {
 	if (!fs.existsSync(dbPath)) return null;
 
+	let db: InstanceType<typeof Database> | undefined;
 	try {
-		const db = new Database(dbPath, {readonly: true});
+		db = new Database(dbPath, {readonly: true});
 
 		// Bail if schema version is newer than supported
 		const versionRow = db
 			.prepare('SELECT version FROM schema_version')
 			.get() as {version: number} | undefined;
 		if (versionRow && versionRow.version > SCHEMA_VERSION) {
-			db.close();
 			return null;
 		}
 
@@ -38,13 +38,11 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			  }
 			| undefined;
 
+		if (!row) return null;
+
 		const adapters = db
 			.prepare('SELECT session_id FROM adapter_sessions ORDER BY started_at')
 			.all() as {session_id: string}[];
-
-		db.close();
-
-		if (!row) return null;
 
 		return {
 			id: row.id,
@@ -56,6 +54,8 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 		};
 	} catch {
 		return null;
+	} finally {
+		db?.close();
 	}
 }
 
