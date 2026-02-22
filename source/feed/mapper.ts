@@ -86,6 +86,13 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 
 	// Correlation indexes — keyed on undocumented request_id (best-effort).
 	// mapDecision() returns null when requestId is missing from the index.
+	//
+	// NOTE: These indexes are NOT rebuilt from stored session data on restore.
+	// This is intentional: a new run (triggered by SessionStart or UserPromptSubmit)
+	// clears all indexes via ensureRunArray(), and old adapter session request IDs
+	// won't recur in the new adapter session. The brief window between restore and
+	// first new event has empty indexes, which is benign — no decisions can arrive
+	// for events from the old adapter session.
 	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
 	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
