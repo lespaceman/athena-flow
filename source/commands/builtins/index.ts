@@ -14,6 +14,7 @@ import {statsCommand} from './stats.js';
 import {sessionsCommand} from './sessions.js';
 import {contextCommand} from './context.js';
 import {tasksCommand} from './tasks.js';
+import setup from './setup.js';
 
 const builtins = [
 	helpCommand,
@@ -23,6 +24,7 @@ const builtins = [
 	contextCommand,
 	sessionsCommand,
 	tasksCommand,
+	setup,
 ];
 
 let registered = false;

@@ -2,7 +2,10 @@
 import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
+import fs from 'node:fs';
 import {createRequire} from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
 import App from './app.js';
 import {processRegistry} from './utils/processRegistry.js';
 import {type IsolationPreset, type IsolationConfig} from './types/isolation.js';
@@ -118,6 +121,13 @@ if (validIsolationPresets.includes(cli.flags.isolation)) {
 registerBuiltins();
 const globalConfig = readGlobalConfig();
 const projectConfig = readConfig(cli.flags.projectDir);
+
+// Detect first run or 'setup' subcommand
+const isSetupCommand = cli.input[0] === 'setup';
+const isFirstRun =
+	!globalConfig.setupComplete &&
+	!fs.existsSync(path.join(os.homedir(), '.config', 'athena', 'config.json'));
+const showSetup = isSetupCommand || isFirstRun;
 
 // Resolve workflow from standalone registry if configured
 const workflowName =
@@ -236,5 +246,6 @@ render(
 		workflowRef={cli.flags.workflow ?? activeWorkflow?.name}
 		workflow={activeWorkflow}
 		ascii={cli.flags.ascii}
+		showSetup={showSetup}
 	/>,
 );
