@@ -10,6 +10,7 @@ import type {
 import type {Session, Run, Actor} from './entities.js';
 import {ActorRegistry} from './entities.js';
 import {generateTitle} from './titleGen.js';
+import type {StoredSession} from '../sessions/types.js';
 
 export type FeedMapper = {
 	mapEvent(event: RuntimeEvent): FeedEvent[];
@@ -19,7 +20,7 @@ export type FeedMapper = {
 	getActors(): Actor[];
 };
 
-export function createFeedMapper(): FeedMapper {
+export function createFeedMapper(stored?: StoredSession): FeedMapper {
 	let currentSession: Session | null = null;
 	let currentRun: Run | null = null;
 	const actors = new ActorRegistry();
@@ -31,6 +32,39 @@ export function createFeedMapper(): FeedMapper {
 	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
 	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
+
+	// Bootstrap from stored session if provided
+	if (stored && stored.feedEvents.length > 0) {
+		const lastEvent = stored.feedEvents[stored.feedEvents.length - 1]!;
+		seq = lastEvent.seq;
+
+		// Count distinct run_ids to set runSeq
+		const runIds = new Set(stored.feedEvents.map(e => e.run_id));
+		runSeq = runIds.size;
+
+		// Reconstruct session from last session.start event
+		const lastSessionStart = [...stored.feedEvents]
+			.reverse()
+			.find(e => e.kind === 'session.start');
+		if (lastSessionStart) {
+			const d = lastSessionStart.data as Record<string, unknown>;
+			currentSession = {
+				session_id: lastSessionStart.session_id,
+				started_at: lastSessionStart.ts,
+				source: d?.source as string | undefined,
+				model: d?.model as string | undefined,
+			};
+		}
+
+		// Reconstruct actors from feed events
+		const actorIds = new Set(stored.feedEvents.map(e => e.actor_id));
+		for (const actorId of actorIds) {
+			if (actorId.startsWith('subagent:')) {
+				const agentId = actorId.slice('subagent:'.length);
+				actors.ensureSubagent(agentId, 'unknown');
+			}
+		}
+	}
 
 	function nextSeq(): number {
 		return ++seq;
