@@ -1248,6 +1248,59 @@ describe('FeedMapper', () => {
 			);
 			expect(results.find(r => r.kind === 'agent.message')).toBeUndefined();
 		});
+
+		it('generates agent.message from SubagentStop with last_assistant_message', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent('SubagentStart', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStart',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('SubagentStop', {
+					agentId: 'sa-1',
+					agentType: 'task',
+					payload: {
+						hook_event_name: 'SubagentStop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						agent_id: 'sa-1',
+						agent_type: 'task',
+						stop_hook_active: false,
+						last_assistant_message: 'Subagent result text',
+					},
+				}),
+			);
+			const agentMsg = results.find(r => r.kind === 'agent.message');
+			expect(agentMsg).toBeDefined();
+			expect(agentMsg!.data.message).toBe('Subagent result text');
+			expect(agentMsg!.data.scope).toBe('subagent');
+			expect(agentMsg!.actor_id).toBe('subagent:sa-1');
+			expect(Number.isInteger(agentMsg!.seq)).toBe(true);
+			const subStopEvt = results.find(r => r.kind === 'subagent.stop');
+			expect(agentMsg!.cause?.parent_event_id).toBe(subStopEvt!.event_id);
+		});
 	});
 
 	describe('seq numbering', () => {

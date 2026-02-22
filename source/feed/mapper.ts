@@ -418,25 +418,44 @@ export function createFeedMapper(): FeedMapper {
 					const idx = activeSubagentStack.lastIndexOf(actorId);
 					if (idx !== -1) activeSubagentStack.splice(idx, 1);
 				}
-				results.push(
-					makeEvent(
-						'subagent.stop',
-						'info',
-						`subagent:${agentId ?? 'unknown'}`,
-						{
-							agent_id: agentId ?? '',
-							agent_type: event.agentType ?? (p.agent_type as string) ?? '',
-							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-							agent_transcript_path: p.agent_transcript_path as
-								| string
-								| undefined,
-							last_assistant_message: p.last_assistant_message as
-								| string
-								| undefined,
-						} satisfies import('./types.js').SubagentStopData,
-						event,
-					),
+				const subStopActorId = `subagent:${agentId ?? 'unknown'}`;
+				const subStopEvt = makeEvent(
+					'subagent.stop',
+					'info',
+					subStopActorId,
+					{
+						agent_id: agentId ?? '',
+						agent_type: event.agentType ?? (p.agent_type as string) ?? '',
+						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
+						agent_transcript_path: p.agent_transcript_path as
+							| string
+							| undefined,
+						last_assistant_message: p.last_assistant_message as
+							| string
+							| undefined,
+					} satisfies import('./types.js').SubagentStopData,
+					event,
 				);
+				results.push(subStopEvt);
+
+				// Enrich: synthesize agent.message from last_assistant_message
+				const subMsg = p.last_assistant_message as string | undefined;
+				if (subMsg) {
+					results.push(
+						makeEvent(
+							'agent.message',
+							'info',
+							subStopActorId,
+							{
+								message: subMsg,
+								source: 'hook',
+								scope: 'subagent',
+							} satisfies import('./types.js').AgentMessageData,
+							event,
+							{parent_event_id: subStopEvt.event_id},
+						),
+					);
+				}
 				break;
 			}
 
