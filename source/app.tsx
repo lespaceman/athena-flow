@@ -36,6 +36,7 @@ import {readSessionIndex} from './utils/sessionIndex.js';
 import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
+import SetupWizard from './setup/SetupWizard.js';
 
 type Props = {
 	projectDir: string;
@@ -51,9 +52,11 @@ type Props = {
 	workflowRef?: string;
 	workflow?: WorkflowConfig;
 	ascii?: boolean;
+	showSetup?: boolean;
 };
 
 type AppPhase =
+	| {type: 'setup'}
 	| {type: 'session-select'}
 	| {type: 'main'; initialSessionId?: string};
 
@@ -97,14 +100,16 @@ function AppContent({
 	initialSessionId,
 	onClear,
 	onShowSessions,
+	onShowSetup,
 	inputHistory,
 	workflowRef,
 	workflow,
 	ascii,
-}: Omit<Props, 'showSessionPicker' | 'theme'> & {
+}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme'> & {
 	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;
+	onShowSetup: () => void;
 	inputHistory: InputHistory;
 }) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
@@ -309,6 +314,7 @@ function AppContent({
 					exit,
 					clearScreen,
 					showSessions: onShowSessions,
+					showSetup: onShowSetup,
 					sessionStats: {
 						metrics: {
 							...metrics,
@@ -708,15 +714,18 @@ export default function App({
 	theme,
 	initialSessionId,
 	showSessionPicker,
+	showSetup,
 	workflowRef,
 	workflow,
 	ascii,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
-	const initialPhase: AppPhase = showSessionPicker
-		? {type: 'session-select'}
-		: {type: 'main', initialSessionId};
+	const initialPhase: AppPhase = showSetup
+		? {type: 'setup'}
+		: showSessionPicker
+			? {type: 'session-select'}
+			: {type: 'main', initialSessionId};
 	const [phase, setPhase] = useState<AppPhase>(initialPhase);
 
 	const handleSessionSelect = useCallback((sessionId: string) => {
@@ -728,10 +737,25 @@ export default function App({
 	const handleShowSessions = useCallback(() => {
 		setPhase({type: 'session-select'});
 	}, []);
+	const handleShowSetup = useCallback(() => {
+		setPhase({type: 'setup'});
+	}, []);
 	const sessions = useMemo(
 		() => (phase.type === 'session-select' ? readSessionIndex(projectDir) : []),
 		[projectDir, phase],
 	);
+
+	if (phase.type === 'setup') {
+		return (
+			<ThemeProvider value={theme}>
+				<SetupWizard
+					onComplete={() => {
+						setPhase({type: 'main'});
+					}}
+				/>
+			</ThemeProvider>
+		);
+	}
 
 	if (phase.type === 'session-select') {
 		return (
@@ -770,6 +794,7 @@ export default function App({
 					initialSessionId={phase.initialSessionId}
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
+					onShowSetup={handleShowSetup}
 					inputHistory={inputHistory}
 					workflowRef={workflowRef}
 					workflow={workflow}

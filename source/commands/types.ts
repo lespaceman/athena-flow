@@ -62,6 +62,7 @@ export type UICommandContext = {
 	exit: () => void;
 	clearScreen: () => void;
 	showSessions: () => void;
+	showSetup: () => void;
 	sessionStats: SessionStatsSnapshot;
 };
 
