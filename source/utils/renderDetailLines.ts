@@ -87,14 +87,9 @@ function renderToolPost(
 	// tool.failure has error string instead of tool_response
 	if (event.kind === 'tool.failure') {
 		const headerLines = buildToolHeader(tool_name);
+		const errorLines = event.data.error.split('\n');
 		return {
-			lines: [
-				...headerLines,
-				'',
-				chalk.red('FAILED'),
-				'',
-				chalk.red(event.data.error),
-			],
+			lines: [...headerLines, '', chalk.red('FAILED'), '', ...errorLines],
 			showLineNumbers: false,
 		};
 	}

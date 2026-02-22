@@ -164,6 +164,32 @@ describe('renderDetailLines', () => {
 		expect(text).toContain('Action:    navigate');
 	});
 
+	it('splits multiline tool.failure error into individual lines', () => {
+		const event = makeEvent({
+			kind: 'tool.failure',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'npx playwright test'},
+				error:
+					'Exit code 1\n\nRunning 10 tests using 8 workers\n\n  ✓ 2 [chromium] › test.spec.ts:51:7 › Login\n  ✗ 3 [chromium] › test.spec.ts:80:7 › Signup',
+				is_interrupt: false,
+			},
+		});
+		const result = renderDetailLines(event, 120);
+		// Every element in lines should be a single line (no embedded newlines)
+		for (const line of result.lines) {
+			expect(line).not.toContain('\n');
+		}
+		// The error content should be fully present
+		const joined = result.lines.join('\n');
+		expect(joined).toContain('Exit code 1');
+		expect(joined).toContain('Running 10 tests');
+		expect(joined).toContain('Login');
+		expect(joined).toContain('Signup');
+		// Should have significantly more than 5 lines
+		expect(result.lines.length).toBeGreaterThan(5);
+	});
+
 	it('falls back to JSON for unknown event kinds', () => {
 		const event = makeEvent({
 			kind: 'session.start',
