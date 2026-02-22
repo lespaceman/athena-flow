@@ -1184,6 +1184,72 @@ describe('FeedMapper', () => {
 		});
 	});
 
+	describe('agent.message enrichment', () => {
+		it('generates agent.message from Stop with last_assistant_message', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+						last_assistant_message: 'Here is the final answer.',
+					},
+				}),
+			);
+			const agentMsg = results.find(r => r.kind === 'agent.message');
+			expect(agentMsg).toBeDefined();
+			expect(agentMsg!.data.message).toBe('Here is the final answer.');
+			expect(agentMsg!.data.source).toBe('hook');
+			expect(agentMsg!.data.scope).toBe('root');
+			expect(agentMsg!.actor_id).toBe('agent:root');
+			expect(Number.isInteger(agentMsg!.seq)).toBe(true);
+			// Parent should be the stop.request event
+			const stopEvt = results.find(r => r.kind === 'stop.request');
+			expect(agentMsg!.cause?.parent_event_id).toBe(stopEvt!.event_id);
+		});
+
+		it('does NOT generate agent.message when no last_assistant_message', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'do stuff',
+					},
+				}),
+			);
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+					},
+				}),
+			);
+			expect(results.find(r => r.kind === 'agent.message')).toBeUndefined();
+		});
+	});
+
 	describe('seq numbering', () => {
 		it('assigns monotonically increasing seq within a run', () => {
 			const mapper = createFeedMapper();

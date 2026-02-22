@@ -350,20 +350,38 @@ export function createFeedMapper(): FeedMapper {
 
 			case 'Stop': {
 				results.push(...ensureRunArray(event));
-				results.push(
-					makeEvent(
-						'stop.request',
-						'info',
-						'agent:root',
-						{
-							stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-							last_assistant_message: p.last_assistant_message as
-								| string
-								| undefined,
-						} satisfies import('./types.js').StopRequestData,
-						event,
-					),
+				const stopEvt = makeEvent(
+					'stop.request',
+					'info',
+					'agent:root',
+					{
+						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
+						last_assistant_message: p.last_assistant_message as
+							| string
+							| undefined,
+					} satisfies import('./types.js').StopRequestData,
+					event,
 				);
+				results.push(stopEvt);
+
+				// Enrich: synthesize agent.message from last_assistant_message
+				const stopMsg = p.last_assistant_message as string | undefined;
+				if (stopMsg) {
+					results.push(
+						makeEvent(
+							'agent.message',
+							'info',
+							'agent:root',
+							{
+								message: stopMsg,
+								source: 'hook',
+								scope: 'root',
+							} satisfies import('./types.js').AgentMessageData,
+							event,
+							{parent_event_id: stopEvt.event_id},
+						),
+					);
+				}
 				break;
 			}
 
