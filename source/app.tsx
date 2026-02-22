@@ -33,6 +33,8 @@ import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import {readSessionIndex} from './utils/sessionIndex.js';
+import {listSessions} from './sessions/registry.js';
+import type {SessionEntry} from './utils/sessionIndex.js';
 import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
@@ -742,10 +744,20 @@ export default function App({
 	const handleShowSetup = useCallback(() => {
 		setPhase({type: 'setup'});
 	}, []);
-	const sessions = useMemo(
-		() => (phase.type === 'session-select' ? readSessionIndex(projectDir) : []),
-		[projectDir, phase],
-	);
+	const sessions = useMemo((): SessionEntry[] => {
+		if (phase.type !== 'session-select') return [];
+		// Use athena sessions, mapped to SessionEntry format for the picker
+		const athenaSessions = listSessions(projectDir);
+		return athenaSessions.map(s => ({
+			sessionId: s.id,
+			summary: s.label ?? '',
+			firstPrompt: `Session ${s.id.slice(0, 8)}`,
+			modified: new Date(s.updatedAt).toISOString(),
+			created: new Date(s.createdAt).toISOString(),
+			gitBranch: '',
+			messageCount: s.adapterSessionIds.length,
+		}));
+	}, [projectDir, phase]);
 
 	if (phase.type === 'setup') {
 		return (
