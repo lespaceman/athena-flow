@@ -6,6 +6,7 @@ export type AthenaSession = {
 	createdAt: number;
 	updatedAt: number;
 	label?: string;
+	eventCount?: number;
 	adapterSessionIds: string[];
 };
 
