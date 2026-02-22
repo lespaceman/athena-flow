@@ -59,12 +59,21 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		workflow?: string;
 	};
 
-	const plugins = (raw.plugins ?? []).map(p => {
-		if (isMarketplaceRef(p)) {
-			return resolveMarketplacePlugin(p);
-		}
-		return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
-	});
+	const plugins = (raw.plugins ?? [])
+		.map((p): string | null => {
+			if (isMarketplaceRef(p)) {
+				try {
+					return resolveMarketplacePlugin(p);
+				} catch (error) {
+					console.error(
+						`Warning: skipping plugin "${p}": ${(error as Error).message}`,
+					);
+					return null;
+				}
+			}
+			return path.isAbsolute(p) ? p : path.resolve(baseDir, p);
+		})
+		.filter((p): p is string => p !== null);
 
 	// Resolve relative paths for additional directories
 	const additionalDirectories = (raw.additionalDirectories ?? []).map(dir =>

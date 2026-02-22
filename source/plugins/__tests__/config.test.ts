@@ -183,6 +183,30 @@ describe('marketplace ref integration', () => {
 		expect(result.plugins).toEqual(['/resolved/marketplace/plugin']);
 	});
 
+	it('skips marketplace refs that fail to resolve and warns on stderr', () => {
+		resolveMarketplacePluginMock.mockImplementation(() => {
+			throw new Error('Plugin "bad-plugin" not found in marketplace');
+		});
+
+		const stderrSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: ['/absolute/plugin', 'bad-plugin@owner/repo', 'relative/plugin'],
+		});
+
+		const result = readConfig('/project');
+
+		expect(result.plugins).toEqual([
+			'/absolute/plugin',
+			'/project/relative/plugin',
+		]);
+		expect(stderrSpy).toHaveBeenCalledWith(
+			expect.stringContaining('bad-plugin@owner/repo'),
+		);
+
+		stderrSpy.mockRestore();
+	});
+
 	it('handles mix of paths and marketplace refs', () => {
 		resolveMarketplacePluginMock.mockReturnValue(
 			'/resolved/marketplace/plugin',

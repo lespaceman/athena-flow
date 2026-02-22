@@ -7,7 +7,7 @@
  *
  * Clone/pull behavior:
  * - Clone: only when plugin is in config but repo not found locally
- * - Pull: only when explicitly requested (not on startup)
+ * - Pull: every startup (gracefully degrades if offline)
  */
 
 import {execFileSync} from 'node:child_process';
@@ -88,6 +88,16 @@ function ensureRepo(cacheDir: string, owner: string, repo: string): string {
 			throw new Error(
 				`Failed to clone marketplace repo ${owner}/${repo}: ${(error as Error).message}`,
 			);
+		}
+	} else {
+		// Cached — pull latest, but don't fail startup if offline
+		try {
+			execFileSync('git', ['pull', '--ff-only'], {
+				cwd: repoDir,
+				stdio: 'ignore',
+			});
+		} catch {
+			// Graceful degradation: use cached version if pull fails
 		}
 	}
 
