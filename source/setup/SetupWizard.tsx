@@ -1,5 +1,5 @@
-import React, {useState, useCallback, useEffect} from 'react';
-import {Box, Text} from 'ink';
+import React, {useState, useCallback, useEffect, useRef} from 'react';
+import {Box, Text, useInput} from 'ink';
 import {useSetupState} from './useSetupState.js';
 import ThemeStep from './steps/ThemeStep.js';
 import HarnessStep from './steps/HarnessStep.js';
@@ -18,9 +18,25 @@ type Props = {
 };
 
 export default function SetupWizard({onComplete}: Props) {
-	const {stepIndex, stepState, isComplete, markSuccess, markError, advance} =
-		useSetupState();
+	const {
+		stepIndex,
+		stepState,
+		isComplete,
+		markSuccess,
+		markError,
+		retry,
+		advance,
+	} = useSetupState();
 	const [result, setResult] = useState<SetupResult>({theme: 'dark'});
+	const [retryCount, setRetryCount] = useState(0);
+	const completedRef = useRef(false);
+
+	useInput(input => {
+		if (stepState === 'error' && input === 'r') {
+			retry();
+			setRetryCount(prev => prev + 1);
+		}
+	});
 
 	const handleThemeComplete = useCallback(
 		(theme: string) => {
@@ -63,7 +79,8 @@ export default function SetupWizard({onComplete}: Props) {
 
 	// Write config and notify parent on completion
 	useEffect(() => {
-		if (isComplete) {
+		if (isComplete && !completedRef.current) {
+			completedRef.current = true;
 			writeGlobalConfig({
 				setupComplete: true,
 				theme: result.theme,
@@ -93,6 +110,7 @@ export default function SetupWizard({onComplete}: Props) {
 
 				{stepIndex === 1 && (
 					<HarnessStep
+						key={retryCount}
 						onComplete={handleHarnessComplete}
 						onError={() => markError()}
 					/>
@@ -100,11 +118,14 @@ export default function SetupWizard({onComplete}: Props) {
 
 				{stepIndex === 2 && (
 					<WorkflowStep
+						key={retryCount}
 						onComplete={handleWorkflowComplete}
 						onError={() => markError()}
 						onSkip={handleWorkflowSkip}
 					/>
 				)}
+
+				{stepState === 'error' && <Text dimColor>Press r to retry</Text>}
 			</Box>
 		</Box>
 	);
