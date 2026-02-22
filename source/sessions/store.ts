@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import Database from 'better-sqlite3';
 import {initSchema} from './schema.js';
 import type {
@@ -25,6 +27,11 @@ export type SessionStore = {
 };
 
 export function createSessionStore(opts: SessionStoreOptions): SessionStore {
+	// Ensure parent directory exists for file-based databases
+	if (opts.dbPath !== ':memory:') {
+		fs.mkdirSync(path.dirname(opts.dbPath), {recursive: true});
+	}
+
 	const db = new Database(opts.dbPath);
 	initSchema(db);
 
