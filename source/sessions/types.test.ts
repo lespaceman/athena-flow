@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import type {AthenaSession, StoredSession, AdapterSessionRecord} from './types.js';
+import type {AthenaSession, StoredSession} from './types.js';
 
 describe('session types', () => {
 	it('AthenaSession satisfies expected shape', () => {

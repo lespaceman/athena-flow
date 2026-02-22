@@ -32,9 +32,8 @@ import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
-import {readSessionIndex} from './utils/sessionIndex.js';
-import {listSessions} from './sessions/registry.js';
 import type {SessionEntry} from './utils/sessionIndex.js';
+import {listSessions} from './sessions/registry.js';
 import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
@@ -108,7 +107,10 @@ function AppContent({
 	workflowRef,
 	workflow,
 	ascii,
-}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme' | 'athenaSessionId'> & {
+}: Omit<
+	Props,
+	'showSessionPicker' | 'showSetup' | 'theme' | 'athenaSessionId'
+> & {
 	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;
