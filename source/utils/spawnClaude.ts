@@ -30,6 +30,7 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		instanceId,
 		sessionId,
 		isolation,
+		env: extraEnv,
 		onStdout,
 		onStderr,
 		onExit,
@@ -85,6 +86,7 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: {
 			...process.env,
+			...(extraEnv ?? {}),
 			ATHENA_INSTANCE_ID: String(instanceId),
 		},
 	});

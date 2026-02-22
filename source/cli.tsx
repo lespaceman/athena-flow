@@ -16,6 +16,7 @@ import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {resolveTheme} from './theme/index.js';
 import {getMostRecentSession} from './utils/sessionIndex.js';
 import type {WorkflowConfig} from './workflows/types.js';
+import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -117,7 +118,25 @@ if (validIsolationPresets.includes(cli.flags.isolation)) {
 registerBuiltins();
 const globalConfig = readGlobalConfig();
 const projectConfig = readConfig(cli.flags.projectDir);
+
+// Resolve workflow from standalone registry if configured
+const workflowName =
+	cli.flags.workflow ?? projectConfig.workflow ?? globalConfig.workflow;
+let workflowPluginDirs: string[] = [];
+let resolvedWorkflow: WorkflowConfig | undefined;
+
+if (workflowName) {
+	try {
+		resolvedWorkflow = resolveWorkflow(workflowName);
+		workflowPluginDirs = installWorkflowPlugins(resolvedWorkflow);
+	} catch (error) {
+		console.error(`Error: ${(error as Error).message}`);
+		process.exit(1);
+	}
+}
+
 const pluginDirs = [
+	...workflowPluginDirs,
 	...globalConfig.plugins,
 	...projectConfig.plugins,
 	...(cli.flags.plugin ?? []),
@@ -129,18 +148,11 @@ const pluginResult =
 const pluginMcpConfig = pluginResult.mcpConfig;
 const workflows = pluginResult.workflows;
 
-// Select active workflow
-let activeWorkflow: WorkflowConfig | undefined;
-if (cli.flags.workflow && workflows.length > 0) {
-	activeWorkflow = workflows.find(w => w.name === cli.flags.workflow);
-	if (!activeWorkflow) {
-		console.error(
-			`Warning: Workflow '${cli.flags.workflow}' not found. Available: ${workflows.map(w => w.name).join(', ')}`,
-		);
-	}
-} else if (workflows.length === 1) {
+// Select active workflow: resolved from registry takes precedence over plugin-embedded
+let activeWorkflow: WorkflowConfig | undefined = resolvedWorkflow;
+if (!activeWorkflow && workflows.length === 1) {
 	activeWorkflow = workflows[0];
-} else if (workflows.length > 1) {
+} else if (!activeWorkflow && workflows.length > 1) {
 	console.error(
 		`Multiple workflows found: ${workflows.map(w => w.name).join(', ')}. Use --workflow=<name> to select one.`,
 	);
@@ -153,7 +165,8 @@ const additionalDirectories = [
 ];
 
 // Resolve model: project config > global config > env var > Claude settings
-const configModel = projectConfig.model || globalConfig.model;
+const configModel =
+	projectConfig.model || globalConfig.model || activeWorkflow?.model;
 
 // Workflow may require a less restrictive isolation preset
 if (activeWorkflow?.isolation) {

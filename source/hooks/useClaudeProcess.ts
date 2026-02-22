@@ -158,6 +158,7 @@ export function useClaudeProcess(
 				instanceId,
 				sessionId,
 				isolation: mergeIsolation(isolation, pluginMcpConfig, perCallIsolation),
+				env: workflow?.env,
 				...(verbose
 					? {
 							jqFilter: JQ_ASSISTANT_TEXT_FILTER,

@@ -25,6 +25,8 @@ export type SpawnClaudeOptions = {
 	 * Defaults to 'strict' preset (user settings only, athena hooks injected).
 	 */
 	isolation?: IsolationConfig | IsolationPreset;
+	/** Additional environment variables to pass to the Claude process */
+	env?: Record<string, string>;
 	/** Called when stdout data is received */
 	onStdout?: (data: string) => void;
 	/** Called when stderr data is received */
