@@ -2,6 +2,7 @@
 import {describe, it, expect} from 'vitest';
 import {createFeedMapper} from '../mapper.js';
 import type {RuntimeEvent} from '../../runtime/types.js';
+import type {FeedEvent} from '../types.js';
 
 function makeRuntimeEvent(
 	hookName: string,
@@ -1300,6 +1301,124 @@ describe('FeedMapper', () => {
 			expect(Number.isInteger(agentMsg!.seq)).toBe(true);
 			const subStopEvt = results.find(r => r.kind === 'subagent.stop');
 			expect(agentMsg!.cause?.parent_event_id).toBe(subStopEvt!.event_id);
+		});
+	});
+
+	describe('bootstrap from stored session', () => {
+		it('rebuilds currentRun from stored events with open run', () => {
+			const stored: import('../../sessions/types.js').StoredSession = {
+				session: {
+					id: 'athena-1',
+					projectDir: '/project',
+					createdAt: 1000,
+					updatedAt: 2000,
+					adapterSessionIds: ['sess-1'],
+				},
+				feedEvents: [
+					{
+						event_id: 'sess-1:R1:E1',
+						seq: 1,
+						ts: 1000,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'run.start',
+						level: 'info',
+						actor_id: 'system',
+						title: 'Run started',
+						data: {
+							trigger: {type: 'user_prompt_submit', prompt_preview: 'fix bug'},
+						},
+					},
+					{
+						event_id: 'sess-1:R1:E2',
+						seq: 2,
+						ts: 1100,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'tool.pre',
+						level: 'info',
+						actor_id: 'agent:root',
+						title: 'Read',
+						data: {tool_name: 'Read', tool_input: {file_path: '/a.ts'}},
+					},
+					{
+						event_id: 'sess-1:R1:E3',
+						seq: 3,
+						ts: 1200,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'tool.pre',
+						level: 'info',
+						actor_id: 'agent:root',
+						title: 'Bash',
+						data: {tool_name: 'Bash', tool_input: {command: 'ls'}},
+					},
+					{
+						event_id: 'sess-1:R1:E4',
+						seq: 4,
+						ts: 1300,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'permission.request',
+						level: 'info',
+						actor_id: 'system',
+						title: 'Permission',
+						data: {tool_name: 'Bash', tool_input: {}},
+					},
+				] as FeedEvent[],
+				adapterSessions: [{sessionId: 'sess-1', startedAt: 1000}],
+			};
+
+			const mapper = createFeedMapper(stored);
+			const run = mapper.getCurrentRun();
+			expect(run).not.toBeNull();
+			expect(run!.run_id).toBe('sess-1:R1');
+			expect(run!.status).toBe('running');
+			expect(run!.counters.tool_uses).toBe(2);
+			expect(run!.counters.permission_requests).toBe(1);
+			expect(run!.trigger.type).toBe('user_prompt_submit');
+		});
+
+		it('does NOT rebuild currentRun when last run is closed', () => {
+			const stored: import('../../sessions/types.js').StoredSession = {
+				session: {
+					id: 'athena-1',
+					projectDir: '/project',
+					createdAt: 1000,
+					updatedAt: 2000,
+					adapterSessionIds: ['sess-1'],
+				},
+				feedEvents: [
+					{
+						event_id: 'sess-1:R1:E1',
+						seq: 1,
+						ts: 1000,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'run.start',
+						level: 'info',
+						actor_id: 'system',
+						title: 'Run started',
+						data: {trigger: {type: 'user_prompt_submit'}},
+					},
+					{
+						event_id: 'sess-1:R1:E2',
+						seq: 2,
+						ts: 2000,
+						session_id: 'sess-1',
+						run_id: 'sess-1:R1',
+						kind: 'run.end',
+						level: 'info',
+						actor_id: 'system',
+						title: 'Run ended',
+						data: {status: 'completed', counters: {}},
+					},
+				] as FeedEvent[],
+				adapterSessions: [{sessionId: 'sess-1', startedAt: 1000}],
+			};
+
+			const mapper = createFeedMapper(stored);
+			expect(mapper.getCurrentRun()).toBeNull();
 		});
 	});
 

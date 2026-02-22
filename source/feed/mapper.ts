@@ -8,6 +8,7 @@ import type {
 	FeedEventCause,
 } from './types.js';
 import type {Session, Run, Actor} from './entities.js';
+import type {StoredSession} from '../sessions/types.js';
 import {ActorRegistry} from './entities.js';
 import {generateTitle} from './titleGen.js';
 
@@ -19,12 +20,69 @@ export type FeedMapper = {
 	getActors(): Actor[];
 };
 
-export function createFeedMapper(): FeedMapper {
+export function createFeedMapper(stored?: StoredSession): FeedMapper {
 	let currentSession: Session | null = null;
 	let currentRun: Run | null = null;
 	const actors = new ActorRegistry();
 	let seq = 0;
 	let runSeq = 0;
+
+	// Bootstrap from stored session
+	if (stored) {
+		// Restore seq counter from stored events
+		for (const e of stored.feedEvents) {
+			if (e.seq > seq) seq = e.seq;
+		}
+
+		// Restore session identity from last adapter session
+		const lastAdapterId = stored.session.adapterSessionIds.at(-1);
+		if (lastAdapterId) {
+			currentSession = {
+				session_id: lastAdapterId,
+				started_at: stored.session.createdAt,
+				source: 'resume',
+			};
+		}
+
+		// Rebuild currentRun from last open run
+		let lastRunStart: FeedEvent | undefined;
+		let lastRunEnd: FeedEvent | undefined;
+		for (const e of stored.feedEvents) {
+			if (e.kind === 'run.start') lastRunStart = e;
+			if (e.kind === 'run.end') lastRunEnd = e;
+		}
+		if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
+			// Extract run number from run_id (format: "sess-id:R<n>")
+			const runMatch = lastRunStart.run_id.match(/:R(\d+)$/);
+			if (runMatch) runSeq = parseInt(runMatch[1]!, 10);
+
+			const triggerData = lastRunStart.data as {
+				trigger: {type: string; prompt_preview?: string};
+			};
+			currentRun = {
+				run_id: lastRunStart.run_id,
+				session_id: lastRunStart.session_id,
+				started_at: lastRunStart.ts,
+				trigger: triggerData.trigger as Run['trigger'],
+				status: 'running',
+				actors: {root_agent_id: 'agent:root', subagent_ids: []},
+				counters: {
+					tool_uses: 0,
+					tool_failures: 0,
+					permission_requests: 0,
+					blocks: 0,
+				},
+			};
+			// Rebuild counters from events in this run
+			for (const e of stored.feedEvents) {
+				if (e.run_id !== currentRun.run_id) continue;
+				if (e.kind === 'tool.pre') currentRun.counters.tool_uses++;
+				if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;
+				if (e.kind === 'permission.request')
+					currentRun.counters.permission_requests++;
+			}
+		}
+	}
 
 	// Correlation indexes — keyed on undocumented request_id (best-effort).
 	// mapDecision() returns null when requestId is missing from the index.
