@@ -19,5 +19,6 @@ export type HookProviderProps = {
 	projectDir: string;
 	instanceId: number;
 	allowedTools?: string[];
+	athenaSessionId: string;
 	children: ReactNode;
 };

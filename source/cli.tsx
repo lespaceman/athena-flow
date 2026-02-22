@@ -18,6 +18,8 @@ import {
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {resolveTheme} from './theme/index.js';
 import {getMostRecentSession} from './utils/sessionIndex.js';
+import {getMostRecentAthenaSession} from './sessions/registry.js';
+import crypto from 'node:crypto';
 import type {WorkflowConfig} from './workflows/types.js';
 import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 
@@ -232,6 +234,19 @@ if (cli.flags.continue) {
 	}
 }
 
+// Resolve athena session ID for persistent storage
+let athenaSessionId: string;
+if (cli.flags.continue) {
+	// --continue=<id> — treat as athena session ID
+	athenaSessionId = cli.flags.continue;
+} else if (hasContinueFlag) {
+	// --continue (no value) — resume most recent athena session
+	const recent = getMostRecentAthenaSession(cli.flags.projectDir);
+	athenaSessionId = recent?.id ?? crypto.randomUUID();
+} else {
+	athenaSessionId = crypto.randomUUID();
+}
+
 const instanceId = process.pid;
 render(
 	<App
@@ -249,5 +264,6 @@ render(
 		workflow={activeWorkflow}
 		ascii={cli.flags.ascii}
 		showSetup={showSetup}
+		athenaSessionId={athenaSessionId}
 	/>,
 );

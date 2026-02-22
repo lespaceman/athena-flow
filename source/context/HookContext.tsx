@@ -1,6 +1,10 @@
 import React, {createContext, useContext, useMemo} from 'react';
+import fs from 'node:fs';
+import path from 'node:path';
 import {useFeed} from '../hooks/useFeed.js';
 import {createClaudeHookRuntime} from '../runtime/adapters/claudeHooks/index.js';
+import {createSessionStore} from '../sessions/store.js';
+import {sessionsDir} from '../sessions/registry.js';
 import {
 	type HookContextValue,
 	type HookProviderProps,
@@ -12,6 +16,7 @@ export function HookProvider({
 	projectDir,
 	instanceId,
 	allowedTools,
+	athenaSessionId,
 	children,
 }: HookProviderProps) {
 	// Runtime must be stable (memoized) — useFeed assumes it doesn't change
@@ -19,7 +24,18 @@ export function HookProvider({
 		() => createClaudeHookRuntime({projectDir, instanceId}),
 		[projectDir, instanceId],
 	);
-	const hookServer = useFeed(runtime, [], allowedTools);
+
+	const sessionStore = useMemo(() => {
+		const dir = path.join(sessionsDir(), athenaSessionId);
+		fs.mkdirSync(dir, {recursive: true});
+		return createSessionStore({
+			sessionId: athenaSessionId,
+			projectDir,
+			dbPath: path.join(dir, 'session.db'),
+		});
+	}, [athenaSessionId, projectDir]);
+
+	const hookServer = useFeed(runtime, [], allowedTools, sessionStore);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>

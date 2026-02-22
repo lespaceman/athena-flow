@@ -53,6 +53,7 @@ type Props = {
 	workflow?: WorkflowConfig;
 	ascii?: boolean;
 	showSetup?: boolean;
+	athenaSessionId: string;
 };
 
 type AppPhase =
@@ -105,7 +106,7 @@ function AppContent({
 	workflowRef,
 	workflow,
 	ascii,
-}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme'> & {
+}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme' | 'athenaSessionId'> & {
 	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;
@@ -718,6 +719,7 @@ export default function App({
 	workflowRef,
 	workflow,
 	ascii,
+	athenaSessionId,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const inputHistory = useInputHistory(projectDir);
@@ -781,6 +783,7 @@ export default function App({
 				projectDir={projectDir}
 				instanceId={instanceId}
 				allowedTools={isolation?.allowedTools}
+				athenaSessionId={athenaSessionId}
 			>
 				<AppContent
 					key={clearCount}
