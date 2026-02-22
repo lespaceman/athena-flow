@@ -91,6 +91,30 @@ export function removeSession(sessionId: string): void {
 	}
 }
 
+export function findSessionByAdapterId(
+	adapterId: string,
+	projectDir: string,
+	baseDir?: string,
+): AthenaSession | null {
+	const dir = baseDir ?? sessionsDir();
+	if (!fs.existsSync(dir)) return null;
+
+	const entries = fs.readdirSync(dir, {withFileTypes: true});
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const dbPath = path.join(dir, entry.name, 'session.db');
+		const session = readSessionFromDb(dbPath);
+		if (
+			session &&
+			(!projectDir || session.projectDir === projectDir) &&
+			session.adapterSessionIds.includes(adapterId)
+		) {
+			return session;
+		}
+	}
+	return null;
+}
+
 export function getMostRecentAthenaSession(
 	projectDir: string,
 ): AthenaSession | null {
