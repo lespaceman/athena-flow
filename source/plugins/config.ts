@@ -93,7 +93,10 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		theme: raw.theme,
 		workflow: raw.workflow,
 		setupComplete: raw.setupComplete as boolean | undefined,
-		harness: raw.harness === 'claude-code' || raw.harness === 'codex' ? raw.harness : undefined,
+		harness:
+			raw.harness === 'claude-code' || raw.harness === 'codex'
+				? raw.harness
+				: undefined,
 	};
 }
 

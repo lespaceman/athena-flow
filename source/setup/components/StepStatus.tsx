@@ -7,8 +7,7 @@ type Props = {
 };
 
 export default function StepStatus({status, message}: Props) {
-	const icon =
-		status === 'success' ? '✓' : status === 'error' ? '✗' : '⠋';
+	const icon = status === 'success' ? '✓' : status === 'error' ? '✗' : '⠋';
 	const color =
 		status === 'success' ? 'green' : status === 'error' ? 'red' : 'yellow';
 

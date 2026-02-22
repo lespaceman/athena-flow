@@ -32,7 +32,10 @@ export default function SetupWizard({onComplete}: Props) {
 
 	const handleHarnessComplete = useCallback(
 		(harness: string) => {
-			setResult(prev => ({...prev, harness: harness as 'claude-code' | 'codex'}));
+			setResult(prev => ({
+				...prev,
+				harness: harness as 'claude-code' | 'codex',
+			}));
 			markSuccess();
 		},
 		[markSuccess],
