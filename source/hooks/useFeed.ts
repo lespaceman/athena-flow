@@ -11,12 +11,6 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
-import type {
-	AgentMessageData,
-	StopRequestData,
-	SubagentStopData,
-} from '../feed/types.js';
-
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -52,45 +46,6 @@ export function extractPermissionSnapshot(
 		tool_use_id: event.toolUseId ?? (p.tool_use_id as string | undefined),
 		suggestions: p.permission_suggestions,
 	};
-}
-
-export function enrichStopEvent(stopEvent: FeedEvent): FeedEvent | null {
-	const isSubagent = stopEvent.kind === 'subagent.stop';
-	const scope = isSubagent ? 'subagent' : 'root';
-	const actorId = isSubagent ? stopEvent.actor_id : 'agent:root';
-
-	const message = isSubagent
-		? (stopEvent.data as SubagentStopData).last_assistant_message
-		: (stopEvent.data as StopRequestData).last_assistant_message;
-
-	if (!message) return null;
-
-	const data: AgentMessageData = {
-		message,
-		source: 'hook',
-		scope,
-	};
-
-	return {
-		event_id: `${stopEvent.event_id}:msg`,
-		seq: stopEvent.seq + 0.5,
-		ts: stopEvent.ts + 1,
-		session_id: stopEvent.session_id,
-		run_id: stopEvent.run_id,
-		kind: 'agent.message',
-		level: 'info',
-		actor_id: actorId,
-		title:
-			scope === 'subagent'
-				? '\u{1F4AC} Subagent response'
-				: '\u{1F4AC} Agent response',
-		body: message,
-		cause: {
-			parent_event_id: stopEvent.event_id,
-			transcript_path: stopEvent.cause?.transcript_path,
-		},
-		data,
-	} as FeedEvent;
 }
 
 export type UseFeedResult = {
@@ -318,16 +273,6 @@ export function useFeed(
 
 			// Map to feed events
 			const newFeedEvents = mapperRef.current.mapEvent(runtimeEvent);
-
-			// Sync enrichment: extract agent final message on stop/subagent.stop
-			const enriched: FeedEvent[] = [];
-			for (const fe of newFeedEvents) {
-				if (fe.kind === 'stop.request' || fe.kind === 'subagent.stop') {
-					const msgEvent = enrichStopEvent(fe);
-					if (msgEvent) enriched.push(msgEvent);
-				}
-			}
-			newFeedEvents.push(...enriched);
 
 			if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
 				// Auto-dequeue permissions/questions from incoming events
