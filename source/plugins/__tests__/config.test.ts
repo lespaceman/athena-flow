@@ -9,6 +9,10 @@ vi.mock('node:fs', () => ({
 			if (!(p in files)) throw new Error(`ENOENT: ${p}`);
 			return files[p];
 		},
+		mkdirSync: () => undefined,
+		writeFileSync: (p: string, content: string) => {
+			files[p] = content;
+		},
 	},
 }));
 
@@ -27,7 +31,8 @@ vi.mock('../marketplace.js', () => ({
 }));
 
 // Import after mocks are set up
-const {readConfig, readGlobalConfig} = await import('../config.js');
+const {readConfig, readGlobalConfig, writeGlobalConfig} =
+	await import('../config.js');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) {
@@ -249,5 +254,51 @@ describe('workflow field', () => {
 		});
 
 		expect(readConfig('/project').workflow).toBeUndefined();
+	});
+});
+
+describe('setupComplete and harness fields', () => {
+	it('parses setupComplete and harness fields', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+			setupComplete: true,
+			harness: 'claude-code',
+		});
+		const config = readConfig('/project');
+		expect(config.setupComplete).toBe(true);
+		expect(config.harness).toBe('claude-code');
+	});
+
+	it('returns undefined when not set', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+		});
+		const config = readConfig('/project');
+		expect(config.setupComplete).toBeUndefined();
+		expect(config.harness).toBeUndefined();
+	});
+});
+
+describe('writeGlobalConfig', () => {
+	it('writeGlobalConfig merges with existing config', () => {
+		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
+			plugins: ['existing'],
+			theme: 'dark',
+		});
+		writeGlobalConfig({setupComplete: true, harness: 'claude-code'});
+		const written = JSON.parse(
+			files['/home/testuser/.config/athena/config.json']!,
+		);
+		expect(written.plugins).toEqual(['existing']);
+		expect(written.setupComplete).toBe(true);
+		expect(written.harness).toBe('claude-code');
+	});
+
+	it('creates config when none exists', () => {
+		writeGlobalConfig({harness: 'codex'});
+		const written = JSON.parse(
+			files['/home/testuser/.config/athena/config.json']!,
+		);
+		expect(written.harness).toBe('codex');
 	});
 });

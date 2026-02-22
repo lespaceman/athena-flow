@@ -21,6 +21,10 @@ export type AthenaConfig = {
 	theme?: string;
 	/** Workflow name from standalone registry */
 	workflow?: string;
+	/** Whether the setup wizard has been completed */
+	setupComplete?: boolean;
+	/** Which AI coding harness is being used */
+	harness?: 'claude-code' | 'codex';
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -57,6 +61,8 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		model?: string;
 		theme?: string;
 		workflow?: string;
+		setupComplete?: boolean;
+		harness?: string;
 	};
 
 	const plugins = (raw.plugins ?? [])
@@ -86,5 +92,29 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		model: raw.model,
 		theme: raw.theme,
 		workflow: raw.workflow,
+		setupComplete: raw.setupComplete as boolean | undefined,
+		harness: raw.harness === 'claude-code' || raw.harness === 'codex' ? raw.harness : undefined,
 	};
+}
+
+/**
+ * Write global config to `~/.config/athena/config.json`.
+ * Merges with existing config if present. Creates directories as needed.
+ */
+export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
+	const homeDir = os.homedir();
+	const configDir = path.join(homeDir, '.config', 'athena');
+	const configPath = path.join(configDir, 'config.json');
+
+	let existing: Record<string, unknown> = {};
+	if (fs.existsSync(configPath)) {
+		existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
+			string,
+			unknown
+		>;
+	}
+
+	const merged = {...existing, ...updates};
+	fs.mkdirSync(configDir, {recursive: true});
+	fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
 }
