@@ -133,24 +133,22 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		recordEventAtomic(event, feedEvents);
 	}
 
-	const recordFeedEventsAtomic = db.transaction(
-		(feedEvents: FeedEvent[]) => {
-			for (const fe of feedEvents) {
-				insertFeedEvent.run(
-					fe.event_id,
-					null,
-					fe.seq,
-					fe.kind,
-					fe.run_id,
-					fe.actor_id,
-					fe.ts,
-					JSON.stringify(fe),
-				);
-			}
-			updateEventCount.run(feedEvents.length, opts.sessionId);
-			updateSessionTimestamp.run(Date.now(), opts.sessionId);
-		},
-	);
+	const recordFeedEventsAtomic = db.transaction((feedEvents: FeedEvent[]) => {
+		for (const fe of feedEvents) {
+			insertFeedEvent.run(
+				fe.event_id,
+				null,
+				fe.seq,
+				fe.kind,
+				fe.run_id,
+				fe.actor_id,
+				fe.ts,
+				JSON.stringify(fe),
+			);
+		}
+		updateEventCount.run(feedEvents.length, opts.sessionId);
+		updateSessionTimestamp.run(Date.now(), opts.sessionId);
+	});
 
 	function recordFeedEvents(feedEvents: FeedEvent[]): void {
 		recordFeedEventsAtomic(feedEvents);
