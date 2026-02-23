@@ -45,9 +45,7 @@ function UnifiedLine({
 	return (
 		<Text>
 			<Text dimColor>
-				{formatLineNo(line.oldLineNo)}
-				{' '}
-				{formatLineNo(line.newLineNo)}
+				{formatLineNo(line.oldLineNo)} {formatLineNo(line.newLineNo)}
 				{' │ '}
 			</Text>
 			<Text color={color}>

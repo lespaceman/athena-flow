@@ -59,9 +59,7 @@ describe('StructuredList', () => {
 		const items = Array.from({length: 20}, (_, i) => ({
 			primary: `item ${i}`,
 		}));
-		const {lastFrame} = render(
-			<StructuredList items={items} maxItems={5} />,
-		);
+		const {lastFrame} = render(<StructuredList items={items} maxItems={5} />);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('more items');
 	});

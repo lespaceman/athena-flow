@@ -37,10 +37,20 @@ describe('DiffBlock', () => {
 				oldStart: 10,
 				newStart: 10,
 				lines: [
-					{type: 'context', content: 'const x = 0;', oldLineNo: 10, newLineNo: 10},
+					{
+						type: 'context',
+						content: 'const x = 0;',
+						oldLineNo: 10,
+						newLineNo: 10,
+					},
 					{type: 'remove', content: 'const a = 1;', oldLineNo: 11},
 					{type: 'add', content: 'const a = 2;', newLineNo: 11},
-					{type: 'context', content: 'const b = 3;', oldLineNo: 12, newLineNo: 12},
+					{
+						type: 'context',
+						content: 'const b = 3;',
+						oldLineNo: 12,
+						newLineNo: 12,
+					},
 				],
 			},
 		];
@@ -54,9 +64,7 @@ describe('DiffBlock', () => {
 	});
 
 	it('falls back to old/new text rendering when hunks not provided', () => {
-		const {lastFrame} = render(
-			<DiffBlock oldText="old" newText="new" />,
-		);
+		const {lastFrame} = render(<DiffBlock oldText="old" newText="new" />);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('- old');
 		expect(frame).toContain('+ new');

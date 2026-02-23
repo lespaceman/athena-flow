@@ -22,7 +22,11 @@ function linkifyFilePaths(text: string): string {
 	});
 }
 
-export default function CodeBlock({content, language, maxLines}: Props): React.ReactNode {
+export default function CodeBlock({
+	content,
+	language,
+	maxLines,
+}: Props): React.ReactNode {
 	if (!content) return null;
 
 	const lines = content.split('\n');

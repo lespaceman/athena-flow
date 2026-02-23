@@ -44,11 +44,7 @@ function collapseTree(node: TreeNode): TreeNode {
 	node.children = node.children.map(collapseTree);
 
 	// Collapse: if a dir has exactly one child that is also a dir, merge them
-	while (
-		node.isDir &&
-		node.children.length === 1 &&
-		node.children[0]!.isDir
-	) {
+	while (node.isDir && node.children.length === 1 && node.children[0]!.isDir) {
 		const child = node.children[0]!;
 		const separator = node.name ? '/' : '';
 		node = {

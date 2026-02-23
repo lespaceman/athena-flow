@@ -15,10 +15,7 @@ describe('buildFileTree', () => {
 	});
 
 	it('collapses common prefix', () => {
-		const paths = [
-			'source/components/A.tsx',
-			'source/components/B.tsx',
-		];
+		const paths = ['source/components/A.tsx', 'source/components/B.tsx'];
 		const tree = buildFileTree(paths);
 		expect(tree.name).toBe('source/components');
 		expect(tree.children).toHaveLength(2);
@@ -38,10 +35,7 @@ describe('buildFileTree', () => {
 
 describe('renderTree', () => {
 	it('renders with box-drawing characters', () => {
-		const paths = [
-			'source/a.ts',
-			'source/b.ts',
-		];
+		const paths = ['source/a.ts', 'source/b.ts'];
 		const tree = buildFileTree(paths);
 		const lines = renderTree(tree);
 		expect(lines.some(l => l.includes('├─'))).toBe(true);

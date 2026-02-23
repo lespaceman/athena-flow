@@ -22,9 +22,7 @@ describe('CodeBlock', () => {
 	});
 
 	it('truncates beyond maxLines', () => {
-		const content = Array.from({length: 20}, (_, i) => `line ${i}`).join(
-			'\n',
-		);
+		const content = Array.from({length: 20}, (_, i) => `line ${i}`).join('\n');
 		const {lastFrame} = render(<CodeBlock content={content} maxLines={5} />);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('more lines');
@@ -34,9 +32,7 @@ describe('CodeBlock', () => {
 	it('wraps absolute file paths with OSC 8 when supported', () => {
 		vi.stubEnv('ATHENA_HYPERLINKS', '1');
 		const content = 'Error at /home/user/src/app.ts:42:10';
-		const {lastFrame} = render(
-			<CodeBlock content={content} language="bash" />,
-		);
+		const {lastFrame} = render(<CodeBlock content={content} language="bash" />);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('\x1b]8;;');
 		expect(frame).toContain('/home/user/src/app.ts');
@@ -49,9 +45,7 @@ describe('CodeBlock', () => {
 		vi.stubEnv('VTE_VERSION', '');
 		vi.stubEnv('TERM', 'xterm-256color');
 		const content = 'Error at /home/user/src/app.ts:42:10';
-		const {lastFrame} = render(
-			<CodeBlock content={content} language="bash" />,
-		);
+		const {lastFrame} = render(<CodeBlock content={content} language="bash" />);
 		const frame = lastFrame() ?? '';
 		expect(frame).not.toContain('\x1b]8;;');
 	});
