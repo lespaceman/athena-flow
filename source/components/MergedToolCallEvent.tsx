@@ -56,21 +56,19 @@ export default function MergedToolCallEvent({
 
 	// Build summary text for resolved events
 	let summary = '';
-	if (isResolved) {
-		if (isFailed && postEvent.kind === 'tool.failure') {
-			summary = summarizeToolResult(
-				toolName,
-				toolInput,
-				undefined,
-				postEvent.data.error,
-			);
-		} else if (postEvent.kind === 'tool.post') {
-			summary = summarizeToolResult(
-				toolName,
-				toolInput,
-				postEvent.data.tool_response,
-			);
-		}
+	if (postEvent?.kind === 'tool.failure') {
+		summary = summarizeToolResult(
+			toolName,
+			toolInput,
+			undefined,
+			postEvent.data.error,
+		);
+	} else if (postEvent?.kind === 'tool.post') {
+		summary = summarizeToolResult(
+			toolName,
+			toolInput,
+			postEvent.data.tool_response,
+		);
 	}
 
 	// Build header line
@@ -121,7 +119,6 @@ export default function MergedToolCallEvent({
 
 			{/* Expanded: output section (only when resolved) */}
 			{(verbose || expanded) &&
-				isResolved &&
 				postEvent &&
 				renderOutput(postEvent, parentWidth)}
 		</Box>

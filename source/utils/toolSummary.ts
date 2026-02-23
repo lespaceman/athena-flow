@@ -51,7 +51,10 @@ function summarizeRead(
 	return 'done';
 }
 
-function summarizeEdit(input: Record<string, unknown>): string {
+function summarizeEdit(
+	input: Record<string, unknown>,
+	_response: unknown,
+): string {
 	const oldStr =
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newStr =
@@ -105,7 +108,10 @@ function summarizeWebSearch(
 	return 'done';
 }
 
-function summarizeTask(input: Record<string, unknown>): string {
+function summarizeTask(
+	input: Record<string, unknown>,
+	_response: unknown,
+): string {
 	const agentType = input['subagent_type'] ?? 'agent';
 	return `${agentType} — done`;
 }

@@ -99,6 +99,16 @@ export function eventOperation(event: FeedEvent): string {
 	}
 }
 
+/** Resolve a tool name to its display form (e.g. MCP → `[server] action`). */
+function resolveDisplayName(toolName: string): string {
+	const parsed = parseToolName(toolName);
+	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
+		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
+		return `[${friendlyServer}] ${parsed.mcpAction}`;
+	}
+	return toolName;
+}
+
 type ToolSummaryResult = {text: string; dimStart?: number};
 
 function formatToolSummary(
@@ -106,14 +116,7 @@ function formatToolSummary(
 	args: string,
 	errorSuffix?: string,
 ): ToolSummaryResult {
-	const parsed = parseToolName(toolName);
-	let name: string;
-	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
-		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
-		name = `[${friendlyServer}] ${parsed.mcpAction}`;
-	} else {
-		name = toolName;
-	}
+	const name = resolveDisplayName(toolName);
 	const secondary = [args, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
 		return {text: compactText(name, 200)};
@@ -379,14 +382,7 @@ export function mergedEventSummary(
 
 	const toolName = event.data.tool_name;
 	const toolInput = event.data.tool_input ?? {};
-	const parsed = parseToolName(toolName);
-	let name: string;
-	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
-		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
-		name = `[${friendlyServer}] ${parsed.mcpAction}`;
-	} else {
-		name = toolName;
-	}
+	const name = resolveDisplayName(toolName);
 
 	let resultText: string;
 	if (postEvent.kind === 'tool.failure') {

@@ -55,7 +55,6 @@ export function useTimeline({
 	postByToolUseId,
 	verbose,
 }: UseTimelineOptions): UseTimelineResult {
-	const postMap = postByToolUseId;
 	const [searchMatchPos, setSearchMatchPos] = useState(0);
 
 	const stableItems = useMemo((): FeedItem[] => {
@@ -117,9 +116,9 @@ export function useTimeline({
 			// by the paired tool.pre entry — skip it here.
 			if (
 				(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
-				postMap &&
+				postByToolUseId &&
 				event.data.tool_use_id &&
-				postMap.get(event.data.tool_use_id) === event
+				postByToolUseId.get(event.data.tool_use_id) === event
 			) {
 				continue;
 			}
@@ -128,7 +127,7 @@ export function useTimeline({
 			const pairedPost =
 				(event.kind === 'tool.pre' || event.kind === 'permission.request') &&
 				event.data.tool_use_id
-					? postMap?.get(event.data.tool_use_id)
+					? postByToolUseId?.get(event.data.tool_use_id)
 					: undefined;
 
 			const op = pairedPost
@@ -158,7 +157,7 @@ export function useTimeline({
 			}
 		}
 		return entries;
-	}, [stableItems, postMap, verbose]);
+	}, [stableItems, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
 		const map = new Map<string, RunSummary>();
