@@ -73,6 +73,7 @@ export type UseFeedResult = {
 	removeRule: (id: string) => void;
 	clearRules: () => void;
 	printTaskSnapshot: () => void;
+	isDegraded: boolean;
 };
 
 // ── Hook ─────────────────────────────────────────────────
@@ -287,7 +288,13 @@ export function useFeed(
 
 			// Persist runtime event + derived feed events
 			if (sessionStoreRef.current) {
-				sessionStoreRef.current.recordEvent(runtimeEvent, newFeedEvents);
+				try {
+					sessionStoreRef.current.recordEvent(runtimeEvent, newFeedEvents);
+				} catch (err) {
+					sessionStoreRef.current.markDegraded(
+						`recordEvent failed: ${err instanceof Error ? err.message : err}`,
+					);
+				}
 			}
 
 			if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
@@ -314,7 +321,13 @@ export function useFeed(
 				if (feedEvent) {
 					// Persist decision event (feed-only, no runtime event)
 					if (sessionStoreRef.current) {
-						sessionStoreRef.current.recordFeedEvents([feedEvent]);
+						try {
+							sessionStoreRef.current.recordFeedEvents([feedEvent]);
+						} catch (err) {
+							sessionStoreRef.current.markDegraded(
+								`recordFeedEvents failed: ${err instanceof Error ? err.message : err}`,
+							);
+						}
 					}
 
 					setFeedEvents(prev => [...prev, feedEvent]);
@@ -395,5 +408,6 @@ export function useFeed(
 		removeRule,
 		clearRules,
 		printTaskSnapshot,
+		isDegraded: sessionStoreRef.current?.isDegraded ?? false,
 	};
 }

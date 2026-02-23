@@ -38,6 +38,10 @@ export type SessionStore = {
 	getAthenaSession(): AthenaSession;
 	updateLabel(label: string): void;
 	close(): void;
+	/** Whether persistence has failed and the session is running without storage. */
+	isDegraded: boolean;
+	/** Mark the session as degraded after a persistence failure. */
+	markDegraded(reason: string): void;
 };
 
 export function createSessionStore(opts: SessionStoreOptions): SessionStore {
@@ -50,6 +54,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 	initSchema(db);
 
 	let runtimeSeq = 0;
+	let degraded = false;
 
 	// Track known adapter session IDs to avoid duplicate inserts
 	const knownAdapterSessions = new Set<string>();
@@ -271,5 +276,12 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		getAthenaSession,
 		updateLabel,
 		close,
+		get isDegraded() {
+			return degraded;
+		},
+		markDegraded(reason: string) {
+			degraded = true;
+			console.error(`[athena] session degraded: ${reason}`);
+		},
 	};
 }
