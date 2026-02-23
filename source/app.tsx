@@ -121,6 +121,7 @@ function AppContent({
 	const [focusMode, setFocusMode] = useState<FocusMode>('feed');
 	const [inputMode, setInputMode] = useState<InputMode>('normal');
 	const [runFilter, setRunFilter] = useState<string>('all');
+	const [hintsForced, setHintsForced] = useState<boolean | null>(null);
 	const [showRunOverlay, setShowRunOverlay] = useState(false);
 	const [errorsOnly, setErrorsOnly] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
@@ -251,39 +252,9 @@ function AppContent({
 		),
 	});
 
-	const layout = useLayout({
-		terminalRows,
-		terminalWidth,
-		showRunOverlay,
-		runSummaries,
-		filteredEntries,
-		feedNav,
-		todoPanel,
-	});
-
-	const {
-		frameWidth,
-		innerWidth,
-		bodyHeight,
-		feedHeaderRows,
-		feedContentRows,
-		actualTodoRows,
-		actualRunOverlayRows,
-		pageStep,
-		detailPageStep,
-		maxDetailScroll,
-		detailLines,
-		detailShowLineNumbers,
-		detailContentRows,
-		expandedEntry,
-	} = layout;
-
-	const fr = frameGlyphs(!!ascii);
-	const topBorder = `${fr.topLeft}${fr.horizontal.repeat(innerWidth)}${fr.topRight}`;
-	const bottomBorder = `${fr.bottomLeft}${fr.horizontal.repeat(innerWidth)}${fr.bottomRight}`;
-	const sectionBorder = `${fr.teeLeft}${fr.horizontal.repeat(innerWidth)}${fr.teeRight}`;
-	const frameLine = (content: string): string =>
-		`${fr.vertical}${fitAnsi(content, innerWidth)}${fr.vertical}`;
+	// Compute frame dimensions early (only depends on terminalWidth)
+	const frameWidth = Math.max(4, terminalWidth);
+	const innerWidth = frameWidth - 2;
 
 	// ── Refs for callbacks ──────────────────────────────────
 
@@ -456,6 +427,68 @@ function AppContent({
 	setInputValueRef.current = setInputValue;
 	inputValueRef.current = inputValue;
 
+	// ── Frame lines + Layout ────────────────────────────────
+
+	const frame = buildFrameLines({
+		innerWidth,
+		focusMode,
+		inputMode,
+		searchQuery,
+		searchMatches,
+		searchMatchPos,
+		expandedEntry: feedNav.expandedId
+			? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ?? null)
+			: null,
+		isClaudeRunning,
+		inputValue,
+		cursorOffset,
+		dialogActive,
+		dialogType: appMode.type,
+		accentColor: theme.inputPrompt,
+		hintsForced: hintsForced ?? undefined,
+		ascii: !!ascii,
+	});
+
+	// Auto: show when empty, hide when typing. hintsForced overrides.
+	const hintsVisible =
+		hintsForced === true || (hintsForced === null && inputValue.length === 0);
+	const footerRows =
+		(hintsVisible && frame.footerHelp !== null ? 1 : 0) +
+		frame.inputLines.length;
+
+	const layout = useLayout({
+		terminalRows,
+		terminalWidth,
+		showRunOverlay,
+		runSummaries,
+		filteredEntries,
+		feedNav,
+		todoPanel,
+		footerRows,
+	});
+
+	const {
+		bodyHeight,
+		feedHeaderRows,
+		feedContentRows,
+		actualTodoRows,
+		actualRunOverlayRows,
+		pageStep,
+		detailPageStep,
+		maxDetailScroll,
+		detailLines,
+		detailShowLineNumbers,
+		detailContentRows,
+		expandedEntry,
+	} = layout;
+
+	const fr = frameGlyphs(!!ascii);
+	const topBorder = `${fr.topLeft}${fr.horizontal.repeat(innerWidth)}${fr.topRight}`;
+	const bottomBorder = `${fr.bottomLeft}${fr.horizontal.repeat(innerWidth)}${fr.bottomRight}`;
+	const sectionBorder = `${fr.teeLeft}${fr.horizontal.repeat(innerWidth)}${fr.teeRight}`;
+	const frameLine = (content: string): string =>
+		`${fr.vertical}${fitAnsi(content, innerWidth)}${fr.vertical}`;
+
 	// ── Focus cycling ───────────────────────────────────────
 
 	const visibleTodoItemsRef = useRef(todoPanel.visibleTodoItems);
@@ -502,6 +535,10 @@ function AppContent({
 			if (key.ctrl && input === 't') {
 				todoPanel.setTodoVisible(v => !v);
 				if (focusMode === 'todo') setFocusMode('feed');
+				return;
+			}
+			if (key.ctrl && input === '/') {
+				setHintsForced(prev => (prev === null ? true : prev ? false : null));
 				return;
 			}
 			if (focusMode === 'input') {
@@ -572,24 +609,6 @@ function AppContent({
 			toggleTodoStatus: todoPanel.toggleTodoStatus,
 			cycleFocus,
 		},
-	});
-
-	// ── Frame lines ─────────────────────────────────────────
-
-	const frame = buildFrameLines({
-		innerWidth,
-		focusMode,
-		inputMode,
-		searchQuery,
-		searchMatches,
-		searchMatchPos,
-		expandedEntry,
-		isClaudeRunning,
-		inputValue,
-		cursorOffset,
-		dialogActive,
-		dialogType: appMode.type,
-		accentColor: theme.inputPrompt,
 	});
 
 	const hasColor = !process.env['NO_COLOR'];
@@ -683,7 +702,9 @@ function AppContent({
 			{frame.footerHelp !== null && (
 				<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>
 			)}
-			<Text>{frameLine(frame.inputLine)}</Text>
+			{frame.inputLines.map((line, i) => (
+				<Text key={`input-${i}`}>{frameLine(line)}</Text>
+			))}
 			<Text>{bottomBorder}</Text>
 			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
