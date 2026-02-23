@@ -151,5 +151,13 @@ export function styleFeedLine(
 		styled = breakGlyph + styled.slice(1);
 	}
 
+	// User prompt: accent left-border (replacing first char)
+	if (opts.op === 'prompt' && !matched) {
+		const g = getGlyphs(ascii);
+		const borderColor = theme.userMessage.border ?? theme.accent;
+		const borderGlyph = chalk.hex(borderColor)(g['feed.userBorder']);
+		styled = borderGlyph + styled.slice(1);
+	}
+
 	return styled;
 }
