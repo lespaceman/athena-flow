@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import {type TimelineEntry} from '../feed/timeline.js';
+import {hintGlyphs} from '../glyphs/index.js';
 import {fit, fitAnsi, formatInputBuffer} from './format.js';
 
 export type FrameContext = {
@@ -16,31 +17,89 @@ export type FrameContext = {
 	dialogActive: boolean;
 	dialogType: string;
 	accentColor?: string;
+	hintsForced?: boolean;
+	ascii?: boolean;
 };
 
 export type FrameLines = {
-	footerHelp: string;
+	footerHelp: string | null;
 	inputLine: string;
 };
+
+function buildHintPairs(pairs: Array<[string, string]>, sep: string): string {
+	return chalk.dim(
+		pairs.map(([glyph, label]) => `${glyph} ${label}`).join(` ${sep} `),
+	);
+}
 
 export function buildFrameLines(ctx: FrameContext): FrameLines {
 	const {innerWidth} = ctx;
 
-	// Footer
-	const footerHelp = (() => {
-		if (ctx.focusMode === 'todo')
-			return 'TODO: up/down select  Space toggle done  Enter jump  a add  Esc back';
-		if (ctx.focusMode === 'input')
-			return 'INPUT: Enter send  Esc back  Tab focus  Ctrl+P/N history';
-		if (ctx.expandedEntry)
-			return 'DETAILS: Up/Down or j/k scroll  PgUp/PgDn jump  Enter/Esc back';
+	// Footer — auto-hide when typing
+	const footerHelp: string | null = (() => {
+		if (ctx.inputValue.length > 0 && ctx.hintsForced !== true) {
+			return null;
+		}
+
+		const h = hintGlyphs(!!ctx.ascii);
+
+		if (ctx.focusMode === 'todo') {
+			return buildHintPairs(
+				[
+					[h.arrowsUpDown, 'Select'],
+					[h.space, 'Toggle'],
+					[h.enter, 'Jump'],
+					['a', 'Add'],
+					[h.escape, 'Back'],
+				],
+				h.separator,
+			);
+		}
+
+		if (ctx.focusMode === 'input') {
+			return buildHintPairs(
+				[
+					[h.enter, 'Send'],
+					[h.escape, 'Back'],
+					[h.tab, 'Focus'],
+					['⌃P/N', 'History'],
+					[h.toggle, 'Hints'],
+				],
+				h.separator,
+			);
+		}
+
+		if (ctx.expandedEntry) {
+			return buildHintPairs(
+				[
+					[h.arrowsUpDown, 'Scroll'],
+					[h.page, 'Page'],
+					[`${h.enter}/${h.escape}`, 'Back'],
+				],
+				h.separator,
+			);
+		}
+
+		// Feed mode (default)
 		const searchPart =
 			ctx.searchQuery && ctx.searchMatches.length > 0
 				? ` | search ${ctx.searchMatchPos + 1}/${ctx.searchMatches.length}`
 				: ctx.searchQuery
 					? ' | search 0/0'
 					: '';
-		return `FEED: Ctrl+Up/Down move  Enter expand  / search  : cmd  End tail${searchPart}`;
+
+		return (
+			buildHintPairs(
+				[
+					[h.arrows, 'Navigate'],
+					[h.enter, 'Expand'],
+					['/', 'Search'],
+					[':', 'Cmd'],
+					['End', 'Tail'],
+				],
+				h.separator,
+			) + searchPart
+		);
 	})();
 
 	// Input line

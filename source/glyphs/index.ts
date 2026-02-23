@@ -65,6 +65,7 @@ export type MessageGlyphSet = DomainSet<'message'>;
 export type PermissionGlyphSet = DomainSet<'permission'>;
 export type StopGlyphSet = DomainSet<'stop'>;
 export type ConfigGlyphSet = DomainSet<'config'>;
+export type HintGlyphSet = DomainSet<'hint'>;
 
 export function feedGlyphs(ascii = false): FeedGlyphSet {
 	return domainSet('feed', ascii);
@@ -112,6 +113,10 @@ export function stopGlyphs(ascii = false): StopGlyphSet {
 
 export function configGlyphs(ascii = false): ConfigGlyphSet {
 	return domainSet('config', ascii);
+}
+
+export function hintGlyphs(ascii = false): HintGlyphSet {
+	return domainSet('hint', ascii);
 }
 
 // Re-export types needed by consumers

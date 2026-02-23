@@ -680,7 +680,9 @@ function AppContent({
 				<Text key={`body-${index}`}>{frameLine(line)}</Text>
 			))}
 			<Text>{sectionBorder}</Text>
-			<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>
+			{frame.footerHelp !== null && (
+				<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>
+			)}
 			<Text>{frameLine(frame.inputLine)}</Text>
 			<Text>{bottomBorder}</Text>
 			{appMode.type === 'permission' && currentPermissionRequest && (
