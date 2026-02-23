@@ -21,9 +21,15 @@ export const darkTheme: Theme = {
 		medium: '#fab387',
 		high: '#f38ba8',
 	},
+	dialog: {
+		borderPermission: '#f9e2af',
+		borderQuestion: '#89dceb',
+	},
+	inputPrompt: '#89b4fa',
 	userMessage: {
 		text: '#bac2de',
 		background: '#313244',
+		border: '#89b4fa',
 	},
 };
 
@@ -48,9 +54,15 @@ export const lightTheme: Theme = {
 		medium: '#df8e1d',
 		high: '#d20f39',
 	},
+	dialog: {
+		borderPermission: '#df8e1d',
+		borderQuestion: '#1e66f5',
+	},
+	inputPrompt: '#5c5cff',
 	userMessage: {
 		text: '#4c4f69',
 		background: '#ccd0da',
+		border: '#5c5cff',
 	},
 };
 
@@ -79,9 +91,15 @@ export const highContrastTheme: Theme = {
 		medium: '#ffb86c',
 		high: '#ff5555',
 	},
+	dialog: {
+		borderPermission: '#f1fa8c',
+		borderQuestion: '#8be9fd',
+	},
+	inputPrompt: '#bd93f9',
 	userMessage: {
 		text: '#f0f0f0',
 		background: '#2a2a4a',
+		border: '#bd93f9',
 	},
 };
 
