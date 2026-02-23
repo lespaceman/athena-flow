@@ -1,4 +1,4 @@
-import React, {createContext, useContext, useMemo} from 'react';
+import React, {createContext, useContext, useEffect, useMemo} from 'react';
 import path from 'node:path';
 import {useFeed} from '../hooks/useFeed.js';
 import {createClaudeHookRuntime} from '../runtime/adapters/claudeHooks/index.js';
@@ -33,6 +33,12 @@ export function HookProvider({
 			}),
 		[athenaSessionId, projectDir],
 	);
+
+	useEffect(() => {
+		return () => {
+			sessionStore.close();
+		};
+	}, [sessionStore]);
 
 	const hookServer = useFeed(runtime, [], allowedTools, sessionStore);
 

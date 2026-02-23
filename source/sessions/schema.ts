@@ -49,7 +49,6 @@ export function initSchema(db: Database.Database): void {
 		);
 	`);
 
-	// Create indexes (IF NOT EXISTS for idempotency)
 	db.exec(`
 		CREATE INDEX IF NOT EXISTS idx_feed_kind ON feed_events(kind);
 		CREATE INDEX IF NOT EXISTS idx_feed_run ON feed_events(run_id);

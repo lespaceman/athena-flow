@@ -93,7 +93,15 @@ export function useFeed(
 	initialAllowedTools?: string[],
 	sessionStore?: SessionStore,
 ): UseFeedResult {
-	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
+	// Restore stored session data on mount (if resuming)
+	const storedSession = useMemo(
+		() => sessionStore?.restore(),
+		[sessionStore],
+	);
+
+	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>(
+		() => storedSession?.feedEvents ?? [],
+	);
 	const [rules, setRules] = useState<HookRule[]>(() =>
 		buildInitialRules(initialAllowedTools),
 	);
@@ -102,7 +110,7 @@ export function useFeed(
 	);
 	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
-	const mapperRef = useRef<FeedMapper>(createFeedMapper());
+	const mapperRef = useRef<FeedMapper>(createFeedMapper(storedSession));
 	const sessionStoreRef = useRef<SessionStore | undefined>(sessionStore);
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());

@@ -1,20 +1,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import type {FeedEvent} from '../feed/types.js';
+import type {RuntimeEvent} from '../runtime/types.js';
 import {initSchema} from './schema.js';
 import type {
 	AthenaSession,
 	AdapterSessionRecord,
 	StoredSession,
 } from './types.js';
-import type {RuntimeEvent} from '../runtime/types.js';
-import type {FeedEvent} from '../feed/types.js';
 
 export type SessionStoreOptions = {
 	sessionId: string;
 	projectDir: string;
-	dbPath: string; // ':memory:' for tests, file path for production
+	dbPath: string;
 	label?: string;
+};
+
+type SessionRow = {
+	id: string;
+	project_dir: string;
+	created_at: number;
+	updated_at: number;
+	label: string | null;
+	event_count: number | null;
 };
 
 export type SessionStore = {
@@ -110,7 +119,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		updateSessionTimestamp.run(event.timestamp, opts.sessionId);
 	}
 
-	const recordEventAtomic = db.transaction(
+	const recordEvent = db.transaction(
 		(event: RuntimeEvent, feedEvents: FeedEvent[]) => {
 			recordRuntimeEvent(event);
 			for (const fe of feedEvents) {
@@ -129,11 +138,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		},
 	);
 
-	function recordEvent(event: RuntimeEvent, feedEvents: FeedEvent[]): void {
-		recordEventAtomic(event, feedEvents);
-	}
-
-	const recordFeedEventsAtomic = db.transaction((feedEvents: FeedEvent[]) => {
+	const recordFeedEvents = db.transaction((feedEvents: FeedEvent[]) => {
 		for (const fe of feedEvents) {
 			insertFeedEvent.run(
 				fe.event_id,
@@ -150,22 +155,10 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		updateSessionTimestamp.run(Date.now(), opts.sessionId);
 	});
 
-	function recordFeedEvents(feedEvents: FeedEvent[]): void {
-		recordFeedEventsAtomic(feedEvents);
-	}
-
 	function restore(): StoredSession {
 		const sessionRow = db
 			.prepare('SELECT * FROM session WHERE id = ?')
-			.get(opts.sessionId) as
-			| {
-					id: string;
-					project_dir: string;
-					created_at: number;
-					updated_at: number;
-					label: string | null;
-			  }
-			| undefined;
+			.get(opts.sessionId) as SessionRow | undefined;
 
 		const adapterRows = db
 			.prepare('SELECT * FROM adapter_sessions ORDER BY started_at')
@@ -190,6 +183,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 					createdAt: sessionRow.created_at,
 					updatedAt: sessionRow.updated_at,
 					label: sessionRow.label ?? undefined,
+					eventCount: sessionRow.event_count ?? 0,
 					adapterSessionIds,
 				}
 			: {
@@ -218,16 +212,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 	function getAthenaSession(): AthenaSession {
 		const sessionRow = db
 			.prepare('SELECT * FROM session WHERE id = ?')
-			.get(opts.sessionId) as
-			| {
-					id: string;
-					project_dir: string;
-					created_at: number;
-					updated_at: number;
-					label: string | null;
-					event_count: number | null;
-			  }
-			| undefined;
+			.get(opts.sessionId) as SessionRow | undefined;
 
 		const adapterRows = db
 			.prepare('SELECT session_id FROM adapter_sessions ORDER BY started_at')

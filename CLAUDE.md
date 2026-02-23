@@ -110,6 +110,7 @@ plugins not covered by a workflow (e.g., `site-knowledge`). Both coexist — wor
 - **source/workflows/installer.ts**: `installWorkflowPlugins(workflow)` — resolves marketplace plugin refs to dirs
 - **source/workflows/applyWorkflow.ts**: `applyPromptTemplate`, `writeLoopState`, `removeLoopState` utilities
 - **source/workflows/index.ts**: Barrel re-export for workflow module
+- **source/setup/**: Setup wizard — `SetupWizard.tsx` orchestrator, `useSetupState.ts` state machine, step components (ThemeStep, HarnessStep, WorkflowStep), reusable `StepSelector`/`StepStatus`. Triggered by first-run, `athena-cli setup`, or `/setup` command. Renders as `{type: 'setup'}` AppPhase.
 
 ### Feed Model (`source/feed/`)
 
@@ -160,6 +161,8 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - Event handler tests: test each handler in isolation with mock `HandlerCallbacks`
 - Flag registry tests: test `buildIsolationArgs()` and `validateConflicts()` declaratively
 - AbortController tests: verify that aborted signals produce graceful early returns (e.g., `error: 'Aborted'`)
+- **Vitest + worktrees**: Vitest globs `**/*.test.ts` and picks up tests in `.worktrees/`. When running tests on main with active worktrees, expect inflated test counts and failures from other branches. Run `npx vitest run source/` to scope to project source only.
+- **Ink stdin in tests**: Arrow key writes (`stdin.write('\u001B[B')`) need `await delay(50)` between them for React state to flush before the next input is processed.
 
 ## Rendering Paths
 

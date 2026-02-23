@@ -1,9 +1,18 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import os from 'node:os';
+import path from 'node:path';
 import Database from 'better-sqlite3';
 import type {AthenaSession} from './types.js';
 import {SCHEMA_VERSION} from './schema.js';
+
+type SessionRow = {
+	id: string;
+	project_dir: string;
+	created_at: number;
+	updated_at: number;
+	label: string | null;
+	event_count: number | null;
+};
 
 export function sessionsDir(): string {
 	return path.join(os.homedir(), '.config', 'athena', 'sessions');
@@ -29,14 +38,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 		}
 
 		const row = db.prepare('SELECT * FROM session LIMIT 1').get() as
-			| {
-					id: string;
-					project_dir: string;
-					created_at: number;
-					updated_at: number;
-					label: string | null;
-					event_count: number | null;
-			  }
+			| SessionRow
 			| undefined;
 
 		if (!row) return null;
