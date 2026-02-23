@@ -7,10 +7,13 @@ import {
 	type RunSummary,
 	eventOperation,
 	eventSummary,
+	mergedEventOperation,
+	mergedEventSummary,
 	expansionForEvent,
 	isEventError,
 	isEventExpandable,
 	toRunStatus,
+	VERBOSE_ONLY_KINDS,
 } from '../feed/timeline.js';
 import {compactText, actorLabel} from '../utils/format.js';
 
@@ -26,6 +29,8 @@ export type UseTimelineOptions = {
 	runFilter: string;
 	errorsOnly: boolean;
 	searchQuery: string;
+	postByToolUseId?: Map<string, FeedEvent>;
+	verbose?: boolean;
 };
 
 export type UseTimelineResult = {
@@ -47,7 +52,10 @@ export function useTimeline({
 	runFilter,
 	errorsOnly,
 	searchQuery,
+	postByToolUseId,
+	verbose,
 }: UseTimelineOptions): UseTimelineResult {
+	const postMap = postByToolUseId;
 	const [searchMatchPos, setSearchMatchPos] = useState(0);
 
 	const stableItems = useMemo((): FeedItem[] => {
@@ -94,19 +102,53 @@ export function useTimeline({
 			if (event.kind === 'run.start') {
 				activeRunId = event.run_id;
 			}
-			const {text: summary, dimStart: summaryDimStart} = eventSummary(event);
+
+			// Verbose filtering: skip lifecycle events when not verbose
+			if (!verbose && VERBOSE_ONLY_KINDS.has(event.kind)) {
+				// Still track run boundaries for activeRunId
+				if (event.kind === 'run.end') {
+					activeRunId = undefined;
+				}
+				continue;
+			}
+
+			// Merge tool.post/tool.failure into their paired tool.pre
+			// If this post/failure event is in the map, it will be rendered
+			// by the paired tool.pre entry — skip it here.
+			if (
+				(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
+				postMap &&
+				event.data.tool_use_id &&
+				postMap.get(event.data.tool_use_id) === event
+			) {
+				continue;
+			}
+
+			// For tool.pre, look up paired post event
+			const pairedPost =
+				(event.kind === 'tool.pre' || event.kind === 'permission.request') &&
+				event.data.tool_use_id
+					? postMap?.get(event.data.tool_use_id)
+					: undefined;
+
+			const op = pairedPost
+				? mergedEventOperation(event, pairedPost)
+				: eventOperation(event);
+			const {text: summary, dimStart: summaryDimStart} = pairedPost
+				? mergedEventSummary(event, pairedPost)
+				: eventSummary(event);
 			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
 			entries.push({
 				id: event.event_id,
 				ts: event.ts,
 				runId: event.run_id,
-				op: eventOperation(event),
+				op,
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
 				summary,
 				summaryDimStart,
 				searchText: `${summary}\n${details}`,
-				error: isEventError(event),
+				error: isEventError(event) || pairedPost?.kind === 'tool.failure',
 				expandable: isEventExpandable(event),
 				details,
 				feedEvent: event,
@@ -116,7 +158,7 @@ export function useTimeline({
 			}
 		}
 		return entries;
-	}, [stableItems]);
+	}, [stableItems, postMap, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
 		const map = new Map<string, RunSummary>();

@@ -32,6 +32,8 @@ export type FeedLineStyleOptions = {
 };
 
 function opCategoryColor(op: string, theme: Theme): string | undefined {
+	if (op === 'tool.ok') return theme.status.success;
+	if (op === 'tool.fail') return theme.status.error;
 	if (op.startsWith('tool.')) return theme.status.warning;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
 	if (op === 'agent.msg') return theme.status.info;

@@ -10,7 +10,8 @@ import {
 	extractFriendlyServerName,
 	parseToolName,
 } from '../utils/toolNameParser.js';
-import {type FeedEvent} from './types.js';
+import {summarizeToolResult} from '../utils/toolSummary.js';
+import {type FeedEvent, type FeedEventKind} from './types.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
@@ -331,6 +332,82 @@ export function deriveRunTitle(
 		}
 	}
 	return 'Untitled run';
+}
+
+// ── Verbose filtering ────────────────────────────────────
+
+export const VERBOSE_ONLY_KINDS: ReadonlySet<FeedEventKind> = new Set([
+	'session.start',
+	'session.end',
+	'run.start',
+	'run.end',
+	'user.prompt',
+	'notification',
+	'unknown.hook',
+	'compact.pre',
+	'config.change',
+]);
+
+// ── Merged tool event helpers ────────────────────────────
+
+/**
+ * Return the merged op code for a tool.pre that has a paired post/failure.
+ * Falls back to the default eventOperation when no postEvent is given.
+ */
+export function mergedEventOperation(
+	event: FeedEvent,
+	postEvent?: FeedEvent,
+): string {
+	if (!postEvent) return eventOperation(event);
+	if (postEvent.kind === 'tool.failure') return 'tool.fail';
+	if (postEvent.kind === 'tool.post') return 'tool.ok';
+	return eventOperation(event);
+}
+
+/**
+ * Return the merged summary for a tool.pre paired with its post/failure.
+ * Format: "ToolName — result summary" with dimStart after the tool name.
+ */
+export function mergedEventSummary(
+	event: FeedEvent,
+	postEvent?: FeedEvent,
+): SummaryResult {
+	if (!postEvent) return eventSummary(event);
+	if (event.kind !== 'tool.pre' && event.kind !== 'permission.request') {
+		return eventSummary(event);
+	}
+
+	const toolName = event.data.tool_name;
+	const toolInput = event.data.tool_input ?? {};
+	const parsed = parseToolName(toolName);
+	let name: string;
+	if (parsed.isMcp && parsed.mcpServer && parsed.mcpAction) {
+		const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
+		name = `[${friendlyServer}] ${parsed.mcpAction}`;
+	} else {
+		name = toolName;
+	}
+
+	let resultText: string;
+	if (postEvent.kind === 'tool.failure') {
+		resultText = summarizeToolResult(
+			toolName,
+			toolInput,
+			undefined,
+			postEvent.data.error,
+		);
+	} else if (postEvent.kind === 'tool.post') {
+		resultText = summarizeToolResult(
+			toolName,
+			toolInput,
+			postEvent.data.tool_response,
+		);
+	} else {
+		return eventSummary(event);
+	}
+
+	const full = `${name} — ${resultText}`;
+	return {text: compactText(full, 200), dimStart: name.length};
 }
 
 /** Column positions in formatted feed line (0-indexed char offsets). */

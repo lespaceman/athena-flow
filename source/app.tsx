@@ -142,6 +142,7 @@ function AppContent({
 		currentQuestionRequest,
 		questionQueueCount,
 		resolveQuestion,
+		postByToolUseId,
 	} = hookServer;
 
 	const currentSessionId = session?.session_id ?? null;
@@ -212,6 +213,8 @@ function AppContent({
 		runFilter,
 		errorsOnly,
 		searchQuery,
+		postByToolUseId,
+		verbose,
 	});
 	const {
 		runSummaries,
