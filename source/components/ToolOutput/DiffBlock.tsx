@@ -30,14 +30,18 @@ function UnifiedLine({
 	errorColor: string;
 	successColor: string;
 }): React.ReactNode {
-	const prefix =
-		line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' ';
-	const color =
-		line.type === 'add'
-			? successColor
-			: line.type === 'remove'
-				? errorColor
-				: undefined;
+	let prefix: string;
+	let color: string | undefined;
+	if (line.type === 'add') {
+		prefix = '+';
+		color = successColor;
+	} else if (line.type === 'remove') {
+		prefix = '-';
+		color = errorColor;
+	} else {
+		prefix = ' ';
+		color = undefined;
+	}
 	return (
 		<Text>
 			<Text dimColor>

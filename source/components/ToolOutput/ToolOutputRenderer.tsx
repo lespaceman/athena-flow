@@ -27,7 +27,6 @@ export default function ToolOutputRenderer({
 					content={output.content}
 					language={output.language}
 					maxLines={output.maxLines}
-					availableWidth={availableWidth}
 				/>
 			);
 		case 'diff':

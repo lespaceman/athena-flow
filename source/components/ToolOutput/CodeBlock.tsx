@@ -7,7 +7,6 @@ type Props = {
 	content: string;
 	language?: string;
 	maxLines?: number;
-	availableWidth?: number;
 };
 
 const MAX_HIGHLIGHT_SIZE = 50_000;
@@ -23,11 +22,7 @@ function linkifyFilePaths(text: string): string {
 	});
 }
 
-export default function CodeBlock({
-	content,
-	language,
-	maxLines,
-}: Props): React.ReactNode {
+export default function CodeBlock({content, language, maxLines}: Props): React.ReactNode {
 	if (!content) return null;
 
 	const lines = content.split('\n');

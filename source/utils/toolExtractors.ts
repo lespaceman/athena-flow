@@ -269,7 +269,7 @@ function extractGrep(
 		return {primary: line};
 	});
 
-	return {type: 'list', items, maxItems: 10, groupBy: 'secondary' as const};
+	return {type: 'list', items, maxItems: 10, groupBy: 'secondary'};
 }
 
 function extractGlob(
@@ -281,7 +281,7 @@ function extractGlob(
 		const items: ListItem[] = filenames
 			.filter((f): f is string => typeof f === 'string')
 			.map(f => ({primary: f}));
-		return {type: 'list', items, maxItems: 10, displayMode: 'tree' as const};
+		return {type: 'list', items, maxItems: 10, displayMode: 'tree'};
 	}
 	const text = extractTextContent(response);
 	const items: ListItem[] = text
