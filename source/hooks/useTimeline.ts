@@ -1,7 +1,6 @@
 import {useMemo, useEffect, useState} from 'react';
 import {type FeedItem} from './useFeed.js';
 import {type FeedEvent} from '../feed/types.js';
-import {type Message as MessageType} from '../types/index.js';
 import {
 	type TimelineEntry,
 	type RunSummary,
@@ -18,7 +17,6 @@ import {
 import {compactText, actorLabel} from '../utils/format.js';
 
 export type UseTimelineOptions = {
-	messages: MessageType[];
 	feedItems: FeedItem[];
 	feedEvents: FeedEvent[];
 	currentRun: {
@@ -34,7 +32,6 @@ export type UseTimelineOptions = {
 };
 
 export type UseTimelineResult = {
-	stableItems: FeedItem[];
 	timelineEntries: TimelineEntry[];
 	runSummaries: RunSummary[];
 	filteredEntries: TimelineEntry[];
@@ -45,7 +42,6 @@ export type UseTimelineResult = {
 };
 
 export function useTimeline({
-	messages,
 	feedItems,
 	feedEvents,
 	currentRun,
@@ -57,26 +53,12 @@ export function useTimeline({
 }: UseTimelineOptions): UseTimelineResult {
 	const [searchMatchPos, setSearchMatchPos] = useState(0);
 
-	const stableItems = useMemo((): FeedItem[] => {
-		const messageItems: FeedItem[] = messages.map(m => ({
-			type: 'message' as const,
-			data: m,
-		}));
-		return [...messageItems, ...feedItems].sort((a, b) => {
-			const seqA =
-				a.type === 'message' ? a.data.timestamp.getTime() : a.data.seq;
-			const seqB =
-				b.type === 'message' ? b.data.timestamp.getTime() : b.data.seq;
-			return seqA - seqB;
-		});
-	}, [messages, feedItems]);
-
 	const timelineEntries = useMemo((): TimelineEntry[] => {
 		const entries: TimelineEntry[] = [];
 		let activeRunId: string | undefined;
 		let messageCounter = 1;
 
-		for (const item of stableItems) {
+		for (const item of feedItems) {
 			if (item.type === 'message') {
 				const id = `M${String(messageCounter++).padStart(3, '0')}`;
 				const summary = compactText(item.data.content, 200);
@@ -157,7 +139,7 @@ export function useTimeline({
 			}
 		}
 		return entries;
-	}, [stableItems, postByToolUseId, verbose]);
+	}, [feedItems, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
 		const map = new Map<string, RunSummary>();
@@ -245,7 +227,6 @@ export function useTimeline({
 	}, [searchMatches.length]);
 
 	return {
-		stableItems,
 		timelineEntries,
 		runSummaries,
 		filteredEntries,

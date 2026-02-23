@@ -199,7 +199,7 @@ These are structural rules. Any PR violating them must be rejected.
 5. **Persistence errors are loud.** SQLite write failures log explicitly and mark the session as degraded. Runtime never silently swallows handler exceptions.
 6. **There is exactly one ordering authority per session (seq).** UI never sorts by timestamp for feed events. Timestamp is metadata for display only, never used in sort comparators.
 
-> **Ordering assumption for message/feed merge:** Messages (user prompts) don't have seq — they use timestamp for interleaving with feed events. This works because message timestamps are epoch-ms (large numbers) while seq is a small counter, so messages naturally sort before their resulting feed activity. This is intentional. If it ever breaks, assign messages synthetic seq values before merge.
+> **Ordering for message/feed merge:** Messages now have a `seq` field allocated from the mapper's sequence counter at creation time. Both messages and feed events sort by `seq` in `mergeFeedItems()`. At equal seq, messages sort before feed events (tie-break).
 
 ### Concurrency & Writer Model
 

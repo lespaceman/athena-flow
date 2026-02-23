@@ -513,7 +513,13 @@ describe('deriveRunTitle', () => {
 
 	it('falls back to messages', () => {
 		const msgs: Message[] = [
-			{id: '1', role: 'user', content: 'from message', timestamp: new Date()},
+			{
+				id: '1',
+				role: 'user',
+				content: 'from message',
+				timestamp: new Date(),
+				seq: 1,
+			},
 		];
 		expect(deriveRunTitle(undefined, [], msgs)).toBe('from message');
 	});

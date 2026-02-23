@@ -24,6 +24,28 @@ export type FeedItem =
 	| {type: 'message'; data: Message}
 	| {type: 'feed'; data: FeedEvent};
 
+/** Merge messages and feed events into a single sorted list by seq. */
+export function mergeFeedItems(
+	messages: Message[],
+	feedEvents: FeedEvent[],
+): FeedItem[] {
+	const messageItems: FeedItem[] = messages.map(m => ({
+		type: 'message' as const,
+		data: m,
+	}));
+	const feedItems: FeedItem[] = feedEvents
+		.filter(e => !shouldExcludeFromFeed(e))
+		.map(e => ({type: 'feed' as const, data: e}));
+
+	return [...messageItems, ...feedItems].sort((a, b) => {
+		if (a.data.seq !== b.data.seq) return a.data.seq - b.data.seq;
+		// Tie-break: messages before feed events at same seq
+		if (a.type === 'message' && b.type !== 'message') return -1;
+		if (a.type !== 'message' && b.type === 'message') return 1;
+		return 0;
+	});
+}
+
 export type PermissionQueueItem = {
 	request_id: string;
 	ts: number;
@@ -75,6 +97,7 @@ export type UseFeedResult = {
 	printTaskSnapshot: () => void;
 	isDegraded: boolean;
 	postByToolUseId: Map<string, FeedEvent>;
+	allocateSeq: () => number;
 };
 
 /** Build a lookup index: tool_use_id → post/failure FeedEvent */
@@ -368,23 +391,10 @@ export function useFeed(
 	}, [runtime, enqueuePermission, enqueueQuestion, dequeuePermission]);
 
 	// Derive items (content ordering)
-	const items = useMemo((): FeedItem[] => {
-		const messageItems: FeedItem[] = messages.map(m => ({
-			type: 'message' as const,
-			data: m,
-		}));
-		const feedItems: FeedItem[] = feedEvents
-			.filter(e => !shouldExcludeFromFeed(e))
-			.map(e => ({type: 'feed' as const, data: e}));
-
-		return [...messageItems, ...feedItems].sort((a, b) => {
-			const seqA =
-				a.type === 'message' ? a.data.timestamp.getTime() : a.data.seq;
-			const seqB =
-				b.type === 'message' ? b.data.timestamp.getTime() : b.data.seq;
-			return seqA - seqB;
-		});
-	}, [messages, feedEvents]);
+	const items = useMemo(
+		() => mergeFeedItems(messages, feedEvents),
+		[messages, feedEvents],
+	);
 
 	// Extract tasks from latest TodoWrite
 	const tasks = useMemo((): TodoItem[] => {
@@ -431,5 +441,6 @@ export function useFeed(
 		printTaskSnapshot,
 		isDegraded: sessionStoreRef.current?.isDegraded ?? false,
 		postByToolUseId,
+		allocateSeq: () => mapperRef.current.allocateSeq(),
 	};
 }

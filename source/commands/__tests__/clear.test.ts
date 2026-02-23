@@ -17,7 +17,7 @@ function makeUIContext(
 	return {
 		args: {},
 		messages: [
-			{id: '1', role: 'user', content: 'hello', timestamp: new Date()},
+			{id: '1', role: 'user', content: 'hello', timestamp: new Date(), seq: 1},
 		],
 		setMessages: vi.fn(),
 		addMessage: vi.fn(),

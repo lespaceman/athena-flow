@@ -11,6 +11,7 @@ describe('Message', () => {
 			role: 'user',
 			content: 'Hello world',
 			timestamp: new Date(),
+			seq: 1,
 		};
 		const {lastFrame} = render(<Message message={message} />);
 		const frame = lastFrame() ?? '';
@@ -24,6 +25,7 @@ describe('Message', () => {
 			role: 'assistant',
 			content: 'Hi there',
 			timestamp: new Date(),
+			seq: 2,
 		};
 		const {lastFrame} = render(<Message message={message} />);
 		const frame = lastFrame() ?? '';

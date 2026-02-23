@@ -18,6 +18,7 @@ export type FeedMapper = {
 	getSession(): Session | null;
 	getCurrentRun(): Run | null;
 	getActors(): Actor[];
+	allocateSeq(): number;
 };
 
 export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
@@ -747,5 +748,6 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		getSession: () => currentSession,
 		getCurrentRun: () => currentRun,
 		getActors: () => actors.all(),
+		allocateSeq: nextSeq,
 	};
 }

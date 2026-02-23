@@ -143,6 +143,7 @@ function AppContent({
 		questionQueueCount,
 		resolveQuestion,
 		postByToolUseId,
+		allocateSeq,
 	} = hookServer;
 
 	const currentSessionId = session?.session_id ?? null;
@@ -184,11 +185,12 @@ function AppContent({
 				role,
 				content,
 				timestamp: new Date(),
+				seq: allocateSeq(),
 			};
 			setMessages(prev => [...prev, newMessage]);
 			return newMessage;
 		},
-		[],
+		[allocateSeq],
 	);
 
 	const clearScreen = useCallback(() => {
@@ -200,7 +202,6 @@ function AppContent({
 	// ── Timeline + Todo + Layout ────────────────────────────
 
 	const timeline = useTimeline({
-		messages,
 		feedItems,
 		feedEvents,
 		currentRun: currentRun
@@ -309,8 +310,8 @@ function AppContent({
 				return;
 			}
 			addMessage('user', value);
-			const addMessageObj = (msg: MessageType) =>
-				setMessages(prev => [...prev, msg]);
+			const addMessageObj = (msg: Omit<MessageType, 'seq'>) =>
+				setMessages(prev => [...prev, {...msg, seq: allocateSeq()}]);
 			executeCommand(result.command, result.args, {
 				ui: {
 					args: result.args,
@@ -343,6 +344,7 @@ function AppContent({
 		[
 			inputHistory,
 			addMessage,
+			allocateSeq,
 			spawnClaude,
 			currentSessionId,
 			exit,

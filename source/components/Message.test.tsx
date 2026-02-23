@@ -14,6 +14,7 @@ describe('Message', () => {
 					role: 'user',
 					content: 'Hello world',
 					timestamp: new Date(),
+					seq: 1,
 				}}
 			/>,
 		);
@@ -31,6 +32,7 @@ describe('Message', () => {
 					role: 'assistant',
 					content: 'Hi there',
 					timestamp: new Date(),
+					seq: 1,
 				}}
 			/>,
 		);
@@ -48,6 +50,7 @@ describe('Message', () => {
 					role: 'user',
 					content: 'test',
 					timestamp: new Date(),
+					seq: 1,
 				}}
 			/>,
 		);
@@ -58,6 +61,7 @@ describe('Message', () => {
 					role: 'assistant',
 					content: 'test',
 					timestamp: new Date(),
+					seq: 1,
 				}}
 			/>,
 		);
@@ -74,6 +78,7 @@ describe('Message', () => {
 			role: 'user' as const,
 			content: 'Hello',
 			timestamp: new Date(),
+			seq: 1,
 		};
 
 		// Rendering with lightTheme should not throw —

@@ -58,7 +58,7 @@ export type UICommandContext = {
 	args: Record<string, string>;
 	messages: Message[];
 	setMessages: (msgs: Message[]) => void;
-	addMessage: (msg: Message) => void;
+	addMessage: (msg: Omit<Message, 'seq'>) => void;
 	exit: () => void;
 	clearScreen: () => void;
 	showSessions: () => void;
