@@ -74,7 +74,6 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 			if (e.kind === 'run.end') lastRunEnd = e;
 		}
 		if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
-
 			const triggerData = lastRunStart.data as {
 				trigger: {type: string; prompt_preview?: string};
 			};
@@ -191,7 +190,6 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 		}
 
 		runSeq++;
-		seq = 0;
 		toolPreIndex.clear();
 		eventIdByRequestId.clear();
 		eventKindByRequestId.clear();
