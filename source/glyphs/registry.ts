@@ -70,7 +70,17 @@ export type GlyphKey =
 	| 'general.ellipsis'
 	| 'general.divider'
 	// Feed visual polish
-	| 'feed.userBorder';
+	| 'feed.userBorder'
+	// Hints
+	| 'hint.enter'
+	| 'hint.escape'
+	| 'hint.tab'
+	| 'hint.arrows'
+	| 'hint.arrowsUpDown'
+	| 'hint.space'
+	| 'hint.page'
+	| 'hint.separator'
+	| 'hint.toggle';
 
 export const GLYPH_REGISTRY: Record<
 	GlyphKey,
@@ -153,4 +163,15 @@ export const GLYPH_REGISTRY: Record<
 	'general.divider': {unicode: '─', ascii: '-'},
 	// Feed visual polish
 	'feed.userBorder': {unicode: '▎', ascii: '|'},
+
+	// Hints
+	'hint.enter': {unicode: '⏎', ascii: 'Enter'},
+	'hint.escape': {unicode: '⎋', ascii: 'Esc'},
+	'hint.tab': {unicode: '⇥', ascii: 'Tab'},
+	'hint.arrows': {unicode: '⌃↕', ascii: 'C-Up/Dn'},
+	'hint.arrowsUpDown': {unicode: '↕', ascii: 'Up/Dn'},
+	'hint.space': {unicode: '␣', ascii: 'Space'},
+	'hint.page': {unicode: '⇞⇟', ascii: 'PgUp/Dn'},
+	'hint.separator': {unicode: '·', ascii: '|'},
+	'hint.toggle': {unicode: '⌃/', ascii: 'C-/'},
 };
