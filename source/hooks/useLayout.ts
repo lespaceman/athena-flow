@@ -7,7 +7,7 @@ import {
 	renderMarkdownToLines,
 } from '../utils/renderDetailLines.js';
 
-const HEADER_ROWS = 2;
+const HEADER_ROWS = 1;
 const FOOTER_ROWS = 2;
 const FRAME_BORDER_ROWS = 4;
 const TODO_PANEL_MAX_ROWS = 8;
