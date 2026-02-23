@@ -1,5 +1,6 @@
 import React from 'react';
-import {describe, it, expect, vi} from 'vitest';
+import {describe, it, expect, vi, afterEach} from 'vitest';
+import chalk from 'chalk';
 import {render} from 'ink-testing-library';
 import PermissionDialog from './PermissionDialog.js';
 import type {PermissionQueueItem} from '../hooks/useFeed.js';
@@ -238,6 +239,27 @@ describe('PermissionDialog', () => {
 			);
 
 			expect(lastFrame()).not.toContain('Allow this tool call');
+		});
+	});
+
+	describe('separator styling', () => {
+		const savedLevel = chalk.level;
+		afterEach(() => {
+			chalk.level = savedLevel;
+		});
+
+		it('uses themed horizontal rule separator instead of dim dashes', () => {
+			chalk.level = 3;
+			const event = makePermissionEvent('Bash', {command: 'ls'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+			const output = lastFrame() ?? '';
+			expect(output).toContain('─');
 		});
 	});
 });

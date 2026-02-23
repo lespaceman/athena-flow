@@ -68,7 +68,9 @@ export type GlyphKey =
 	| 'config.icon'
 	// General
 	| 'general.ellipsis'
-	| 'general.divider';
+	| 'general.divider'
+	// Feed visual polish
+	| 'feed.userBorder';
 
 export const GLYPH_REGISTRY: Record<
 	GlyphKey,
@@ -149,4 +151,6 @@ export const GLYPH_REGISTRY: Record<
 	// General
 	'general.ellipsis': {unicode: '…', ascii: '...'},
 	'general.divider': {unicode: '─', ascii: '-'},
+	// Feed visual polish
+	'feed.userBorder': {unicode: '▎', ascii: '|'},
 };

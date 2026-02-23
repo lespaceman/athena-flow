@@ -29,6 +29,8 @@ export type FeedLineStyleOptions = {
 	op?: string;
 	/** Char offset within summary where dim styling should begin. */
 	summaryDimStart?: number;
+	/** True when this line starts a new event category group. */
+	categoryBreak?: boolean;
 };
 
 function opCategoryColor(op: string, theme: Theme): string | undefined {
@@ -141,6 +143,21 @@ export function styleFeedLine(
 		styled =
 			chalk.hex(theme.accent)(getGlyphs(ascii)['feed.searchMatch']) +
 			styled.slice(1);
+	}
+
+	// Category break: prepend dim dot (replacing first char) for visual grouping.
+	// Skip for prompt ops — user border takes precedence over category break.
+	if (opts.categoryBreak && !matched && opts.op !== 'prompt') {
+		const breakGlyph = chalk.dim.hex(theme.textMuted)('·');
+		styled = breakGlyph + styled.slice(1);
+	}
+
+	// User prompt: accent left-border (replacing first char)
+	if (opts.op === 'prompt' && !matched) {
+		const g = getGlyphs(ascii);
+		const borderColor = theme.userMessage.border ?? theme.accent;
+		const borderGlyph = chalk.hex(borderColor)(g['feed.userBorder']);
+		styled = borderGlyph + styled.slice(1);
 	}
 
 	return styled;

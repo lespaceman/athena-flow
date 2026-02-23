@@ -1,5 +1,6 @@
+import chalk from 'chalk';
 import {type TimelineEntry} from '../feed/timeline.js';
-import {fit, formatInputBuffer} from './format.js';
+import {fit, fitAnsi, formatInputBuffer} from './format.js';
 
 export type FrameContext = {
 	innerWidth: number;
@@ -14,6 +15,7 @@ export type FrameContext = {
 	cursorOffset: number;
 	dialogActive: boolean;
 	dialogType: string;
+	accentColor?: string;
 };
 
 export type FrameLines = {
@@ -49,10 +51,13 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		...(ctx.inputMode === 'search' ? ['[SEARCH]'] : []),
 	];
 	const badgeText = modeBadges.join('');
-	const inputPrefix = 'input> ';
+	const rawPrefix = 'input> ';
+	const inputPrefix = ctx.accentColor
+		? chalk.hex(ctx.accentColor)(rawPrefix)
+		: rawPrefix;
 	const inputContentWidth = Math.max(
 		1,
-		innerWidth - inputPrefix.length - badgeText.length,
+		innerWidth - rawPrefix.length - badgeText.length,
 	);
 	const inputPlaceholder =
 		ctx.inputMode === 'cmd'
@@ -74,7 +79,10 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 				ctx.focusMode === 'input',
 				inputPlaceholder,
 			);
-	const inputLine = fit(`${inputPrefix}${inputBuffer}${badgeText}`, innerWidth);
+	const inputLine = fitAnsi(
+		`${inputPrefix}${inputBuffer}${badgeText}`,
+		innerWidth,
+	);
 
 	return {footerHelp, inputLine};
 }

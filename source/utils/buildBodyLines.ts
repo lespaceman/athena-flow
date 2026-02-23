@@ -64,6 +64,12 @@ export type BuildBodyLinesOptions = {
 	theme: Theme;
 };
 
+/** Extract coarse event category from op string for visual grouping. */
+export function opCategory(op: string): string {
+	const dot = op.indexOf('.');
+	return dot >= 0 ? op.slice(0, dot) : op;
+}
+
 export function buildBodyLines({
 	innerWidth,
 	bodyHeight,
@@ -219,6 +225,7 @@ export function buildBodyLines({
 					bodyLines.push(fitAnsi('', innerWidth));
 				}
 			} else {
+				let prevCat: string | undefined;
 				for (let i = 0; i < feedContentRows; i++) {
 					const idx = feedViewportStart + i;
 					const entry = filteredEntries[idx];
@@ -226,6 +233,9 @@ export function buildBodyLines({
 						bodyLines.push(fitAnsi('', innerWidth));
 						continue;
 					}
+					const cat = opCategory(entry.op);
+					const isBreak = prevCat !== undefined && cat !== prevCat;
+					prevCat = cat;
 					const isFocused = feedFocus === 'feed' && idx === feedCursor;
 					const isExpanded = expandedId === entry.id;
 					const isMatched = searchMatchSet.has(idx);
@@ -246,6 +256,7 @@ export function buildBodyLines({
 						ascii: todo.ascii,
 						op: entry.op,
 						summaryDimStart: entry.summaryDimStart,
+						categoryBreak: isBreak,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
 				}

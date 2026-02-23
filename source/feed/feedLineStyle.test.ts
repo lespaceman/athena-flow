@@ -235,4 +235,30 @@ describe('styleFeedLine', () => {
 		});
 		expect(result).not.toContain('▌');
 	});
+
+	it('applies user border accent for prompt op', () => {
+		const line = 'HH:MM prompt     user         Tell me about X    ';
+		const styled = styleFeedLine(line, {
+			focused: false,
+			matched: false,
+			actorId: 'user',
+			isError: false,
+			theme: darkTheme,
+			op: 'prompt',
+		});
+		expect(styled).toContain('▎');
+	});
+
+	it('does not apply user border when focused', () => {
+		const line = 'HH:MM prompt     user         Tell me about X    ';
+		const styled = styleFeedLine(line, {
+			focused: true,
+			matched: false,
+			actorId: 'user',
+			isError: false,
+			theme: darkTheme,
+			op: 'prompt',
+		});
+		expect(styled).not.toContain('▎');
+	});
 });

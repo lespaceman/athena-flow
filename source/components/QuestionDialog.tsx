@@ -5,6 +5,7 @@ import type {FeedEvent} from '../feed/types.js';
 import OptionList, {type OptionItem} from './OptionList.js';
 import MultiOptionList from './MultiOptionList.js';
 import QuestionKeybindingBar from './QuestionKeybindingBar.js';
+import {getGlyphs} from '../glyphs/index.js';
 import {useTheme} from '../theme/index.js';
 
 type QuestionOption = {
@@ -272,10 +273,13 @@ export default function QuestionDialog({
 	const {stdout} = useStdout();
 	const columns = stdout?.columns ?? 80;
 
+	const g = getGlyphs();
+	const rule = g['general.divider'].repeat(columns);
+
 	if (questions.length === 0) {
 		return (
 			<Box flexDirection="column">
-				<Text dimColor>{'-'.repeat(columns)}</Text>
+				<Text color={theme.dialog.borderQuestion}>{rule}</Text>
 				<Box paddingX={1}>
 					<Text color={theme.status.warning}>
 						No questions found in AskUserQuestion input.
@@ -289,7 +293,7 @@ export default function QuestionDialog({
 
 	return (
 		<Box flexDirection="column">
-			<Text dimColor>{'-'.repeat(columns)}</Text>
+			<Text color={theme.dialog.borderQuestion}>{rule}</Text>
 
 			<Box flexDirection="column" paddingX={1}>
 				<QuestionTabs

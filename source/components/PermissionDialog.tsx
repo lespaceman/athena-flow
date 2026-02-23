@@ -1,6 +1,8 @@
 import React, {useCallback, useMemo} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
+import {getGlyphs} from '../glyphs/index.js';
 import type {PermissionQueueItem} from '../hooks/useFeed.js';
+import {useTheme} from '../theme/index.js';
 import {type PermissionDecision} from '../types/server.js';
 import {parseToolName} from '../utils/toolNameParser.js';
 import OptionList, {type OptionItem} from './OptionList.js';
@@ -53,16 +55,21 @@ export default function PermissionDialog({
 		? `Allow "${displayName}" (${serverLabel})?`
 		: `Allow "${displayName}"?`;
 
+	const theme = useTheme();
+	const g = getGlyphs();
 	const {stdout} = useStdout();
 	const columns = stdout?.columns ?? 80;
+	const rule = g['general.divider'].repeat(columns);
 
 	return (
 		<Box flexDirection="column">
-			<Text dimColor>{'-'.repeat(columns)}</Text>
+			<Text color={theme.dialog.borderPermission}>{rule}</Text>
 
 			<Box flexDirection="column" paddingX={1}>
 				<Box justifyContent="space-between">
-					<Text bold>{title}</Text>
+					<Text bold color={theme.dialog.borderPermission}>
+						{title}
+					</Text>
 					{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
 				</Box>
 

@@ -21,8 +21,14 @@ export type Theme = {
 		medium: string;
 		high: string;
 	};
+	dialog: {
+		borderPermission: string;
+		borderQuestion: string;
+	};
+	inputPrompt: string;
 	userMessage: {
 		text: string;
 		background: string;
+		border: string;
 	};
 };
