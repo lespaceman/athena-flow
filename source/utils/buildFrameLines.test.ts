@@ -1,6 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import chalk from 'chalk';
 import {buildFrameLines, type FrameContext} from './buildFrameLines.js';
+import {type TimelineEntry} from '../feed/timeline.js';
 
 const baseCtx: FrameContext = {
 	innerWidth: 80,
@@ -100,7 +101,7 @@ describe('buildFrameLines hints', () => {
 			const result = buildFrameLines({
 				...baseCtx,
 				focusMode: 'feed',
-				expandedEntry: {id: 'test'} as any,
+				expandedEntry: {id: 'test'} as unknown as TimelineEntry,
 			});
 			expect(result.footerHelp).not.toBeNull();
 			expect(result.footerHelp).toContain('Scroll');
@@ -111,9 +112,11 @@ describe('buildFrameLines hints', () => {
 		}
 	});
 
-	it('does not change inputLine logic', () => {
+	it('returns inputLines array with prefix and badge', () => {
 		const result = buildFrameLines(baseCtx);
-		expect(result.inputLine).toContain('input>');
-		expect(result.inputLine).toContain('[IDLE]');
+		expect(result.inputLines).toBeInstanceOf(Array);
+		expect(result.inputLines.length).toBeGreaterThanOrEqual(1);
+		expect(result.inputLines[0]).toContain('input>');
+		expect(result.inputLines[0]).toContain('[IDLE]');
 	});
 });
