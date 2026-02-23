@@ -1,6 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {highlight} from 'cli-highlight';
+import {supportsHyperlinks, hyperlink} from '../../utils/hyperlink.js';
 
 type Props = {
 	content: string;
@@ -10,6 +11,20 @@ type Props = {
 };
 
 const MAX_HIGHLIGHT_SIZE = 50_000;
+
+/** Match absolute file paths with optional :line:col suffix */
+const FILE_PATH_RE = /(\/[\w./-]+(?::\d+(?::\d+)?))/g;
+
+function linkifyFilePaths(text: string): string {
+	if (!supportsHyperlinks()) return text;
+	return text.replace(FILE_PATH_RE, match => {
+		// Extract path and optional line/col
+		const colonIdx = match.indexOf(':', 1); // skip leading /
+		const filePath = colonIdx === -1 ? match : match.slice(0, colonIdx);
+		const uri = `file://${match}`;
+		return hyperlink(match, uri);
+	});
+}
 
 export default function CodeBlock({
 	content,
@@ -33,6 +48,8 @@ export default function CodeBlock({
 	} catch {
 		highlighted = displayText;
 	}
+
+	highlighted = linkifyFilePaths(highlighted);
 
 	return (
 		<Box flexDirection="column">

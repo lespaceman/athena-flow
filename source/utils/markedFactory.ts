@@ -1,6 +1,7 @@
 import {Marked, type Tokens} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import chalk from 'chalk';
+import {urlLink} from './hyperlink.js';
 
 /**
  * Shared markedTerminal options used by both MarkdownText (component)
@@ -69,6 +70,10 @@ export function createMarkedInstance(
 	m.use({
 		renderer: {
 			...listRenderer(m),
+			link({href, text}: Tokens.Link): string {
+				const displayText = typeof text === 'string' ? text : href;
+				return chalk.cyan(urlLink(href, displayText));
+			},
 			...extraRenderer,
 		},
 	});
