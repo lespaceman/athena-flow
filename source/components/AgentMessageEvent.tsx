@@ -2,6 +2,7 @@ import process from 'node:process';
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {FeedEvent} from '../feed/types.js';
+import {getGlyphs} from '../glyphs/index.js';
 import {useTheme} from '../theme/index.js';
 import {truncateLine} from '../utils/truncate.js';
 import MarkdownText from './ToolOutput/MarkdownText.js';
@@ -24,8 +25,12 @@ export default function AgentMessageEvent({
 
 	const width = parentWidth ?? process.stdout.columns ?? 80;
 	const {message, scope} = event.data;
+	const g = getGlyphs();
+	const glyph = g['message.agent'];
 	const label =
-		scope === 'subagent' ? '💬 Subagent response' : '💬 Agent response';
+		scope === 'subagent'
+			? `${glyph} Subagent response`
+			: `${glyph} Agent response`;
 
 	if (expanded) {
 		return (
