@@ -208,6 +208,71 @@ describe('extractToolOutput', () => {
 				}),
 			);
 		});
+
+		it('parses structuredPatch into hunks when available', () => {
+			const result = extractToolOutput(
+				'Edit',
+				{
+					file_path: 'src/foo.ts',
+					old_string: 'const a = 1;',
+					new_string: 'const a = 2;',
+				},
+				{
+					filePath: 'src/foo.ts',
+					success: true,
+					structuredPatch: {
+						hunks: [
+							{
+								oldStart: 10,
+								oldLines: 3,
+								newStart: 10,
+								newLines: 3,
+								lines: [
+									' const x = 0;',
+									'-const a = 1;',
+									'+const a = 2;',
+									' const b = 3;',
+								],
+							},
+						],
+					},
+				},
+			);
+			expect(result.type).toBe('diff');
+			if (result.type === 'diff') {
+				expect(result.hunks).toBeDefined();
+				expect(result.hunks).toHaveLength(1);
+				expect(result.hunks![0]!.lines).toHaveLength(4);
+				expect(result.hunks![0]!.lines[0]).toEqual(
+					expect.objectContaining({type: 'context', content: 'const x = 0;'}),
+				);
+				expect(result.hunks![0]!.lines[1]).toEqual(
+					expect.objectContaining({type: 'remove', content: 'const a = 1;'}),
+				);
+				expect(result.hunks![0]!.lines[2]).toEqual(
+					expect.objectContaining({type: 'add', content: 'const a = 2;'}),
+				);
+				expect(result.filePath).toBe('src/foo.ts');
+			}
+		});
+
+		it('falls back to old/new text when structuredPatch is absent', () => {
+			const result = extractToolOutput(
+				'Edit',
+				{
+					file_path: 'foo.ts',
+					old_string: 'const a = 1;',
+					new_string: 'const a = 2;',
+				},
+				'File updated',
+			);
+			expect(result.type).toBe('diff');
+			if (result.type === 'diff') {
+				expect(result.hunks).toBeUndefined();
+				expect(result.oldText).toBe('const a = 1;');
+				expect(result.newText).toBe('const a = 2;');
+			}
+		});
 	});
 
 	describe('Write', () => {
@@ -286,6 +351,18 @@ describe('extractToolOutput', () => {
 	});
 
 	describe('Grep', () => {
+		it('sets groupBy to secondary for file-grouped results', () => {
+			const result = extractToolOutput(
+				'Grep',
+				{pattern: 'EXTRACTORS'},
+				'src/app.tsx:10:const x = 1;\nsrc/app.tsx:20:const y = 2;',
+			);
+			expect(result.type).toBe('list');
+			if (result.type === 'list') {
+				expect(result.groupBy).toBe('secondary');
+			}
+		});
+
 		it('parses file:line:content format into list items', () => {
 			const result = extractToolOutput(
 				'Grep',
@@ -304,6 +381,22 @@ describe('extractToolOutput', () => {
 	});
 
 	describe('Glob', () => {
+		it('sets displayMode to tree for structured filenames', () => {
+			const result = extractToolOutput(
+				'Glob',
+				{},
+				{
+					filenames: ['src/a.ts', 'src/b.ts', 'lib/c.ts'],
+					numFiles: 3,
+					truncated: false,
+				},
+			);
+			expect(result.type).toBe('list');
+			if (result.type === 'list') {
+				expect(result.displayMode).toBe('tree');
+			}
+		});
+
 		it('extracts filenames from PostToolUse structured response', () => {
 			// Actual PostToolUse shape: {filenames: string[], durationMs, numFiles, truncated}
 			const result = extractToolOutput(

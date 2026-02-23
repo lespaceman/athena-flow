@@ -2,6 +2,8 @@ import {
 	type RenderableOutput,
 	type RawOutput,
 	type ListItem,
+	type DiffHunk,
+	type DiffLine,
 } from '../types/toolOutput.js';
 import {
 	formatToolResponse,
@@ -97,7 +99,15 @@ function withPreview(output: RawOutput): RenderableOutput {
 			lines = output.content.split('\n');
 			break;
 		case 'diff':
-			lines = output.newText.split('\n');
+			if (output.hunks?.length) {
+				lines = output.hunks.flatMap(h =>
+					h.lines
+						.filter(l => l.type !== 'context')
+						.map(l => (l.type === 'add' ? `+ ${l.content}` : `- ${l.content}`)),
+				);
+			} else {
+				lines = output.newText.split('\n');
+			}
 			break;
 		case 'list':
 			lines = output.items.map(i => i.primary);
@@ -160,15 +170,60 @@ function extractRead(
 	return {type: 'code', content: resolved, language, maxLines: 10};
 }
 
+function parseDiffLine(raw: string): DiffLine {
+	const prefix = raw[0];
+	const content = raw.slice(1);
+	if (prefix === '-') return {type: 'remove', content};
+	if (prefix === '+') return {type: 'add', content};
+	return {type: 'context', content};
+}
+
+function parseStructuredPatch(response: unknown): DiffHunk[] | undefined {
+	const patch = prop(response, 'structuredPatch');
+	if (!patch) return undefined;
+	const rawHunks = prop(patch, 'hunks');
+	if (!Array.isArray(rawHunks)) return undefined;
+
+	return rawHunks.map(h => {
+		const oldStart = typeof h.oldStart === 'number' ? h.oldStart : 1;
+		const newStart = typeof h.newStart === 'number' ? h.newStart : 1;
+		const rawLines: string[] = Array.isArray(h.lines) ? h.lines : [];
+
+		let oldLine = oldStart;
+		let newLine = newStart;
+		const lines: DiffLine[] = rawLines.map(raw => {
+			const line = parseDiffLine(raw);
+			if (line.type === 'context') {
+				line.oldLineNo = oldLine++;
+				line.newLineNo = newLine++;
+			} else if (line.type === 'remove') {
+				line.oldLineNo = oldLine++;
+			} else {
+				line.newLineNo = newLine++;
+			}
+			return line;
+		});
+
+		const header =
+			typeof h.header === 'string'
+				? h.header
+				: `@@ -${oldStart},${rawLines.length} +${newStart},${rawLines.length} @@`;
+		return {header, oldStart, newStart, lines};
+	});
+}
+
 function extractEdit(
 	input: Record<string, unknown>,
-	_response: unknown,
+	response: unknown,
 ): RawOutput {
 	const oldText =
 		typeof input['old_string'] === 'string' ? input['old_string'] : '';
 	const newText =
 		typeof input['new_string'] === 'string' ? input['new_string'] : '';
-	return {type: 'diff', oldText, newText, maxLines: 20};
+	const filePath =
+		typeof input['file_path'] === 'string' ? input['file_path'] : undefined;
+	const hunks = parseStructuredPatch(response);
+	return {type: 'diff', oldText, newText, hunks, filePath, maxLines: 20};
 }
 
 function extractWrite(
@@ -214,7 +269,7 @@ function extractGrep(
 		return {primary: line};
 	});
 
-	return {type: 'list', items, maxItems: 10};
+	return {type: 'list', items, maxItems: 10, groupBy: 'secondary' as const};
 }
 
 function extractGlob(
@@ -226,7 +281,7 @@ function extractGlob(
 		const items: ListItem[] = filenames
 			.filter((f): f is string => typeof f === 'string')
 			.map(f => ({primary: f}));
-		return {type: 'list', items, maxItems: 10};
+		return {type: 'list', items, maxItems: 10, displayMode: 'tree' as const};
 	}
 	const text = extractTextContent(response);
 	const items: ListItem[] = text
