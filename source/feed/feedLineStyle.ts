@@ -29,6 +29,8 @@ export type FeedLineStyleOptions = {
 	op?: string;
 	/** Char offset within summary where dim styling should begin. */
 	summaryDimStart?: number;
+	/** True when this line starts a new event category group. */
+	categoryBreak?: boolean;
 };
 
 function opCategoryColor(op: string, theme: Theme): string | undefined {
@@ -141,6 +143,12 @@ export function styleFeedLine(
 		styled =
 			chalk.hex(theme.accent)(getGlyphs(ascii)['feed.searchMatch']) +
 			styled.slice(1);
+	}
+
+	// Category break: prepend dim dot (replacing first char) for visual grouping
+	if (opts.categoryBreak && !matched) {
+		const breakGlyph = chalk.dim.hex(theme.textMuted)('·');
+		styled = breakGlyph + styled.slice(1);
 	}
 
 	return styled;
