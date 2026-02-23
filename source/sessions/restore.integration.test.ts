@@ -80,9 +80,9 @@ describe('restore integration', () => {
 			e => e.kind === 'permission.decision',
 		);
 		expect(decisionEvents).toHaveLength(1);
-		expect((decisionEvents[0]!.data as {decision_type: string}).decision_type).toBe(
-			'allow',
-		);
+		expect(
+			(decisionEvents[0]!.data as {decision_type: string}).decision_type,
+		).toBe('allow');
 		expect(decisionEvents[0]!.cause?.parent_event_id).toBeDefined();
 	});
 
