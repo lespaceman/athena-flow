@@ -16,14 +16,24 @@ describe('GLYPH_REGISTRY', () => {
 		}
 	});
 
-	it('unicode glyphs have display width 1 (except multi-char ascii fallbacks)', () => {
-		const multiCharAsciiAllowed = new Set<GlyphKey>([
+	it('unicode glyphs have display width 1 (except multi-char allowed)', () => {
+		// Hint glyphs are label-like (multi-char in both unicode and ascii)
+		const multiCharAllowed = new Set<GlyphKey>([
 			'tool.arrow',
 			'general.ellipsis',
+			'hint.enter',
+			'hint.escape',
+			'hint.tab',
+			'hint.arrows',
+			'hint.arrowsUpDown',
+			'hint.space',
+			'hint.page',
+			'hint.separator',
+			'hint.toggle',
 		]);
 		for (const [key, pair] of entries) {
-			expect(stringWidth(pair.unicode), `${key}.unicode width`).toBe(1);
-			if (!multiCharAsciiAllowed.has(key)) {
+			if (!multiCharAllowed.has(key)) {
+				expect(stringWidth(pair.unicode), `${key}.unicode width`).toBe(1);
 				expect(stringWidth(pair.ascii), `${key}.ascii width`).toBe(1);
 			}
 		}
