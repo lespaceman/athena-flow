@@ -39,6 +39,9 @@ export type GlyphKey =
 	| 'tool.bullet'
 	| 'tool.gutter'
 	| 'tool.arrow'
+	| 'tool.success'
+	| 'tool.failure'
+	| 'tool.pending'
 	// Subagent
 	| 'subagent.pending'
 	| 'subagent.passthrough'
@@ -108,6 +111,9 @@ export const GLYPH_REGISTRY: Record<
 	'tool.bullet': {unicode: '●', ascii: '*'},
 	'tool.gutter': {unicode: '⎿', ascii: '|'},
 	'tool.arrow': {unicode: '→', ascii: '->'},
+	'tool.success': {unicode: '✔', ascii: '+'},
+	'tool.failure': {unicode: '✘', ascii: '!'},
+	'tool.pending': {unicode: '◐', ascii: '~'},
 
 	// Subagent
 	'subagent.pending': {unicode: '◇', ascii: 'o'},
