@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export function initSchema(db: Database.Database): void {
 	db.exec('PRAGMA journal_mode = WAL');
@@ -52,7 +52,7 @@ export function initSchema(db: Database.Database): void {
 	db.exec(`
 		CREATE INDEX IF NOT EXISTS idx_feed_kind ON feed_events(kind);
 		CREATE INDEX IF NOT EXISTS idx_feed_run ON feed_events(run_id);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_run_seq ON feed_events(run_id, seq);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq);
 		CREATE INDEX IF NOT EXISTS idx_runtime_seq ON runtime_events(seq);
 	`);
 
@@ -64,13 +64,39 @@ export function initSchema(db: Database.Database): void {
 		// Column already exists — ignore
 	}
 
-	// Upsert schema version
+	// Check and migrate schema version
 	const existing = db.prepare('SELECT version FROM schema_version').get() as
 		| {version: number}
 		| undefined;
+
+	if (existing && existing.version > SCHEMA_VERSION) {
+		throw new Error(
+			`Database has newer schema version ${existing.version} (expected <= ${SCHEMA_VERSION}). ` +
+				`Update athena-cli to open this session.`,
+		);
+	}
+
 	if (!existing) {
 		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
 			SCHEMA_VERSION,
 		);
+	} else if (existing.version < SCHEMA_VERSION) {
+		const migrations: Record<
+			number,
+			(d: import('better-sqlite3').Database) => void
+		> = {
+			2: d => {
+				d.exec('DROP INDEX IF EXISTS idx_feed_run_seq');
+				d.exec(
+					'CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq)',
+				);
+			},
+		};
+
+		for (let v = existing.version + 1; v <= SCHEMA_VERSION; v++) {
+			const migrate = migrations[v];
+			if (migrate) migrate(db);
+		}
+		db.prepare('UPDATE schema_version SET version = ?').run(SCHEMA_VERSION);
 	}
 }
