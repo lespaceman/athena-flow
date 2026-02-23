@@ -279,7 +279,7 @@ describe('QuestionDialog', () => {
 		expect(frame).toContain('No questions found');
 	});
 
-	it('renders with dashed separator instead of border', () => {
+	it('renders with themed horizontal rule separator instead of border', () => {
 		const request = makeRequest([
 			{
 				question: 'Question?',
@@ -298,7 +298,7 @@ describe('QuestionDialog', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('----');
+		expect(frame).toContain('────');
 		expect(frame).not.toContain('\u256d'); // no ╭
 		expect(frame).not.toContain('\u256f'); // no ╯
 	});
