@@ -45,8 +45,11 @@ export function createServer(opts: ServerOptions) {
 		for (const handler of handlers) {
 			try {
 				handler(event);
-			} catch {
-				// Handler errors should not crash the server
+			} catch (err) {
+				console.error(
+					`[athena] handler error processing ${event.hookName}:`,
+					err instanceof Error ? err.message : err,
+				);
 			}
 		}
 	}
@@ -55,8 +58,11 @@ export function createServer(opts: ServerOptions) {
 		for (const handler of decisionHandlers) {
 			try {
 				handler(eventId, decision);
-			} catch {
-				// Handler errors should not crash the server
+			} catch (err) {
+				console.error(
+					'[athena] decision handler error:',
+					err instanceof Error ? err.message : err,
+				);
 			}
 		}
 	}
