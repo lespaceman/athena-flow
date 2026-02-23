@@ -8,6 +8,13 @@ import {type TodoItem} from '../types/todo.js';
 
 import {generateId} from '../types/index.js';
 
+const STATUS_ORDER: Record<TodoPanelStatus, number> = {
+	doing: 0,
+	open: 1,
+	blocked: 1,
+	done: 2,
+};
+
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
 	todoVisible: boolean;
@@ -65,38 +72,48 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		return merged;
 	}, [tasks, extraTodos, todoStatusOverrides]);
 
-	const visibleTodoItems = useMemo(
-		() =>
-			todoShowDone
-				? todoItems
-				: todoItems.filter(todo => todo.status !== 'done'),
-		[todoItems, todoShowDone],
-	);
-
 	const sortedItems = useMemo(() => {
-		const statusOrder: Record<TodoPanelStatus, number> = {
-			doing: 0,
-			open: 1,
-			blocked: 1,
-			done: 2,
-		};
-		return [...visibleTodoItems].sort(
-			(a, b) => (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1),
+		const filtered = todoShowDone
+			? todoItems
+			: todoItems.filter(todo => todo.status !== 'done');
+		return [...filtered].sort(
+			(a, b) => (STATUS_ORDER[a.status] ?? 1) - (STATUS_ORDER[b.status] ?? 1),
 		);
-	}, [visibleTodoItems]);
+	}, [todoItems, todoShowDone]);
 
 	const visibleTodoItemsRef = useRef(sortedItems);
 	visibleTodoItemsRef.current = sortedItems;
 
-	const doneCount = todoItems.filter(todo => todo.status === 'done').length;
-	const doingCount = todoItems.filter(todo => todo.status === 'doing').length;
-	const blockedCount = todoItems.filter(
-		todo => todo.status === 'blocked',
-	).length;
-	const openCount = todoItems.filter(todo => todo.status === 'open').length;
-	const remainingCount = todoItems.filter(
-		todo => todo.status !== 'done',
-	).length;
+	const {doneCount, doingCount, blockedCount, openCount, remainingCount} =
+		useMemo(() => {
+			let done = 0;
+			let doing = 0;
+			let blocked = 0;
+			let open = 0;
+			for (const todo of todoItems) {
+				switch (todo.status) {
+					case 'done':
+						done++;
+						break;
+					case 'doing':
+						doing++;
+						break;
+					case 'blocked':
+						blocked++;
+						break;
+					case 'open':
+						open++;
+						break;
+				}
+			}
+			return {
+				doneCount: done,
+				doingCount: doing,
+				blockedCount: blocked,
+				openCount: open,
+				remainingCount: todoItems.length - done,
+			};
+		}, [todoItems]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
