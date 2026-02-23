@@ -589,6 +589,7 @@ function AppContent({
 		cursorOffset,
 		dialogActive,
 		dialogType: appMode.type,
+		accentColor: theme.inputPrompt,
 	});
 
 	const hasColor = !process.env['NO_COLOR'];
