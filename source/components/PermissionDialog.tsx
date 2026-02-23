@@ -67,7 +67,9 @@ export default function PermissionDialog({
 
 			<Box flexDirection="column" paddingX={1}>
 				<Box justifyContent="space-between">
-					<Text bold color={theme.dialog.borderPermission}>{title}</Text>
+					<Text bold color={theme.dialog.borderPermission}>
+						{title}
+					</Text>
 					{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
 				</Box>
 

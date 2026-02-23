@@ -79,7 +79,10 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 				ctx.focusMode === 'input',
 				inputPlaceholder,
 			);
-	const inputLine = fitAnsi(`${inputPrefix}${inputBuffer}${badgeText}`, innerWidth);
+	const inputLine = fitAnsi(
+		`${inputPrefix}${inputBuffer}${badgeText}`,
+		innerWidth,
+	);
 
 	return {footerHelp, inputLine};
 }

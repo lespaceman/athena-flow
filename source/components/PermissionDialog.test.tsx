@@ -15,7 +15,9 @@ describe('PermissionDialog separator color', () => {
 		const {lastFrame} = render(
 			<PermissionDialog
 				request={{
-					event_id: 'e1',
+					request_id: 'e1',
+					ts: Date.now(),
+					hookName: 'PreToolUse',
 					tool_name: 'Bash',
 					tool_input: {},
 				}}

@@ -7,12 +7,14 @@ import type {FeedEvent} from '../feed/types.js';
 function makeAgentMessage(scope: 'root' | 'subagent'): FeedEvent {
 	return {
 		kind: 'agent.message',
-		id: 'ev-1',
+		event_id: 'ev-1',
 		seq: 1,
 		ts: Date.now(),
+		session_id: 'sess-1',
 		run_id: 'run-1',
 		actor_id: scope === 'subagent' ? 'subagent:s1' : 'agent:root',
 		level: 'info',
+		title: 'Agent message',
 		data: {message: 'Hello world', scope},
 	} as FeedEvent;
 }
