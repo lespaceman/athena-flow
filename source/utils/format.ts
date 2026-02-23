@@ -1,10 +1,6 @@
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
 
-export function toAscii(value: string): string {
-	return value.replace(/[^\x20-\x7e]/g, '?');
-}
-
 export function compactText(value: string, max: number): string {
 	const clean = value.replace(/\s+/g, ' ').trim();
 	if (max <= 0) return '';

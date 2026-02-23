@@ -1,6 +1,5 @@
 import {describe, it, expect} from 'vitest';
 import {
-	toAscii,
 	compactText,
 	fit,
 	formatClock,
@@ -12,21 +11,6 @@ import {
 	summarizeToolInput,
 	formatInputBuffer,
 } from './format.js';
-
-describe('toAscii', () => {
-	it('passes through ASCII text unchanged', () => {
-		expect(toAscii('hello world')).toBe('hello world');
-	});
-
-	it('replaces non-ASCII with ?', () => {
-		expect(toAscii('café')).toBe('caf?');
-		expect(toAscii('🚀 launch')).toBe('?? launch');
-	});
-
-	it('handles empty string', () => {
-		expect(toAscii('')).toBe('');
-	});
-});
 
 describe('compactText', () => {
 	it('returns clean text when under max', () => {

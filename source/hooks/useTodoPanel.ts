@@ -5,7 +5,7 @@ import {
 	toTodoStatus,
 } from '../feed/todoPanel.js';
 import {type TodoItem} from '../types/todo.js';
-import {toAscii} from '../utils/format.js';
+
 import {generateId} from '../types/index.js';
 
 export type UseTodoPanelOptions = {
@@ -52,7 +52,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 
 	const todoItems = useMemo((): TodoPanelItem[] => {
 		const fromTasks = tasks.map((task, index) => ({
-			id: `task-${index}-${toAscii(task.content).slice(0, 16)}`,
+			id: `task-${index}-${task.content.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
 			text: task.content,
 			priority: 'P1' as const,
 			status: toTodoStatus(task.status),
