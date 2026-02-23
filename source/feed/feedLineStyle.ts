@@ -1,5 +1,4 @@
 import chalk, {type ChalkInstance} from 'chalk';
-import sliceAnsi from 'slice-ansi';
 import {type Theme} from '../theme/types.js';
 import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 import {
@@ -84,12 +83,30 @@ export function styleFeedLine(
 	const hasGlyph = lastChar && trimmed.length >= 2 && trimmed.at(-2) === ' ';
 	const glyphPos = hasGlyph ? trimmed.length - 1 : undefined;
 
+	// Determine gutter glyph (position 0) — replaces the leading space
+	let gutterChar: string;
+	let gutterStyle: ChalkInstance;
+	if (matched) {
+		gutterChar = getGlyphs(ascii)['feed.searchMatch'];
+		gutterStyle = chalk.hex(theme.accent);
+	} else if (opts.op === 'prompt') {
+		const borderColor = theme.userMessage.border ?? theme.accent;
+		gutterChar = getGlyphs(ascii)['feed.userBorder'];
+		gutterStyle = chalk.hex(borderColor);
+	} else if (opts.categoryBreak && opts.op !== 'prompt') {
+		gutterChar = '·';
+		gutterStyle = chalk.dim.hex(theme.textMuted);
+	} else {
+		gutterChar = ' ';
+		gutterStyle = base;
+	}
+
 	// Build styled string by painting segments
-	let styled = '';
+	let styled = gutterStyle(gutterChar);
 	const segments: {start: number; end: number; style: ChalkInstance}[] = [];
 
-	// TIME segment (0..OP_START)
-	segments.push({start: 0, end: FEED_OP_COL_START, style: base});
+	// TIME segment (1..OP_START)
+	segments.push({start: 1, end: FEED_OP_COL_START, style: base});
 	// OP segment
 	segments.push({
 		start: FEED_OP_COL_START,
@@ -137,28 +154,6 @@ export function styleFeedLine(
 
 	for (const seg of segments) {
 		styled += seg.style(line.slice(seg.start, seg.end));
-	}
-
-	// Search match: prepend accent ▌ (replacing first char)
-	if (matched) {
-		styled =
-			chalk.hex(theme.accent)(getGlyphs(ascii)['feed.searchMatch']) +
-			sliceAnsi(styled, 1);
-	}
-
-	// Category break: prepend dim dot (replacing first char) for visual grouping.
-	// Skip for prompt ops — user border takes precedence over category break.
-	if (opts.categoryBreak && !matched && opts.op !== 'prompt') {
-		const breakGlyph = chalk.dim.hex(theme.textMuted)('·');
-		styled = breakGlyph + sliceAnsi(styled, 1);
-	}
-
-	// User prompt: accent left-border (replacing first char)
-	if (opts.op === 'prompt' && !matched) {
-		const g = getGlyphs(ascii);
-		const borderColor = theme.userMessage.border ?? theme.accent;
-		const borderGlyph = chalk.hex(borderColor)(g['feed.userBorder']);
-		styled = borderGlyph + sliceAnsi(styled, 1);
 	}
 
 	return styled;

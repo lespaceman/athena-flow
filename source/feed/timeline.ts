@@ -419,9 +419,10 @@ export function mergedEventSummary(
 }
 
 /** Column positions in formatted feed line (0-indexed char offsets). */
-export const FEED_OP_COL_START = 6; // after "HH:MM "
-export const FEED_OP_COL_END = 22; // 6 + 16 (op width)
-export const FEED_SUMMARY_COL_START = 36; // 5+1+16+1+12+1 = 36
+export const FEED_GUTTER_WIDTH = 1; // leading gutter for category break / search / user border glyphs
+export const FEED_OP_COL_START = 7; // after " HH:MM " (1+5+1)
+export const FEED_OP_COL_END = 23; // 7 + 16 (op width)
+export const FEED_SUMMARY_COL_START = 37; // 1+5+1+16+1+12+1 = 37
 
 export function formatFeedLine(
 	entry: TimelineEntry,
@@ -441,22 +442,22 @@ export function formatFeedLine(
 	const time = fit(formatClock(entry.ts), 5);
 	const op = fit(entry.op, 16);
 	const actor = fit(entry.actor, 12);
-	const bodyWidth = Math.max(0, width - 2); // reserve 2 chars for suffix
+	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
 	const summaryWidth = Math.max(0, bodyWidth - 36); // 5+1+16+1+12+1 = 36
 	const body = fit(
 		`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`,
 		bodyWidth,
 	);
-	return `${body}${suffix}`;
+	return ` ${body}${suffix}`;
 }
 
 export function formatFeedHeaderLine(width: number): string {
 	const time = fit('TIME', 5);
 	const op = fit('OP', 16);
 	const actor = fit('ACTOR', 12);
-	const summaryWidth = Math.max(0, width - 38); // 5+1+16+1+12+1+2 = 38
+	const summaryWidth = Math.max(0, width - 39); // 1+5+1+16+1+12+1+2 = 39
 	const summaryLabel = fit('SUMMARY', summaryWidth);
-	return fit(`${time} ${op} ${actor} ${summaryLabel}  `, width);
+	return fit(` ${time} ${op} ${actor} ${summaryLabel}  `, width);
 }
 
 export function toRunStatus(
