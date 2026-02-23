@@ -74,7 +74,21 @@ export type UseFeedResult = {
 	clearRules: () => void;
 	printTaskSnapshot: () => void;
 	isDegraded: boolean;
+	postByToolUseId: Map<string, FeedEvent>;
 };
+
+/** Build a lookup index: tool_use_id → post/failure FeedEvent */
+export function buildPostByToolUseId(
+	events: FeedEvent[],
+): Map<string, FeedEvent> {
+	const map = new Map<string, FeedEvent>();
+	for (const e of events) {
+		if (e.kind !== 'tool.post' && e.kind !== 'tool.failure') continue;
+		const toolUseId = e.data.tool_use_id;
+		if (toolUseId) map.set(toolUseId, e);
+	}
+	return map;
+}
 
 // ── Hook ─────────────────────────────────────────────────
 
@@ -389,6 +403,11 @@ export function useFeed(
 		return Array.isArray(input?.todos) ? input.todos : [];
 	}, [feedEvents]);
 
+	const postByToolUseId = useMemo(
+		() => buildPostByToolUseId(feedEvents),
+		[feedEvents],
+	);
+
 	return {
 		items,
 		feedEvents,
@@ -411,5 +430,6 @@ export function useFeed(
 		clearRules,
 		printTaskSnapshot,
 		isDegraded: sessionStoreRef.current?.isDegraded ?? false,
+		postByToolUseId,
 	};
 }
