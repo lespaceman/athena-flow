@@ -35,7 +35,7 @@ function TaskItem({
 	const theme = useTheme();
 	const stateColors = {
 		completed: theme.status.success,
-		in_progress: theme.status.info,
+		in_progress: theme.status.working,
 		pending: theme.status.neutral,
 		failed: theme.status.error,
 	};
@@ -106,7 +106,7 @@ export default function TaskList({
 			);
 		} else if (inProgressTask) {
 			statusText = (
-				<Text color={theme.status.info}>
+				<Text color={theme.status.working}>
 					{spinnerFrame} {inProgressTask.activeForm ?? inProgressTask.content}
 				</Text>
 			);

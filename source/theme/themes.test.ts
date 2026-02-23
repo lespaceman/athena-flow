@@ -1,5 +1,10 @@
 import {describe, it, expect} from 'vitest';
-import {darkTheme, lightTheme, resolveTheme} from './themes.js';
+import {
+	darkTheme,
+	lightTheme,
+	highContrastTheme,
+	resolveTheme,
+} from './themes.js';
 
 describe('themes', () => {
 	it('darkTheme has all required tokens with Catppuccin Mocha palette', () => {
@@ -9,6 +14,7 @@ describe('themes', () => {
 		expect(darkTheme.status.error).toBe('#f38ba8');
 		expect(darkTheme.status.warning).toBe('#f9e2af');
 		expect(darkTheme.status.info).toBe('#89dceb');
+		expect(darkTheme.status.working).toBe('#f5a623');
 		expect(darkTheme.status.neutral).toBe('#6c7086');
 		expect(darkTheme.accentSecondary).toBe('#cba6f7');
 		expect(darkTheme.contextBar.medium).toBe('#fab387');
@@ -23,7 +29,21 @@ describe('themes', () => {
 		expect(lightTheme.status.error).toBe('#d20f39');
 		expect(lightTheme.status.warning).toBe('#df8e1d');
 		expect(lightTheme.status.info).toBe('#1e66f5');
+		expect(lightTheme.status.working).toBe('#c45d00');
 		expect(lightTheme.accentSecondary).toBe('#8839ef');
+	});
+
+	it('highContrastTheme has WCAG AA compliant palette', () => {
+		expect(highContrastTheme.name).toBe('high-contrast');
+		expect(highContrastTheme.status.success).toBe('#50fa7b');
+		expect(highContrastTheme.status.error).toBe('#ff5555');
+		expect(highContrastTheme.status.warning).toBe('#f1fa8c');
+		expect(highContrastTheme.status.working).toBe('#ffb86c');
+		expect(highContrastTheme.border).toBe('#ffffff');
+	});
+
+	it('resolveTheme returns high-contrast when requested', () => {
+		expect(resolveTheme('high-contrast').name).toBe('high-contrast');
 	});
 
 	it('resolveTheme returns dark by default', () => {

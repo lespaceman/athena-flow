@@ -5,7 +5,7 @@ describe('getStatusBadge', () => {
 	it('returns colored glyph + label when hasColor is true', () => {
 		const badge = getStatusBadge('active', true);
 		expect(badge).toContain('ACTIVE');
-		expect(badge).toContain('●');
+		expect(badge).toContain('◉');
 	});
 
 	it('returns text-only fallback when hasColor is false', () => {

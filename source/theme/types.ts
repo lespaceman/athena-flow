@@ -1,4 +1,4 @@
-export type ThemeName = 'dark' | 'light';
+export type ThemeName = 'dark' | 'light' | 'high-contrast';
 
 export type Theme = {
 	name: ThemeName;
@@ -11,6 +11,7 @@ export type Theme = {
 		error: string;
 		warning: string;
 		info: string;
+		working: string;
 		neutral: string;
 	};
 	accent: string;

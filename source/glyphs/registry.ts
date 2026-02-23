@@ -99,10 +99,10 @@ export const GLYPH_REGISTRY: Record<
 	'frame.teeRight': {unicode: '┤', ascii: '+'},
 
 	// Status
-	'status.active': {unicode: '●', ascii: '*'},
+	'status.active': {unicode: '◉', ascii: '*'},
 	'status.error': {unicode: '■', ascii: '!'},
 	'status.pending': {unicode: '○', ascii: 'o'},
-	'status.passthrough': {unicode: '●', ascii: '*'},
+	'status.passthrough': {unicode: '▸', ascii: '>'},
 	'status.blocked': {unicode: '✗', ascii: 'x'},
 	'status.streaming': {unicode: '◐', ascii: '~'},
 	'status.idle': {unicode: '⏸', ascii: '-'},
@@ -134,7 +134,7 @@ export const GLYPH_REGISTRY: Record<
 
 	// Message
 	'message.user': {unicode: '❯', ascii: '>'},
-	'message.agent': {unicode: '◆', ascii: '>'},
+	'message.agent': {unicode: '▹', ascii: '>'},
 
 	// Permission
 	'permission.warn': {unicode: '⚠', ascii: '!'},

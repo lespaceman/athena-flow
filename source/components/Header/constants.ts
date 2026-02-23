@@ -4,7 +4,7 @@ import {type Theme} from '../../theme/index.js';
 export function getStateColors(theme: Theme): Record<ClaudeState, string> {
 	return {
 		idle: theme.status.neutral,
-		working: theme.status.info,
+		working: theme.status.working,
 		waiting: theme.status.warning,
 		error: theme.status.error,
 	};

@@ -14,6 +14,7 @@ export default function ThemeStep({onComplete}: Props) {
 				options={[
 					{label: 'Dark', value: 'dark'},
 					{label: 'Light', value: 'light'},
+					{label: 'High Contrast', value: 'high-contrast'},
 				]}
 				onSelect={onComplete}
 			/>

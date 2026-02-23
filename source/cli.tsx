@@ -41,7 +41,7 @@ const cli = meow(
 		                  minimal - Full isolation, allow project MCP servers
 		                  permissive - Full isolation, allow project MCP servers
 		--verbose       Show additional rendering detail and streaming display
-		--theme         Color theme: dark (default) or light
+		--theme         Color theme: dark (default), light, or high-contrast
 		--continue      Resume the most recent session (or specify a session ID)
 		--sessions      Launch interactive session picker before main UI
 		--workflow       Workflow reference displayed in header (e.g. name@rev)
