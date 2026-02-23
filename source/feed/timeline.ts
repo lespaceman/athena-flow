@@ -147,6 +147,17 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 	}
 }
 
+/** Strip inline markdown syntax for compact single-line display. */
+function stripMarkdownInline(text: string): string {
+	return text
+		.replace(/#{1,6}\s+/g, '')
+		.replace(/\*\*(.+?)\*\*/g, '$1')
+		.replace(/__(.+?)__/g, '$1')
+		.replace(/\*(.+?)\*/g, '$1')
+		.replace(/`(.+?)`/g, '$1')
+		.replace(/~~(.+?)~~/g, '$1');
+}
+
 function eventSummaryText(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
@@ -189,7 +200,7 @@ function eventSummaryText(event: FeedEvent): string {
 		case 'session.end':
 			return compactText(`reason=${event.data.reason}`, 200);
 		case 'notification':
-			return compactText(event.data.message, 200);
+			return compactText(stripMarkdownInline(event.data.message), 200);
 		case 'compact.pre':
 			return compactText(`trigger=${event.data.trigger}`, 200);
 		case 'setup':
@@ -214,7 +225,7 @@ function eventSummaryText(event: FeedEvent): string {
 				200,
 			);
 		case 'agent.message':
-			return compactText(event.data.message, 200);
+			return compactText(stripMarkdownInline(event.data.message), 200);
 		case 'teammate.idle':
 			return compactText(
 				`${event.data.teammate_name} idle in ${event.data.team_name}`,

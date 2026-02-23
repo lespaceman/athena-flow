@@ -159,6 +159,39 @@ describe('eventSummary', () => {
 	});
 });
 
+describe('eventSummary — agent.message', () => {
+	it('strips markdown syntax from agent.message summary', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message:
+					"Here's what the **e2e-test-builder** plugin can do — it has `6 skills`",
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).not.toContain('**');
+		expect(result.text).not.toContain('`');
+		expect(result.text).toContain('e2e-test-builder');
+		expect(result.text).toContain('6 skills');
+	});
+
+	it('strips heading markers from agent.message summary', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message: '## How Ralph Loop Works with `/add-e2e-tests`',
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).not.toMatch(/^##/);
+		expect(result.text).toContain('How Ralph Loop Works');
+	});
+});
+
 describe('eventSummary MCP formatting', () => {
 	it('formats MCP tool.pre with [server] action', () => {
 		const ev = {
