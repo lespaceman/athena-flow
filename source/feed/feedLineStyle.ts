@@ -39,7 +39,12 @@ function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op.startsWith('tool.')) return theme.status.warning;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
 	if (op === 'agent.msg') return theme.status.info;
-	if (op.startsWith('run.') || op.startsWith('sess.') || op.startsWith('stop.'))
+	if (
+		op.startsWith('run.') ||
+		op.startsWith('sess.') ||
+		op.startsWith('stop.') ||
+		op.startsWith('sub.')
+	)
 		return theme.textMuted;
 	return undefined;
 }
@@ -47,7 +52,6 @@ function opCategoryColor(op: string, theme: Theme): string | undefined {
 function actorStyle(actorId: string, theme: Theme): ChalkInstance {
 	if (actorId === 'system') return chalk.dim.hex(theme.textMuted);
 	if (actorId === 'user') return chalk.hex(theme.userMessage.text);
-	if (actorId.startsWith('subagent:')) return chalk.hex(theme.accentSecondary);
 	return chalk.hex(theme.text);
 }
 

@@ -34,7 +34,7 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('38;2;108;112;134');
 	});
 
-	it('applies accentSecondary for subagent actor', () => {
+	it('applies default text color for subagent actor (same as agent)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
@@ -42,8 +42,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// accentSecondary #cba6f7 → RGB 203;166;247
-		expect(result).toContain('38;2;203;166;247');
+		// text #cdd6f4 → RGB 205;214;244
+		expect(result).toContain('38;2;205;214;244');
 	});
 
 	it('applies error color overriding actor', () => {
