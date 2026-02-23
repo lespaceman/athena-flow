@@ -93,10 +93,17 @@ export function initSchema(db: Database.Database): void {
 			},
 		};
 
-		for (let v = existing.version + 1; v <= SCHEMA_VERSION; v++) {
-			const migrate = migrations[v];
-			if (migrate) migrate(db);
-		}
-		db.prepare('UPDATE schema_version SET version = ?').run(SCHEMA_VERSION);
+		// Run all migrations in a single transaction so partial failures
+		// don't leave the DB in an inconsistent state.
+		const runMigrations = db.transaction(() => {
+			for (let v = existing.version + 1; v <= SCHEMA_VERSION; v++) {
+				const migrate = migrations[v];
+				if (migrate) migrate(db);
+			}
+			db.prepare('UPDATE schema_version SET version = ?').run(
+				SCHEMA_VERSION,
+			);
+		});
+		runMigrations();
 	}
 }
