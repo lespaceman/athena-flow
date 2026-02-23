@@ -200,3 +200,27 @@ These are structural rules. Any PR violating them must be rejected.
 6. **There is exactly one ordering authority per session (seq).** UI never sorts by timestamp for feed events. Timestamp is metadata for display only, never used in sort comparators.
 
 > **Ordering assumption for message/feed merge:** Messages (user prompts) don't have seq — they use timestamp for interleaving with feed events. This works because message timestamps are epoch-ms (large numbers) while seq is a small counter, so messages naturally sort before their resulting feed activity. This is intentional. If it ever breaks, assign messages synthetic seq values before merge.
+
+### Concurrency & Writer Model
+
+- **Single writer per session DB.** Exactly one `SessionStore` instance writes to each session SQLite file at a time. Enforced by `PRAGMA locking_mode = EXCLUSIVE` on store open. If a second process attempts to write, SQLite will error.
+- **No worker threads allocate seq.** All UDS messages are processed in-order on the main thread. The mapper's `++seq` is the sole allocator. If parallel handling is ever introduced, migrate to a DB-side counter.
+- **On restart, seq resumes from `max(seq)+1`.** Both mapper (from stored feed events) and store (from runtime_events) read max seq on initialization. Never starts from 0 when resuming.
+- **Replay preserves stored seq exactly.** `restore()` returns events with their original seq values. The mapper only allocates new seq values for new events after the restored baseline.
+
+### Degraded Session Behavior
+
+When `isDegraded` is true (persistence write failure occurred):
+- **UI continues updating** from the live event stream — feed events still render.
+- **Reads still work** — previously persisted events are intact.
+- **Writes are best-effort** — subsequent writes may also fail but are still attempted.
+- **`degradedReason`** holds the error message for UI display (e.g., "recordEvent failed: SQLITE_FULL").
+- **Degraded is sticky** — once set, never clears. A degraded session cannot silently "recover" without an explicit user action (restart).
+- **UI should not imply persistence fidelity** when degraded — a banner or indicator is expected.
+
+### Invariant Enforcement Escape Hatch
+
+If an exception to an invariant is ever needed (e.g., a test helper that constructs FeedEvents directly), it must:
+1. Include a comment: `// invariant-waiver: <which invariant> — <reason>`
+2. Be scoped as narrowly as possible (test files, not production code)
+3. Have a corresponding test explaining why the waiver is safe
