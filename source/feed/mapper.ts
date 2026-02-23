@@ -663,6 +663,10 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 		const originalKind = eventKindByRequestId.get(requestId);
 
+		// Consume the correlation entry — prevents duplicate decisions for the same request
+		eventIdByRequestId.delete(requestId);
+		eventKindByRequestId.delete(requestId);
+
 		function makeDecisionEvent(kind: FeedEventKind, data: unknown): FeedEvent {
 			const s = nextSeq();
 			const fe = {
