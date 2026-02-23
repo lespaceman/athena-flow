@@ -40,6 +40,8 @@ export type SessionStore = {
 	close(): void;
 	/** Whether persistence has failed and the session is running without storage. */
 	isDegraded: boolean;
+	/** Human-readable reason for degradation (undefined if not degraded). */
+	degradedReason: string | undefined;
 	/** Mark the session as degraded after a persistence failure. */
 	markDegraded(reason: string): void;
 };
@@ -50,11 +52,21 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		fs.mkdirSync(path.dirname(opts.dbPath), {recursive: true});
 	}
 
+	// Acquire exclusive write lock via SQLite's locking_mode.
+	// This prevents a second process from accidentally writing to the same DB
+	// and colliding on seq allocation. Read-only consumers (registry) use
+	// separate readonly connections and are unaffected.
 	const db = new Database(opts.dbPath);
 	initSchema(db);
+	if (opts.dbPath !== ':memory:') {
+		db.pragma('locking_mode = EXCLUSIVE');
+		// Force SQLite to acquire the lock immediately by starting a write
+		db.exec('BEGIN IMMEDIATE; COMMIT');
+	}
 
 	let runtimeSeq = 0;
 	let degraded = false;
+	let degradedReason: string | undefined;
 
 	// Track known adapter session IDs to avoid duplicate inserts
 	const knownAdapterSessions = new Set<string>();
@@ -279,8 +291,12 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		get isDegraded() {
 			return degraded;
 		},
+		get degradedReason() {
+			return degradedReason;
+		},
 		markDegraded(reason: string) {
 			degraded = true;
+			degradedReason = reason;
 			console.error(`[athena] session degraded: ${reason}`);
 		},
 	};
