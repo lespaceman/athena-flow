@@ -187,3 +187,16 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - **Ink border width overhead**: `borderStyle="round"` consumes 2 chars (left+right borders). Components computing width from `process.stdout.columns` inside bordered boxes must subtract border + padding overhead or content will overflow and break the border rendering.
 - **No timer hooks at root**: Never place timer-based state hooks (setInterval/animation) at the root component level — they cause full-tree re-renders. Scope them to the smallest possible subtree.
 - **Independent events with causality**: Every feed event is its own independent static line (no pairing or waiting), but events link to parents via `cause.parent_event_id` (e.g., `tool.post` → `tool.pre`, `permission.decision` → `permission.request`). Components render independently; correlation is for data attribution, not render grouping.
+
+## Non-Negotiable Invariants
+
+These are structural rules. Any PR violating them must be rejected.
+
+1. **Every UI-visible FeedEvent must be durable.** If it changes what the user sees, it passes through `SessionStore.recordEvent()` or `SessionStore.recordFeedEvents()`. No exceptions.
+2. **Mapper is the sole semantic event constructor.** All `FeedEvent` creation goes through `createFeedMapper().mapEvent()` or `mapDecision()`. No ad-hoc FeedEvent construction in hooks or components.
+3. **Athena session ID is the only user-facing identity.** `--continue=<id>` means Athena ID. Adapter IDs are internal attributes, never shown to or accepted from users.
+4. **Feed ordering is globally monotonic per Athena session.** `seq` is session-global (not run-local), UNIQUE in the DB, and is the sole ordering authority. Timestamp is metadata only.
+5. **Persistence errors are loud.** SQLite write failures log explicitly and mark the session as degraded. Runtime never silently swallows handler exceptions.
+6. **There is exactly one ordering authority per session (seq).** UI never sorts by timestamp for feed events. Timestamp is metadata for display only, never used in sort comparators.
+
+> **Ordering assumption for message/feed merge:** Messages (user prompts) don't have seq — they use timestamp for interleaving with feed events. This works because message timestamps are epoch-ms (large numbers) while seq is a small counter, so messages naturally sort before their resulting feed activity. This is intentional. If it ever breaks, assign messages synthetic seq values before merge.
