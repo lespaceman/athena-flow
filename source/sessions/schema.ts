@@ -2,6 +2,33 @@ import type Database from 'better-sqlite3';
 
 export const SCHEMA_VERSION = 2;
 
+/**
+ * Reassign feed_events.seq to be globally unique.
+ * v1 schema enforced (run_id, seq) uniqueness, so the same seq could appear
+ * across runs. This assigns new seq values based on rowid order (preserving
+ * relative ordering) to satisfy the v2 global uniqueness constraint.
+ */
+function deduplicateFeedSeq(db: Database.Database): void {
+	const hasDupes = db
+		.prepare(
+			'SELECT 1 FROM feed_events GROUP BY seq HAVING COUNT(*) > 1 LIMIT 1',
+		)
+		.get();
+	if (!hasDupes) return;
+
+	// Reassign seq = rowid-based counter, ordered by existing seq then rowid
+	// to preserve relative ordering within and across runs.
+	db.exec(`
+		UPDATE feed_events SET seq = (
+			SELECT rn FROM (
+				SELECT rowid AS rid, ROW_NUMBER() OVER (ORDER BY seq, rowid) AS rn
+				FROM feed_events
+			) AS numbered
+			WHERE numbered.rid = feed_events.rowid
+		)
+	`);
+}
+
 export function initSchema(db: Database.Database): void {
 	db.exec('PRAGMA journal_mode = WAL');
 	db.exec('PRAGMA foreign_keys = ON');
@@ -52,9 +79,11 @@ export function initSchema(db: Database.Database): void {
 	db.exec(`
 		CREATE INDEX IF NOT EXISTS idx_feed_kind ON feed_events(kind);
 		CREATE INDEX IF NOT EXISTS idx_feed_run ON feed_events(run_id);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq);
 		CREATE INDEX IF NOT EXISTS idx_runtime_seq ON runtime_events(seq);
 	`);
+	// NOTE: idx_feed_seq (UNIQUE) is created by migration 2 or the new-DB path below.
+	// It must NOT be created unconditionally here because v1 DBs may have
+	// duplicate seq values that need deduplication first.
 
 	// Migration: add event_count column (idempotent via try/catch since
 	// SQLite doesn't support ALTER TABLE ... ADD COLUMN IF NOT EXISTS)
@@ -80,6 +109,10 @@ export function initSchema(db: Database.Database): void {
 		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
 			SCHEMA_VERSION,
 		);
+		// Fresh DB — create unique index directly (no data to conflict)
+		db.exec(
+			'CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq)',
+		);
 	} else if (existing.version < SCHEMA_VERSION) {
 		const migrations: Record<
 			number,
@@ -87,6 +120,11 @@ export function initSchema(db: Database.Database): void {
 		> = {
 			2: d => {
 				d.exec('DROP INDEX IF EXISTS idx_feed_run_seq');
+				// Deduplicate seq values before adding unique constraint.
+				// v1 schema used (run_id, seq) uniqueness, so the same seq
+				// could appear in multiple runs. Reassign globally unique
+				// seq values based on rowid order (preserves relative ordering).
+				deduplicateFeedSeq(d);
 				d.exec(
 					'CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq)',
 				);
