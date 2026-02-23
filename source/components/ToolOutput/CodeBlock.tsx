@@ -18,9 +18,6 @@ const FILE_PATH_RE = /(\/[\w./-]+(?::\d+(?::\d+)?))/g;
 function linkifyFilePaths(text: string): string {
 	if (!supportsHyperlinks()) return text;
 	return text.replace(FILE_PATH_RE, match => {
-		// Extract path and optional line/col
-		const colonIdx = match.indexOf(':', 1); // skip leading /
-		const filePath = colonIdx === -1 ? match : match.slice(0, colonIdx);
 		const uri = `file://${match}`;
 		return hyperlink(match, uri);
 	});
