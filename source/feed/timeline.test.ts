@@ -10,6 +10,9 @@ import {
 	formatFeedHeaderLine,
 	toRunStatus,
 	deriveRunTitle,
+	mergedEventOperation,
+	mergedEventSummary,
+	VERBOSE_ONLY_KINDS,
 	type TimelineEntry,
 } from './timeline.js';
 
@@ -517,5 +520,125 @@ describe('deriveRunTitle', () => {
 
 	it('returns Untitled run as last resort', () => {
 		expect(deriveRunTitle(undefined, [], [])).toBe('Untitled run');
+	});
+});
+
+describe('VERBOSE_ONLY_KINDS', () => {
+	it('includes lifecycle event kinds', () => {
+		expect(VERBOSE_ONLY_KINDS.has('session.start')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('session.end')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('run.start')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('run.end')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('user.prompt')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('notification')).toBe(true);
+		expect(VERBOSE_ONLY_KINDS.has('config.change')).toBe(true);
+	});
+
+	it('excludes tool and action event kinds', () => {
+		expect(VERBOSE_ONLY_KINDS.has('tool.pre')).toBe(false);
+		expect(VERBOSE_ONLY_KINDS.has('tool.post')).toBe(false);
+		expect(VERBOSE_ONLY_KINDS.has('tool.failure')).toBe(false);
+		expect(VERBOSE_ONLY_KINDS.has('permission.request')).toBe(false);
+		expect(VERBOSE_ONLY_KINDS.has('subagent.start')).toBe(false);
+	});
+});
+
+describe('mergedEventOperation', () => {
+	it('returns tool.ok when postEvent is tool.post', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {tool_name: 'Bash', tool_input: {}, tool_response: {}},
+		};
+		expect(mergedEventOperation(pre, post)).toBe('tool.ok');
+	});
+
+	it('returns tool.fail when postEvent is tool.failure', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {},
+				error: 'fail',
+				is_interrupt: false,
+			},
+		};
+		expect(mergedEventOperation(pre, post)).toBe('tool.fail');
+	});
+
+	it('falls back to eventOperation when no postEvent', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		expect(mergedEventOperation(pre)).toBe('tool.call');
+	});
+});
+
+describe('mergedEventSummary', () => {
+	it('returns merged summary with tool result when paired', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'ls'}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'ls'},
+				tool_response: {stdout: 'file\n', stderr: '', exitCode: 0},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toContain('Bash');
+		expect(result.text).toContain('—');
+		expect(result.text).toContain('exit 0');
+		expect(result.dimStart).toBe('Bash'.length);
+	});
+
+	it('returns merged summary with error for tool.failure', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'bad'}},
+		};
+		const post = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'bad'},
+				error: 'command not found',
+				is_interrupt: false,
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toContain('Bash');
+		expect(result.text).toContain('command not found');
+	});
+
+	it('falls back to eventSummary when no postEvent', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Read', tool_input: {file_path: '/foo.ts'}},
+		};
+		const result = mergedEventSummary(pre);
+		expect(result.text).toContain('Read');
+		expect(result.text).toContain('/foo.ts');
 	});
 });
