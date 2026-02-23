@@ -8,6 +8,7 @@
 The athena-cli test suite was **library-biased, not pipeline-biased**. The codebase is a pipeline + persistence engine + permission orchestrator, but the test suite was optimized for the patterns of a utility library: isolated pure-function tests, comprehensive formatter coverage, exhaustive boundary import checks.
 
 This mismatch meant:
+
 - **232 boundary import tests** (risk weight 1) enforcing ESLint-level rules
 - **~180 formatter/cosmetic tests** (risk weight 1–2) covering string output
 - **5 integration tests** (risk weight 5) covering the actual pipeline
@@ -17,13 +18,13 @@ The sentinel effort (Phase 1 of this plan) added 12 tests across 7 sentinel file
 
 ## Test Distribution by Risk Weight
 
-| Risk Weight | Description | Test Count | % of Suite |
-|-------------|-------------|------------|------------|
-| 5 | Data/permission corruption | ~38 | 2.8% |
-| 4 | Incorrect execution/replay | ~55 | 4.0% |
-| 3 | Semantic behavior | ~95 | 7.0% |
-| 2 | Usability degradation | ~350 | 25.7% |
-| 1 | Cosmetic/formatting | ~823 | 60.5% |
+| Risk Weight | Description                | Test Count | % of Suite |
+| ----------- | -------------------------- | ---------- | ---------- |
+| 5           | Data/permission corruption | ~38        | 2.8%       |
+| 4           | Incorrect execution/replay | ~55        | 4.0%       |
+| 3           | Semantic behavior          | ~95        | 7.0%       |
+| 2           | Usability degradation      | ~350       | 25.7%      |
+| 1           | Cosmetic/formatting        | ~823       | 60.5%      |
 
 The suite is bottom-heavy: ~86% of tests protect against risk weight 1–2 issues, while only ~7% protect against weight 4–5 issues. This is common in test suites that grew organically from unit test templates.
 
@@ -54,7 +55,7 @@ Tests persistence, restore, schema migration, and integration. Risk weight 4–5
 **matchRule.test.ts** (8 tests)
 Subset of hookController.test.ts. The controller tests exercise matchRule through the handler dispatch path. Standalone matchRule tests add no unique coverage. Risk weight 2.
 
-**PostToolResult.__tests__** (2 tests)
+**PostToolResult.**tests\*\*\*\* (2 tests)
 Duplicate of PostToolResult.test.tsx (4 tests). The `__tests__/` version tests the same component with fewer cases. Risk weight 2.
 
 **Header.test.tsx** (5 tests)
@@ -75,15 +76,15 @@ Exhaustive parser coverage. Valuable for the parser but risk weight 1. Future co
 
 ## Gaps Closed by Sentinels
 
-| Gap | Before | After |
-|-----|--------|-------|
-| Persist→restore equivalence | No test | `replay-equivalence.sentinel.test.ts` |
-| Seq monotonicity under burst | No test | `burst-ordering.sentinel.test.ts` |
-| Duplicate decision prevention | **Bug existed** | `double-decision.sentinel.test.ts` + mapper fix |
-| Resume auto-execution guard | No test | `resume-discipline.sentinel.test.ts` |
-| Resume event duplication | No test | `resume-no-duplication.sentinel.test.ts` |
-| Unknown hook pipeline survival | No test | `unknown-hook-survival.sentinel.test.ts` |
-| Degraded mode contract | No test | `degraded-mode.sentinel.test.ts` |
+| Gap                            | Before          | After                                           |
+| ------------------------------ | --------------- | ----------------------------------------------- |
+| Persist→restore equivalence    | No test         | `replay-equivalence.sentinel.test.ts`           |
+| Seq monotonicity under burst   | No test         | `burst-ordering.sentinel.test.ts`               |
+| Duplicate decision prevention  | **Bug existed** | `double-decision.sentinel.test.ts` + mapper fix |
+| Resume auto-execution guard    | No test         | `resume-discipline.sentinel.test.ts`            |
+| Resume event duplication       | No test         | `resume-no-duplication.sentinel.test.ts`        |
+| Unknown hook pipeline survival | No test         | `unknown-hook-survival.sentinel.test.ts`        |
+| Degraded mode contract         | No test         | `degraded-mode.sentinel.test.ts`                |
 
 ## Remaining Gaps (Future Work)
 

@@ -42,9 +42,7 @@ describe('Sentinel: unknown hook survives full pipeline', () => {
 
 		// Mapper produced event (not silently dropped)
 		expect(unknownFeed.length).toBeGreaterThan(0);
-		const unknownFeedEvent = unknownFeed.find(
-			e => e.kind === 'unknown.hook',
-		);
+		const unknownFeedEvent = unknownFeed.find(e => e.kind === 'unknown.hook');
 		expect(unknownFeedEvent).toBeDefined();
 
 		// Survives persistence round-trip

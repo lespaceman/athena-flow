@@ -74,9 +74,7 @@ describe('Sentinel: replay equivalence', () => {
 					run_id: e.run_id,
 				}));
 
-		expect(normalize(restored.feedEvents)).toEqual(
-			normalize(allFeedEvents),
-		);
+		expect(normalize(restored.feedEvents)).toEqual(normalize(allFeedEvents));
 		expect(restored.feedEvents.length).toBe(allFeedEvents.length);
 
 		// Separately: titles exist and are non-empty for all events

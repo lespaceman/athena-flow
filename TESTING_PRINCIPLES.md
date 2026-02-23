@@ -11,6 +11,7 @@ Athena's risk concentrates at cross-layer boundaries: mapper→store→restore, 
 ### 2. Sentinel tests guard architectural invariants
 
 Sentinel tests live in `source/__sentinels__/` with `.sentinel.test.ts` suffix. Every sentinel must:
+
 - Cross at least two architectural layers
 - Use real persistence (SQLite in-memory)
 - Avoid mocks except for external process boundaries (e.g., spawnClaude)
@@ -59,13 +60,13 @@ A session persistence test is worth more than 40 formatter tests. Allocate test 
 
 Every test file and sentinel carries an implicit risk weight:
 
-| Weight | Category | Examples |
-|--------|----------|----------|
-| **5** | Data corruption, permission corruption, irreversible loss | Persist→restore equivalence, duplicate decision prevention, degraded mode detection |
-| **4** | Incorrect execution or replay state | Seq monotonicity, resume duplication, run boundary isolation |
-| **3** | Incorrect user-visible semantic behavior | Unknown hook survival, subagent attribution, tool event correlation |
-| **2** | Usability degradation | Header rendering, width computation, duration formatting |
-| **1** | Cosmetic / formatting | Title wording, glyph selection, color output |
+| Weight | Category                                                  | Examples                                                                            |
+| ------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **5**  | Data corruption, permission corruption, irreversible loss | Persist→restore equivalence, duplicate decision prevention, degraded mode detection |
+| **4**  | Incorrect execution or replay state                       | Seq monotonicity, resume duplication, run boundary isolation                        |
+| **3**  | Incorrect user-visible semantic behavior                  | Unknown hook survival, subagent attribution, tool event correlation                 |
+| **2**  | Usability degradation                                     | Header rendering, width computation, duration formatting                            |
+| **1**  | Cosmetic / formatting                                     | Title wording, glyph selection, color output                                        |
 
 When deciding whether to add, keep, or remove a test, consider its risk weight. A single weight-5 test protects more value than ten weight-1 tests.
 
@@ -73,15 +74,15 @@ When deciding whether to add, keep, or remove a test, consider its risk weight. 
 
 These invariants must always have sentinel or integration test coverage:
 
-| Invariant | Sentinel |
-|-----------|----------|
-| Persist→restore structural equivalence | `replay-equivalence.sentinel.test.ts` |
-| Seq monotonicity under burst | `burst-ordering.sentinel.test.ts` |
-| Single-decision-per-request | `double-decision.sentinel.test.ts` |
-| Resume non-auto-execution | `resume-discipline.sentinel.test.ts` |
-| Resume no event duplication | `resume-no-duplication.sentinel.test.ts` |
-| Unknown hook forward compatibility | `unknown-hook-survival.sentinel.test.ts` |
-| Degraded mode persistence contract | `degraded-mode.sentinel.test.ts` |
+| Invariant                              | Sentinel                                 |
+| -------------------------------------- | ---------------------------------------- |
+| Persist→restore structural equivalence | `replay-equivalence.sentinel.test.ts`    |
+| Seq monotonicity under burst           | `burst-ordering.sentinel.test.ts`        |
+| Single-decision-per-request            | `double-decision.sentinel.test.ts`       |
+| Resume non-auto-execution              | `resume-discipline.sentinel.test.ts`     |
+| Resume no event duplication            | `resume-no-duplication.sentinel.test.ts` |
+| Unknown hook forward compatibility     | `unknown-hook-survival.sentinel.test.ts` |
+| Degraded mode persistence contract     | `degraded-mode.sentinel.test.ts`         |
 
 ## Sentinel Header Template
 

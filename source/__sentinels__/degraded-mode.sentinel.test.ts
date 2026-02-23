@@ -62,9 +62,7 @@ describe('Sentinel: degraded mode on persistence failure', () => {
 		store.markDegraded('recordEvent failed: SQLITE_FULL');
 
 		expect(store.isDegraded).toBe(true);
-		expect(store.degradedReason).toBe(
-			'recordEvent failed: SQLITE_FULL',
-		);
+		expect(store.degradedReason).toBe('recordEvent failed: SQLITE_FULL');
 
 		// Sticky: cannot un-degrade
 		// (no API exists to clear it — verify it stays true)
