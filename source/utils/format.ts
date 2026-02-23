@@ -100,6 +100,93 @@ export function summarizeToolInput(input: Record<string, unknown>): string {
 	return pairs.join(' ');
 }
 
+export const MAX_INPUT_ROWS = 6;
+const CURSOR_ON = '\x1b[7m';
+const CURSOR_OFF = '\x1b[27m';
+
+/**
+ * Renders input text with ANSI block cursor, supporting multi-line wrapping.
+ * Returns an array of strings (1 to MAX_INPUT_ROWS lines).
+ */
+export function renderInputLines(
+	value: string,
+	cursorOffset: number,
+	width: number,
+	showCursor: boolean,
+	placeholder: string,
+): string[] {
+	if (width <= 0) return [''];
+
+	if (value.length === 0) {
+		if (!showCursor) return [fit(placeholder, width)];
+		const cursor = `${CURSOR_ON} ${CURSOR_OFF}`;
+		return [cursor + fit(placeholder, width - 1)];
+	}
+
+	if (!showCursor) {
+		const rawLines = wrapText(value, width);
+		const visible = rawLines.slice(0, MAX_INPUT_ROWS);
+		return visible.map(line => fit(line, width));
+	}
+
+	const rawLines = wrapText(value, width);
+
+	// Find which line the cursor is on
+	let charCount = 0;
+	let cursorLine = 0;
+	let cursorCol = 0;
+	for (let i = 0; i < rawLines.length; i++) {
+		const lineLen = rawLines[i]!.length;
+		if (cursorOffset <= charCount + lineLen) {
+			cursorLine = i;
+			cursorCol = cursorOffset - charCount;
+			break;
+		}
+		charCount += lineLen;
+	}
+
+	// Viewport scrolling when more than MAX_INPUT_ROWS
+	let viewStart = 0;
+	if (rawLines.length > MAX_INPUT_ROWS) {
+		viewStart = Math.max(
+			0,
+			Math.min(
+				cursorLine - Math.floor(MAX_INPUT_ROWS / 2),
+				rawLines.length - MAX_INPUT_ROWS,
+			),
+		);
+	}
+	const visibleLines = rawLines.slice(viewStart, viewStart + MAX_INPUT_ROWS);
+
+	// Render each line, inserting block cursor on the cursor line
+	return visibleLines.map((line, i) => {
+		const globalIdx = viewStart + i;
+		if (globalIdx === cursorLine) {
+			const before = line.slice(0, cursorCol);
+			const charAtCursor = cursorCol < line.length ? line[cursorCol] : ' ';
+			const after = cursorCol < line.length ? line.slice(cursorCol + 1) : '';
+			const rendered = `${before}${CURSOR_ON}${charAtCursor}${CURSOR_OFF}${after}`;
+			return fitAnsi(rendered, width);
+		}
+		return fit(line, width);
+	});
+}
+
+function wrapText(text: string, width: number): string[] {
+	if (width <= 0) return [text];
+	const lines: string[] = [];
+	for (const segment of text.split('\n')) {
+		if (segment.length === 0) {
+			lines.push('');
+			continue;
+		}
+		for (let i = 0; i < segment.length; i += width) {
+			lines.push(segment.slice(i, i + width));
+		}
+	}
+	return lines;
+}
+
 export function formatInputBuffer(
 	value: string,
 	cursorOffset: number,

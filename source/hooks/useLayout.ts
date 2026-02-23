@@ -8,7 +8,6 @@ import {
 } from '../utils/renderDetailLines.js';
 
 const HEADER_ROWS = 1;
-const FOOTER_ROWS = 2;
 const FRAME_BORDER_ROWS = 4;
 const TODO_PANEL_MAX_ROWS = 8;
 const RUN_OVERLAY_MAX_ROWS = 6;
@@ -21,6 +20,7 @@ export type UseLayoutOptions = {
 	filteredEntries: TimelineEntry[];
 	feedNav: UseFeedNavigationResult;
 	todoPanel: UseTodoPanelResult;
+	footerRows: number;
 };
 
 export type UseLayoutResult = {
@@ -50,13 +50,14 @@ export function useLayout({
 	filteredEntries,
 	feedNav,
 	todoPanel,
+	footerRows,
 }: UseLayoutOptions): UseLayoutResult {
 	const frameWidth = Math.max(4, terminalWidth);
 	const innerWidth = frameWidth - 2;
 
 	const bodyHeight = Math.max(
 		1,
-		terminalRows - HEADER_ROWS - FOOTER_ROWS - FRAME_BORDER_ROWS,
+		terminalRows - HEADER_ROWS - footerRows - FRAME_BORDER_ROWS,
 	);
 
 	const todoRowsTarget = todoPanel.todoVisible

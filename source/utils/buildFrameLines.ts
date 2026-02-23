@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import {type TimelineEntry} from '../feed/timeline.js';
 import {hintGlyphs} from '../glyphs/index.js';
-import {fit, fitAnsi, formatInputBuffer} from './format.js';
+import {fit, fitAnsi, renderInputLines} from './format.js';
 
 export type FrameContext = {
 	innerWidth: number;
@@ -23,7 +23,7 @@ export type FrameContext = {
 
 export type FrameLines = {
 	footerHelp: string | null;
-	inputLine: string;
+	inputLines: string[];
 };
 
 function buildHintPairs(pairs: Array<[string, string]>, sep: string): string {
@@ -102,7 +102,7 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		);
 	})();
 
-	// Input line
+	// Input lines (multi-line)
 	const runBadge = ctx.isClaudeRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
 		runBadge,
@@ -124,24 +124,33 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 			: ctx.inputMode === 'search'
 				? '/search'
 				: 'Type a prompt or :command';
-	const inputBuffer = ctx.dialogActive
-		? fit(
-				ctx.dialogType === 'question'
-					? 'Answer question in dialog...'
-					: 'Respond to permission dialog...',
-				inputContentWidth,
-			)
-		: formatInputBuffer(
+
+	const contentLines = ctx.dialogActive
+		? [
+				fit(
+					ctx.dialogType === 'question'
+						? 'Answer question in dialog...'
+						: 'Respond to permission dialog...',
+					inputContentWidth,
+				),
+			]
+		: renderInputLines(
 				ctx.inputValue,
 				ctx.cursorOffset,
 				inputContentWidth,
 				ctx.focusMode === 'input',
 				inputPlaceholder,
 			);
-	const inputLine = fitAnsi(
-		`${inputPrefix}${inputBuffer}${badgeText}`,
-		innerWidth,
-	);
 
-	return {footerHelp, inputLine};
+	// First line gets prefix + badge, subsequent lines get padding
+	const inputLines = contentLines.map((content, i) => {
+		if (i === 0) {
+			return fitAnsi(`${inputPrefix}${content}${badgeText}`, innerWidth);
+		}
+		// Continuation lines: pad prefix area, no badge
+		const pad = ' '.repeat(rawPrefix.length);
+		return fitAnsi(`${pad}${content}`, innerWidth);
+	});
+
+	return {footerHelp, inputLines};
 }

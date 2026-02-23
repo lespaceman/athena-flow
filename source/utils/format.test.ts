@@ -10,6 +10,8 @@ import {
 	summarizeValue,
 	summarizeToolInput,
 	formatInputBuffer,
+	renderInputLines,
+	MAX_INPUT_ROWS,
 } from './format.js';
 
 describe('compactText', () => {
@@ -238,5 +240,60 @@ describe('formatInputBuffer', () => {
 		const result = formatInputBuffer(long, 25, 20, true, '');
 		expect(result.length).toBe(20);
 		expect(result).toContain('|');
+	});
+});
+
+describe('renderInputLines', () => {
+	it('renders block cursor on empty input', () => {
+		const lines = renderInputLines('', 0, 40, true, 'placeholder');
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain('\x1b[7m');
+		expect(lines[0]).toContain('\x1b[27m');
+	});
+
+	it('shows placeholder without cursor when not active', () => {
+		const lines = renderInputLines('', 0, 40, false, 'placeholder');
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain('placeholder');
+		expect(lines[0]).not.toContain('\x1b[7m');
+	});
+
+	it('renders single line for short text', () => {
+		const lines = renderInputLines('hello', 5, 40, true, '');
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain('\x1b[7m');
+	});
+
+	it('wraps long text to multiple lines', () => {
+		const text = 'a'.repeat(100);
+		const lines = renderInputLines(text, 50, 40, true, '');
+		expect(lines.length).toBe(3); // 100 chars / 40 width = 3 lines
+	});
+
+	it('caps at MAX_INPUT_ROWS', () => {
+		const text = 'a'.repeat(300);
+		const lines = renderInputLines(text, 150, 40, true, '');
+		expect(lines.length).toBeLessThanOrEqual(MAX_INPUT_ROWS);
+	});
+
+	it('hides cursor when showCursor is false', () => {
+		const lines = renderInputLines('hello', 3, 40, false, '');
+		expect(lines[0]).not.toContain('\x1b[7m');
+	});
+
+	it('renders cursor at correct position', () => {
+		const lines = renderInputLines('abc', 1, 40, true, '');
+		// Cursor should be on 'b' (index 1)
+		expect(lines[0]).toContain('\x1b[7mb\x1b[27m');
+	});
+
+	it('wraps on explicit newlines', () => {
+		const lines = renderInputLines('line1\nline2', 3, 40, true, '');
+		expect(lines.length).toBe(2);
+	});
+
+	it('returns empty string for width <= 0', () => {
+		const lines = renderInputLines('hello', 0, 0, true, '');
+		expect(lines).toEqual(['']);
 	});
 });
