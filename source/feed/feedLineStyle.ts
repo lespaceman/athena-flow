@@ -1,4 +1,5 @@
 import chalk, {type ChalkInstance} from 'chalk';
+import sliceAnsi from 'slice-ansi';
 import {type Theme} from '../theme/types.js';
 import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 import {
@@ -142,14 +143,14 @@ export function styleFeedLine(
 	if (matched) {
 		styled =
 			chalk.hex(theme.accent)(getGlyphs(ascii)['feed.searchMatch']) +
-			styled.slice(1);
+			sliceAnsi(styled, 1);
 	}
 
 	// Category break: prepend dim dot (replacing first char) for visual grouping.
 	// Skip for prompt ops — user border takes precedence over category break.
 	if (opts.categoryBreak && !matched && opts.op !== 'prompt') {
 		const breakGlyph = chalk.dim.hex(theme.textMuted)('·');
-		styled = breakGlyph + styled.slice(1);
+		styled = breakGlyph + sliceAnsi(styled, 1);
 	}
 
 	// User prompt: accent left-border (replacing first char)
@@ -157,7 +158,7 @@ export function styleFeedLine(
 		const g = getGlyphs(ascii);
 		const borderColor = theme.userMessage.border ?? theme.accent;
 		const borderGlyph = chalk.hex(borderColor)(g['feed.userBorder']);
-		styled = borderGlyph + styled.slice(1);
+		styled = borderGlyph + sliceAnsi(styled, 1);
 	}
 
 	return styled;

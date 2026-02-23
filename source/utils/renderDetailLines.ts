@@ -153,6 +153,7 @@ function renderToolPre(
 export function renderDetailLines(
 	event: FeedEvent,
 	width: number,
+	pairedPostEvent?: FeedEvent,
 ): DetailRenderResult {
 	switch (event.kind) {
 		case 'agent.message':
@@ -182,8 +183,27 @@ export function renderDetailLines(
 			return renderToolPost(event, width);
 
 		case 'tool.pre':
-		case 'permission.request':
-			return renderToolPre(event);
+		case 'permission.request': {
+			const preResult = renderToolPre(event);
+			if (
+				pairedPostEvent &&
+				(pairedPostEvent.kind === 'tool.post' ||
+					pairedPostEvent.kind === 'tool.failure')
+			) {
+				const postResult = renderToolPost(pairedPostEvent, width);
+				return {
+					lines: [
+						...preResult.lines,
+						'',
+						chalk.dim('─'.repeat(Math.min(40, width - 2))),
+						'',
+						...postResult.lines,
+					],
+					showLineNumbers: postResult.showLineNumbers,
+				};
+			}
+			return preResult;
+		}
 
 		case 'notification':
 			return {

@@ -30,6 +30,7 @@ export type TimelineEntry = {
 	expandable: boolean;
 	details: string;
 	feedEvent?: FeedEvent;
+	pairedPostEvent?: FeedEvent;
 };
 
 export type RunSummary = {

@@ -1,8 +1,7 @@
 import {useEffect, useMemo} from 'react';
-import {type TimelineEntry} from '../feed/timeline.js';
+import {type TimelineEntry, type RunSummary} from '../feed/timeline.js';
 import {type UseFeedNavigationResult} from './useFeedNavigation.js';
 import {type UseTodoPanelResult} from './useTodoPanel.js';
-import {type RunSummary} from '../feed/timeline.js';
 import {
 	renderDetailLines,
 	renderMarkdownToLines,
@@ -94,7 +93,11 @@ export function useLayout({
 		if (!expandedEntry)
 			return {detailLines: [] as string[], detailShowLineNumbers: true};
 		if (expandedEntry.feedEvent) {
-			const result = renderDetailLines(expandedEntry.feedEvent, innerWidth);
+			const result = renderDetailLines(
+				expandedEntry.feedEvent,
+				innerWidth,
+				expandedEntry.pairedPostEvent,
+			);
 			return {
 				detailLines: result.lines,
 				detailShowLineNumbers: result.showLineNumbers,

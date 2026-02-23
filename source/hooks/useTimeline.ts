@@ -133,6 +133,7 @@ export function useTimeline({
 				expandable: isEventExpandable(event),
 				details,
 				feedEvent: event,
+				pairedPostEvent: pairedPost,
 			});
 			if (event.kind === 'run.end') {
 				activeRunId = undefined;
