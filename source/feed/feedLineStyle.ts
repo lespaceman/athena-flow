@@ -145,8 +145,9 @@ export function styleFeedLine(
 			styled.slice(1);
 	}
 
-	// Category break: prepend dim dot (replacing first char) for visual grouping
-	if (opts.categoryBreak && !matched) {
+	// Category break: prepend dim dot (replacing first char) for visual grouping.
+	// Skip for prompt ops — user border takes precedence over category break.
+	if (opts.categoryBreak && !matched && opts.op !== 'prompt') {
 		const breakGlyph = chalk.dim.hex(theme.textMuted)('·');
 		styled = breakGlyph + styled.slice(1);
 	}
