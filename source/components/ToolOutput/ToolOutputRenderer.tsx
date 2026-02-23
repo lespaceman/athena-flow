@@ -35,6 +35,8 @@ export default function ToolOutputRenderer({
 				<DiffBlock
 					oldText={output.oldText}
 					newText={output.newText}
+					hunks={output.hunks}
+					filePath={output.filePath}
 					maxLines={output.maxLines}
 					availableWidth={availableWidth}
 				/>
@@ -44,6 +46,8 @@ export default function ToolOutputRenderer({
 				<StructuredList
 					items={output.items}
 					maxItems={output.maxItems}
+					displayMode={output.displayMode}
+					groupBy={output.groupBy}
 					availableWidth={availableWidth}
 				/>
 			);

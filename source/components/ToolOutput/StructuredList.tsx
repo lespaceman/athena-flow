@@ -5,6 +5,8 @@ import {type ListItem} from '../../types/toolOutput.js';
 type Props = {
 	items: ListItem[];
 	maxItems?: number;
+	displayMode?: 'tree';
+	groupBy?: 'secondary';
 	availableWidth?: number;
 };
 
