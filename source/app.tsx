@@ -33,7 +33,7 @@ import {executeCommand} from './commands/executor.js';
 import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import type {SessionEntry} from './utils/sessionIndex.js';
-import {listSessions} from './sessions/registry.js';
+import {listSessions, getSessionMeta} from './sessions/registry.js';
 import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
@@ -723,9 +723,12 @@ export default function App({
 	workflowRef,
 	workflow,
 	ascii,
-	athenaSessionId,
+	athenaSessionId: initialAthenaSessionId,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
+	const [athenaSessionId, setAthenaSessionId] = useState(
+		initialAthenaSessionId,
+	);
 	const inputHistory = useInputHistory(projectDir);
 	const initialPhase: AppPhase = showSetup
 		? {type: 'setup'}
@@ -735,7 +738,14 @@ export default function App({
 	const [phase, setPhase] = useState<AppPhase>(initialPhase);
 
 	const handleSessionSelect = useCallback((sessionId: string) => {
-		setPhase({type: 'main', initialSessionId: sessionId});
+		// sessionId here is an athena session ID from the picker.
+		// Look up the most recent adapter (Claude) session ID for spawnClaude.
+		const meta = getSessionMeta(sessionId);
+		const adapterIds = meta?.adapterSessionIds ?? [];
+		const lastAdapterId = adapterIds[adapterIds.length - 1];
+
+		setAthenaSessionId(sessionId);
+		setPhase({type: 'main', initialSessionId: lastAdapterId});
 	}, []);
 	const handleSessionCancel = useCallback(() => {
 		setPhase({type: 'main'});
@@ -757,7 +767,7 @@ export default function App({
 			modified: new Date(s.updatedAt).toISOString(),
 			created: new Date(s.createdAt).toISOString(),
 			gitBranch: '',
-			messageCount: s.adapterSessionIds.length,
+			messageCount: s.eventCount ?? s.adapterSessionIds.length,
 		}));
 	}, [projectDir, phase]);
 
