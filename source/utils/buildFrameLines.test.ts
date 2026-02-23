@@ -3,6 +3,23 @@ import chalk from 'chalk';
 import {buildFrameLines, type FrameContext} from './buildFrameLines.js';
 import {type TimelineEntry} from '../feed/timeline.js';
 
+/** Minimal TimelineEntry stub for tests that only need a truthy expandedEntry. */
+function stubTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry {
+	return {
+		id: 'test',
+		ts: 0,
+		op: 'test',
+		actor: 'AGENT',
+		actorId: 'agent:root',
+		summary: 'test entry',
+		searchText: 'test entry',
+		error: false,
+		expandable: true,
+		details: '',
+		...overrides,
+	};
+}
+
 const baseCtx: FrameContext = {
 	innerWidth: 80,
 	focusMode: 'input',
@@ -101,7 +118,7 @@ describe('buildFrameLines hints', () => {
 			const result = buildFrameLines({
 				...baseCtx,
 				focusMode: 'feed',
-				expandedEntry: {id: 'test'} as unknown as TimelineEntry,
+				expandedEntry: stubTimelineEntry(),
 			});
 			expect(result.footerHelp).not.toBeNull();
 			expect(result.footerHelp).toContain('Scroll');

@@ -321,6 +321,7 @@ function AppContent({
 			exit,
 			clearScreen,
 			onShowSessions,
+			onShowSetup,
 			metrics,
 			modelName,
 			tokenUsage,
@@ -445,16 +446,12 @@ function AppContent({
 		dialogActive,
 		dialogType: appMode.type,
 		accentColor: theme.inputPrompt,
-		hintsForced: hintsForced ?? undefined,
+		hintsForced,
 		ascii: !!ascii,
 	});
 
-	// Auto: show when empty, hide when typing. hintsForced overrides.
-	const hintsVisible =
-		hintsForced === true || (hintsForced === null && inputValue.length === 0);
 	const footerRows =
-		(hintsVisible && frame.footerHelp !== null ? 1 : 0) +
-		frame.inputLines.length;
+		(frame.footerHelp !== null ? 1 : 0) + frame.inputLines.length;
 
 	const layout = useLayout({
 		terminalRows,

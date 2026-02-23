@@ -17,7 +17,7 @@ export type FrameContext = {
 	dialogActive: boolean;
 	dialogType: string;
 	accentColor?: string;
-	hintsForced?: boolean;
+	hintsForced?: boolean | null;
 	ascii?: boolean;
 };
 
@@ -81,12 +81,12 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		}
 
 		// Feed mode (default)
-		const searchPart =
-			ctx.searchQuery && ctx.searchMatches.length > 0
-				? ` | search ${ctx.searchMatchPos + 1}/${ctx.searchMatches.length}`
-				: ctx.searchQuery
-					? ' | search 0/0'
-					: '';
+		let searchPart = '';
+		if (ctx.searchQuery && ctx.searchMatches.length > 0) {
+			searchPart = ` | search ${ctx.searchMatchPos + 1}/${ctx.searchMatches.length}`;
+		} else if (ctx.searchQuery) {
+			searchPart = ' | search 0/0';
+		}
 
 		return (
 			buildHintPairs(
@@ -118,12 +118,14 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		1,
 		innerWidth - rawPrefix.length - badgeText.length,
 	);
-	const inputPlaceholder =
-		ctx.inputMode === 'cmd'
-			? ':command'
-			: ctx.inputMode === 'search'
-				? '/search'
-				: 'Type a prompt or :command';
+	let inputPlaceholder: string;
+	if (ctx.inputMode === 'cmd') {
+		inputPlaceholder = ':command';
+	} else if (ctx.inputMode === 'search') {
+		inputPlaceholder = '/search';
+	} else {
+		inputPlaceholder = 'Type a prompt or :command';
+	}
 
 	const contentLines = ctx.dialogActive
 		? [
