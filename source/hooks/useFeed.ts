@@ -364,9 +364,11 @@ export function useFeed(
 			.map(e => ({type: 'feed' as const, data: e}));
 
 		return [...messageItems, ...feedItems].sort((a, b) => {
-			const tsA = a.type === 'message' ? a.data.timestamp.getTime() : a.data.ts;
-			const tsB = b.type === 'message' ? b.data.timestamp.getTime() : b.data.ts;
-			return tsA - tsB;
+			const seqA =
+				a.type === 'message' ? a.data.timestamp.getTime() : a.data.seq;
+			const seqB =
+				b.type === 'message' ? b.data.timestamp.getTime() : b.data.seq;
+			return seqA - seqB;
 		});
 	}, [messages, feedEvents]);
 

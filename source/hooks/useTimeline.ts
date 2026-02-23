@@ -56,9 +56,11 @@ export function useTimeline({
 			data: m,
 		}));
 		return [...messageItems, ...feedItems].sort((a, b) => {
-			const tsA = a.type === 'message' ? a.data.timestamp.getTime() : a.data.ts;
-			const tsB = b.type === 'message' ? b.data.timestamp.getTime() : b.data.ts;
-			return tsA - tsB;
+			const seqA =
+				a.type === 'message' ? a.data.timestamp.getTime() : a.data.seq;
+			const seqB =
+				b.type === 'message' ? b.data.timestamp.getTime() : b.data.seq;
+			return seqA - seqB;
 		});
 	}, [messages, feedItems]);
 
