@@ -18,11 +18,7 @@ import {
 import {readClaudeSettingsModel} from './utils/resolveModel.js';
 import {resolveTheme} from './theme/index.js';
 import crypto from 'node:crypto';
-import {
-	getSessionMeta,
-	findSessionByAdapterId,
-	getMostRecentAthenaSession,
-} from './sessions/index.js';
+import {getSessionMeta, getMostRecentAthenaSession} from './sessions/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 
@@ -233,20 +229,11 @@ if (cli.flags.continue) {
 		athenaSessionId = meta.id;
 		initialSessionId = meta.adapterSessionIds.at(-1);
 	} else {
-		// Backwards compat: maybe user passed a Claude adapter session ID
-		const owner = findSessionByAdapterId(
-			cli.flags.continue,
-			cli.flags.projectDir,
+		console.error(
+			`Unknown session ID: ${cli.flags.continue}\n` +
+				`Use 'athena-cli --list' to see available sessions.`,
 		);
-		if (owner) {
-			athenaSessionId = owner.id;
-			initialSessionId = cli.flags.continue;
-		} else {
-			console.error(
-				`Session not found: ${cli.flags.continue}. Starting new session.`,
-			);
-			athenaSessionId = crypto.randomUUID();
-		}
+		process.exit(1);
 	}
 } else if (hasContinueFlag) {
 	// --continue (bare) — resume most recent Athena session
