@@ -1306,14 +1306,9 @@ describe('FeedMapper', () => {
 
 	describe('bootstrap from stored session', () => {
 		it('rebuilds currentRun from stored events with open run', () => {
-			const stored: import('../../sessions/types.js').StoredSession = {
-				session: {
-					id: 'athena-1',
-					projectDir: '/project',
-					createdAt: 1000,
-					updatedAt: 2000,
-					adapterSessionIds: ['sess-1'],
-				},
+			const bootstrap: import('../bootstrap.js').MapperBootstrap = {
+				adapterSessionIds: ['sess-1'],
+				createdAt: 1000,
 				feedEvents: [
 					{
 						event_id: 'sess-1:R1:E1',
@@ -1366,10 +1361,9 @@ describe('FeedMapper', () => {
 						data: {tool_name: 'Bash', tool_input: {}},
 					},
 				] as FeedEvent[],
-				adapterSessions: [{sessionId: 'sess-1', startedAt: 1000}],
 			};
 
-			const mapper = createFeedMapper(stored);
+			const mapper = createFeedMapper(bootstrap);
 			const run = mapper.getCurrentRun();
 			expect(run).not.toBeNull();
 			expect(run!.run_id).toBe('sess-1:R1');
@@ -1380,14 +1374,9 @@ describe('FeedMapper', () => {
 		});
 
 		it('does NOT rebuild currentRun when last run is closed', () => {
-			const stored: import('../../sessions/types.js').StoredSession = {
-				session: {
-					id: 'athena-1',
-					projectDir: '/project',
-					createdAt: 1000,
-					updatedAt: 2000,
-					adapterSessionIds: ['sess-1'],
-				},
+			const bootstrap: import('../bootstrap.js').MapperBootstrap = {
+				adapterSessionIds: ['sess-1'],
+				createdAt: 1000,
 				feedEvents: [
 					{
 						event_id: 'sess-1:R1:E1',
@@ -1414,10 +1403,9 @@ describe('FeedMapper', () => {
 						data: {status: 'completed', counters: {}},
 					},
 				] as FeedEvent[],
-				adapterSessions: [{sessionId: 'sess-1', startedAt: 1000}],
 			};
 
-			const mapper = createFeedMapper(stored);
+			const mapper = createFeedMapper(bootstrap);
 			expect(mapper.getCurrentRun()).toBeNull();
 		});
 	});

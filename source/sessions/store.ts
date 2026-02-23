@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type {FeedEvent} from '../feed/types.js';
+import type {MapperBootstrap} from '../feed/bootstrap.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 import {initSchema} from './schema.js';
 import type {
@@ -32,6 +33,8 @@ export type SessionStore = {
 	/** Persists feed-only events (e.g. decisions) with null runtime_event_id. */
 	recordFeedEvents(feedEvents: FeedEvent[]): void;
 	restore(): StoredSession;
+	/** Returns the minimal bootstrap data the feed mapper needs, or undefined if no stored data. */
+	toBootstrap(): MapperBootstrap | undefined;
 	getAthenaSession(): AthenaSession;
 	updateLabel(label: string): void;
 	close(): void;
@@ -209,6 +212,16 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		return {session, feedEvents, adapterSessions};
 	}
 
+	function toBootstrap(): MapperBootstrap | undefined {
+		const stored = restore();
+		if (!stored) return undefined;
+		return {
+			feedEvents: stored.feedEvents,
+			adapterSessionIds: stored.session.adapterSessionIds,
+			createdAt: stored.session.createdAt,
+		};
+	}
+
 	function getAthenaSession(): AthenaSession {
 		const sessionRow = db
 			.prepare('SELECT * FROM session WHERE id = ?')
@@ -254,6 +267,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		recordEvent,
 		recordFeedEvents,
 		restore,
+		toBootstrap,
 		getAthenaSession,
 		updateLabel,
 		close,

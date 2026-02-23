@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import {createFeedMapper} from './mapper.js';
-import type {StoredSession} from '../sessions/types.js';
+import type {MapperBootstrap} from './bootstrap.js';
 import type {FeedEvent} from './types.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 
@@ -42,14 +42,9 @@ describe('createFeedMapper', () => {
 
 	describe('with stored session', () => {
 		it('bootstraps session state from stored feed events', () => {
-			const stored: StoredSession = {
-				session: {
-					id: 'athena-1',
-					projectDir: '/tmp',
-					createdAt: 1000,
-					updatedAt: 2000,
-					adapterSessionIds: ['cs-1'],
-				},
+			const bootstrap: MapperBootstrap = {
+				adapterSessionIds: ['cs-1'],
+				createdAt: 1000,
 				feedEvents: [
 					makeFeedEvent({
 						event_id: 'cs-1:R1:E1',
@@ -74,23 +69,17 @@ describe('createFeedMapper', () => {
 						data: {reason: 'completed'},
 					}),
 				],
-				adapterSessions: [{sessionId: 'cs-1', startedAt: 1000}],
 			};
 
-			const mapper = createFeedMapper(stored);
+			const mapper = createFeedMapper(bootstrap);
 			expect(mapper.getSession()).not.toBeNull();
 			expect(mapper.getSession()!.session_id).toBe('cs-1');
 		});
 
 		it('continues run numbering from stored events', () => {
-			const stored: StoredSession = {
-				session: {
-					id: 'a-1',
-					projectDir: '/tmp',
-					createdAt: 1000,
-					updatedAt: 2000,
-					adapterSessionIds: ['cs-1'],
-				},
+			const bootstrap: MapperBootstrap = {
+				adapterSessionIds: ['cs-1'],
+				createdAt: 1000,
 				feedEvents: [
 					makeFeedEvent({event_id: 'cs-1:R1:E1', seq: 1, run_id: 'cs-1:R1'}),
 					makeFeedEvent({event_id: 'cs-1:R1:E2', seq: 2, run_id: 'cs-1:R1'}),
@@ -102,10 +91,9 @@ describe('createFeedMapper', () => {
 						data: {reason: 'completed'},
 					}),
 				],
-				adapterSessions: [{sessionId: 'cs-1', startedAt: 1000}],
 			};
 
-			const mapper = createFeedMapper(stored);
+			const mapper = createFeedMapper(bootstrap);
 
 			// Process a new SessionStart — runSeq should be 2 (R2), not R1
 			const newEvents = mapper.mapEvent(

@@ -8,7 +8,7 @@ import type {
 	FeedEventCause,
 } from './types.js';
 import type {Session, Run, Actor} from './entities.js';
-import type {StoredSession} from '../sessions/types.js';
+import type {MapperBootstrap} from './bootstrap.js';
 import {ActorRegistry} from './entities.js';
 import {generateTitle} from './titleGen.js';
 
@@ -20,7 +20,7 @@ export type FeedMapper = {
 	getActors(): Actor[];
 };
 
-export function createFeedMapper(stored?: StoredSession): FeedMapper {
+export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 	let currentSession: Session | null = null;
 	let currentRun: Run | null = null;
 	const actors = new ActorRegistry();
@@ -41,24 +41,24 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
 
 	// Bootstrap from stored session
-	if (stored) {
+	if (bootstrap) {
 		// Restore seq counter from stored events
-		for (const e of stored.feedEvents) {
+		for (const e of bootstrap.feedEvents) {
 			if (e.seq > seq) seq = e.seq;
 		}
 
 		// Restore session identity from last adapter session
-		const lastAdapterId = stored.session.adapterSessionIds.at(-1);
+		const lastAdapterId = bootstrap.adapterSessionIds.at(-1);
 		if (lastAdapterId) {
 			currentSession = {
 				session_id: lastAdapterId,
-				started_at: stored.session.createdAt,
+				started_at: bootstrap.createdAt,
 				source: 'resume',
 			};
 		}
 
 		// Restore runSeq from highest run number in stored events
-		for (const e of stored.feedEvents) {
+		for (const e of bootstrap.feedEvents) {
 			const m = e.run_id.match(/:R(\d+)$/);
 			if (m) {
 				const n = parseInt(m[1]!, 10);
@@ -69,7 +69,7 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 		// Rebuild currentRun from last open run
 		let lastRunStart: FeedEvent | undefined;
 		let lastRunEnd: FeedEvent | undefined;
-		for (const e of stored.feedEvents) {
+		for (const e of bootstrap.feedEvents) {
 			if (e.kind === 'run.start') lastRunStart = e;
 			if (e.kind === 'run.end') lastRunEnd = e;
 		}
@@ -92,7 +92,7 @@ export function createFeedMapper(stored?: StoredSession): FeedMapper {
 				},
 			};
 			// Rebuild counters from events in this run
-			for (const e of stored.feedEvents) {
+			for (const e of bootstrap.feedEvents) {
 				if (e.run_id !== currentRun.run_id) continue;
 				if (e.kind === 'tool.pre') currentRun.counters.tool_uses++;
 				if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;

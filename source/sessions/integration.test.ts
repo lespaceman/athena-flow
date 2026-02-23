@@ -41,7 +41,7 @@ describe('session store integration', () => {
 		expect(restored.adapterSessions[0]!.sessionId).toBe('claude-1');
 
 		// Bootstrap mapper from restored data
-		const restoredMapper = createFeedMapper(restored);
+		const restoredMapper = createFeedMapper(store.toBootstrap());
 		expect(restoredMapper.getSession()).not.toBeNull();
 
 		store.close();
@@ -97,7 +97,7 @@ describe('session store integration', () => {
 			expect(restored.adapterSessions).toHaveLength(1);
 
 			// Phase 3: Bootstrap mapper and process new event
-			const restoredMapper = createFeedMapper(restored);
+			const restoredMapper = createFeedMapper(store2.toBootstrap());
 			const evt3 = makeRuntimeEvent({
 				id: 'e3',
 				timestamp: 3000,
