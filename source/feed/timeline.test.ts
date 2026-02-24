@@ -190,6 +190,68 @@ describe('eventSummary', () => {
 		expect(result.text).toBe('Explore: Find test patterns');
 	});
 
+	it('formats session.start as natural text with model', () => {
+		const ev = {
+			...base({kind: 'session.start'}),
+			kind: 'session.start' as const,
+			data: {source: 'startup', model: 'opus'},
+		};
+		expect(eventSummary(ev).text).toBe('startup (opus)');
+	});
+
+	it('formats session.start without model', () => {
+		const ev = {
+			...base({kind: 'session.start'}),
+			kind: 'session.start' as const,
+			data: {source: 'startup'},
+		};
+		expect(eventSummary(ev).text).toBe('startup');
+	});
+
+	it('formats session.end as reason only', () => {
+		const ev = {
+			...base({kind: 'session.end'}),
+			kind: 'session.end' as const,
+			data: {reason: 'completed'},
+		};
+		expect(eventSummary(ev).text).toBe('completed');
+	});
+
+	it('formats run.end with natural text', () => {
+		const ev = {
+			...base({kind: 'run.end'}),
+			kind: 'run.end' as const,
+			data: {
+				status: 'completed' as const,
+				counters: {
+					tool_uses: 5,
+					tool_failures: 0,
+					permission_requests: 1,
+					blocks: 0,
+				},
+			},
+		};
+		expect(eventSummary(ev).text).toBe('completed — 5 tools, 0 failures');
+	});
+
+	it('formats compact.pre as trigger only', () => {
+		const ev = {
+			...base({kind: 'compact.pre'}),
+			kind: 'compact.pre' as const,
+			data: {trigger: 'auto'},
+		};
+		expect(eventSummary(ev).text).toBe('auto');
+	});
+
+	it('formats setup as trigger only', () => {
+		const ev = {
+			...base({kind: 'setup'}),
+			kind: 'setup' as const,
+			data: {trigger: 'first-run'},
+		};
+		expect(eventSummary(ev).text).toBe('first-run');
+	});
+
 	it('formats config.change summary', () => {
 		const ev = {
 			...base(),
@@ -230,6 +292,33 @@ describe('eventSummary — agent.message', () => {
 		const result = eventSummary(ev);
 		expect(result.text).not.toMatch(/^##/);
 		expect(result.text).toContain('How Ralph Loop Works');
+	});
+
+	it('extracts first sentence from long agent.message', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message:
+					'Here is a summary of what was accomplished. Completed: Google Search E2E Test Case Specifications.',
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Here is a summary of what was accomplished.');
+	});
+
+	it('extracts first line when no sentence break', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message: 'First line content\nSecond line content',
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('First line content');
 	});
 });
 

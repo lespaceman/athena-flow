@@ -168,6 +168,23 @@ function stripMarkdownInline(text: string): string {
 		.replace(/~~(.+?)~~/g, '$1');
 }
 
+/** Extract first sentence (ends with `. ` or newline) from text. */
+function firstSentence(text: string): string {
+	const nlIdx = text.indexOf('\n');
+	const sentIdx = text.indexOf('. ');
+	let end: number;
+	if (nlIdx === -1 && sentIdx === -1) {
+		end = text.length;
+	} else if (nlIdx === -1) {
+		end = sentIdx + 1; // include the period
+	} else if (sentIdx === -1) {
+		end = nlIdx;
+	} else {
+		end = Math.min(nlIdx, sentIdx + 1);
+	}
+	return text.slice(0, end).trim();
+}
+
 function eventSummaryText(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
@@ -177,7 +194,7 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'run.end':
 			return compactText(
-				`status=${event.data.status} tools=${event.data.counters.tool_uses} fail=${event.data.counters.tool_failures} perm=${event.data.counters.permission_requests} blk=${event.data.counters.blocks}`,
+				`${event.data.status} — ${event.data.counters.tool_uses} tools, ${event.data.counters.tool_failures} failures`,
 				200,
 			);
 		case 'user.prompt':
@@ -196,19 +213,20 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'stop.decision':
 			return compactText(event.data.reason || event.data.decision_type, 200);
-		case 'session.start':
-			return compactText(
-				`source=${event.data.source}${event.data.model ? ` model=${event.data.model}` : ''}`,
-				200,
-			);
+		case 'session.start': {
+			const model = event.data.model;
+			return model
+				? compactText(`${event.data.source} (${model})`, 200)
+				: compactText(event.data.source, 200);
+		}
 		case 'session.end':
-			return compactText(`reason=${event.data.reason}`, 200);
+			return compactText(event.data.reason, 200);
 		case 'notification':
 			return compactText(stripMarkdownInline(event.data.message), 200);
 		case 'compact.pre':
-			return compactText(`trigger=${event.data.trigger}`, 200);
+			return compactText(event.data.trigger, 200);
 		case 'setup':
-			return compactText(`trigger=${event.data.trigger}`, 200);
+			return compactText(event.data.trigger, 200);
 		case 'unknown.hook':
 			return compactText(event.data.hook_event_name, 200);
 		case 'todo.add':
@@ -229,7 +247,10 @@ function eventSummaryText(event: FeedEvent): string {
 				200,
 			);
 		case 'agent.message':
-			return compactText(stripMarkdownInline(event.data.message), 200);
+			return compactText(
+				firstSentence(stripMarkdownInline(event.data.message)),
+				200,
+			);
 		case 'teammate.idle':
 			return compactText(
 				`${event.data.teammate_name} idle in ${event.data.team_name}`,
