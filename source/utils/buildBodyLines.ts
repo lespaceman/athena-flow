@@ -40,12 +40,15 @@ export type TodoViewState = {
 	todoPanel: {
 		todoScroll: number;
 		todoCursor: number;
-		remainingCount: number;
 		visibleTodoItems: TodoPanelItem[];
 	};
 	focusMode: string;
 	ascii: boolean;
 	colors?: TodoGlyphColors;
+	appMode: 'idle' | 'working' | 'permission' | 'question';
+	doneCount: number;
+	totalCount: number;
+	spinnerFrame: string;
 };
 
 export type RunOverlayState = {
@@ -134,23 +137,24 @@ export function buildBodyLines({
 			const {
 				todoScroll: tScroll,
 				todoCursor: tCursor,
-				remainingCount,
 				visibleTodoItems: items,
 			} = tp;
 			const g = todoGlyphs(todo.ascii, todo.colors);
 
-			// Header line: "TODO" left-aligned, "N remaining" right-aligned
-			const headerLeft = 'TODO';
-			const headerRight = `${remainingCount} remaining`;
-			const headerGap = Math.max(
-				1,
-				innerWidth - headerLeft.length - headerRight.length,
-			);
+			const isWorking = todo.appMode === 'working';
+			const idleGlyph = todo.ascii ? '*' : '\u25C7';
+			const leadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
+			const statusWord = isWorking ? 'WORKING' : 'IDLE';
+			const statusColor = isWorking ? todo.colors?.doing : todo.colors?.default;
+			const coloredStatus = statusColor
+				? chalk.hex(statusColor)(statusWord)
+				: statusWord;
+			const stats =
+				todo.totalCount > 0
+					? `  ${todo.doneCount}/${todo.totalCount} tasks done`
+					: '';
 			bodyLines.push(
-				fitAnsi(
-					`${headerLeft}${' '.repeat(headerGap)}${headerRight}`,
-					innerWidth,
-				),
+				fitAnsi(`${leadGlyph} ${coloredStatus}${stats}`, innerWidth),
 			);
 
 			const itemSlots = actualTodoRows - 2; // minus header and divider

@@ -15,6 +15,7 @@ import {useFeedNavigation} from './hooks/useFeedNavigation.js';
 import {useTodoPanel} from './hooks/useTodoPanel.js';
 import {useFeedKeyboard} from './hooks/useFeedKeyboard.js';
 import {useTodoKeyboard} from './hooks/useTodoKeyboard.js';
+import {useSpinner} from './hooks/useSpinner.js';
 import {useTimeline} from './hooks/useTimeline.js';
 import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
@@ -148,6 +149,17 @@ function AppContent({
 	} = hookServer;
 
 	const currentSessionId = session?.session_id ?? null;
+	const {recordTokens, restoredTokens} = hookServer;
+
+	const onExitTokens = useCallback(
+		(tokens: import('./types/headerMetrics.js').TokenUsage) => {
+			if (session?.session_id) {
+				recordTokens(session.session_id, tokens);
+			}
+		},
+		[session?.session_id, recordTokens],
+	);
+
 	const {
 		spawn: spawnClaude,
 		isRunning: isClaudeRunning,
@@ -159,6 +171,7 @@ function AppContent({
 		pluginMcpConfig,
 		verbose,
 		workflow,
+		{initialTokens: restoredTokens, onExitTokens},
 	);
 	const {exit} = useApp();
 	const {stdout} = useStdout();
@@ -178,6 +191,7 @@ function AppContent({
 	);
 	const dialogActive =
 		appMode.type === 'permission' || appMode.type === 'question';
+	const spinnerFrame = useSpinner(appMode.type === 'working');
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -670,7 +684,6 @@ function AppContent({
 			todoPanel: {
 				todoScroll: todoPanel.todoScroll,
 				todoCursor: todoPanel.todoCursor,
-				remainingCount: todoPanel.remainingCount,
 				visibleTodoItems: todoPanel.visibleTodoItems,
 			},
 			focusMode,
@@ -680,6 +693,10 @@ function AppContent({
 				done: theme.status.success,
 				default: theme.status.neutral,
 			},
+			appMode: appMode.type,
+			doneCount: todoPanel.doneCount,
+			totalCount: todoPanel.todoItems.length,
+			spinnerFrame,
 		},
 		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
 		theme,
