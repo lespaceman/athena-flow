@@ -237,7 +237,7 @@ export function buildBodyLines({
 						bodyLines.push(fitAnsi('', innerWidth));
 						continue;
 					}
-					const cat = opCategory(entry.op);
+					const cat = opCategory(entry.opTag);
 					const isBreak = prevCat !== undefined && cat !== prevCat;
 					prevCat = cat;
 					const isFocused = feedFocus === 'feed' && idx === feedCursor;
@@ -258,7 +258,7 @@ export function buildBodyLines({
 						isError: entry.error,
 						theme,
 						ascii: todo.ascii,
-						op: entry.op,
+						opTag: entry.opTag,
 						summaryDimStart: entry.summaryDimStart,
 						categoryBreak: isBreak,
 					});
