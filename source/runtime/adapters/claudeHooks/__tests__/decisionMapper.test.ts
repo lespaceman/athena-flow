@@ -95,6 +95,19 @@ describe('mapDecisionToResult', () => {
 		expect(hso.permissionDecision).toBe('allow');
 	});
 
+	it('maps stop_block intent to top-level decision block', () => {
+		const result = mapDecisionToResult(makeEvent('Stop'), {
+			type: 'json',
+			source: 'rule',
+			intent: {kind: 'stop_block', reason: 'Continue working on remaining items.'},
+		});
+		expect(result.action).toBe('json_output');
+		expect(result.stdout_json).toEqual({
+			decision: 'block',
+			reason: 'Continue working on remaining items.',
+		});
+	});
+
 	it('maps pre_tool_deny intent', () => {
 		const result = mapDecisionToResult(makeEvent('PreToolUse'), {
 			type: 'json',

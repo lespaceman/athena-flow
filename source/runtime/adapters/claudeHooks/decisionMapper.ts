@@ -97,6 +97,15 @@ export function mapDecisionToResult(
 				},
 			};
 
+		case 'stop_block':
+			return {
+				action: 'json_output',
+				stdout_json: {
+					decision: 'block',
+					reason: intent.reason,
+				},
+			};
+
 		default:
 			// Exhaustive check — if new intents are added, TypeScript will catch it
 			return {action: 'passthrough'};
