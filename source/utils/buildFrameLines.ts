@@ -26,10 +26,10 @@ export type FrameLines = {
 	inputLines: string[];
 };
 
-function buildHintPairs(pairs: Array<[string, string]>, sep: string): string {
-	return chalk.dim(
-		pairs.map(([glyph, label]) => `${glyph} ${label}`).join(` ${sep} `),
-	);
+function buildHintPairs(pairs: Array<[string, string]>, _sep: string): string {
+	return pairs
+		.map(([glyph, label]) => `${chalk.bold(glyph)} ${chalk.dim(label)}`)
+		.join('   ');
 }
 
 export function buildFrameLines(ctx: FrameContext): FrameLines {

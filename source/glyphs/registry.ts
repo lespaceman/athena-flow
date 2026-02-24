@@ -165,13 +165,13 @@ export const GLYPH_REGISTRY: Record<
 	'feed.userBorder': {unicode: '▎', ascii: '|'},
 
 	// Hints
-	'hint.enter': {unicode: '⏎', ascii: 'Enter'},
-	'hint.escape': {unicode: '⎋', ascii: 'Esc'},
-	'hint.tab': {unicode: '⇥', ascii: 'Tab'},
-	'hint.arrows': {unicode: '⌃↕', ascii: 'C-Up/Dn'},
-	'hint.arrowsUpDown': {unicode: '↕', ascii: 'Up/Dn'},
-	'hint.space': {unicode: '␣', ascii: 'Space'},
-	'hint.page': {unicode: '⇞⇟', ascii: 'PgUp/Dn'},
-	'hint.separator': {unicode: '·', ascii: '|'},
+	'hint.enter': {unicode: '↵', ascii: 'Enter'},
+	'hint.escape': {unicode: 'esc', ascii: 'Esc'},
+	'hint.tab': {unicode: 'tab', ascii: 'Tab'},
+	'hint.arrows': {unicode: '↑↓', ascii: 'C-Up/Dn'},
+	'hint.arrowsUpDown': {unicode: '↑↓', ascii: 'Up/Dn'},
+	'hint.space': {unicode: 'space', ascii: 'Space'},
+	'hint.page': {unicode: 'pgup/dn', ascii: 'PgUp/Dn'},
+	'hint.separator': {unicode: ' ', ascii: '|'},
 	'hint.toggle': {unicode: '⌃/', ascii: 'C-/'},
 };
