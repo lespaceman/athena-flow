@@ -9,7 +9,14 @@
 	"bugs": {
 		"url": "https://github.com/lespaceman/athena-cli/issues"
 	},
-	"keywords": ["cli", "claude", "terminal", "ink", "hooks", "dashboard"],
+	"keywords": [
+		"cli",
+		"claude",
+		"terminal",
+		"ink",
+		"hooks",
+		"dashboard"
+	],
 	"version": "0.1.0",
 	"license": "MIT",
 	"bin": {

@@ -9,12 +9,12 @@ Package athena-cli for npm public registry distribution with conventional-commit
 
 ## Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Registry | npm public (unscoped) | Widest reach, standard for CLI tools |
-| Versioning | Conventional Commits + release-please | Auto version bumps with manual release gate (merge Release PR) |
-| Native deps | Postinstall rebuild | Standard npm approach; users compile better-sqlite3 on install |
-| Bundling | None (tsc only) | CLI tool, deps resolve via npm, native dep can't be bundled |
+| Decision    | Choice                                | Rationale                                                      |
+| ----------- | ------------------------------------- | -------------------------------------------------------------- |
+| Registry    | npm public (unscoped)                 | Widest reach, standard for CLI tools                           |
+| Versioning  | Conventional Commits + release-please | Auto version bumps with manual release gate (merge Release PR) |
+| Native deps | Postinstall rebuild                   | Standard npm approach; users compile better-sqlite3 on install |
+| Bundling    | None (tsc only)                       | CLI tool, deps resolve via npm, native dep can't be bundled    |
 
 ## Package Identity
 
@@ -41,6 +41,7 @@ No bundler — `tsc` compiles `source/` to `dist/`. Add `prepublishOnly` script:
 5. Merge triggers `npm publish`
 
 Version mapping:
+
 - `fix:` → patch (0.1.0 → 0.1.1)
 - `feat:` → minor (0.1.0 → 0.2.0)
 - `feat!:` / `BREAKING CHANGE:` → major (0.1.0 → 1.0.0)

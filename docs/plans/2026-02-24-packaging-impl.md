@@ -13,6 +13,7 @@
 ### Task 1: Package.json Hygiene + Sourcemap Exclusion
 
 **Files:**
+
 - Modify: `package.json`
 - Create: `.npmignore`
 
@@ -24,17 +25,17 @@ Add these fields to `package.json`:
 
 ```json
 {
-  "name": "athena-flow",
-  "description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/lespaceman/athena-cli.git"
-  },
-  "homepage": "https://github.com/lespaceman/athena-cli#readme",
-  "bugs": {
-    "url": "https://github.com/lespaceman/athena-cli/issues"
-  },
-  "keywords": ["cli", "claude", "terminal", "ink", "hooks", "dashboard"]
+	"name": "athena-flow",
+	"description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lespaceman/athena-cli.git"
+	},
+	"homepage": "https://github.com/lespaceman/athena-cli#readme",
+	"bugs": {
+		"url": "https://github.com/lespaceman/athena-cli/issues"
+	},
+	"keywords": ["cli", "claude", "terminal", "ink", "hooks", "dashboard"]
 }
 ```
 
@@ -73,6 +74,7 @@ git commit -m "chore: rename to athena-flow, add npm metadata, exclude sourcemap
 ### Task 2: Release-please Configuration
 
 **Files:**
+
 - Create: `.release-please-manifest.json`
 - Create: `release-please-config.json`
 
@@ -82,7 +84,7 @@ git commit -m "chore: rename to athena-flow, add npm metadata, exclude sourcemap
 
 ```json
 {
-  ".": "0.1.0"
+	".": "0.1.0"
 }
 ```
 
@@ -92,15 +94,15 @@ git commit -m "chore: rename to athena-flow, add npm metadata, exclude sourcemap
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "release-type": "node",
-  "packages": {
-    ".": {
-      "changelog-path": "CHANGELOG.md",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true
-    }
-  }
+	"$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+	"release-type": "node",
+	"packages": {
+		".": {
+			"changelog-path": "CHANGELOG.md",
+			"bump-minor-pre-major": true,
+			"bump-patch-for-minor-pre-major": true
+		}
+	}
 }
 ```
 
@@ -118,6 +120,7 @@ git commit -m "chore: add release-please configuration"
 ### Task 3: CI Workflow
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 **Step 1: Create CI workflow**
@@ -174,6 +177,7 @@ git commit -m "ci: add CI workflow for lint, typecheck, test, and build"
 ### Task 4: Release Workflow
 
 **Files:**
+
 - Create: `.github/workflows/release.yml`
 
 **Step 1: Create release workflow**
