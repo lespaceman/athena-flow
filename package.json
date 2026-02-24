@@ -1,5 +1,15 @@
 {
-	"name": "athena-cli",
+	"name": "athena-flow",
+	"description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/lespaceman/athena-cli.git"
+	},
+	"homepage": "https://github.com/lespaceman/athena-cli#readme",
+	"bugs": {
+		"url": "https://github.com/lespaceman/athena-cli/issues"
+	},
+	"keywords": ["cli", "claude", "terminal", "ink", "hooks", "dashboard"],
 	"version": "0.1.0",
 	"license": "MIT",
 	"bin": {
@@ -19,10 +29,13 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"prepublishOnly": "npm run lint && npm test && npm run build"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"!dist/**/*.js.map",
+		"!dist/**/*.d.ts.map"
 	],
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
