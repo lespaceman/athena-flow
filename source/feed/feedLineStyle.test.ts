@@ -8,7 +8,7 @@ chalk.level = 3;
 
 describe('styleFeedLine', () => {
 	const baseLine =
-		' 08:55 tool.call  AGENT    Read source/app.tsx             ?';
+		' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx   ?';
 
 	it('applies default text color for agent:root', () => {
 		const result = styleFeedLine(baseLine, {
@@ -19,7 +19,7 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 		});
 		expect(result).not.toBe(baseLine); // has ANSI codes
-		expect(result).toContain('tool.call'); // content preserved
+		expect(result).toContain('Tool Call'); // content preserved
 	});
 
 	it('applies muted color for system actor', () => {
@@ -83,7 +83,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ▸ suffix with accent color', () => {
 		const line =
-			' 08:55 tool.call  AGENT    Read source/app.tsx              ▸';
+			' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx ▸';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -98,7 +98,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ▾ suffix with success color', () => {
 		const line =
-			' 08:55 tool.call  AGENT    Read source/app.tsx              ▾';
+			' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx ▾';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -112,7 +112,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('colors ASCII > suffix with accent color', () => {
-		const line = ' 08:55 tool.call  AGENT    Read source/app.tsx             >';
+		const line =
+			' 08:55 Tool Call     Bash             AGENT      Read app.tsx >';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -126,7 +127,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('colors ASCII v suffix with success color', () => {
-		const line = ' 08:55 tool.call  AGENT    Read source/app.tsx             v';
+		const line =
+			' 08:55 Tool Call     Bash             AGENT      Read app.tsx v';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -158,7 +160,7 @@ describe('styleFeedLine', () => {
 			actorId: 'agent:root',
 			isError: false,
 			theme: darkTheme,
-			op: 'tool.call',
+			opTag: 'tool.call',
 		});
 		const withoutOp = styleFeedLine(baseLine, {
 			focused: false,
@@ -177,7 +179,7 @@ describe('styleFeedLine', () => {
 			actorId: 'agent:root',
 			isError: false,
 			theme: darkTheme,
-			op: 'tool.call',
+			opTag: 'tool.call',
 		});
 		const withoutOp = styleFeedLine(baseLine, {
 			focused: true,
@@ -196,7 +198,7 @@ describe('styleFeedLine', () => {
 			actorId: 'agent:root',
 			isError: true,
 			theme: darkTheme,
-			op: 'tool.call',
+			opTag: 'tool.call',
 		});
 		const withoutOp = styleFeedLine(baseLine, {
 			focused: false,
@@ -215,7 +217,7 @@ describe('styleFeedLine', () => {
 			actorId: 'agent:root',
 			isError: false,
 			theme: darkTheme,
-			op: undefined,
+			opTag: undefined,
 		});
 		const withoutOp = styleFeedLine(baseLine, {
 			focused: false,
@@ -239,27 +241,29 @@ describe('styleFeedLine', () => {
 	});
 
 	it('applies user border accent for prompt op', () => {
-		const line = ' HH:MM prompt     user         Tell me about X    ';
+		const line =
+			' HH:MM User Prompt ─                USER       Tell me about X ';
 		const styled = styleFeedLine(line, {
 			focused: false,
 			matched: false,
 			actorId: 'user',
 			isError: false,
 			theme: darkTheme,
-			op: 'prompt',
+			opTag: 'prompt',
 		});
 		expect(styled).toContain('▎');
 	});
 
 	it('does not apply user border when focused', () => {
-		const line = ' HH:MM prompt     user         Tell me about X    ';
+		const line =
+			' HH:MM User Prompt ─                USER       Tell me about X ';
 		const styled = styleFeedLine(line, {
 			focused: true,
 			matched: false,
 			actorId: 'user',
 			isError: false,
 			theme: darkTheme,
-			op: 'prompt',
+			opTag: 'prompt',
 		});
 		expect(styled).not.toContain('▎');
 	});

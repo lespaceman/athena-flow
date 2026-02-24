@@ -2,8 +2,8 @@ import chalk, {type ChalkInstance} from 'chalk';
 import {type Theme} from '../theme/types.js';
 import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 import {
-	FEED_OP_COL_START,
-	FEED_OP_COL_END,
+	FEED_EVENT_COL_START,
+	FEED_EVENT_COL_END,
 	FEED_SUMMARY_COL_START,
 } from './timeline.js';
 
@@ -26,7 +26,7 @@ export type FeedLineStyleOptions = {
 	isError: boolean;
 	theme: Theme;
 	ascii?: boolean;
-	op?: string;
+	opTag?: string;
 	/** Char offset within summary where dim styling should begin. */
 	summaryDimStart?: number;
 	/** True when this line starts a new event category group. */
@@ -71,9 +71,9 @@ export function styleFeedLine(
 		? chalk.hex(theme.status.error)
 		: actorStyle(actorId, theme);
 
-	// Determine if OP segment gets separate coloring
+	// Determine if EVENT segment gets separate coloring
 	const opColor =
-		opts.op && !isError ? opCategoryColor(opts.op, theme) : undefined;
+		opts.opTag && !isError ? opCategoryColor(opts.opTag, theme) : undefined;
 
 	// Compute dim boundary: absolute char position in line where dim starts
 	const dimPos =
@@ -93,11 +93,15 @@ export function styleFeedLine(
 	if (matched) {
 		gutterChar = getGlyphs(ascii)['feed.searchMatch'];
 		gutterStyle = chalk.hex(theme.accent);
-	} else if (opts.op === 'prompt') {
+	} else if (opts.opTag === 'prompt' || opts.opTag === 'msg.user') {
 		const borderColor = theme.userMessage.border ?? theme.accent;
 		gutterChar = getGlyphs(ascii)['feed.userBorder'];
 		gutterStyle = chalk.hex(borderColor);
-	} else if (opts.categoryBreak && opts.op !== 'prompt') {
+	} else if (
+		opts.categoryBreak &&
+		opts.opTag !== 'prompt' &&
+		opts.opTag !== 'msg.user'
+	) {
 		gutterChar = '·';
 		gutterStyle = chalk.dim.hex(theme.textMuted);
 	} else {
@@ -109,28 +113,27 @@ export function styleFeedLine(
 	let styled = gutterStyle(gutterChar);
 	const segments: {start: number; end: number; style: ChalkInstance}[] = [];
 
-	// TIME segment (1..OP_START)
-	segments.push({start: 1, end: FEED_OP_COL_START, style: base});
-	// OP segment
+	// TIME segment (1..EVENT_START)
+	segments.push({start: 1, end: FEED_EVENT_COL_START, style: base});
+	// EVENT segment (colored by category)
 	segments.push({
-		start: FEED_OP_COL_START,
-		end: FEED_OP_COL_END,
+		start: FEED_EVENT_COL_START,
+		end: FEED_EVENT_COL_END,
 		style: opColor ? chalk.hex(opColor) : base,
 	});
 
-	// After OP: actor + summary (may have dim portion and glyph)
-	const afterOpEnd = glyphPos ?? line.length;
-	if (dimPos !== undefined && dimPos < afterOpEnd) {
-		// Non-dim portion after OP
-		segments.push({start: FEED_OP_COL_END, end: dimPos, style: base});
+	// After EVENT: detail + actor + summary (may have dim portion and glyph)
+	const afterEventEnd = glyphPos ?? line.length;
+	if (dimPos !== undefined && dimPos < afterEventEnd) {
+		segments.push({start: FEED_EVENT_COL_END, end: dimPos, style: base});
 		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
 		segments.push({
 			start: dimPos,
-			end: afterOpEnd,
+			end: afterEventEnd,
 			style: chalk.hex(theme.textMuted),
 		});
 	} else {
-		segments.push({start: FEED_OP_COL_END, end: afterOpEnd, style: base});
+		segments.push({start: FEED_EVENT_COL_END, end: afterEventEnd, style: base});
 	}
 
 	// Glyph segment

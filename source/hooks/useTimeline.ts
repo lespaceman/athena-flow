@@ -5,8 +5,11 @@ import {
 	type TimelineEntry,
 	type RunSummary,
 	eventOperation,
+	eventLabel,
+	eventDetail,
 	eventSummary,
 	mergedEventOperation,
+	mergedEventLabel,
 	mergedEventSummary,
 	expansionForEvent,
 	isEventError,
@@ -67,7 +70,9 @@ export function useTimeline({
 					id,
 					ts: item.data.timestamp.getTime(),
 					runId: activeRunId,
-					op: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
+					op: item.data.role === 'user' ? 'User Msg' : 'Agent Msg',
+					opTag: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
+					detail: '\u2500',
 					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
 					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
 					summary,
@@ -114,9 +119,13 @@ export function useTimeline({
 					? postByToolUseId?.get(event.data.tool_use_id)
 					: undefined;
 
-			const op = pairedPost
+			const opTag = pairedPost
 				? mergedEventOperation(event, pairedPost)
 				: eventOperation(event);
+			const op = pairedPost
+				? mergedEventLabel(event, pairedPost)
+				: eventLabel(event);
+			const detail = eventDetail(event);
 			const {text: summary, dimStart: summaryDimStart} = pairedPost
 				? mergedEventSummary(event, pairedPost)
 				: eventSummary(event);
@@ -126,6 +135,8 @@ export function useTimeline({
 				ts: event.ts,
 				runId: event.run_id,
 				op,
+				opTag,
+				detail,
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
 				summary,
