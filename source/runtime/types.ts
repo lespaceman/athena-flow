@@ -59,7 +59,8 @@ export type RuntimeIntent =
 	| {kind: 'permission_deny'; reason: string}
 	| {kind: 'question_answer'; answers: Record<string, string>}
 	| {kind: 'pre_tool_allow'}
-	| {kind: 'pre_tool_deny'; reason: string};
+	| {kind: 'pre_tool_deny'; reason: string}
+	| {kind: 'stop_block'; reason: string};
 
 export type RuntimeDecision = {
 	type: RuntimeDecisionType;
