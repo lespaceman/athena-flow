@@ -100,6 +100,112 @@ export function eventOperation(event: FeedEvent): string {
 	}
 }
 
+/** Human-readable Title Case label for the EVENT column. */
+export function eventLabel(event: FeedEvent): string {
+	switch (event.kind) {
+		case 'run.start':
+			return 'Run Start';
+		case 'run.end':
+			if (event.data.status === 'completed') return 'Run OK';
+			if (event.data.status === 'failed') return 'Run Fail';
+			return 'Run Abort';
+		case 'user.prompt':
+			return 'User Prompt';
+		case 'tool.pre':
+			return 'Tool Call';
+		case 'tool.post':
+			return 'Tool OK';
+		case 'tool.failure':
+			return 'Tool Fail';
+		case 'subagent.start':
+			return 'Sub Start';
+		case 'subagent.stop':
+			return 'Sub Stop';
+		case 'permission.request':
+			return 'Perm Request';
+		case 'permission.decision':
+			switch (event.data.decision_type) {
+				case 'allow':
+					return 'Perm Allow';
+				case 'deny':
+					return 'Perm Deny';
+				case 'ask':
+					return 'Perm Ask';
+				case 'no_opinion':
+					return 'Perm Skip';
+			}
+			break;
+		case 'stop.request':
+			return 'Stop Request';
+		case 'stop.decision':
+			switch (event.data.decision_type) {
+				case 'block':
+					return 'Stop Block';
+				case 'allow':
+					return 'Stop Allow';
+				case 'no_opinion':
+					return 'Stop Skip';
+			}
+			break;
+		case 'session.start':
+			return 'Sess Start';
+		case 'session.end':
+			return 'Sess End';
+		case 'notification':
+			return 'Notify';
+		case 'compact.pre':
+			return 'Compact';
+		case 'setup':
+			return 'Setup';
+		case 'unknown.hook':
+			return 'Unknown';
+		case 'todo.add':
+			return 'Todo Add';
+		case 'todo.update':
+			return 'Todo Update';
+		case 'todo.done':
+			return 'Todo Done';
+		case 'agent.message':
+			return 'Agent Msg';
+		case 'teammate.idle':
+			return 'Team Idle';
+		case 'task.completed':
+			return 'Task OK';
+		case 'config.change':
+			return 'Config Chg';
+		default:
+			return 'Event';
+	}
+	return 'Event'; // unreachable fallback for TS exhaustiveness
+}
+
+/** Extract contextual detail for the DETAIL column (tool name, agent type, etc.). */
+export function eventDetail(event: FeedEvent): string {
+	switch (event.kind) {
+		case 'tool.pre':
+		case 'tool.post':
+		case 'tool.failure':
+			return resolveDisplayName(event.data.tool_name);
+		case 'permission.request':
+			return resolveDisplayName(event.data.tool_name);
+		case 'subagent.start':
+		case 'subagent.stop':
+			return event.data.agent_type;
+		case 'todo.add':
+			return (event.data.priority ?? 'p1').toUpperCase();
+		case 'todo.update':
+			return event.data.todo_id;
+		case 'todo.done':
+			return event.data.todo_id;
+		case 'session.start':
+			return event.data.source;
+		case 'config.change':
+			return event.data.source;
+		default:
+			return '\u2500'; // ─ em dash placeholder
+	}
+}
+
 /** Resolve a tool name to its display form (e.g. MCP → `[server] action`). */
 function resolveDisplayName(toolName: string): string {
 	const parsed = parseToolName(toolName);
