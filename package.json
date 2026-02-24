@@ -28,26 +28,21 @@
 		"node": ">=18"
 	},
 	"scripts": {
-		"clean": "rm -rf dist",
-		"build": "tsc",
-		"dev": "tsc --watch",
-		"start": "tsc && node dist/cli.js",
-		"dev:debug": "tsc && DEV=true node dist/cli.js",
+		"build": "tsup",
+		"typecheck": "tsc --noEmit",
+		"dev": "tsup --watch",
+		"start": "tsup && node dist/cli.js",
+		"dev:debug": "tsup && DEV=true node dist/cli.js",
 		"devtools": "ELECTRON_DISABLE_SANDBOX=1 react-devtools",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"prepublishOnly": "npm run lint && npm test && npm run clean && npm run build"
+		"prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build"
 	},
 	"files": [
 		"dist",
-		"!dist/**/*.js.map",
-		"!dist/**/*.d.ts.map",
-		"!dist/**/*.test.js",
-		"!dist/**/*.test.d.ts",
-		"!dist/**/__tests__",
-		"!dist/**/__sentinels__"
+		"!dist/**/*.js.map"
 	],
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",
