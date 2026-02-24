@@ -72,7 +72,7 @@ export function actorLabel(actorId: string): string {
 	if (actorId === 'agent:root') return 'AGENT';
 	if (actorId === 'system') return 'SYSTEM';
 	if (actorId.startsWith('subagent:')) {
-		return `SA-${compactText(actorId.slice('subagent:'.length), 9)}`;
+		return 'SUB-AGENT';
 	}
 	return compactText(actorId.toUpperCase(), 12);
 }

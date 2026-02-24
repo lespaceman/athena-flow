@@ -1012,7 +1012,6 @@ describe('formatFeedLine', () => {
 		runId: 'R1',
 		op: 'Tool Call',
 		opTag: 'tool.call',
-		detail: 'Bash',
 		actor: 'AGENT',
 		actorId: 'agent:root',
 		summary: 'Bash cmd',
@@ -1070,7 +1069,6 @@ describe('formatFeedHeaderLine', () => {
 		expect(header).toContain('TIME');
 		expect(header).not.toContain('RUN');
 		expect(header).toContain('EVENT');
-		expect(header).toContain('DETAIL');
 		expect(header).toContain('ACTOR');
 		expect(header).toContain('SUMMARY');
 	});

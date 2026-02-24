@@ -101,7 +101,7 @@ export function buildBodyLines({
 				: `${start + 1}-${end}/${detailLines.length}`;
 		bodyLines.push(
 			fitAnsi(
-				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actor}) ${rangeLabel} [Esc back]`,
+				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actorId}) ${rangeLabel} [Esc back]`,
 				innerWidth,
 			),
 		);

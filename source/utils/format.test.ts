@@ -144,12 +144,9 @@ describe('actorLabel', () => {
 		expect(actorLabel('system')).toBe('SYSTEM');
 	});
 
-	it('formats subagent with SA- prefix', () => {
-		expect(actorLabel('subagent:abc')).toBe('SA-abc');
-	});
-
-	it('truncates long subagent names', () => {
-		expect(actorLabel('subagent:very-long-name-here')).toBe('SA-very-l...');
+	it('formats subagent as SUB-AGENT', () => {
+		expect(actorLabel('subagent:abc')).toBe('SUB-AGENT');
+		expect(actorLabel('subagent:very-long-name-here')).toBe('SUB-AGENT');
 	});
 
 	it('uppercases and truncates unknown actors', () => {

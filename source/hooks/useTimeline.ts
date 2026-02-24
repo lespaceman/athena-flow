@@ -6,7 +6,6 @@ import {
 	type RunSummary,
 	eventOperation,
 	eventLabel,
-	eventDetail,
 	eventSummary,
 	mergedEventOperation,
 	mergedEventLabel,
@@ -72,7 +71,6 @@ export function useTimeline({
 					runId: activeRunId,
 					op: item.data.role === 'user' ? 'User Msg' : 'Agent Msg',
 					opTag: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
-					detail: '\u2500',
 					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
 					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
 					summary,
@@ -125,7 +123,6 @@ export function useTimeline({
 			const op = pairedPost
 				? mergedEventLabel(event, pairedPost)
 				: eventLabel(event);
-			const detail = eventDetail(event);
 			const {text: summary, dimStart: summaryDimStart} = pairedPost
 				? mergedEventSummary(event, pairedPost)
 				: eventSummary(event);
@@ -136,7 +133,6 @@ export function useTimeline({
 				runId: event.run_id,
 				op,
 				opTag,
-				detail,
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
 				summary,

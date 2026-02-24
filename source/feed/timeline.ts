@@ -21,7 +21,6 @@ export type TimelineEntry = {
 	runId?: string;
 	op: string; // Title Case label (e.g. "Tool Call")
 	opTag: string; // Internal slug for styling (e.g. "tool.call")
-	detail: string; // DETAIL column content
 	actor: string;
 	actorId: string;
 	summary: string;
@@ -564,11 +563,9 @@ export function mergedEventSummary(
 export const FEED_GUTTER_WIDTH = 1;
 export const FEED_EVENT_COL_START = 7; // after " HH:MM " (1+5+1)
 export const FEED_EVENT_COL_END = 19; // 7 + 12 (event width)
-export const FEED_DETAIL_COL_START = 20; // 19 + 1 gap
-export const FEED_DETAIL_COL_END = 36; // 20 + 16 (detail width)
-export const FEED_ACTOR_COL_START = 37; // 36 + 1 gap
-export const FEED_ACTOR_COL_END = 47; // 37 + 10 (actor width)
-export const FEED_SUMMARY_COL_START = 48; // 47 + 1 gap
+export const FEED_ACTOR_COL_START = 20; // 19 + 1 gap
+export const FEED_ACTOR_COL_END = 30; // 20 + 10 (actor width)
+export const FEED_SUMMARY_COL_START = 31; // 30 + 1 gap
 
 // Keep old names as aliases for backward compat
 export const FEED_OP_COL_START = FEED_EVENT_COL_START;
@@ -591,12 +588,11 @@ export function formatFeedLine(
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
 	const event = fit(entry.op, 12);
-	const detail = fit(entry.detail ?? '\u2500', 16);
 	const actor = fit(entry.actor, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
-	const summaryWidth = Math.max(0, bodyWidth - 47); // 5+1+12+1+16+1+10+1 = 47
+	const summaryWidth = Math.max(0, bodyWidth - 30); // 5+1+12+1+10+1 = 30
 	const body = fit(
-		`${time} ${event} ${detail} ${actor} ${fit(entry.summary, summaryWidth)}`,
+		`${time} ${event} ${actor} ${fit(entry.summary, summaryWidth)}`,
 		bodyWidth,
 	);
 	return ` ${body}${suffix}`;
@@ -605,11 +601,10 @@ export function formatFeedLine(
 export function formatFeedHeaderLine(width: number): string {
 	const time = fit('TIME', 5);
 	const event = fit('EVENT', 12);
-	const detail = fit('DETAIL', 16);
 	const actor = fit('ACTOR', 10);
-	const summaryWidth = Math.max(0, width - 50); // 1+5+1+12+1+16+1+10+1+2 = 50
+	const summaryWidth = Math.max(0, width - 33); // 1+5+1+12+1+10+1+2 = 33
 	const summaryLabel = fit('SUMMARY', summaryWidth);
-	return fit(` ${time} ${event} ${detail} ${actor} ${summaryLabel}  `, width);
+	return fit(` ${time} ${event} ${actor} ${summaryLabel}  `, width);
 }
 
 export function toRunStatus(

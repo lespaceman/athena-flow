@@ -8,7 +8,7 @@ chalk.level = 3;
 
 describe('styleFeedLine', () => {
 	const baseLine =
-		' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx   ?';
+		' 08:55 Tool Call     AGENT      Read source/app.tsx                    ?';
 
 	it('applies default text color for agent:root', () => {
 		const result = styleFeedLine(baseLine, {
@@ -83,7 +83,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ▸ suffix with accent color', () => {
 		const line =
-			' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx ▸';
+			' 08:55 Tool Call     AGENT      Read source/app.tsx                  ▸';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -98,7 +98,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ▾ suffix with success color', () => {
 		const line =
-			' 08:55 Tool Call     Bash             AGENT      Read source/app.tsx ▾';
+			' 08:55 Tool Call     AGENT      Read source/app.tsx                  ▾';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -113,7 +113,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ASCII > suffix with accent color', () => {
 		const line =
-			' 08:55 Tool Call     Bash             AGENT      Read app.tsx >';
+			' 08:55 Tool Call     AGENT      Read source/app.tsx                  >';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -128,7 +128,7 @@ describe('styleFeedLine', () => {
 
 	it('colors ASCII v suffix with success color', () => {
 		const line =
-			' 08:55 Tool Call     Bash             AGENT      Read app.tsx v';
+			' 08:55 Tool Call     AGENT      Read source/app.tsx                  v';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -242,7 +242,7 @@ describe('styleFeedLine', () => {
 
 	it('applies user border accent for prompt op', () => {
 		const line =
-			' HH:MM User Prompt ─                USER       Tell me about X ';
+			' HH:MM User Prompt USER       Tell me about X                      ';
 		const styled = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -256,7 +256,7 @@ describe('styleFeedLine', () => {
 
 	it('does not apply user border when focused', () => {
 		const line =
-			' HH:MM User Prompt ─                USER       Tell me about X ';
+			' HH:MM User Prompt USER       Tell me about X                      ';
 		const styled = styleFeedLine(line, {
 			focused: true,
 			matched: false,
