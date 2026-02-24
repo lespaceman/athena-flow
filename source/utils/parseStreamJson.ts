@@ -19,6 +19,8 @@ type StreamMessage = {
 	usage?: StreamUsage;
 	/** CLI envelope: {type: "assistant", message: {usage: ...}} */
 	message?: {type?: string; usage?: StreamUsage; [key: string]: unknown};
+	/** Present when this message belongs to a subagent (Task tool) */
+	parent_tool_use_id?: string;
 	[key: string]: unknown;
 };
 
@@ -48,21 +50,22 @@ export function createTokenAccumulator() {
 			return; // Not valid JSON — skip
 		}
 
-		// Resolve usage from either:
-		// - Raw API format: {type: "message", usage: {...}}
-		// - CLI envelope:   {type: "assistant", message: {usage: {...}}}
-		// - Result event:   {type: "result", usage: {...}}
-		const isPerTurn =
-			parsed.type === 'message' ||
-			(parsed.type === 'assistant' && parsed.message?.usage != null);
+		// Resolve usage from one of three formats:
+		// - Raw API:      {type: "message", usage: {...}}
+		// - CLI envelope: {type: "assistant", message: {usage: {...}}}
+		// - Result:       {type: "result", usage: {...}}
+		const isAssistantEnvelope =
+			parsed.type === 'assistant' && parsed.message?.usage != null;
+		const isPerTurn = parsed.type === 'message' || isAssistantEnvelope;
 		const isResult = parsed.type === 'result';
 
-		const usage =
-			isPerTurn && parsed.type === 'assistant'
-				? parsed.message!.usage
-				: parsed.usage;
+		const usage = isAssistantEnvelope ? parsed.message!.usage : parsed.usage;
 
 		if ((isPerTurn || isResult) && usage) {
+			// Subagent messages have parent_tool_use_id — they represent
+			// nested agent context, not the root agent's context window.
+			const isSubagent = parsed.parent_tool_use_id != null;
+
 			if (isResult) {
 				// Result usage is cumulative — replace instead of adding
 				inputTokens = usage.input_tokens ?? inputTokens;
@@ -82,11 +85,13 @@ export function createTokenAccumulator() {
 				outputTokens += usage.output_tokens ?? 0;
 				cacheRead += usage.cache_read_input_tokens ?? 0;
 				cacheWrite += usage.cache_creation_input_tokens ?? 0;
-				// Track latest turn's prompt size (context window usage)
-				contextSize =
-					(usage.input_tokens ?? 0) +
-					(usage.cache_read_input_tokens ?? 0) +
-					(usage.cache_creation_input_tokens ?? 0);
+				// Track latest turn's prompt size — only from root agent
+				if (!isSubagent) {
+					contextSize =
+						(usage.input_tokens ?? 0) +
+						(usage.cache_read_input_tokens ?? 0) +
+						(usage.cache_creation_input_tokens ?? 0);
+				}
 			}
 		}
 	}

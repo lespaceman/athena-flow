@@ -28,10 +28,10 @@ export function renderHeaderLines(
 	const usedK =
 		model.context.used !== null
 			? `${Math.round(model.context.used / 1000)}k`
-			: '\u2014';
+			: '0k';
 	const maxK = `${Math.round(model.context.max / 1000)}k`;
 	const ctxLabel = hasColor ? chalk.dim('Ctx: ') : 'Ctx: ';
-	const ctxText = `${ctxLabel}${usedK}/${maxK}`;
+	const ctxText = `${ctxLabel}${usedK} / ${maxK}`;
 
 	// Truncated session ID
 	const sid = truncateSessionId(model.session_id, 8);

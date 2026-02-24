@@ -63,7 +63,7 @@ describe('renderHeaderLines', () => {
 
 	it('contains context as plain text', () => {
 		const [line] = stripped(renderHeaderLines(fullModel, 120, false));
-		expect(line).toContain('67k/200k');
+		expect(line).toContain('67k / 200k');
 	});
 
 	it('contains truncated session ID', () => {
@@ -82,9 +82,9 @@ describe('renderHeaderLines', () => {
 		expect(line).not.toContain('ACTIVE');
 	});
 
-	it('shows dash for null context used', () => {
+	it('shows 0k for null context used', () => {
 		const [line] = stripped(renderHeaderLines(idleModel, 120, false));
-		expect(line).toMatch(/\u2014\/200k|\u2014/);
+		expect(line).toContain('0k / 200k');
 	});
 
 	describe('NO_COLOR', () => {
