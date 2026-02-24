@@ -143,6 +143,15 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 			);
 		case 'permission.request':
 			return formatToolSummary(event.data.tool_name, event.data.tool_input);
+		case 'subagent.start':
+		case 'subagent.stop': {
+			const desc = event.data.description;
+			if (desc) {
+				const text = compactText(`${event.data.agent_type}: ${desc}`, 200);
+				return {text, dimStart: event.data.agent_type.length + 2};
+			}
+			return {text: compactText(event.data.agent_type, 200)};
+		}
 		default:
 			return {text: eventSummaryText(event)};
 	}
@@ -173,12 +182,6 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'user.prompt':
 			return compactText(event.data.prompt, 200);
-		case 'subagent.start':
-		case 'subagent.stop':
-			return compactText(
-				`${event.data.agent_type} ${event.data.agent_id}`,
-				200,
-			);
 		case 'permission.decision': {
 			const detail =
 				event.data.decision_type === 'deny'

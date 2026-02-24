@@ -149,6 +149,47 @@ describe('eventSummary', () => {
 		expect(eventSummary(ev).text).toBe('Fix the login bug');
 	});
 
+	it('formats subagent.start with description', () => {
+		const ev = {
+			...base({kind: 'subagent.start'}),
+			kind: 'subagent.start' as const,
+			data: {
+				agent_id: 'a1',
+				agent_type: 'general-purpose',
+				description: 'Write Playwright tests',
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('general-purpose: Write Playwright tests');
+		expect(result.dimStart).toBe('general-purpose:'.length + 1);
+	});
+
+	it('formats subagent.start without description — agent_type only', () => {
+		const ev = {
+			...base({kind: 'subagent.start'}),
+			kind: 'subagent.start' as const,
+			data: {agent_id: 'a1', agent_type: 'general-purpose'},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('general-purpose');
+		expect(result.dimStart).toBeUndefined();
+	});
+
+	it('formats subagent.stop with description', () => {
+		const ev = {
+			...base({kind: 'subagent.stop'}),
+			kind: 'subagent.stop' as const,
+			data: {
+				agent_id: 'a1',
+				agent_type: 'Explore',
+				stop_hook_active: false,
+				description: 'Find test patterns',
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Explore: Find test patterns');
+	});
+
 	it('formats config.change summary', () => {
 		const ev = {
 			...base(),

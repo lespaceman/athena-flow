@@ -224,6 +224,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 	}
 
 	const activeSubagentStack: string[] = []; // LIFO stack of active subagent actor IDs
+	let lastTaskDescription: string | undefined;
+	const subagentDescriptions = new Map<string, string>(); // agent_id → description
 
 	function resolveToolActor(): string {
 		return activeSubagentStack.length > 0
@@ -347,6 +349,16 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 					toolPreIndex.set(toolUseId, fe.event_id);
 				}
 				results.push(fe);
+
+				// Track Task description for subagent enrichment
+				const toolNameStr = event.toolName ?? (p.tool_name as string);
+				if (toolNameStr === 'Task') {
+					const input = (p.tool_input as Record<string, unknown>) ?? {};
+					lastTaskDescription =
+						typeof input['description'] === 'string'
+							? input['description']
+							: undefined;
+				}
 				break;
 			}
 
@@ -473,10 +485,15 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						{
 							agent_id: agentId ?? '',
 							agent_type: agentType ?? '',
+							description: lastTaskDescription,
 						} satisfies import('./types.js').SubagentStartData,
 						event,
 					),
 				);
+				if (agentId && lastTaskDescription) {
+					subagentDescriptions.set(agentId, lastTaskDescription);
+				}
+				lastTaskDescription = undefined;
 				break;
 			}
 
@@ -503,6 +520,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						last_assistant_message: p.last_assistant_message as
 							| string
 							| undefined,
+						description: subagentDescriptions.get(agentId ?? ''),
 					} satisfies import('./types.js').SubagentStopData,
 					event,
 				);

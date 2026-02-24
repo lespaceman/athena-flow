@@ -149,13 +149,18 @@ export type StopDecisionData =
 	| {decision_type: 'block'; reason: string}
 	| {decision_type: 'allow'; reason?: string};
 
-export type SubagentStartData = {agent_id: string; agent_type: string};
+export type SubagentStartData = {
+	agent_id: string;
+	agent_type: string;
+	description?: string;
+};
 export type SubagentStopData = {
 	agent_id: string;
 	agent_type: string;
 	stop_hook_active: boolean;
 	agent_transcript_path?: string;
 	last_assistant_message?: string;
+	description?: string;
 };
 
 export type NotificationData = {
