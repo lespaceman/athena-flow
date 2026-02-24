@@ -112,7 +112,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('colors ASCII > suffix with accent color', () => {
-		const line = ' 08:55 Tool Call     Bash             AGENT      Read app.tsx >';
+		const line =
+			' 08:55 Tool Call     Bash             AGENT      Read app.tsx >';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -126,7 +127,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('colors ASCII v suffix with success color', () => {
-		const line = ' 08:55 Tool Call     Bash             AGENT      Read app.tsx v';
+		const line =
+			' 08:55 Tool Call     Bash             AGENT      Read app.tsx v';
 		const result = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -239,7 +241,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('applies user border accent for prompt op', () => {
-		const line = ' HH:MM User Prompt ─                USER       Tell me about X ';
+		const line =
+			' HH:MM User Prompt ─                USER       Tell me about X ';
 		const styled = styleFeedLine(line, {
 			focused: false,
 			matched: false,
@@ -252,7 +255,8 @@ describe('styleFeedLine', () => {
 	});
 
 	it('does not apply user border when focused', () => {
-		const line = ' HH:MM User Prompt ─                USER       Tell me about X ';
+		const line =
+			' HH:MM User Prompt ─                USER       Tell me about X ';
 		const styled = styleFeedLine(line, {
 			focused: true,
 			matched: false,

@@ -97,7 +97,11 @@ export function styleFeedLine(
 		const borderColor = theme.userMessage.border ?? theme.accent;
 		gutterChar = getGlyphs(ascii)['feed.userBorder'];
 		gutterStyle = chalk.hex(borderColor);
-	} else if (opts.categoryBreak && opts.opTag !== 'prompt' && opts.opTag !== 'msg.user') {
+	} else if (
+		opts.categoryBreak &&
+		opts.opTag !== 'prompt' &&
+		opts.opTag !== 'msg.user'
+	) {
 		gutterChar = '·';
 		gutterStyle = chalk.dim.hex(theme.textMuted);
 	} else {
