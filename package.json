@@ -28,6 +28,7 @@
 		"node": ">=18"
 	},
 	"scripts": {
+		"clean": "rm -rf dist",
 		"build": "tsc",
 		"dev": "tsc --watch",
 		"start": "tsc && node dist/cli.js",
@@ -37,12 +38,16 @@
 		"test:watch": "vitest",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
-		"prepublishOnly": "npm run lint && npm test && npm run build"
+		"prepublishOnly": "npm run lint && npm test && npm run clean && npm run build"
 	},
 	"files": [
 		"dist",
 		"!dist/**/*.js.map",
-		"!dist/**/*.d.ts.map"
+		"!dist/**/*.d.ts.map",
+		"!dist/**/*.test.js",
+		"!dist/**/*.test.d.ts",
+		"!dist/**/__tests__",
+		"!dist/**/__sentinels__"
 	],
 	"dependencies": {
 		"@inkjs/ui": "^2.0.0",

@@ -1,3 +1,8 @@
 # Sourcemaps — not needed by consumers
 dist/**/*.js.map
 dist/**/*.d.ts.map
+
+# Test files — compiled tests leak into dist/
+dist/**/*.test.js
+dist/**/*.test.d.ts
+dist/**/__tests__/
