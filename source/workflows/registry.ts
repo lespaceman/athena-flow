@@ -46,6 +46,25 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 		throw new Error(`Invalid workflow.json: "promptTemplate" must be a string`);
 	}
 
+	// Resolve trackerTemplate file reference if it ends with .md
+	if (
+		raw['loop'] &&
+		typeof (raw['loop'] as Record<string, unknown>)['trackerTemplate'] ===
+			'string'
+	) {
+		const tmpl = (raw['loop'] as Record<string, unknown>)[
+			'trackerTemplate'
+		] as string;
+		if (tmpl.endsWith('.md')) {
+			const workflowDir = path.dirname(workflowPath);
+			const tmplPath = path.resolve(workflowDir, tmpl);
+			if (fs.existsSync(tmplPath)) {
+				(raw['loop'] as Record<string, unknown>)['trackerTemplate'] =
+					fs.readFileSync(tmplPath, 'utf-8');
+			}
+		}
+	}
+
 	return raw as unknown as WorkflowConfig;
 }
 

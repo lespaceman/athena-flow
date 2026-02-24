@@ -87,6 +87,50 @@ describe('resolveWorkflow', () => {
 		expect(() => resolveWorkflow('bad')).toThrow(/plugins.*must be an array/);
 	});
 
+	it('resolves trackerTemplate .md file reference to file contents', () => {
+		const workflow = {
+			name: 'looping',
+			plugins: [],
+			promptTemplate: '{input}',
+			loop: {
+				enabled: true,
+				completionMarker: 'DONE',
+				maxIterations: 10,
+				trackerTemplate: './loop-tracker.md',
+			},
+		};
+		files['/home/testuser/.config/athena/workflows/looping/workflow.json'] =
+			JSON.stringify(workflow);
+		files['/home/testuser/.config/athena/workflows/looping/loop-tracker.md'] =
+			'# Custom Tracker\n\n- [ ] Task 1';
+
+		const result = resolveWorkflow('looping');
+
+		expect(result.loop!.trackerTemplate).toBe(
+			'# Custom Tracker\n\n- [ ] Task 1',
+		);
+	});
+
+	it('keeps trackerTemplate as-is when it does not end with .md', () => {
+		const workflow = {
+			name: 'inline',
+			plugins: [],
+			promptTemplate: '{input}',
+			loop: {
+				enabled: true,
+				completionMarker: 'DONE',
+				maxIterations: 10,
+				trackerTemplate: '# Inline Template',
+			},
+		};
+		files['/home/testuser/.config/athena/workflows/inline/workflow.json'] =
+			JSON.stringify(workflow);
+
+		const result = resolveWorkflow('inline');
+
+		expect(result.loop!.trackerTemplate).toBe('# Inline Template');
+	});
+
 	it('throws when workflow.json is missing promptTemplate', () => {
 		files['/home/testuser/.config/athena/workflows/bad2/workflow.json'] =
 			JSON.stringify({name: 'bad2', plugins: []});
