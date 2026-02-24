@@ -181,4 +181,67 @@ describe('SessionStore', () => {
 		const session2 = store.getAthenaSession();
 		expect(session2.eventCount).toBe(3);
 	});
+
+	it('recordTokens persists and getRestoredTokens sums across adapter sessions', () => {
+		store = createSessionStore({
+			sessionId: 'sess-tok',
+			projectDir: '/tmp',
+			dbPath: ':memory:',
+		});
+
+		// Record two adapter sessions via runtime events (distinct timestamps for ordering)
+		const now = Date.now();
+		const rt1 = makeRuntimeEvent({
+			id: 'rt-tok-1',
+			sessionId: 'adapter-1',
+			timestamp: now - 1000,
+		});
+		const rt2 = makeRuntimeEvent({
+			id: 'rt-tok-2',
+			sessionId: 'adapter-2',
+			timestamp: now,
+		});
+		store.recordEvent(rt1, [makeFeedEvent({event_id: 'fe-tok-1', seq: 1})]);
+		store.recordEvent(rt2, [makeFeedEvent({event_id: 'fe-tok-2', seq: 2})]);
+
+		// Record tokens for adapter-1
+		store.recordTokens('adapter-1', {
+			input: 100,
+			output: 50,
+			cacheRead: 10,
+			cacheWrite: 5,
+			total: 150,
+			contextSize: 1000,
+		});
+
+		// Record tokens for adapter-2
+		store.recordTokens('adapter-2', {
+			input: 200,
+			output: 80,
+			cacheRead: 20,
+			cacheWrite: 8,
+			total: 280,
+			contextSize: 2000,
+		});
+
+		const restored = store.getRestoredTokens();
+		expect(restored).not.toBeNull();
+		expect(restored!.input).toBe(300);
+		expect(restored!.output).toBe(130);
+		expect(restored!.cacheRead).toBe(30);
+		expect(restored!.cacheWrite).toBe(13);
+		expect(restored!.total).toBe(430);
+		// contextSize comes from most recent (adapter-2)
+		expect(restored!.contextSize).toBe(2000);
+	});
+
+	it('getRestoredTokens returns null when no tokens recorded', () => {
+		store = createSessionStore({
+			sessionId: 'sess-no-tok',
+			projectDir: '/tmp',
+			dbPath: ':memory:',
+		});
+
+		expect(store.getRestoredTokens()).toBeNull();
+	});
 });

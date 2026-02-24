@@ -63,6 +63,11 @@ const NULL_TOKENS: TokenUsage = {
 const JQ_ASSISTANT_TEXT_FILTER =
 	'select(.type == "message" and .role == "assistant") | .content[] | select(.type == "text") | .text';
 
+export type UseClaudeProcessOptions = {
+	initialTokens?: TokenUsage | null;
+	onExitTokens?: (tokens: TokenUsage) => void;
+};
+
 export function useClaudeProcess(
 	projectDir: string,
 	instanceId: number,
@@ -70,15 +75,28 @@ export function useClaudeProcess(
 	pluginMcpConfig?: string,
 	verbose?: boolean,
 	workflow?: WorkflowConfig,
+	options?: UseClaudeProcessOptions,
 ): UseClaudeProcessResult {
 	const processRef = useRef<ChildProcess | null>(null);
 	const abortRef = useRef<AbortController>(new AbortController());
 	const exitResolverRef = useRef<(() => void) | null>(null);
 	const tokenAccRef = useRef(createTokenAccumulator());
+	const tokenBaseRef = useRef({
+		input: options?.initialTokens?.input ?? 0,
+		output: options?.initialTokens?.output ?? 0,
+		cacheRead: options?.initialTokens?.cacheRead ?? 0,
+		cacheWrite: options?.initialTokens?.cacheWrite ?? 0,
+	});
 	const [isRunning, setIsRunning] = useState(false);
 	const [output, setOutput] = useState<string[]>([]);
 	const [streamingText, setStreamingText] = useState('');
-	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(NULL_TOKENS);
+	const onExitTokensRef = useRef(options?.onExitTokens);
+	onExitTokensRef.current = options?.onExitTokens;
+	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(
+		() => options?.initialTokens ?? NULL_TOKENS,
+	);
+	const tokenUsageRef = useRef(tokenUsage);
+	tokenUsageRef.current = tokenUsage;
 
 	const sendInterrupt = useCallback((): void => {
 		if (!processRef.current) return;
@@ -135,12 +153,15 @@ export function useClaudeProcess(
 			setStreamingText('');
 			setIsRunning(true);
 			tokenAccRef.current.reset();
-			// Preserve last known contextSize across runs — it stays valid until
-			// the new run reports updated context numbers.
-			setTokenUsage(prev => ({
-				...NULL_TOKENS,
-				contextSize: prev.contextSize,
-			}));
+			// Capture cumulative base before this spawn (input/output/cache carry forward,
+			// contextSize resets per-process since the new process reports its own).
+			const current = tokenUsageRef.current;
+			tokenBaseRef.current = {
+				input: current.input ?? 0,
+				output: current.output ?? 0,
+				cacheRead: current.cacheRead ?? 0,
+				cacheWrite: current.cacheWrite ?? 0,
+			};
 
 			// Apply workflow: transform prompt and arm loop
 			let effectivePrompt = prompt;
@@ -174,9 +195,22 @@ export function useClaudeProcess(
 					: {}),
 				onStdout: (data: string) => {
 					if (abortRef.current.signal.aborted) return;
-					// Parse stream-json for token usage
+					// Parse stream-json for token usage — merge with cumulative base
 					tokenAccRef.current.feed(data);
-					setTokenUsage(tokenAccRef.current.getUsage());
+					const acc = tokenAccRef.current.getUsage();
+					const base = tokenBaseRef.current;
+					setTokenUsage({
+						input: (base.input || 0) + (acc.input ?? 0) || null,
+						output: (base.output || 0) + (acc.output ?? 0) || null,
+						cacheRead: (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null,
+						cacheWrite: (base.cacheWrite || 0) + (acc.cacheWrite ?? 0) || null,
+						total:
+							(base.input || 0) +
+								(acc.input ?? 0) +
+								(base.output || 0) +
+								(acc.output ?? 0) || null,
+						contextSize: acc.contextSize,
+					});
 
 					setOutput(prev => {
 						const updated = [...prev, data];
@@ -200,9 +234,26 @@ export function useClaudeProcess(
 				onExit: (code: number | null) => {
 					// Flush any remaining buffered data for final token count
 					tokenAccRef.current.flush();
+					const finalAcc = tokenAccRef.current.getUsage();
 					if (!abortRef.current.signal.aborted) {
-						setTokenUsage(tokenAccRef.current.getUsage());
+						const base = tokenBaseRef.current;
+						setTokenUsage({
+							input: (base.input || 0) + (finalAcc.input ?? 0) || null,
+							output: (base.output || 0) + (finalAcc.output ?? 0) || null,
+							cacheRead:
+								(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
+							cacheWrite:
+								(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
+							total:
+								(base.input || 0) +
+									(finalAcc.input ?? 0) +
+									(base.output || 0) +
+									(finalAcc.output ?? 0) || null,
+							contextSize: finalAcc.contextSize,
+						});
 					}
+					// Persist this process's own tokens (not cumulative)
+					onExitTokensRef.current?.(finalAcc);
 
 					// Resolve any pending kill promise
 					if (exitResolverRef.current) {

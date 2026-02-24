@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import type {FeedEvent} from '../feed/types.js';
 import type {MapperBootstrap} from '../feed/bootstrap.js';
 import type {RuntimeEvent} from '../runtime/types.js';
+import type {TokenUsage} from '../types/headerMetrics.js';
 import {initSchema} from './schema.js';
 import type {
 	AthenaSession,
@@ -37,6 +38,10 @@ export type SessionStore = {
 	toBootstrap(): MapperBootstrap | undefined;
 	getAthenaSession(): AthenaSession;
 	updateLabel(label: string): void;
+	/** Persist final token usage for an adapter session. */
+	recordTokens(adapterSessionId: string, tokens: TokenUsage): void;
+	/** Sum token columns across all adapter sessions. contextSize comes from the most recent. */
+	getRestoredTokens(): TokenUsage | null;
 	close(): void;
 	/** Whether persistence has failed and the session is running without storage. */
 	isDegraded: boolean;
@@ -269,6 +274,74 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		};
 	}
 
+	const updateTokens = db.prepare(
+		`UPDATE adapter_sessions SET
+			tokens_input = ?, tokens_output = ?,
+			tokens_cache_read = ?, tokens_cache_write = ?,
+			tokens_context_size = ?
+		 WHERE session_id = ?`,
+	);
+
+	function recordTokens(adapterSessionId: string, tokens: TokenUsage): void {
+		updateTokens.run(
+			tokens.input,
+			tokens.output,
+			tokens.cacheRead,
+			tokens.cacheWrite,
+			tokens.contextSize,
+			adapterSessionId,
+		);
+	}
+
+	function getRestoredTokens(): TokenUsage | null {
+		const row = db
+			.prepare(
+				`SELECT
+					SUM(tokens_input) as input,
+					SUM(tokens_output) as output,
+					SUM(tokens_cache_read) as cache_read,
+					SUM(tokens_cache_write) as cache_write
+				 FROM adapter_sessions`,
+			)
+			.get() as {
+			input: number | null;
+			output: number | null;
+			cache_read: number | null;
+			cache_write: number | null;
+		};
+
+		if (
+			row.input === null &&
+			row.output === null &&
+			row.cache_read === null &&
+			row.cache_write === null
+		) {
+			return null;
+		}
+
+		// contextSize from the most recent adapter session
+		const ctxRow = db
+			.prepare(
+				`SELECT tokens_context_size FROM adapter_sessions
+				 ORDER BY started_at DESC LIMIT 1`,
+			)
+			.get() as {tokens_context_size: number | null} | undefined;
+
+		const input = row.input ?? 0;
+		const output = row.output ?? 0;
+		const cacheRead = row.cache_read ?? 0;
+		const cacheWrite = row.cache_write ?? 0;
+
+		return {
+			input,
+			output,
+			cacheRead,
+			cacheWrite,
+			total: input + output,
+			contextSize: ctxRow?.tokens_context_size ?? null,
+		};
+	}
+
 	function updateLabel(label: string): void {
 		db.prepare('UPDATE session SET label = ? WHERE id = ?').run(
 			label,
@@ -287,6 +360,8 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		toBootstrap,
 		getAthenaSession,
 		updateLabel,
+		recordTokens,
+		getRestoredTokens,
 		close,
 		get isDegraded() {
 			return degraded;

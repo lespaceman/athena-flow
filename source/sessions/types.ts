@@ -1,4 +1,5 @@
 import type {FeedEvent} from '../feed/types.js';
+import type {TokenUsage} from '../types/headerMetrics.js';
 
 export type AthenaSession = {
 	id: string;
@@ -16,6 +17,7 @@ export type AdapterSessionRecord = {
 	endedAt?: number;
 	model?: string;
 	source?: string;
+	tokens?: TokenUsage;
 };
 
 export type StoredSession = {

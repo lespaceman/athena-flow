@@ -8,6 +8,7 @@ import type {Session, Run, Actor} from '../feed/entities.js';
 import type {HookRule} from '../types/rules.js';
 import type {PermissionDecision} from '../types/server.js';
 import type {Message} from '../types/common.js';
+import type {TokenUsage} from '../types/headerMetrics.js';
 import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
@@ -98,6 +99,8 @@ export type UseFeedResult = {
 	isDegraded: boolean;
 	postByToolUseId: Map<string, FeedEvent>;
 	allocateSeq: () => number;
+	recordTokens: (adapterSessionId: string, tokens: TokenUsage) => void;
+	restoredTokens: TokenUsage | null;
 };
 
 /** Build a lookup index: tool_use_id → post/failure FeedEvent */
@@ -148,6 +151,11 @@ export function useFeed(
 	);
 	const [questionQueue, setQuestionQueue] = useState<string[]>([]);
 
+	const restoredTokens = useMemo(
+		() => sessionStore?.getRestoredTokens() ?? null,
+		[sessionStore],
+	);
+
 	const mapperRef = useRef<FeedMapper>(createFeedMapper(mapperBootstrap));
 	const sessionStoreRef = useRef<SessionStore | undefined>(sessionStore);
 	const rulesRef = useRef<HookRule[]>([]);
@@ -173,6 +181,20 @@ export function useFeed(
 
 	const clearRules = useCallback(() => setRules([]), []);
 	const clearEvents = useCallback(() => setFeedEvents([]), []);
+
+	const recordTokens = useCallback(
+		(adapterSessionId: string, tokens: TokenUsage) => {
+			if (!sessionStoreRef.current) return;
+			try {
+				sessionStoreRef.current.recordTokens(adapterSessionId, tokens);
+			} catch (err) {
+				sessionStoreRef.current.markDegraded(
+					`recordTokens failed: ${err instanceof Error ? err.message : err}`,
+				);
+			}
+		},
+		[],
+	);
 
 	// Queue helpers
 	const enqueuePermission = useCallback((event: RuntimeEvent) => {
@@ -442,5 +464,7 @@ export function useFeed(
 		isDegraded: sessionStoreRef.current?.isDegraded ?? false,
 		postByToolUseId,
 		allocateSeq: () => mapperRef.current.allocateSeq(),
+		recordTokens,
+		restoredTokens,
 	};
 }

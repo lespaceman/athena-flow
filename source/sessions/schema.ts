@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function initSchema(db: Database.Database): void {
 	db.exec('PRAGMA journal_mode = WAL');
@@ -46,7 +46,12 @@ export function initSchema(db: Database.Database): void {
 			started_at INTEGER NOT NULL,
 			ended_at INTEGER,
 			model TEXT,
-			source TEXT
+			source TEXT,
+			tokens_input INTEGER,
+			tokens_output INTEGER,
+			tokens_cache_read INTEGER,
+			tokens_cache_write INTEGER,
+			tokens_context_size INTEGER
 		);
 	`);
 
@@ -74,11 +79,23 @@ export function initSchema(db: Database.Database): void {
 			SCHEMA_VERSION,
 		);
 	} else if (existing.version < SCHEMA_VERSION) {
-		// v1 was never shipped. Reject incompatible dev DBs rather than
-		// maintaining migration complexity for data no real user has.
-		throw new Error(
-			`Session database is at schema version ${existing.version} which predates the first release. ` +
-				`Delete the session database and start fresh.`,
-		);
+		if (existing.version < 2) {
+			// v1 was never shipped. Reject incompatible dev DBs rather than
+			// maintaining migration complexity for data no real user has.
+			throw new Error(
+				`Session database is at schema version ${existing.version} which predates the first release. ` +
+					`Delete the session database and start fresh.`,
+			);
+		}
+		if (existing.version === 2) {
+			db.exec(`
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_input INTEGER;
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_output INTEGER;
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_cache_read INTEGER;
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_cache_write INTEGER;
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_context_size INTEGER;
+				UPDATE schema_version SET version = 3;
+			`);
+		}
 	}
 }
