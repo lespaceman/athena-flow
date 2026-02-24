@@ -301,6 +301,91 @@ describe('eventSummary MCP formatting', () => {
 		};
 		expect(eventSummary(ev).dimStart).toBeUndefined();
 	});
+
+	it('formats tool.pre with primary input instead of key=value', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.dimStart).toBe('Read'.length + 1);
+	});
+
+	it('formats tool.pre for Bash with command', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'npm test'}},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash npm test');
+	});
+
+	it('formats tool.pre for Task with [type] description', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Task',
+				tool_input: {
+					subagent_type: 'general-purpose',
+					description: 'Write tests',
+					prompt: '...',
+				},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toContain('[general-purpose] Write tests');
+	});
+
+	it('formats tool.post with primary input', () => {
+		const ev = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+				tool_response: {},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.dimStart).toBe('Read'.length + 1);
+	});
+
+	it('formats tool.failure with primary input and error', () => {
+		const ev = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'bad-cmd'},
+				error: 'not found',
+				is_interrupt: false,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash bad-cmd not found');
+	});
+
+	it('formats permission.request with primary input', () => {
+		const ev = {
+			...base({kind: 'permission.request'}),
+			kind: 'permission.request' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'rm -rf /'},
+				permission_suggestions: [],
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash rm -rf /');
+	});
 });
 
 describe('isEventError', () => {
@@ -678,6 +763,6 @@ describe('mergedEventSummary', () => {
 		};
 		const result = mergedEventSummary(pre);
 		expect(result.text).toContain('Read');
-		expect(result.text).toContain('/foo.ts');
+		expect(result.text).toContain('foo.ts');
 	});
 });

@@ -4,7 +4,7 @@ import {
 	compactText,
 	fit,
 	formatClock,
-	summarizeToolInput,
+	summarizeToolPrimaryInput,
 } from '../utils/format.js';
 import {
 	extractFriendlyServerName,
@@ -114,11 +114,12 @@ type ToolSummaryResult = {text: string; dimStart?: number};
 
 function formatToolSummary(
 	toolName: string,
-	args: string,
+	toolInput: Record<string, unknown>,
 	errorSuffix?: string,
 ): ToolSummaryResult {
 	const name = resolveDisplayName(toolName);
-	const secondary = [args, errorSuffix].filter(Boolean).join(' ');
+	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
+	const secondary = [primaryInput, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
 		return {text: compactText(name, 200)};
 	}
@@ -130,19 +131,18 @@ export type SummaryResult = {text: string; dimStart?: number};
 
 export function eventSummary(event: FeedEvent): SummaryResult {
 	switch (event.kind) {
-		case 'tool.pre': {
-			const args = summarizeToolInput(event.data.tool_input);
-			return formatToolSummary(event.data.tool_name, args);
-		}
+		case 'tool.pre':
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.post':
-			return formatToolSummary(event.data.tool_name, '');
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.failure':
-			return formatToolSummary(event.data.tool_name, '', event.data.error);
-		case 'permission.request':
 			return formatToolSummary(
 				event.data.tool_name,
-				summarizeToolInput(event.data.tool_input),
+				event.data.tool_input,
+				event.data.error,
 			);
+		case 'permission.request':
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		default:
 			return {text: eventSummaryText(event)};
 	}
