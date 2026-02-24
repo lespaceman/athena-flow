@@ -164,6 +164,7 @@ function AppContent({
 		spawn: spawnClaude,
 		isRunning: isClaudeRunning,
 		tokenUsage,
+		loopManager,
 	} = useClaudeProcess(
 		projectDir,
 		instanceId,
@@ -173,6 +174,11 @@ function AppContent({
 		workflow,
 		{initialTokens: restoredTokens, onExitTokens},
 	);
+	// Sync loop manager into hook context so hookController can access it
+	useEffect(() => {
+		hookServer.setLoopManager(loopManager);
+	}, [loopManager, hookServer]);
+
 	const {exit} = useApp();
 	const {stdout} = useStdout();
 	const terminalWidth = stdout?.columns ?? 80;
