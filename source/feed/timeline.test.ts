@@ -712,7 +712,7 @@ describe('mergedEventOperation', () => {
 });
 
 describe('mergedEventSummary', () => {
-	it('returns merged summary with tool result when paired', () => {
+	it('returns merged summary with primary input and tool result when paired', () => {
 		const pre = {
 			...base({kind: 'tool.pre'}),
 			kind: 'tool.pre' as const,
@@ -728,10 +728,51 @@ describe('mergedEventSummary', () => {
 			},
 		};
 		const result = mergedEventSummary(pre, post);
-		expect(result.text).toContain('Bash');
-		expect(result.text).toContain('—');
-		expect(result.text).toContain('exit 0');
+		expect(result.text).toBe('Bash ls — exit 0');
 		expect(result.dimStart).toBe('Bash'.length);
+	});
+
+	it('includes primary input in merged Read summary', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+			},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+				tool_response: [{type: 'text', file: {content: 'line1\nline2\nline3'}}],
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toContain('Read');
+		expect(result.text).toContain('source/app.tsx');
+		expect(result.text).toContain('3 lines');
+	});
+
+	it('includes command in merged Bash summary', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'npm test'}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'npm test'},
+				tool_response: {stdout: '', stderr: '', exitCode: 0},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toBe('Bash npm test — exit 0');
 	});
 
 	it('returns merged summary with error for tool.failure', () => {

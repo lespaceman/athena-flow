@@ -395,6 +395,7 @@ export function mergedEventSummary(
 	const toolName = event.data.tool_name;
 	const toolInput = event.data.tool_input ?? {};
 	const name = resolveDisplayName(toolName);
+	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
 
 	let resultText: string;
 	if (postEvent.kind === 'tool.failure') {
@@ -414,7 +415,8 @@ export function mergedEventSummary(
 		return eventSummary(event);
 	}
 
-	const full = `${name} — ${resultText}`;
+	const prefix = primaryInput ? `${name} ${primaryInput}` : name;
+	const full = `${prefix} — ${resultText}`;
 	return {text: compactText(full, 200), dimStart: name.length};
 }
 
