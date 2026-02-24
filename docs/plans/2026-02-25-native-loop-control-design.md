@@ -22,15 +22,17 @@ export type LoopConfig = {
   completionMarker: string;    // string to scan for in tracker body
   maxIterations: number;
   continueMessage?: string;    // static message sent when blocking stop (default provided)
-  trackerTemplate?: string;    // markdown template for the tracker file
+  trackerTemplate?: string;    // inline markdown OR relative file path (auto-detect: ends with .md = file)
 };
 ```
 
 **Renames**: `completionPromise` → `completionMarker` (clearer — it's a string scan, not a promise).
 
-**New fields**: `trackerTemplate` (workflow author's markdown structure), `continueMessage` (optional override for the continue reason).
+**New fields**: `trackerTemplate` (workflow author's markdown structure — inline string or relative file path), `continueMessage` (optional override for the continue reason).
 
-**Example workflow.json**:
+**trackerTemplate resolution**: If the value ends with `.md`, it's resolved as a file path relative to the workflow.json location (e.g., `"./loop-tracker.md"` in a marketplace plugin directory). Otherwise it's treated as an inline markdown string.
+
+**Example workflow.json (file reference)**:
 ```json
 {
   "name": "e2e-testing",
@@ -40,7 +42,22 @@ export type LoopConfig = {
     "enabled": true,
     "completionMarker": "E2E_COMPLETE",
     "maxIterations": 15,
-    "trackerTemplate": "# E2E Test Progress\n\n## Criteria\n- [ ] All tests passing\n- [ ] Coverage threshold met\n\n## Status\n_pending_"
+    "trackerTemplate": "./loop-tracker.md"
+  }
+}
+```
+
+**Example workflow.json (inline)**:
+```json
+{
+  "name": "e2e-testing",
+  "plugins": ["e2e-test-builder@owner/repo"],
+  "promptTemplate": "Use /add-e2e-tests {input}",
+  "loop": {
+    "enabled": true,
+    "completionMarker": "E2E_COMPLETE",
+    "maxIterations": 15,
+    "trackerTemplate": "# E2E Test Progress\n\n## Status\n_pending_"
   }
 }
 ```
