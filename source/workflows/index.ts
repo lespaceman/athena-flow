@@ -1,9 +1,5 @@
 export type {WorkflowConfig, LoopConfig} from './types.js';
-export {
-	applyPromptTemplate,
-	writeLoopState,
-	removeLoopState,
-} from './applyWorkflow.js';
+export {applyPromptTemplate} from './applyWorkflow.js';
 export {
 	resolveWorkflow,
 	installWorkflow,
@@ -11,3 +7,8 @@ export {
 	removeWorkflow,
 } from './registry.js';
 export {installWorkflowPlugins} from './installer.js';
+export {
+	createLoopManager,
+	type LoopState,
+	type LoopManager,
+} from './loopManager.js';
