@@ -12,8 +12,8 @@ import {createTokenAccumulator} from '../utils/parseStreamJson.js';
 import type {WorkflowConfig} from '../workflows/types.js';
 import {
 	applyPromptTemplate,
-	writeLoopState,
-	removeLoopState,
+	createLoopManager,
+	type LoopManager,
 } from '../workflows/index.js';
 
 // Re-export type for backwards compatibility
@@ -81,6 +81,7 @@ export function useClaudeProcess(
 	const abortRef = useRef<AbortController>(new AbortController());
 	const exitResolverRef = useRef<(() => void) | null>(null);
 	const tokenAccRef = useRef(createTokenAccumulator());
+	const loopManagerRef = useRef<LoopManager | null>(null);
 	const tokenBaseRef = useRef({
 		input: options?.initialTokens?.input ?? 0,
 		output: options?.initialTokens?.output ?? 0,
@@ -121,10 +122,9 @@ export function useClaudeProcess(
 
 		processRef.current.kill();
 
-		// Clean up ralph-loop state to prevent zombie loops
-		if (workflow?.loop?.enabled) {
-			removeLoopState(projectDir);
-		}
+		// Clean up loop tracker to prevent zombie loops
+		loopManagerRef.current?.cleanup();
+		loopManagerRef.current = null;
 
 		// Wait for exit or timeout
 		await Promise.race([exitPromise, timeoutPromise]);
@@ -167,9 +167,13 @@ export function useClaudeProcess(
 			let effectivePrompt = prompt;
 			if (workflow) {
 				effectivePrompt = applyPromptTemplate(workflow.promptTemplate, prompt);
-				if (workflow.loop) {
-					removeLoopState(projectDir); // Clean any stale state
-					writeLoopState(projectDir, effectivePrompt, workflow.loop);
+				if (workflow.loop?.enabled) {
+					// Clean up previous loop manager
+					loopManagerRef.current?.cleanup();
+					const trackerPath = `${projectDir}/.athena/sessions/${sessionId ?? 'default'}/loop-tracker.md`;
+					const mgr = createLoopManager(trackerPath, workflow.loop);
+					mgr.initialize();
+					loopManagerRef.current = mgr;
 				}
 			}
 
@@ -314,5 +318,6 @@ export function useClaudeProcess(
 		sendInterrupt,
 		streamingText,
 		tokenUsage,
+		loopManager: loopManagerRef.current,
 	};
 }
