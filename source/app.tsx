@@ -646,12 +646,7 @@ function AppContent({
 		contextUsed: tokenUsage.contextSize,
 		contextMax: 200000,
 	});
-	const [headerLine1] = renderHeaderLines(
-		headerModel,
-		innerWidth,
-		hasColor,
-		now,
-	);
+	const [headerLine1] = renderHeaderLines(headerModel, innerWidth, hasColor);
 
 	// ── Body lines ──────────────────────────────────────────
 

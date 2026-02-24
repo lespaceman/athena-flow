@@ -36,9 +36,10 @@ After `m.parseInline(item.text)` in the custom list renderer, replace `*#COLON|*
 
 ```typescript
 const inlined = m.parseInline(item.text);
-const text = typeof inlined === 'string'
-  ? inlined.replace(/\*#COLON\|\*/g, ':')
-  : item.text;
+const text =
+	typeof inlined === 'string'
+		? inlined.replace(/\*#COLON\|\*/g, ':')
+		: item.text;
 ```
 
 ### Fix 2: `source/feed/timeline.ts`
@@ -47,13 +48,13 @@ Add `stripMarkdownInline()` helper, apply before `compactText()` for `agent.mess
 
 ```typescript
 function stripMarkdownInline(text: string): string {
-  return text
-    .replace(/#{1,6}\s+/g, '')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/__(.+?)__/g, '$1')
-    .replace(/\*(.+?)\*/g, '$1')
-    .replace(/`(.+?)`/g, '$1')
-    .replace(/~~(.+?)~~/g, '$1');
+	return text
+		.replace(/#{1,6}\s+/g, '')
+		.replace(/\*\*(.+?)\*\*/g, '$1')
+		.replace(/__(.+?)__/g, '$1')
+		.replace(/\*(.+?)\*/g, '$1')
+		.replace(/`(.+?)`/g, '$1')
+		.replace(/~~(.+?)~~/g, '$1');
 }
 ```
 

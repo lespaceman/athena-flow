@@ -26,7 +26,7 @@ export type FrameLines = {
 	inputLines: string[];
 };
 
-function buildHintPairs(pairs: Array<[string, string]>, _sep: string): string {
+function buildHintPairs(pairs: Array<[string, string]>): string {
 	return pairs
 		.map(([glyph, label]) => `${chalk.bold(glyph)} ${chalk.dim(label)}`)
 		.join('   ');
@@ -44,40 +44,31 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		const h = hintGlyphs(!!ctx.ascii);
 
 		if (ctx.focusMode === 'todo') {
-			return buildHintPairs(
-				[
-					[h.arrowsUpDown, 'Select'],
-					[h.space, 'Toggle'],
-					[h.enter, 'Jump'],
-					['a', 'Add'],
-					[h.escape, 'Back'],
-				],
-				h.separator,
-			);
+			return buildHintPairs([
+				[h.arrowsUpDown, 'Select'],
+				[h.space, 'Toggle'],
+				[h.enter, 'Jump'],
+				['a', 'Add'],
+				[h.escape, 'Back'],
+			]);
 		}
 
 		if (ctx.focusMode === 'input') {
-			return buildHintPairs(
-				[
-					[h.enter, 'Send'],
-					[h.escape, 'Back'],
-					[h.tab, 'Focus'],
-					['⌃P/N', 'History'],
-					[h.toggle, 'Hints'],
-				],
-				h.separator,
-			);
+			return buildHintPairs([
+				[h.enter, 'Send'],
+				[h.escape, 'Back'],
+				[h.tab, 'Focus'],
+				['⌃P/N', 'History'],
+				[h.toggle, 'Hints'],
+			]);
 		}
 
 		if (ctx.expandedEntry) {
-			return buildHintPairs(
-				[
-					[h.arrowsUpDown, 'Scroll'],
-					[h.page, 'Page'],
-					[`${h.enter}/${h.escape}`, 'Back'],
-				],
-				h.separator,
-			);
+			return buildHintPairs([
+				[h.arrowsUpDown, 'Scroll'],
+				[h.page, 'Page'],
+				[`${h.enter}/${h.escape}`, 'Back'],
+			]);
 		}
 
 		// Feed mode (default)
@@ -89,16 +80,13 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		}
 
 		return (
-			buildHintPairs(
-				[
-					[h.arrows, 'Navigate'],
-					[h.enter, 'Expand'],
-					['/', 'Search'],
-					[':', 'Cmd'],
-					['End', 'Tail'],
-				],
-				h.separator,
-			) + searchPart
+			buildHintPairs([
+				[h.arrows, 'Navigate'],
+				[h.enter, 'Expand'],
+				['/', 'Search'],
+				[':', 'Cmd'],
+				['End', 'Tail'],
+			]) + searchPart
 		);
 	})();
 

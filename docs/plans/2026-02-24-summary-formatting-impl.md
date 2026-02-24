@@ -13,6 +13,7 @@
 ### Task 1: Add `summarizeToolPrimaryInput()` to `format.ts`
 
 **Files:**
+
 - Test: `source/utils/format.test.ts`
 - Modify: `source/utils/format.ts`
 
@@ -23,23 +24,36 @@ Add to `source/utils/format.test.ts`:
 ```typescript
 describe('summarizeToolPrimaryInput', () => {
 	it('extracts file_path for Read', () => {
-		expect(summarizeToolPrimaryInput('Read', {file_path: '/home/user/project/source/app.tsx'}))
-			.toBe('source/app.tsx');
+		expect(
+			summarizeToolPrimaryInput('Read', {
+				file_path: '/home/user/project/source/app.tsx',
+			}),
+		).toBe('source/app.tsx');
 	});
 
 	it('extracts file_path for Write', () => {
-		expect(summarizeToolPrimaryInput('Write', {file_path: '/home/user/project/source/foo.ts', content: '...'}))
-			.toBe('source/foo.ts');
+		expect(
+			summarizeToolPrimaryInput('Write', {
+				file_path: '/home/user/project/source/foo.ts',
+				content: '...',
+			}),
+		).toBe('source/foo.ts');
 	});
 
 	it('extracts file_path for Edit', () => {
-		expect(summarizeToolPrimaryInput('Edit', {file_path: '/a/b/bar.ts', old_string: 'x', new_string: 'y'}))
-			.toBe('bar.ts');
+		expect(
+			summarizeToolPrimaryInput('Edit', {
+				file_path: '/a/b/bar.ts',
+				old_string: 'x',
+				new_string: 'y',
+			}),
+		).toBe('bar.ts');
 	});
 
 	it('extracts command for Bash', () => {
-		expect(summarizeToolPrimaryInput('Bash', {command: 'npm test'}))
-			.toBe('npm test');
+		expect(summarizeToolPrimaryInput('Bash', {command: 'npm test'})).toBe(
+			'npm test',
+		);
 	});
 
 	it('truncates long Bash command', () => {
@@ -49,38 +63,49 @@ describe('summarizeToolPrimaryInput', () => {
 	});
 
 	it('extracts pattern for Glob', () => {
-		expect(summarizeToolPrimaryInput('Glob', {pattern: '**/*.test.ts'}))
-			.toBe('**/*.test.ts');
+		expect(summarizeToolPrimaryInput('Glob', {pattern: '**/*.test.ts'})).toBe(
+			'**/*.test.ts',
+		);
 	});
 
 	it('extracts pattern and glob for Grep', () => {
-		expect(summarizeToolPrimaryInput('Grep', {pattern: 'TODO', glob: '*.ts'}))
-			.toBe('"TODO" *.ts');
+		expect(
+			summarizeToolPrimaryInput('Grep', {pattern: 'TODO', glob: '*.ts'}),
+		).toBe('"TODO" *.ts');
 	});
 
 	it('extracts pattern only for Grep without glob', () => {
-		expect(summarizeToolPrimaryInput('Grep', {pattern: 'TODO'}))
-			.toBe('"TODO"');
+		expect(summarizeToolPrimaryInput('Grep', {pattern: 'TODO'})).toBe('"TODO"');
 	});
 
 	it('extracts description for Task', () => {
-		expect(summarizeToolPrimaryInput('Task', {subagent_type: 'general-purpose', description: 'Write tests', prompt: '...'}))
-			.toBe('[general-purpose] Write tests');
+		expect(
+			summarizeToolPrimaryInput('Task', {
+				subagent_type: 'general-purpose',
+				description: 'Write tests',
+				prompt: '...',
+			}),
+		).toBe('[general-purpose] Write tests');
 	});
 
 	it('extracts query for WebSearch', () => {
-		expect(summarizeToolPrimaryInput('WebSearch', {query: 'react hooks'}))
-			.toBe('"react hooks"');
+		expect(summarizeToolPrimaryInput('WebSearch', {query: 'react hooks'})).toBe(
+			'"react hooks"',
+		);
 	});
 
 	it('extracts url for WebFetch', () => {
-		expect(summarizeToolPrimaryInput('WebFetch', {url: 'https://example.com/api/v1/data'}))
-			.toBe('https://example.com/api/v1/data');
+		expect(
+			summarizeToolPrimaryInput('WebFetch', {
+				url: 'https://example.com/api/v1/data',
+			}),
+		).toBe('https://example.com/api/v1/data');
 	});
 
 	it('falls back to key=value for unknown tools', () => {
-		expect(summarizeToolPrimaryInput('FutureTool', {arg1: 'val1', arg2: 42}))
-			.toBe('arg1="val1" arg2=42');
+		expect(
+			summarizeToolPrimaryInput('FutureTool', {arg1: 'val1', arg2: 42}),
+		).toBe('arg1="val1" arg2=42');
 	});
 
 	it('returns empty string for empty input', () => {
@@ -109,27 +134,27 @@ function shortenPath(filePath: string): string {
 type PrimaryInputExtractor = (input: Record<string, unknown>) => string;
 
 const PRIMARY_INPUT_EXTRACTORS: Record<string, PrimaryInputExtractor> = {
-	Read: (input) => {
+	Read: input => {
 		const fp = input['file_path'];
 		return typeof fp === 'string' ? shortenPath(fp) : '';
 	},
-	Write: (input) => {
+	Write: input => {
 		const fp = input['file_path'];
 		return typeof fp === 'string' ? shortenPath(fp) : '';
 	},
-	Edit: (input) => {
+	Edit: input => {
 		const fp = input['file_path'];
 		return typeof fp === 'string' ? shortenPath(fp) : '';
 	},
-	Bash: (input) => {
+	Bash: input => {
 		const cmd = input['command'];
 		return typeof cmd === 'string' ? compactText(cmd, 40) : '';
 	},
-	Glob: (input) => {
+	Glob: input => {
 		const pat = input['pattern'];
 		return typeof pat === 'string' ? pat : '';
 	},
-	Grep: (input) => {
+	Grep: input => {
 		const pat = input['pattern'];
 		const glob = input['glob'];
 		if (typeof pat !== 'string') return '';
@@ -137,17 +162,17 @@ const PRIMARY_INPUT_EXTRACTORS: Record<string, PrimaryInputExtractor> = {
 		if (typeof glob === 'string') parts.push(glob);
 		return parts.join(' ');
 	},
-	Task: (input) => {
+	Task: input => {
 		const type = input['subagent_type'] ?? 'agent';
 		const desc = input['description'];
 		const descStr = typeof desc === 'string' ? ` ${desc}` : '';
 		return `[${type}]${descStr}`;
 	},
-	WebSearch: (input) => {
+	WebSearch: input => {
 		const q = input['query'];
 		return typeof q === 'string' ? `"${q}"` : '';
 	},
-	WebFetch: (input) => {
+	WebFetch: input => {
 		const url = input['url'];
 		return typeof url === 'string' ? compactText(url, 60) : '';
 	},
@@ -187,6 +212,7 @@ git commit -m "feat: add summarizeToolPrimaryInput for action-oriented tool summ
 ### Task 2: Update `eventSummary()` to use primary input
 
 **Files:**
+
 - Modify: `source/feed/timeline.test.ts`
 - Modify: `source/feed/timeline.ts`
 
@@ -200,7 +226,10 @@ it('formats tool.pre with primary input instead of key=value', () => {
 	const ev = {
 		...base({kind: 'tool.pre'}),
 		kind: 'tool.pre' as const,
-		data: {tool_name: 'Read', tool_input: {file_path: '/project/source/app.tsx'}},
+		data: {
+			tool_name: 'Read',
+			tool_input: {file_path: '/project/source/app.tsx'},
+		},
 	};
 	const result = eventSummary(ev);
 	expect(result.text).toBe('Read source/app.tsx');
@@ -221,7 +250,14 @@ it('formats tool.pre for Task with [type] description', () => {
 	const ev = {
 		...base({kind: 'tool.pre'}),
 		kind: 'tool.pre' as const,
-		data: {tool_name: 'Task', tool_input: {subagent_type: 'general-purpose', description: 'Write tests', prompt: '...'}},
+		data: {
+			tool_name: 'Task',
+			tool_input: {
+				subagent_type: 'general-purpose',
+				description: 'Write tests',
+				prompt: '...',
+			},
+		},
 	};
 	const result = eventSummary(ev);
 	expect(result.text).toContain('[general-purpose] Write tests');
@@ -271,7 +307,11 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'tool.post':
 			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.failure':
-			return formatToolSummary(event.data.tool_name, event.data.tool_input, event.data.error);
+			return formatToolSummary(
+				event.data.tool_name,
+				event.data.tool_input,
+				event.data.error,
+			);
 		case 'permission.request':
 			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		default:
@@ -297,6 +337,7 @@ git commit -m "feat: use primary input in tool summary formatting"
 ### Task 3: Update `mergedEventSummary()` to include primary input
 
 **Files:**
+
 - Modify: `source/feed/timeline.test.ts`
 - Modify: `source/feed/timeline.ts`
 
@@ -308,7 +349,10 @@ it('includes primary input in merged Read summary', () => {
 	const pre = {
 		...base({kind: 'tool.pre'}),
 		kind: 'tool.pre' as const,
-		data: {tool_name: 'Read', tool_input: {file_path: '/project/source/app.tsx'}},
+		data: {
+			tool_name: 'Read',
+			tool_input: {file_path: '/project/source/app.tsx'},
+		},
 	};
 	const post = {
 		...base({kind: 'tool.post'}),
@@ -409,6 +453,7 @@ git commit -m "feat: include primary input in merged tool summaries"
 ### Task 4: Exclude Task tool from merge in `useTimeline.ts`
 
 **Files:**
+
 - Modify: `source/hooks/useTimeline.ts`
 
 **Step 1: Write failing test (not practical for a hook — verify manually)**
@@ -460,6 +505,7 @@ git commit -m "feat: exclude Task tool from merge — keep visible during execut
 ### Task 5: Enrich SubagentStartData/StopData with description
 
 **Files:**
+
 - Modify: `source/feed/types.ts`
 - Modify: `source/feed/mapper.ts`
 - Modify: `source/feed/timeline.test.ts`
@@ -473,7 +519,11 @@ it('formats subagent.start with description', () => {
 	const ev = {
 		...base({kind: 'subagent.start'}),
 		kind: 'subagent.start' as const,
-		data: {agent_id: 'a1', agent_type: 'general-purpose', description: 'Write Playwright tests'},
+		data: {
+			agent_id: 'a1',
+			agent_type: 'general-purpose',
+			description: 'Write Playwright tests',
+		},
 	};
 	expect(eventSummary(ev).text).toBe('general-purpose: Write Playwright tests');
 });
@@ -491,7 +541,11 @@ it('dims description after agent_type:', () => {
 	const ev = {
 		...base({kind: 'subagent.start'}),
 		kind: 'subagent.start' as const,
-		data: {agent_id: 'a1', agent_type: 'Explore', description: 'Find test patterns'},
+		data: {
+			agent_id: 'a1',
+			agent_type: 'Explore',
+			description: 'Find test patterns',
+		},
 	};
 	const result = eventSummary(ev);
 	expect(result.dimStart).toBe('Explore:'.length + 1);
@@ -508,7 +562,11 @@ Expected: FAIL — `description` not in type, and summary still shows `agent_typ
 In `source/feed/types.ts`:
 
 ```typescript
-export type SubagentStartData = {agent_id: string; agent_type: string; description?: string};
+export type SubagentStartData = {
+	agent_id: string;
+	agent_type: string;
+	description?: string;
+};
 export type SubagentStopData = {
 	agent_id: string;
 	agent_type: string;
@@ -624,6 +682,7 @@ git commit -m "feat: enrich subagent events with Task description"
 ### Task 6: Update agent.message summary — first sentence only
 
 **Files:**
+
 - Modify: `source/feed/timeline.test.ts`
 - Modify: `source/feed/timeline.ts`
 
@@ -636,7 +695,8 @@ it('extracts first sentence from long agent.message', () => {
 		...base({kind: 'agent.message'}),
 		kind: 'agent.message' as const,
 		data: {
-			message: 'Here is a summary of what was accomplished. Completed: Google Search E2E Test Case Specifications.',
+			message:
+				'Here is a summary of what was accomplished. Completed: Google Search E2E Test Case Specifications.',
 			scope: 'root' as const,
 		},
 	};
@@ -706,6 +766,7 @@ git commit -m "feat: show first sentence only for agent.message summaries"
 ### Task 7: Update lifecycle event summaries — drop key=value syntax
 
 **Files:**
+
 - Modify: `source/feed/timeline.test.ts`
 - Modify: `source/feed/timeline.ts`
 
@@ -746,7 +807,12 @@ it('formats run.end with natural text', () => {
 		kind: 'run.end' as const,
 		data: {
 			status: 'completed' as const,
-			counters: {tool_uses: 5, tool_failures: 0, permission_requests: 1, blocks: 0},
+			counters: {
+				tool_uses: 5,
+				tool_failures: 0,
+				permission_requests: 1,
+				blocks: 0,
+			},
 		},
 	};
 	expect(eventSummary(ev).text).toBe('completed — 5 tools, 0 failures');

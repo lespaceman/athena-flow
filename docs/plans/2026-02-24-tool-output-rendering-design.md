@@ -52,6 +52,7 @@ Parse `structuredPatch` from Edit tool response into `DiffHunk[]` with line numb
 ### Renderer (`DiffBlock.tsx`)
 
 **Unified mode** (< 120 cols):
+
 ```
 source/utils/foo.ts
 @@ -10,7 +10,8 @@ function foo()
@@ -62,6 +63,7 @@ source/utils/foo.ts
 ```
 
 **Side-by-side mode** (≥ 120 cols):
+
 ```
 source/utils/foo.ts
 @@ -10,7 +10,8 @@ function foo()
@@ -148,21 +150,21 @@ source/components/PostToolResult.tsx
 
 ```typescript
 export function hyperlink(text: string, url: string): string;
-export function supportsHyperlinks(): boolean;   // cached at startup
+export function supportsHyperlinks(): boolean; // cached at startup
 export function fileLink(filePath: string, line?: number, col?: number): string;
 export function urlLink(url: string, displayText?: string): string;
 ```
 
 ### Auto-Detection
 
-| Signal | Terminals |
-|--------|-----------|
-| `TERM_PROGRAM=iTerm.app` | iTerm2 |
-| `TERM_PROGRAM=WezTerm` | WezTerm |
-| `WT_SESSION` set | Windows Terminal |
-| `VTE_VERSION >= 5000` | GNOME Terminal, Tilix |
-| `TERM_PROGRAM=Hyper` | Hyper |
-| `TERM=xterm-kitty` | Kitty |
+| Signal                   | Terminals             |
+| ------------------------ | --------------------- |
+| `TERM_PROGRAM=iTerm.app` | iTerm2                |
+| `TERM_PROGRAM=WezTerm`   | WezTerm               |
+| `WT_SESSION` set         | Windows Terminal      |
+| `VTE_VERSION >= 5000`    | GNOME Terminal, Tilix |
+| `TERM_PROGRAM=Hyper`     | Hyper                 |
+| `TERM=xterm-kitty`       | Kitty                 |
 
 Override: `ATHENA_HYPERLINKS=1|0` env var. Falls back to `false`.
 
@@ -183,12 +185,12 @@ Bash output regex: `/(?:\/[\w.-]+)+(?::\d+(?::\d+)?)/g`
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
-| `source/types/toolOutput.ts` | Add `DiffHunk`, `DiffLine`, `displayMode`, `groupBy` fields |
-| `source/utils/toolExtractors.ts` | Enrich `extractEdit`, `extractGlob`, `extractGrep` |
-| `source/utils/hyperlink.ts` | **New** — OSC 8 utility with detection |
-| `source/components/ToolOutput/DiffBlock.tsx` | Hunk rendering, line numbers, side-by-side |
-| `source/components/ToolOutput/StructuredList.tsx` | Tree mode, grouped mode |
-| `source/components/ToolOutput/MarkdownText.tsx` | OSC 8 link renderer override |
-| `source/components/ToolOutput/CodeBlock.tsx` | File path regex + OSC 8 |
+| File                                              | Change                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------- |
+| `source/types/toolOutput.ts`                      | Add `DiffHunk`, `DiffLine`, `displayMode`, `groupBy` fields |
+| `source/utils/toolExtractors.ts`                  | Enrich `extractEdit`, `extractGlob`, `extractGrep`          |
+| `source/utils/hyperlink.ts`                       | **New** — OSC 8 utility with detection                      |
+| `source/components/ToolOutput/DiffBlock.tsx`      | Hunk rendering, line numbers, side-by-side                  |
+| `source/components/ToolOutput/StructuredList.tsx` | Tree mode, grouped mode                                     |
+| `source/components/ToolOutput/MarkdownText.tsx`   | OSC 8 link renderer override                                |
+| `source/components/ToolOutput/CodeBlock.tsx`      | File path regex + OSC 8                                     |

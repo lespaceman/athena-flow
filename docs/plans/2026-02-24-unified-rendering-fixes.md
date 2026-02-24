@@ -15,6 +15,7 @@
 `marked-terminal` replaces `:` with `*#COLON|*` inside `codespan()`. The built-in `listitem` renderer undoes this via `this.transform`, but our custom list renderer in `markedFactory.ts` bypasses that pipeline — so colons inside backtick code spans in list items render as `*#COLON|*`.
 
 **Files:**
+
 - Create: `source/utils/markedFactory.test.ts`
 - Modify: `source/utils/markedFactory.ts:45-46`
 
@@ -51,18 +52,18 @@ Expected: FAIL — output contains `*#COLON|*` instead of `:`
 In `source/utils/markedFactory.ts`, change lines 45-46 from:
 
 ```typescript
-			const inlined = m.parseInline(item.text);
-			const text = typeof inlined === 'string' ? inlined : item.text;
+const inlined = m.parseInline(item.text);
+const text = typeof inlined === 'string' ? inlined : item.text;
 ```
 
 to:
 
 ```typescript
-			const inlined = m.parseInline(item.text);
-			const text =
-				typeof inlined === 'string'
-					? inlined.replace(/\*#COLON\|\*/g, ':')
-					: item.text;
+const inlined = m.parseInline(item.text);
+const text =
+	typeof inlined === 'string'
+		? inlined.replace(/\*#COLON\|\*/g, ':')
+		: item.text;
 ```
 
 **Step 4: Run test to verify it passes**
@@ -88,6 +89,7 @@ them, causing literal *#COLON|* in rendered list items."
 `eventSummaryText()` passes raw markdown to `compactText()` for single-line feed display. Markdown syntax (`**bold**`, `## headings`, `` `code` ``) appears literally instead of being stripped.
 
 **Files:**
+
 - Modify: `source/feed/timeline.test.ts`
 - Modify: `source/feed/timeline.ts:216-217`
 
@@ -155,19 +157,19 @@ function stripMarkdownInline(text: string): string {
 Then change line 217 from:
 
 ```typescript
-		return compactText(event.data.message, 200);
+return compactText(event.data.message, 200);
 ```
 
 to:
 
 ```typescript
-		return compactText(stripMarkdownInline(event.data.message), 200);
+return compactText(stripMarkdownInline(event.data.message), 200);
 ```
 
 Also apply to `notification` (line 192) since notifications may also contain markdown:
 
 ```typescript
-		return compactText(stripMarkdownInline(event.data.message), 200);
+return compactText(stripMarkdownInline(event.data.message), 200);
 ```
 
 **Step 4: Run test to verify it passes**
@@ -193,6 +195,7 @@ compactText() for single-line display."
 `toAscii()` replaces all non-ASCII with `?` via `/[^\x20-\x7e]/g`. Used in `useTodoPanel.ts` for ID generation, it mangles unicode glyphs even when `--ascii=false`.
 
 **Files:**
+
 - Modify: `source/hooks/useTodoPanel.ts:8,55`
 - Modify: `source/utils/format.ts:3-6`
 - Modify: `source/utils/format.test.ts:3,16-29`
@@ -206,9 +209,7 @@ describe('toAscii removal verification', () => {
 	it('toAscii is no longer exported', () => {
 		// After deletion, this import would fail at compile time.
 		// This test documents that toAscii was intentionally removed.
-		expect(
-			Object.keys(await import('./format.js')),
-		).not.toContain('toAscii');
+		expect(Object.keys(await import('./format.js'))).not.toContain('toAscii');
 	});
 });
 ```
@@ -220,16 +221,19 @@ Actually, simpler: just verify the fix in `useTodoPanel.ts` directly. But since 
 In `source/hooks/useTodoPanel.ts`:
 
 Remove the import on line 8:
+
 ```typescript
 import {toAscii} from '../utils/format.js';
 ```
 
 Change line 55 from:
+
 ```typescript
 		id: `task-${index}-${toAscii(task.content).slice(0, 16)}`,
 ```
 
 to:
+
 ```typescript
 		id: `task-${index}-${task.content.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
 ```
@@ -237,6 +241,7 @@ to:
 **Step 3: Delete toAscii from format.ts**
 
 In `source/utils/format.ts`, delete lines 4-6:
+
 ```typescript
 export function toAscii(value: string): string {
 	return value.replace(/[^\x20-\x7e]/g, '?');

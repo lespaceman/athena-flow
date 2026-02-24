@@ -13,6 +13,7 @@
 ### Task 1: Add `tool.success` and `tool.failure` glyphs to registry
 
 **Files:**
+
 - Modify: `source/glyphs/registry.ts:8-68` (GlyphKey type)
 - Modify: `source/glyphs/registry.ts:70-146` (GLYPH_REGISTRY object)
 - Test: `source/glyphs/registry.test.ts` (if exists, else skip — registry is type-checked)
@@ -58,6 +59,7 @@ git commit -m "feat(glyphs): add tool.success, tool.failure, tool.pending glyphs
 ### Task 2: Create `summarizeToolResult` function
 
 **Files:**
+
 - Create: `source/utils/toolSummary.ts`
 - Create: `source/utils/toolSummary.test.ts`
 
@@ -71,20 +73,28 @@ import {summarizeToolResult} from './toolSummary.js';
 
 describe('summarizeToolResult', () => {
 	it('summarizes Bash success with exit 0', () => {
-		const result = summarizeToolResult('Bash', {command: 'ls'}, {
-			stdout: 'file1\nfile2\n',
-			stderr: '',
-			exitCode: 0,
-		});
+		const result = summarizeToolResult(
+			'Bash',
+			{command: 'ls'},
+			{
+				stdout: 'file1\nfile2\n',
+				stderr: '',
+				exitCode: 0,
+			},
+		);
 		expect(result).toBe('exit 0');
 	});
 
 	it('summarizes Bash failure with exit code and first stderr line', () => {
-		const result = summarizeToolResult('Bash', {command: 'bad-cmd'}, {
-			stdout: '',
-			stderr: 'command not found: bad-cmd\nsome other line',
-			exitCode: 127,
-		});
+		const result = summarizeToolResult(
+			'Bash',
+			{command: 'bad-cmd'},
+			{
+				stdout: '',
+				stderr: 'command not found: bad-cmd\nsome other line',
+				exitCode: 127,
+			},
+		);
 		expect(result).toBe('exit 127 — command not found: bad-cmd');
 	});
 
@@ -96,47 +106,71 @@ describe('summarizeToolResult', () => {
 	});
 
 	it('summarizes Edit with line count', () => {
-		const result = summarizeToolResult('Edit', {
-			file_path: 'src/app.tsx',
-			old_string: 'foo\nbar',
-			new_string: 'baz\nqux\nquux',
-		}, {filePath: 'src/app.tsx', success: true});
+		const result = summarizeToolResult(
+			'Edit',
+			{
+				file_path: 'src/app.tsx',
+				old_string: 'foo\nbar',
+				new_string: 'baz\nqux\nquux',
+			},
+			{filePath: 'src/app.tsx', success: true},
+		);
 		expect(result).toBe('replaced 2 → 3 lines');
 	});
 
 	it('summarizes Write with file path', () => {
-		const result = summarizeToolResult('Write', {
-			file_path: '/tmp/output.txt',
-			content: 'hello',
-		}, {filePath: '/tmp/output.txt', success: true});
+		const result = summarizeToolResult(
+			'Write',
+			{
+				file_path: '/tmp/output.txt',
+				content: 'hello',
+			},
+			{filePath: '/tmp/output.txt', success: true},
+		);
 		expect(result).toBe('wrote /tmp/output.txt');
 	});
 
 	it('summarizes Glob with file count', () => {
-		const result = summarizeToolResult('Glob', {pattern: '**/*.ts'}, {
-			filenames: ['a.ts', 'b.ts', 'c.ts'],
-			numFiles: 3,
-		});
+		const result = summarizeToolResult(
+			'Glob',
+			{pattern: '**/*.ts'},
+			{
+				filenames: ['a.ts', 'b.ts', 'c.ts'],
+				numFiles: 3,
+			},
+		);
 		expect(result).toBe('3 files');
 	});
 
 	it('summarizes Grep with match count', () => {
-		const result = summarizeToolResult('Grep', {pattern: 'foo'}, 'a.ts:1:foo\nb.ts:5:foo bar');
+		const result = summarizeToolResult(
+			'Grep',
+			{pattern: 'foo'},
+			'a.ts:1:foo\nb.ts:5:foo bar',
+		);
 		expect(result).toBe('2 matches');
 	});
 
 	it('summarizes WebSearch with result count', () => {
-		const result = summarizeToolResult('WebSearch', {query: 'test'}, {
-			results: [{content: [{title: 'A'}, {title: 'B'}]}],
-		});
+		const result = summarizeToolResult(
+			'WebSearch',
+			{query: 'test'},
+			{
+				results: [{content: [{title: 'A'}, {title: 'B'}]}],
+			},
+		);
 		expect(result).toBe('2 results');
 	});
 
 	it('summarizes Task with agent type', () => {
-		const result = summarizeToolResult('Task', {
-			subagent_type: 'Explore',
-			description: 'Find files',
-		}, {status: 'completed', content: [{type: 'text', text: 'done'}]});
+		const result = summarizeToolResult(
+			'Task',
+			{
+				subagent_type: 'Explore',
+				description: 'Find files',
+			},
+			{status: 'completed', content: [{type: 'text', text: 'done'}]},
+		);
 		expect(result).toBe('Explore — done');
 	});
 
@@ -146,7 +180,12 @@ describe('summarizeToolResult', () => {
 	});
 
 	it('summarizes failure with error string', () => {
-		const result = summarizeToolResult('Bash', {command: 'x'}, undefined, 'command not found');
+		const result = summarizeToolResult(
+			'Bash',
+			{command: 'x'},
+			undefined,
+			'command not found',
+		);
 		expect(result).toBe('command not found');
 	});
 });
@@ -190,10 +229,7 @@ function extractFileContent(response: unknown): string | undefined {
 	return undefined;
 }
 
-type Summarizer = (
-	input: Record<string, unknown>,
-	response: unknown,
-) => string;
+type Summarizer = (input: Record<string, unknown>, response: unknown) => string;
 
 function summarizeBash(
 	_input: Record<string, unknown>,
@@ -227,8 +263,10 @@ function summarizeEdit(
 	input: Record<string, unknown>,
 	_response: unknown,
 ): string {
-	const oldStr = typeof input['old_string'] === 'string' ? input['old_string'] : '';
-	const newStr = typeof input['new_string'] === 'string' ? input['new_string'] : '';
+	const oldStr =
+		typeof input['old_string'] === 'string' ? input['old_string'] : '';
+	const newStr =
+		typeof input['new_string'] === 'string' ? input['new_string'] : '';
 	const oldLines = oldStr.split('\n').length;
 	const newLines = newStr.split('\n').length;
 	return `replaced ${oldLines} → ${newLines} lines`;
@@ -348,6 +386,7 @@ git commit -m "feat(feed): add summarizeToolResult for merged tool event summari
 This is the core visual component. It replaces `UnifiedToolCallEvent` for `tool.pre` events, rendering differently based on whether a paired `tool.post`/`tool.failure` exists.
 
 **Files:**
+
 - Create: `source/components/MergedToolCallEvent.tsx`
 - Create: `source/components/MergedToolCallEvent.test.tsx`
 
@@ -690,6 +729,7 @@ git commit -m "feat(feed): add MergedToolCallEvent component for paired tool ren
 ### Task 4: Build `postByToolUseId` lookup map in `useFeed`
 
 **Files:**
+
 - Modify: `source/hooks/useFeed.ts:357-373` (items useMemo)
 - Modify: `source/hooks/useFeed.ts:52-77` (UseFeedResult type)
 
@@ -723,8 +763,17 @@ function makeFeedEvent(
 describe('buildPostByToolUseId', () => {
 	it('maps tool.post events by tool_use_id', () => {
 		const events: FeedEvent[] = [
-			makeFeedEvent('tool.pre', {tool_name: 'Bash', tool_input: {}, tool_use_id: 'tu-1'}),
-			makeFeedEvent('tool.post', {tool_name: 'Bash', tool_input: {}, tool_use_id: 'tu-1', tool_response: 'ok'}),
+			makeFeedEvent('tool.pre', {
+				tool_name: 'Bash',
+				tool_input: {},
+				tool_use_id: 'tu-1',
+			}),
+			makeFeedEvent('tool.post', {
+				tool_name: 'Bash',
+				tool_input: {},
+				tool_use_id: 'tu-1',
+				tool_response: 'ok',
+			}),
 		];
 		const map = buildPostByToolUseId(events);
 		expect(map.get('tu-1')).toBeDefined();
@@ -733,8 +782,17 @@ describe('buildPostByToolUseId', () => {
 
 	it('maps tool.failure events by tool_use_id', () => {
 		const events: FeedEvent[] = [
-			makeFeedEvent('tool.pre', {tool_name: 'Bash', tool_input: {}, tool_use_id: 'tu-2'}),
-			makeFeedEvent('tool.failure', {tool_name: 'Bash', tool_input: {}, tool_use_id: 'tu-2', error: 'fail'}),
+			makeFeedEvent('tool.pre', {
+				tool_name: 'Bash',
+				tool_input: {},
+				tool_use_id: 'tu-2',
+			}),
+			makeFeedEvent('tool.failure', {
+				tool_name: 'Bash',
+				tool_input: {},
+				tool_use_id: 'tu-2',
+				error: 'fail',
+			}),
 		];
 		const map = buildPostByToolUseId(events);
 		expect(map.get('tu-2')?.kind).toBe('tool.failure');
@@ -742,7 +800,11 @@ describe('buildPostByToolUseId', () => {
 
 	it('returns empty map for events without tool_use_id', () => {
 		const events: FeedEvent[] = [
-			makeFeedEvent('tool.post', {tool_name: 'Bash', tool_input: {}, tool_response: 'ok'}),
+			makeFeedEvent('tool.post', {
+				tool_name: 'Bash',
+				tool_input: {},
+				tool_response: 'ok',
+			}),
 		];
 		const map = buildPostByToolUseId(events);
 		expect(map.size).toBe(0);
@@ -787,16 +849,16 @@ export function buildPostByToolUseId(
 In `UseFeedResult` type (around line 52), add:
 
 ```typescript
-	postByToolUseId: Map<string, FeedEvent>;
+postByToolUseId: Map<string, FeedEvent>;
 ```
 
 In the useMemo or return block, add a computed map. Add a new `useMemo` after the `items` memo (around line 373):
 
 ```typescript
-	const postByToolUseId = useMemo(
-		() => buildPostByToolUseId(feedEvents),
-		[feedEvents],
-	);
+const postByToolUseId = useMemo(
+	() => buildPostByToolUseId(feedEvents),
+	[feedEvents],
+);
 ```
 
 Then add `postByToolUseId` to the return object (around line 392).
@@ -823,6 +885,7 @@ git commit -m "feat(feed): add postByToolUseId lookup map to useFeed"
 ### Task 5: Wire `postByToolUseId` through FeedList → HookEvent → MergedToolCallEvent
 
 **Files:**
+
 - Modify: `source/components/FeedList.tsx:9-15` (Props type), `source/components/FeedList.tsx:21-58` (renderItem), `source/components/FeedList.tsx:60-125` (FeedList component)
 - Modify: `source/components/HookEvent.tsx:10-20` (Props type), `source/components/HookEvent.tsx:22-104` (routing logic)
 - Modify: `source/feed/expandable.ts` (add `tool.post` and `tool.failure` to expandable set for merged events)
@@ -833,6 +896,7 @@ git commit -m "feat(feed): add postByToolUseId lookup map to useFeed"
 In `source/components/HookEvent.tsx`:
 
 1. Add `postByToolUseId` to the Props type:
+
 ```typescript
 type Props = {
 	event: FeedEvent;
@@ -844,15 +908,24 @@ type Props = {
 ```
 
 2. Import `MergedToolCallEvent`:
+
 ```typescript
 import MergedToolCallEvent from './MergedToolCallEvent.js';
 ```
 
 3. Add `VERBOSE_ONLY_KINDS` set (from design doc) at top of file:
+
 ```typescript
 const VERBOSE_ONLY_KINDS: ReadonlySet<FeedEventKind> = new Set([
-	'session.start', 'session.end', 'run.start', 'run.end',
-	'user.prompt', 'notification', 'unknown.hook', 'compact.pre', 'config.change',
+	'session.start',
+	'session.end',
+	'run.start',
+	'run.end',
+	'user.prompt',
+	'notification',
+	'unknown.hook',
+	'compact.pre',
+	'config.change',
 ]);
 ```
 
@@ -878,6 +951,7 @@ if (
 ```
 
 5. For `tool.pre` (non-special tools), replace `UnifiedToolCallEvent` with:
+
 ```typescript
 if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
 	const postEvent = event.data.tool_use_id
@@ -900,6 +974,7 @@ if (event.kind === 'tool.pre' || event.kind === 'permission.request') {
 In `source/components/FeedList.tsx`:
 
 1. Add to Props:
+
 ```typescript
 type Props = {
 	items: FeedItem[];
@@ -912,6 +987,7 @@ type Props = {
 ```
 
 2. Update `renderItem` to accept and forward `postByToolUseId`:
+
 ```typescript
 function renderItem(
 	item: FeedItem,
@@ -924,6 +1000,7 @@ function renderItem(
 ```
 
 3. Pass it to `HookEvent`:
+
 ```typescript
 <HookEvent
 	event={event}
@@ -1029,6 +1106,7 @@ git commit -m "feat(feed): wire merged tool events through FeedList → HookEven
 The expand/collapse affordance (`▸`/`▾`) should work on merged tool events.
 
 **Files:**
+
 - Modify: `source/feed/expandable.ts`
 
 **Step 1: Verify current behavior**
@@ -1042,6 +1120,7 @@ No changes needed to `expandable.ts`. Skip this task.
 ### Task 7: Clean up — remove UnifiedToolCallEvent import from HookEvent
 
 **Files:**
+
 - Modify: `source/components/HookEvent.tsx` — remove `UnifiedToolCallEvent` import if no longer used
 
 **Step 1: Check if UnifiedToolCallEvent is still needed**
@@ -1055,6 +1134,7 @@ Note: Do NOT delete `UnifiedToolCallEvent.tsx` itself — it may be imported in 
 Run: `grep -r "UnifiedToolCallEvent" source/ --include="*.ts" --include="*.tsx" -l`
 
 If only `HookEvent.tsx` and its own test file import it:
+
 - Remove the import from `HookEvent.tsx`
 - Update `UnifiedToolCallEvent.test.tsx` tests to use `MergedToolCallEvent` instead, or delete them if fully covered by new tests
 
@@ -1075,6 +1155,7 @@ git commit -m "refactor(feed): remove UnifiedToolCallEvent in favor of MergedToo
 ### Task 8: Final integration test — end-to-end feed rendering
 
 **Files:**
+
 - Verify: `source/components/__tests__/FeedList.test.tsx` or add a new integration-level test
 
 **Step 1: Write an integration test**
@@ -1140,16 +1221,16 @@ git commit -m "test(feed): add integration test for merged tool event rendering"
 
 ### Summary
 
-| Task | Description | Estimated Steps |
-|------|-------------|----------------|
-| 1 | Add glyphs to registry | 4 steps |
-| 2 | Create `summarizeToolResult` | 6 steps |
-| 3 | Create `MergedToolCallEvent` component | 6 steps |
-| 4 | Build `postByToolUseId` lookup in useFeed | 7 steps |
-| 5 | Wire everything through FeedList → HookEvent | 8 steps |
-| 6 | ~~Update expandable set~~ (skipped — already works) | 0 |
-| 7 | Clean up UnifiedToolCallEvent | 4 steps |
-| 8 | Integration test | 4 steps |
+| Task | Description                                         | Estimated Steps |
+| ---- | --------------------------------------------------- | --------------- |
+| 1    | Add glyphs to registry                              | 4 steps         |
+| 2    | Create `summarizeToolResult`                        | 6 steps         |
+| 3    | Create `MergedToolCallEvent` component              | 6 steps         |
+| 4    | Build `postByToolUseId` lookup in useFeed           | 7 steps         |
+| 5    | Wire everything through FeedList → HookEvent        | 8 steps         |
+| 6    | ~~Update expandable set~~ (skipped — already works) | 0               |
+| 7    | Clean up UnifiedToolCallEvent                       | 4 steps         |
+| 8    | Integration test                                    | 4 steps         |
 
 **Total: 7 tasks, ~39 steps**
 

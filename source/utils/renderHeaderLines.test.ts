@@ -3,8 +3,6 @@ import stripAnsi from 'strip-ansi';
 import type {HeaderModel} from './headerModel.js';
 import {renderHeaderLines} from './renderHeaderLines.js';
 
-const NOW = new Date('2026-02-20T14:30:45Z').getTime();
-
 const fullModel: HeaderModel = {
 	session_id: 'sess_abc123def456',
 	workflow: 'web.login.smoke',

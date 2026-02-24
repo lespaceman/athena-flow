@@ -16,7 +16,6 @@ export function renderHeaderLines(
 	model: HeaderModel,
 	width: number,
 	hasColor: boolean,
-	_now?: number,
 ): [string] {
 	const SEP = '   ';
 	const athena = hasColor ? chalk.bold('ATHENA FLOW') : 'ATHENA FLOW';
@@ -51,7 +50,7 @@ export function renderHeaderLines(
 		return ts.map(t => t.text).join(SEP);
 	}
 
-	let current = [...tokens];
+	const current = [...tokens];
 	const totalTarget = width - 1;
 
 	while (current.length > 1 && stringWidth(buildLine(current)) > totalTarget) {

@@ -15,6 +15,7 @@
 ### Task 1: Mapper — agent.message generation from Stop (TDD)
 
 **Files:**
+
 - Modify: `source/feed/mapper.ts:389-406` (Stop case)
 - Test: `source/feed/__tests__/mapper.test.ts`
 
@@ -155,6 +156,7 @@ git commit -m "feat(mapper): generate agent.message from Stop events"
 ### Task 2: Mapper — agent.message generation from SubagentStop (TDD)
 
 **Files:**
+
 - Modify: `source/feed/mapper.ts:433-461` (SubagentStop case)
 - Test: `source/feed/__tests__/mapper.test.ts`
 
@@ -294,6 +296,7 @@ git commit -m "feat(mapper): generate agent.message from SubagentStop events"
 ### Task 3: Store — add recordFeedEvents method (TDD)
 
 **Files:**
+
 - Modify: `source/sessions/store.ts`
 - Create: `source/sessions/__tests__/store.test.ts`
 
@@ -330,7 +333,10 @@ describe('SessionStore', () => {
 			dbPath: ':memory:',
 		});
 
-		const fe = makeFeedEvent({event_id: 'decision-1', kind: 'permission.decision'});
+		const fe = makeFeedEvent({
+			event_id: 'decision-1',
+			kind: 'permission.decision',
+		});
 		store.recordFeedEvents([fe]);
 
 		const restored = store.restore();
@@ -401,7 +407,7 @@ Add to the `SessionStore` type:
 ```typescript
 export type SessionStore = {
 	recordEvent(event: RuntimeEvent, feedEvents: FeedEvent[]): void;
-	recordFeedEvents(feedEvents: FeedEvent[]): void;  // NEW
+	recordFeedEvents(feedEvents: FeedEvent[]): void; // NEW
 	restore(): StoredSession;
 	getAthenaSession(): AthenaSession;
 	updateLabel(label: string): void;
@@ -425,8 +431,14 @@ const recordEventAtomic = db.transaction(
 		recordRuntimeEvent(event);
 		for (const fe of feedEvents) {
 			insertFeedEvent.run(
-				fe.event_id, event.id, fe.seq, fe.kind,
-				fe.run_id, fe.actor_id, fe.ts, JSON.stringify(fe),
+				fe.event_id,
+				event.id,
+				fe.seq,
+				fe.kind,
+				fe.run_id,
+				fe.actor_id,
+				fe.ts,
+				JSON.stringify(fe),
 			);
 		}
 		updateEventCount.run(feedEvents.length, opts.sessionId);
@@ -437,18 +449,22 @@ const recordEventAtomic = db.transaction(
 Add the new `recordFeedEvents` transaction:
 
 ```typescript
-const recordFeedEventsAtomic = db.transaction(
-	(feedEvents: FeedEvent[]) => {
-		for (const fe of feedEvents) {
-			insertFeedEvent.run(
-				fe.event_id, null, fe.seq, fe.kind,
-				fe.run_id, fe.actor_id, fe.ts, JSON.stringify(fe),
-			);
-		}
-		updateEventCount.run(feedEvents.length, opts.sessionId);
-		updateSessionTimestamp.run(Date.now(), opts.sessionId);
-	},
-);
+const recordFeedEventsAtomic = db.transaction((feedEvents: FeedEvent[]) => {
+	for (const fe of feedEvents) {
+		insertFeedEvent.run(
+			fe.event_id,
+			null,
+			fe.seq,
+			fe.kind,
+			fe.run_id,
+			fe.actor_id,
+			fe.ts,
+			JSON.stringify(fe),
+		);
+	}
+	updateEventCount.run(feedEvents.length, opts.sessionId);
+	updateSessionTimestamp.run(Date.now(), opts.sessionId);
+});
 
 function recordFeedEvents(feedEvents: FeedEvent[]): void {
 	recordFeedEventsAtomic(feedEvents);
@@ -481,6 +497,7 @@ git commit -m "feat(store): add recordFeedEvents and event_count tracking"
 ### Task 4: useFeed — remove enrichStopEvent, persist decisions
 
 **Files:**
+
 - Modify: `source/hooks/useFeed.ts`
 - Delete: `source/hooks/__tests__/useFeedEnrichStop.test.ts`
 
@@ -558,6 +575,7 @@ git commit -m "refactor(useFeed): unify persistence pipeline, remove enrichStopE
 ### Task 5: Registry — add findSessionByAdapterId (TDD)
 
 **Files:**
+
 - Modify: `source/sessions/registry.ts`
 - Create: `source/sessions/__tests__/registry.test.ts`
 
@@ -599,13 +617,20 @@ describe('findSessionByAdapterId', () => {
 			sessionId: 'claude-adapter-abc',
 			context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},
 			interaction: {expectsDecision: false},
-			payload: {hook_event_name: 'SessionStart', session_id: 'claude-adapter-abc'},
+			payload: {
+				hook_event_name: 'SessionStart',
+				session_id: 'claude-adapter-abc',
+			},
 		};
 		store.recordEvent(runtimeEvent, []);
 		store.close();
 
 		// findSessionByAdapterId should find it
-		const result = findSessionByAdapterId('claude-adapter-abc', projectDir, tmpDir);
+		const result = findSessionByAdapterId(
+			'claude-adapter-abc',
+			projectDir,
+			tmpDir,
+		);
 		expect(result).not.toBeNull();
 		expect(result!.id).toBe(sessionId);
 	});
@@ -671,6 +696,7 @@ git commit -m "feat(registry): add findSessionByAdapterId for session identity l
 ### Task 6: CLI — rewrite --continue resolution to Athena-only
 
 **Files:**
+
 - Modify: `source/cli.tsx:220-242`
 
 **Step 1: Rewrite the --continue block**
@@ -694,12 +720,17 @@ if (cli.flags.continue) {
 		initialSessionId = meta.adapterSessionIds.at(-1);
 	} else {
 		// Backwards compat: maybe user passed a Claude adapter session ID
-		const owner = findSessionByAdapterId(cli.flags.continue, cli.flags.projectDir);
+		const owner = findSessionByAdapterId(
+			cli.flags.continue,
+			cli.flags.projectDir,
+		);
 		if (owner) {
 			athenaSessionId = owner.id;
 			initialSessionId = cli.flags.continue;
 		} else {
-			console.error(`Session not found: ${cli.flags.continue}. Starting new session.`);
+			console.error(
+				`Session not found: ${cli.flags.continue}. Starting new session.`,
+			);
 			athenaSessionId = crypto.randomUUID();
 		}
 	}
@@ -723,7 +754,12 @@ if (cli.flags.continue) {
 Add `findSessionByAdapterId` to the import from `'./sessions/registry.js'`:
 
 ```typescript
-import {listSessions, getSessionMeta, getMostRecentAthenaSession, findSessionByAdapterId} from './sessions/registry.js';
+import {
+	listSessions,
+	getSessionMeta,
+	getMostRecentAthenaSession,
+	findSessionByAdapterId,
+} from './sessions/registry.js';
 ```
 
 Remove the `getMostRecentSession` import from `'./utils/sessionIndex.js'`:
@@ -751,6 +787,7 @@ git commit -m "fix(cli): resolve --continue via Athena registry only"
 ### Task 7: App — deferred spawn (remove auto-spawn on mount)
 
 **Files:**
+
 - Modify: `source/app.tsx`
 
 **Step 1: Remove the auto-spawn useEffect**
@@ -820,6 +857,7 @@ git commit -m "fix(app): defer Claude spawn until first user prompt"
 ### Task 8: Mapper — rebuild currentRun on restore (TDD)
 
 **Files:**
+
 - Modify: `source/feed/mapper.ts:36-71` (bootstrap block)
 - Test: `source/feed/__tests__/mapper.test.ts`
 
@@ -850,7 +888,9 @@ describe('bootstrap from stored session', () => {
 					level: 'info',
 					actor_id: 'system',
 					title: 'Run started',
-					data: {trigger: {type: 'user_prompt_submit', prompt_preview: 'fix bug'}},
+					data: {
+						trigger: {type: 'user_prompt_submit', prompt_preview: 'fix bug'},
+					},
 				},
 				{
 					event_id: 'sess-1:R1:E2',
@@ -1009,6 +1049,7 @@ git commit -m "feat(mapper): rebuild currentRun from stored events on bootstrap"
 ### Task 9: HookContext — close SessionStore on unmount
 
 **Files:**
+
 - Modify: `source/context/HookContext.tsx`
 
 **Step 1: Add useEffect cleanup**
@@ -1042,6 +1083,7 @@ git commit -m "fix(HookContext): close SessionStore on unmount to prevent DB lea
 ### Task 10: Session picker — use eventCount instead of adapter count
 
 **Files:**
+
 - Modify: `source/app.tsx:770`
 - Modify: `source/sessions/registry.ts` (readSessionFromDb to read event_count)
 
@@ -1093,6 +1135,7 @@ git commit -m "fix(picker): show feed event count instead of adapter session cou
 ### Task 11: Mapper — add correlation index comment
 
 **Files:**
+
 - Modify: `source/feed/mapper.ts:30-34`
 
 **Step 1: Add comment**

@@ -17,6 +17,7 @@
 OSC 8 is a foundation used by Tasks 2-4, so it comes first.
 
 **Files:**
+
 - Create: `source/utils/hyperlink.ts`
 - Create: `source/utils/hyperlink.test.ts`
 
@@ -89,7 +90,9 @@ describe('hyperlink', () => {
 		it('wraps text with OSC 8 sequences when supported', () => {
 			vi.stubEnv('ATHENA_HYPERLINKS', '1');
 			const result = hyperlink('click me', 'https://example.com');
-			expect(result).toBe('\x1b]8;;https://example.com\x07click me\x1b]8;;\x07');
+			expect(result).toBe(
+				'\x1b]8;;https://example.com\x07click me\x1b]8;;\x07',
+			);
 		});
 
 		it('returns plain text when not supported', () => {
@@ -235,6 +238,7 @@ git commit -m "feat(hyperlink): add OSC 8 hyperlink utility with auto-detection"
 ## Task 2: Enrich Types (`toolOutput.ts`)
 
 **Files:**
+
 - Modify: `source/types/toolOutput.ts`
 
 **Step 1: Write the type additions**
@@ -297,6 +301,7 @@ git commit -m "feat(types): add DiffHunk, DiffLine, displayMode, groupBy to Rend
 ## Task 3: Enrich Extractors
 
 **Files:**
+
 - Modify: `source/utils/toolExtractors.ts`
 - Modify: `source/utils/toolExtractors.test.ts`
 
@@ -449,6 +454,7 @@ git commit -m "feat(extractors): enrich Edit with hunks, Glob with tree mode, Gr
 ## Task 4: Rich Diff Renderer
 
 **Files:**
+
 - Modify: `source/components/ToolOutput/DiffBlock.tsx`
 - Modify: `source/components/ToolOutput/DiffBlock.test.tsx`
 - Modify: `source/components/ToolOutput/ToolOutputRenderer.tsx` (pass new props)
@@ -527,6 +533,7 @@ Expected: FAIL — hunks prop not recognized / not rendered
 **Step 4: Implement DiffBlock changes**
 
 Update `DiffBlock.tsx` Props to accept optional `hunks?: DiffHunk[]` and `filePath?: string`. When `hunks` is provided:
+
 - Render file path header (dim, with OSC 8 `fileLink`)
 - Render each hunk: header line (dim cyan), then lines with line numbers and `│` gutter
 - Use side-by-side layout when `availableWidth >= 120`
@@ -555,6 +562,7 @@ git commit -m "feat(DiffBlock): rich diff rendering with hunks, line numbers, an
 ## Task 5: File Tree Renderer (Glob)
 
 **Files:**
+
 - Modify: `source/components/ToolOutput/StructuredList.tsx`
 - Create: `source/components/ToolOutput/StructuredList.test.tsx`
 - Create: `source/utils/fileTree.ts` (pure tree builder)
@@ -582,10 +590,7 @@ describe('buildFileTree', () => {
 	});
 
 	it('collapses common prefix', () => {
-		const paths = [
-			'source/components/A.tsx',
-			'source/components/B.tsx',
-		];
+		const paths = ['source/components/A.tsx', 'source/components/B.tsx'];
 		const tree = buildFileTree(paths);
 		// Common prefix 'source/components/' should be collapsed
 		expect(tree.name).toBe('source/components');
@@ -595,10 +600,7 @@ describe('buildFileTree', () => {
 
 describe('renderTree', () => {
 	it('renders with box-drawing characters', () => {
-		const paths = [
-			'source/a.ts',
-			'source/b.ts',
-		];
+		const paths = ['source/a.ts', 'source/b.ts'];
 		const tree = buildFileTree(paths);
 		const lines = renderTree(tree);
 		expect(lines.some(l => l.includes('├─'))).toBe(true);
@@ -720,6 +722,7 @@ git commit -m "feat(StructuredList): file tree rendering for Glob results"
 ## Task 6: Grep Grouped-by-File Renderer
 
 **Files:**
+
 - Modify: `source/components/ToolOutput/StructuredList.tsx`
 - Modify: `source/components/ToolOutput/StructuredList.test.tsx`
 
@@ -764,6 +767,7 @@ Expected: FAIL — groupBy prop not handled
 **Step 3: Implement grouped rendering**
 
 Update `StructuredList.tsx` Props to accept `groupBy?: 'secondary'`. When set:
+
 - Parse `secondary` field to extract file path and line number (split on last `:`)
 - Group items by file path
 - Render file header (bold, with `fileLink` from hyperlink.ts)
@@ -792,6 +796,7 @@ git commit -m "feat(StructuredList): grep results grouped by file with line numb
 ## Task 7: OSC 8 Integration into Renderers
 
 **Files:**
+
 - Modify: `source/components/ToolOutput/DiffBlock.tsx` (file header link)
 - Modify: `source/components/ToolOutput/CodeBlock.tsx` (file:line regex)
 - Modify: `source/components/ToolOutput/MarkdownText.tsx` (link renderer override)
@@ -875,6 +880,7 @@ git commit -m "feat(hyperlink): integrate OSC 8 into CodeBlock, MarkdownText, an
 ## Task 8: Full Integration Test + Final Verification
 
 **Files:**
+
 - Run all tests
 - Run lint + typecheck
 - Manual smoke test

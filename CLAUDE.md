@@ -211,6 +211,7 @@ These are structural rules. Any PR violating them must be rejected.
 ### Degraded Session Behavior
 
 When `isDegraded` is true (persistence write failure occurred):
+
 - **UI continues updating** from the live event stream — feed events still render.
 - **Reads still work** — previously persisted events are intact.
 - **Writes are best-effort** — subsequent writes may also fail but are still attempted.
@@ -221,6 +222,7 @@ When `isDegraded` is true (persistence write failure occurred):
 ### Invariant Enforcement Escape Hatch
 
 If an exception to an invariant is ever needed (e.g., a test helper that constructs FeedEvents directly), it must:
+
 1. Include a comment: `// invariant-waiver: <which invariant> — <reason>`
 2. Be scoped as narrowly as possible (test files, not production code)
 3. Have a corresponding test explaining why the waiver is safe

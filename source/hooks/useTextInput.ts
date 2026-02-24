@@ -165,9 +165,9 @@ export function useTextInput(
 			// before Ink's handler consumes it.
 			let raw: string | null = null;
 
-			if (typeof (stdin as any).data === 'string') {
+			if (typeof (stdin as unknown as {data?: unknown}).data === 'string') {
 				// ink-testing-library path
-				raw = (stdin as any).data;
+				raw = (stdin as unknown as {data: string}).data;
 			} else if (typeof stdin.read === 'function') {
 				// Real Node.js stream path: consume + put back
 				const chunk = stdin.read();

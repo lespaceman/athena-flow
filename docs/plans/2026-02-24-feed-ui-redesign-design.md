@@ -11,13 +11,13 @@ The current feed renders `tool.pre` and `tool.post` as independent lines with no
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Merge strategy | Component-layer pairing (Approach C) | Zero feed model changes; respects append-only invariant and `<Static>` write-once |
-| Collapsed view | Single line: glyph + tool + outcome summary | Maximum compactness |
-| Status coloring | Purely outcome-based (green success, red failure) | Simple and honest — no guessing about intent |
-| Expanded view | Input params + output result together | Full picture in one keypress |
-| Verbose filtering | In HookEvent component (rendering decision) | Feed model still records all events for persistence |
+| Decision          | Choice                                            | Rationale                                                                         |
+| ----------------- | ------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Merge strategy    | Component-layer pairing (Approach C)              | Zero feed model changes; respects append-only invariant and `<Static>` write-once |
+| Collapsed view    | Single line: glyph + tool + outcome summary       | Maximum compactness                                                               |
+| Status coloring   | Purely outcome-based (green success, red failure) | Simple and honest — no guessing about intent                                      |
+| Expanded view     | Input params + output result together             | Full picture in one keypress                                                      |
+| Verbose filtering | In HookEvent component (rendering decision)       | Feed model still records all events for persistence                               |
 
 ## Part 1: Merged Tool Event Rendering
 
@@ -45,24 +45,31 @@ When `HookEvent` receives a `tool.pre`, it checks the map. If a matching post ex
 ### Visual States
 
 **Pending** (no tool.post yet):
+
 ```
 ⧗ Edit(source/app.tsx, old_string: "foo"...)
 ```
+
 Streaming glyph (`⧗`), muted color. Inline params truncated to terminal width (same as current `UnifiedToolCallEvent`).
 
 **Success** (tool.post arrived, no error):
+
 ```
 ✔ Edit(source/app.tsx) — replaced 3 lines
 ```
+
 Success green glyph + tool name + outcome summary.
 
 **Failure** (tool.failure arrived):
+
 ```
 ✘ Bash(npm test) — exit 1
 ```
+
 Error red glyph + tool name + failure summary.
 
 **Expanded** (Enter on any state):
+
 ```
 ✔ Edit(source/app.tsx) — replaced 3 lines
   ┄ input ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
@@ -87,44 +94,44 @@ Shows both tool input (params) and tool output (result) using existing renderers
 
 New function: `summarizeToolResult(toolName, toolInput, toolResponse) → string`
 
-| Tool | Summary |
-|---|---|
-| Edit | "replaced N lines" or file path |
-| Read | "N lines" |
-| Write | "wrote file_path" |
-| Bash | "exit 0" / "exit N" / first line of stderr |
-| Glob | "N files" |
-| Grep | "N matches in M files" |
-| WebFetch | "fetched (truncated url)" |
-| WebSearch | "N results" |
-| Task | "agent_type — done" |
-| Default | "done" / error message (first line) |
+| Tool      | Summary                                    |
+| --------- | ------------------------------------------ |
+| Edit      | "replaced N lines" or file path            |
+| Read      | "N lines"                                  |
+| Write     | "wrote file_path"                          |
+| Bash      | "exit 0" / "exit N" / first line of stderr |
+| Glob      | "N files"                                  |
+| Grep      | "N matches in M files"                     |
+| WebFetch  | "fetched (truncated url)"                  |
+| WebSearch | "N results"                                |
+| Task      | "agent_type — done"                        |
+| Default   | "done" / error message (first line)        |
 
 ### Glyph Additions
 
 Add to `GLYPH_REGISTRY`:
 
-| Key | Unicode | ASCII | Usage |
-|---|---|---|---|
-| `tool.success` | `✔` | `+` | Merged tool success |
-| `tool.failure` | `✘` | `!` | Merged tool failure |
-| `tool.pending` | `⧗` | `%` | Tool in progress (already exists as `status.streaming`) |
+| Key            | Unicode | ASCII | Usage                                                   |
+| -------------- | ------- | ----- | ------------------------------------------------------- |
+| `tool.success` | `✔`     | `+`   | Merged tool success                                     |
+| `tool.failure` | `✘`     | `!`   | Merged tool failure                                     |
+| `tool.pending` | `⧗`     | `%`   | Tool in progress (already exists as `status.streaming`) |
 
 ## Part 2: Verbose Filtering
 
 ### Event Kinds Hidden When `!verbose`
 
-| Event Kind | Reason |
-|---|---|
+| Event Kind      | Reason                             |
+| --------------- | ---------------------------------- |
 | `session.start` | Lifecycle bookend (already hidden) |
-| `session.end` | Lifecycle bookend |
-| `run.start` | Lifecycle bookend |
-| `run.end` | Lifecycle bookend |
-| `user.prompt` | Lifecycle bookend (already hidden) |
-| `notification` | Low-signal system noise |
-| `unknown.hook` | Unrecognized/unactionable |
-| `compact.pre` | Internal lifecycle |
-| `config.change` | Internal config |
+| `session.end`   | Lifecycle bookend                  |
+| `run.start`     | Lifecycle bookend                  |
+| `run.end`       | Lifecycle bookend                  |
+| `user.prompt`   | Lifecycle bookend (already hidden) |
+| `notification`  | Low-signal system noise            |
+| `unknown.hook`  | Unrecognized/unactionable          |
+| `compact.pre`   | Internal lifecycle                 |
+| `config.change` | Internal config                    |
 
 ### Implementation Location
 
@@ -132,8 +139,15 @@ Filter in **`HookEvent`** component (rendering decision, not data decision):
 
 ```tsx
 const VERBOSE_ONLY_KINDS: ReadonlySet<FeedEventKind> = new Set([
-  'session.start', 'session.end', 'run.start', 'run.end',
-  'user.prompt', 'notification', 'unknown.hook', 'compact.pre', 'config.change',
+	'session.start',
+	'session.end',
+	'run.start',
+	'run.end',
+	'user.prompt',
+	'notification',
+	'unknown.hook',
+	'compact.pre',
+	'config.change',
 ]);
 
 if (!verbose && VERBOSE_ONLY_KINDS.has(event.kind)) return null;
@@ -144,6 +158,7 @@ Feed model still records all events for persistence and replay.
 ### Verbose Mode Behavior
 
 When `--verbose` IS set:
+
 - All event kinds visible
 - Merged tool events show full JSON input/output in expanded view
 - `PostToolResult` shows raw response metadata

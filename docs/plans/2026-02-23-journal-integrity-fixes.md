@@ -14,12 +14,12 @@
 
 Before implementing, note that several audit findings reference code that has since been corrected:
 
-| Finding | Status | Notes |
-|---------|--------|-------|
-| #1 decision events not durable | **PARTIALLY FIXED** | `onDecision` callback at useFeed.ts:317 does persist via `recordFeedEvents`. But `agent.message` from Stop hook IS persisted through `mapEvent` → `recordEvent`. The real gap: restored sessions don't verify decision events survived round-trip. |
-| #3 auto-spawn on mount | **FIXED** | app.tsx uses `initialSessionRef` + deferred spawn on first prompt. No mount-triggered spawn. |
-| #4 SessionStore not closed | **FIXED** | HookContext.tsx:37-41 has useEffect cleanup calling `sessionStore.close()`. |
-| #18 enrichStopEvent bypasses mapper | **FIXED** | No `enrichStopEvent` exists. Stop enrichment is inline in mapper `mapEvent()`. |
+| Finding                             | Status              | Notes                                                                                                                                                                                                                                              |
+| ----------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #1 decision events not durable      | **PARTIALLY FIXED** | `onDecision` callback at useFeed.ts:317 does persist via `recordFeedEvents`. But `agent.message` from Stop hook IS persisted through `mapEvent` → `recordEvent`. The real gap: restored sessions don't verify decision events survived round-trip. |
+| #3 auto-spawn on mount              | **FIXED**           | app.tsx uses `initialSessionRef` + deferred spawn on first prompt. No mount-triggered spawn.                                                                                                                                                       |
+| #4 SessionStore not closed          | **FIXED**           | HookContext.tsx:37-41 has useEffect cleanup calling `sessionStore.close()`.                                                                                                                                                                        |
+| #18 enrichStopEvent bypasses mapper | **FIXED**           | No `enrichStopEvent` exists. Stop enrichment is inline in mapper `mapEvent()`.                                                                                                                                                                     |
 
 **Remaining real violations to fix:**
 
@@ -39,6 +39,7 @@ Before implementing, note that several audit findings reference code that has si
 ### Task 0: Add invariants to CLAUDE.md
 
 **Files:**
+
 - Modify: `CLAUDE.md`
 
 **Step 1: Add invariants section**
@@ -76,6 +77,7 @@ This is the ordering model fix. Currently `seq` resets to 0 per run, and UI sort
 ### Task 1.1: Write failing test — seq must be globally monotonic across runs
 
 **Files:**
+
 - Create: `source/feed/mapper.global-seq.test.ts`
 - Reference: `source/feed/mapper.ts:27` (current `seq = 0`), `source/feed/mapper.ts:194` (reset in ensureRunArray)
 
@@ -228,6 +230,7 @@ git commit -m "fix(mapper): make seq globally monotonic per session, never reset
 ### Task 1.2: Make DB schema enforce global seq uniqueness
 
 **Files:**
+
 - Modify: `source/sessions/schema.ts:55`
 
 **Step 1: Write failing test**
@@ -261,7 +264,16 @@ describe('feed_events global seq uniqueness', () => {
 		expect(() => {
 			db.prepare(
 				'INSERT INTO feed_events (event_id, runtime_event_id, seq, kind, run_id, actor_id, timestamp, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-			).run('fe2', 're1', 1, 'tool.pre', 'run-B', 'agent:root', Date.now(), '{}');
+			).run(
+				'fe2',
+				're1',
+				1,
+				'tool.pre',
+				'run-B',
+				'agent:root',
+				Date.now(),
+				'{}',
+			);
 		}).toThrow();
 
 		db.close();
@@ -315,6 +327,7 @@ git commit -m "fix(schema): enforce globally unique seq on feed_events"
 ### Task 1.3: Fix UI ordering to use seq instead of timestamp
 
 **Files:**
+
 - Modify: `source/hooks/useFeed.ts:353-357`
 - Reference: `source/hooks/useTimeline.ts:58` (if it still exists and is used)
 
@@ -335,7 +348,10 @@ describe('feed item ordering', () => {
 		const items = [
 			{type: 'feed' as const, data: {seq: 5, ts: sameTs, kind: 'tool.pre'}},
 			{type: 'feed' as const, data: {seq: 3, ts: sameTs, kind: 'stop.request'}},
-			{type: 'feed' as const, data: {seq: 7, ts: sameTs, kind: 'agent.message'}},
+			{
+				type: 'feed' as const,
+				data: {seq: 7, ts: sameTs, kind: 'agent.message'},
+			},
 		];
 
 		// Current sort uses ts — these would be unstable
@@ -389,6 +405,7 @@ git commit -m "fix(useFeed): sort feed items by seq instead of timestamp"
 ### Task 2.1: Remove adapter ID fallback from --continue resolution
 
 **Files:**
+
 - Modify: `source/cli.tsx:229-249`
 
 **Step 1: Write failing test**
@@ -427,7 +444,7 @@ if (!meta) {
 if (!meta) {
 	console.error(
 		`Unknown session ID: ${cli.flags.continue}\n` +
-		`Use 'athena-cli --list' to see available sessions.`
+			`Use 'athena-cli --list' to see available sessions.`,
 	);
 	process.exit(1); // Hard error. No silent fallback.
 }
@@ -457,6 +474,7 @@ git commit -m "fix(cli): remove adapter ID fallback from --continue, Athena ID i
 ### Task 3.1: Surface handler errors in server.ts emit()
 
 **Files:**
+
 - Modify: `source/runtime/adapters/claudeHooks/server.ts:44-51`
 
 **Step 1: Write failing test**
@@ -521,6 +539,7 @@ git commit -m "fix(server): log handler errors instead of silently swallowing th
 ### Task 3.2: Add session degradation on persistence failure
 
 **Files:**
+
 - Modify: `source/sessions/store.ts` — add `isDegraded` flag and `markDegraded()` method
 - Modify: `source/hooks/useFeed.ts:289-291, 316-318` — catch errors, mark store degraded
 - Modify: `source/hooks/useFeed.ts` (UseFeedResult type) — expose `isDegraded: boolean`
@@ -596,6 +615,7 @@ git commit -m "fix(persistence): mark session degraded on write failure instead 
 ### Task 4.1: Add proper schema versioning with migration support
 
 **Files:**
+
 - Modify: `source/sessions/schema.ts`
 - Modify: `source/sessions/registry.ts:33-38`
 
@@ -651,20 +671,24 @@ const existing = db.prepare('SELECT version FROM schema_version').get() as
 if (existing && existing.version > SCHEMA_VERSION) {
 	throw new Error(
 		`Database has newer schema version ${existing.version} (expected <= ${SCHEMA_VERSION}). ` +
-		`Update athena-cli to open this session.`,
+			`Update athena-cli to open this session.`,
 	);
 }
 
 if (!existing) {
-	db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(SCHEMA_VERSION);
+	db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(
+		SCHEMA_VERSION,
+	);
 } else if (existing.version < SCHEMA_VERSION) {
 	// Run migrations for versions between existing and current
 	// Explicit versioned migration functions — add new ones as schema evolves
 	const migrations: Record<number, (db: Database.Database) => void> = {
-		2: (db) => {
+		2: db => {
 			// v1 → v2: global seq uniqueness (replaces run-local uniqueness)
 			db.exec('DROP INDEX IF EXISTS idx_feed_run_seq');
-			db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq)');
+			db.exec(
+				'CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq)',
+			);
 		},
 	};
 
@@ -694,6 +718,7 @@ git commit -m "fix(schema): add migration framework with loud forward-compat err
 ### Task 5.1: Introduce a MapperBootstrap type to replace StoredSession import
 
 **Files:**
+
 - Create: `source/feed/bootstrap.ts`
 - Modify: `source/feed/mapper.ts:11`
 - Modify: `source/sessions/store.ts` (add `toBootstrap()` method)
@@ -753,6 +778,7 @@ git commit -m "refactor(mapper): decouple from StoredSession via MapperBootstrap
 ### Task 6.1: Round-trip restore test — all event kinds survive persistence
 
 **Files:**
+
 - Create: `source/sessions/restore.integration.test.ts`
 
 **Step 1: Write the integration test**
@@ -764,7 +790,10 @@ import {createSessionStore} from './store.js';
 import {createFeedMapper} from '../feed/mapper.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 
-function makeEvent(hookName: string, payload: Record<string, unknown>): RuntimeEvent {
+function makeEvent(
+	hookName: string,
+	payload: Record<string, unknown>,
+): RuntimeEvent {
 	return {
 		id: `evt-${Math.random().toString(36).slice(2)}`,
 		timestamp: Date.now(),
@@ -831,7 +860,10 @@ describe('restore fidelity', () => {
 			makeEvent('PreToolUse', {tool_name: 'Bash', tool_input: {command: 'ls'}}),
 			makeEvent('Stop', {stop_hook_active: true}),
 			makeEvent('UserPromptSubmit', {prompt: 'p2'}),
-			makeEvent('PreToolUse', {tool_name: 'Read', tool_input: {file_path: '/x'}}),
+			makeEvent('PreToolUse', {
+				tool_name: 'Read',
+				tool_input: {file_path: '/x'},
+			}),
 		];
 
 		for (const evt of events) {
@@ -871,6 +903,7 @@ git commit -m "test: add integration tests for restore fidelity and ordering"
 ### Task 7.1: Add ESLint rule to prevent FeedEvent construction outside mapper
 
 **Files:**
+
 - Modify: `eslint.config.js` (or equivalent)
 
 Add a `no-restricted-syntax` rule that flags object literals with `kind:` + `event_id:` + `seq:` properties outside `source/feed/mapper.ts`. This is an approximation — the real enforcement is code review awareness.
@@ -887,6 +920,7 @@ The simpler approach: add a `ARCHITECTURE.md` or section in CLAUDE.md (already d
 ### Task 7.2: Add a vitest assertion that validates invariants
 
 **Files:**
+
 - Create: `source/invariants.test.ts`
 
 A meta-test that greps source files for violations:
@@ -900,8 +934,8 @@ describe('architectural invariants', () => {
 		// Search for direct FeedEvent object creation outside mapper.ts
 		const result = execSync(
 			'grep -rn "kind:" source/feed/ source/hooks/ --include="*.ts" | ' +
-			'grep -v "mapper.ts" | grep -v ".test.ts" | grep -v "types.ts" | ' +
-			'grep -v "filter.ts" | grep "seq:" || true',
+				'grep -v "mapper.ts" | grep -v ".test.ts" | grep -v "types.ts" | ' +
+				'grep -v "filter.ts" | grep "seq:" || true',
 			{encoding: 'utf-8'},
 		);
 		expect(result.trim()).toBe('');
@@ -910,7 +944,7 @@ describe('architectural invariants', () => {
 	it('no timestamp-based sort in feed rendering', () => {
 		const result = execSync(
 			'grep -rn "\\.ts\\b" source/hooks/ source/components/ --include="*.ts" --include="*.tsx" | ' +
-			'grep -E "sort.*\\.ts\\b" | grep -v ".test." | grep -v "useFeed.ordering" || true',
+				'grep -E "sort.*\\.ts\\b" | grep -v ".test." | grep -v "useFeed.ordering" || true',
 			{encoding: 'utf-8'},
 		);
 		// This is a heuristic — review results manually if it fires

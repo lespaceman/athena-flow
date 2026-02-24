@@ -6,6 +6,7 @@
 ## Problem
 
 The SUMMARY column in the feed timeline has inconsistent formatting across event types:
+
 - Tools show raw `key=value` pairs that are hard to scan
 - `Read — done` tells nothing about what was read
 - Subagent events show unhelpful hex IDs (e.g. `a58fc36bc28f150a4`)
@@ -27,34 +28,34 @@ The tool name is bright, everything after dimStart is dimmed.
 
 ### Per-tool primary input extraction
 
-| Tool | Primary Input | Example |
-|------|--------------|---------|
-| Read | `file_path` (basename or short path) | `Read source/app.tsx` |
-| Write | `file_path` | `Write source/foo.ts` |
-| Edit | `file_path` | `Edit source/bar.ts` |
-| Bash | `command` (first ~40 chars) | `Bash npm test` |
-| Glob | `pattern` | `Glob **/*.test.ts` |
-| Grep | `pattern` + optional `glob` | `Grep "pattern" **/*.ts` |
-| Task | `[subagent_type] description` | `Task [general-purpose] Write Playwright...` |
-| WebSearch | `query` | `WebSearch "react hooks"` |
-| WebFetch | URL (truncated) | `WebFetch https://example.com/api/...` |
-| MCP tools | `[server] action args` | `[agent-web-interface] click` |
-| Unknown | `key=val key=val` (fallback) | `ToolName key=val +2` |
+| Tool      | Primary Input                        | Example                                      |
+| --------- | ------------------------------------ | -------------------------------------------- |
+| Read      | `file_path` (basename or short path) | `Read source/app.tsx`                        |
+| Write     | `file_path`                          | `Write source/foo.ts`                        |
+| Edit      | `file_path`                          | `Edit source/bar.ts`                         |
+| Bash      | `command` (first ~40 chars)          | `Bash npm test`                              |
+| Glob      | `pattern`                            | `Glob **/*.test.ts`                          |
+| Grep      | `pattern` + optional `glob`          | `Grep "pattern" **/*.ts`                     |
+| Task      | `[subagent_type] description`        | `Task [general-purpose] Write Playwright...` |
+| WebSearch | `query`                              | `WebSearch "react hooks"`                    |
+| WebFetch  | URL (truncated)                      | `WebFetch https://example.com/api/...`       |
+| MCP tools | `[server] action args`               | `[agent-web-interface] click`                |
+| Unknown   | `key=val key=val` (fallback)         | `ToolName key=val +2`                        |
 
 ### Per-tool result formatting (merged mode)
 
-| Tool | Result | Example merged |
-|------|--------|----------------|
-| Read | `N lines` | `Read source/app.tsx — 142 lines` |
-| Write | (no suffix needed) | `Write source/foo.ts` |
-| Edit | `replaced N → M lines` | `Edit source/bar.ts — 47→53 lines` |
-| Bash | `exit N` (+ first stderr line on error) | `Bash npm test — exit 0` |
-| Glob | `N files` | `Glob **/*.test.ts — 12 files` |
-| Grep | `N matches` | `Grep "pattern" — 5 matches` |
-| Task | `done` (NOT merged — shown as separate tool.ok) | `Task [general-purpose] — done` |
-| WebSearch | `N results` | `WebSearch "react hooks" — 8 results` |
-| WebFetch | `done` | `WebFetch https://example.com — done` |
-| MCP | `done` | `[server] action — done` |
+| Tool      | Result                                          | Example merged                        |
+| --------- | ----------------------------------------------- | ------------------------------------- |
+| Read      | `N lines`                                       | `Read source/app.tsx — 142 lines`     |
+| Write     | (no suffix needed)                              | `Write source/foo.ts`                 |
+| Edit      | `replaced N → M lines`                          | `Edit source/bar.ts — 47→53 lines`    |
+| Bash      | `exit N` (+ first stderr line on error)         | `Bash npm test — exit 0`              |
+| Glob      | `N files`                                       | `Glob **/*.test.ts — 12 files`        |
+| Grep      | `N matches`                                     | `Grep "pattern" — 5 matches`          |
+| Task      | `done` (NOT merged — shown as separate tool.ok) | `Task [general-purpose] — done`       |
+| WebSearch | `N results`                                     | `WebSearch "react hooks" — 8 results` |
+| WebFetch  | `done`                                          | `WebFetch https://example.com — done` |
+| MCP       | `done`                                          | `[server] action — done`              |
 
 ### Task tool: no merging
 
@@ -82,14 +83,14 @@ Extract first sentence (split on `. ` or `\n`), then `compactText()` to 200 char
 
 Drop `key=value` syntax in favor of natural text:
 
-| Event | Before | After |
-|-------|--------|-------|
-| `sess.start` | `source=startup model=opus` | `startup (opus)` |
-| `sess.end` | `reason=completed` | `completed` |
-| `run.end` | `status=completed tools=5 fail=0 perm=0 blk=0` | `completed — 5 tools, 0 failures` |
-| `compact` | `trigger=auto` | `auto` |
-| `setup` | `trigger=first-run` | `first-run` |
-| `stop.request` | `stop_hook_active=true` | No change (low frequency) |
+| Event          | Before                                         | After                             |
+| -------------- | ---------------------------------------------- | --------------------------------- |
+| `sess.start`   | `source=startup model=opus`                    | `startup (opus)`                  |
+| `sess.end`     | `reason=completed`                             | `completed`                       |
+| `run.end`      | `status=completed tools=5 fail=0 perm=0 blk=0` | `completed — 5 tools, 0 failures` |
+| `compact`      | `trigger=auto`                                 | `auto`                            |
+| `setup`        | `trigger=first-run`                            | `first-run`                       |
+| `stop.request` | `stop_hook_active=true`                        | No change (low frequency)         |
 
 ## Files to Modify
 

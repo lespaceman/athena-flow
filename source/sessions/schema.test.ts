@@ -18,7 +18,7 @@ describe('session schema', () => {
 				"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
 			)
 			.all()
-			.map((r: any) => r.name);
+			.map((r: {name: string}) => r.name);
 
 		expect(tables).toContain('session');
 		expect(tables).toContain('runtime_events');

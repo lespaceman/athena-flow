@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import Database from 'better-sqlite3';
-import {initSchema, SCHEMA_VERSION} from './schema.js';
+import {initSchema} from './schema.js';
 
 describe('schema migrations', () => {
 	it('rejects duplicate global seq (different runs)', () => {
@@ -61,9 +61,7 @@ describe('schema migrations', () => {
 		const db = new Database(':memory:');
 		// Set up a v2 database manually
 		db.exec('PRAGMA foreign_keys = ON');
-		db.exec(
-			'CREATE TABLE schema_version (version INTEGER NOT NULL)',
-		);
+		db.exec('CREATE TABLE schema_version (version INTEGER NOT NULL)');
 		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(2);
 		db.exec(
 			'CREATE TABLE session (id TEXT PRIMARY KEY, project_dir TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, label TEXT, event_count INTEGER DEFAULT 0)',
@@ -79,18 +77,26 @@ describe('schema migrations', () => {
 		);
 
 		// Insert an adapter session before migration
-		db.prepare('INSERT INTO adapter_sessions (session_id, started_at) VALUES (?, ?)').run('as1', Date.now());
+		db.prepare(
+			'INSERT INTO adapter_sessions (session_id, started_at) VALUES (?, ?)',
+		).run('as1', Date.now());
 
 		// Run migration
 		initSchema(db);
 
 		// Verify version bumped
-		const row = db.prepare('SELECT version FROM schema_version').get() as {version: number};
+		const row = db.prepare('SELECT version FROM schema_version').get() as {
+			version: number;
+		};
 		expect(row.version).toBe(3);
 
 		// Verify token columns exist and can be updated
-		db.prepare('UPDATE adapter_sessions SET tokens_input = 100 WHERE session_id = ?').run('as1');
-		const updated = db.prepare('SELECT tokens_input FROM adapter_sessions WHERE session_id = ?').get('as1') as {tokens_input: number};
+		db.prepare(
+			'UPDATE adapter_sessions SET tokens_input = 100 WHERE session_id = ?',
+		).run('as1');
+		const updated = db
+			.prepare('SELECT tokens_input FROM adapter_sessions WHERE session_id = ?')
+			.get('as1') as {tokens_input: number};
 		expect(updated.tokens_input).toBe(100);
 
 		db.close();

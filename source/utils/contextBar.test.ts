@@ -44,7 +44,7 @@ describe('renderContextBar', () => {
 
 	it('NO_COLOR uses brackets and equals/dashes', () => {
 		const result = renderContextBar(100000, 200000, 30, false);
-		expect(result).toMatch(/\[=+\-*\]/);
+		expect(result).toMatch(/\[=+-*\]/);
 	});
 
 	it('clamps to 100% when used > max', () => {

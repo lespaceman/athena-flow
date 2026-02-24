@@ -37,13 +37,13 @@ The invariant must be: **every FeedEvent shown in the UI came from mapper, and e
 
 ### Ownership Boundaries
 
-| Layer | Owns | Does NOT do |
-|-------|------|-------------|
-| **Mapper** | Semantic event generation. All `FeedEvent` creation. Pure: `mapX()` → `FeedEvent[]` | Persistence. Side effects. |
-| **SessionStore** | Durability. Atomic writes. Schema. | Event semantics. Mapping logic. |
-| **useFeed** | Coordination. Subscribes to runtime, calls mapper, calls store, updates state. | Event creation (delegates to mapper). Storage logic (delegates to store). |
-| **Athena Registry** | Session identity. Athena session → adapter session mapping. | Process management. Event handling. |
-| **Runtime** | Event source. Transport. | Interpretation. Persistence. |
+| Layer               | Owns                                                                                | Does NOT do                                                               |
+| ------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **Mapper**          | Semantic event generation. All `FeedEvent` creation. Pure: `mapX()` → `FeedEvent[]` | Persistence. Side effects.                                                |
+| **SessionStore**    | Durability. Atomic writes. Schema.                                                  | Event semantics. Mapping logic.                                           |
+| **useFeed**         | Coordination. Subscribes to runtime, calls mapper, calls store, updates state.      | Event creation (delegates to mapper). Storage logic (delegates to store). |
+| **Athena Registry** | Session identity. Athena session → adapter session mapping.                         | Process management. Event handling.                                       |
+| **Runtime**         | Event source. Transport.                                                            | Interpretation. Persistence.                                              |
 
 ### Fix 1: Deferred Spawn
 
@@ -95,8 +95,8 @@ In useFeed's `onDecision` callback:
 ```typescript
 const feedEvent = mapper.mapDecision(eventId, decision);
 if (feedEvent) {
-    store.recordFeedEvents([feedEvent]);
-    setFeedEvents(prev => [...prev, feedEvent]);
+	store.recordFeedEvents([feedEvent]);
+	setFeedEvents(prev => [...prev, feedEvent]);
 }
 ```
 
@@ -122,20 +122,20 @@ Treat `<id>` as an Athena session ID. Look up the adapter session from its DB:
 
 ```typescript
 if (cli.flags.continue) {
-    athenaSessionId = cli.flags.continue;
-    const meta = getSessionMeta(athenaSessionId);
-    if (meta) {
-        initialSessionId = meta.adapterSessionIds.at(-1);
-    } else {
-        // Backwards compat: maybe user passed an adapter ID
-        const owner = findSessionByAdapterId(cli.flags.continue, projectDir);
-        if (owner) {
-            athenaSessionId = owner.id;
-            initialSessionId = cli.flags.continue;
-        } else {
-            console.error('Session not found:', cli.flags.continue);
-        }
-    }
+	athenaSessionId = cli.flags.continue;
+	const meta = getSessionMeta(athenaSessionId);
+	if (meta) {
+		initialSessionId = meta.adapterSessionIds.at(-1);
+	} else {
+		// Backwards compat: maybe user passed an adapter ID
+		const owner = findSessionByAdapterId(cli.flags.continue, projectDir);
+		if (owner) {
+			athenaSessionId = owner.id;
+			initialSessionId = cli.flags.continue;
+		} else {
+			console.error('Session not found:', cli.flags.continue);
+		}
+	}
 }
 ```
 
@@ -158,10 +158,11 @@ if (cli.flags.continue) {
 
 ```typescript
 export function findSessionByAdapterId(
-    adapterId: string, projectDir: string
+	adapterId: string,
+	projectDir: string,
 ): AthenaSession | null {
-    const sessions = listSessions(projectDir);
-    return sessions.find(s => s.adapterSessionIds.includes(adapterId)) ?? null;
+	const sessions = listSessions(projectDir);
+	return sessions.find(s => s.adapterSessionIds.includes(adapterId)) ?? null;
 }
 ```
 
@@ -173,33 +174,39 @@ In mapper bootstrap, scan stored events for the last open run:
 
 ```typescript
 if (stored && stored.feedEvents.length > 0) {
-    // ... existing seq/session/actor restoration ...
+	// ... existing seq/session/actor restoration ...
 
-    // Rebuild currentRun from last open run
-    let lastRunStart: FeedEvent | undefined;
-    let lastRunEnd: FeedEvent | undefined;
-    for (const e of stored.feedEvents) {
-        if (e.kind === 'run.start') lastRunStart = e;
-        if (e.kind === 'run.end') lastRunEnd = e;
-    }
-    if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
-        currentRun = {
-            run_id: lastRunStart.run_id,
-            session_id: lastRunStart.session_id,
-            started_at: lastRunStart.ts,
-            trigger: lastRunStart.data.trigger,
-            status: 'running',
-            actors: { root_agent_id: 'agent:root', subagent_ids: [] },
-            counters: { tool_uses: 0, tool_failures: 0, permission_requests: 0, blocks: 0 },
-        };
-        // Rebuild counters
-        for (const e of stored.feedEvents) {
-            if (e.run_id !== currentRun.run_id) continue;
-            if (e.kind === 'tool.pre') currentRun.counters.tool_uses++;
-            if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;
-            if (e.kind === 'permission.request') currentRun.counters.permission_requests++;
-        }
-    }
+	// Rebuild currentRun from last open run
+	let lastRunStart: FeedEvent | undefined;
+	let lastRunEnd: FeedEvent | undefined;
+	for (const e of stored.feedEvents) {
+		if (e.kind === 'run.start') lastRunStart = e;
+		if (e.kind === 'run.end') lastRunEnd = e;
+	}
+	if (lastRunStart && (!lastRunEnd || lastRunEnd.seq < lastRunStart.seq)) {
+		currentRun = {
+			run_id: lastRunStart.run_id,
+			session_id: lastRunStart.session_id,
+			started_at: lastRunStart.ts,
+			trigger: lastRunStart.data.trigger,
+			status: 'running',
+			actors: {root_agent_id: 'agent:root', subagent_ids: []},
+			counters: {
+				tool_uses: 0,
+				tool_failures: 0,
+				permission_requests: 0,
+				blocks: 0,
+			},
+		};
+		// Rebuild counters
+		for (const e of stored.feedEvents) {
+			if (e.run_id !== currentRun.run_id) continue;
+			if (e.kind === 'tool.pre') currentRun.counters.tool_uses++;
+			if (e.kind === 'tool.failure') currentRun.counters.tool_failures++;
+			if (e.kind === 'permission.request')
+				currentRun.counters.permission_requests++;
+		}
+	}
 }
 ```
 
@@ -215,7 +222,9 @@ Add `useEffect` cleanup in `HookContext.tsx`:
 
 ```typescript
 useEffect(() => {
-    return () => { sessionStore.close(); };
+	return () => {
+		sessionStore.close();
+	};
 }, [sessionStore]);
 ```
 
@@ -249,19 +258,19 @@ Applied in `initSchema()` via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` pattern
 
 ## Files Changed
 
-| File | Change |
-|------|--------|
-| `source/feed/mapper.ts` | Add agent.message generation in Stop/SubagentStop. Rebuild currentRun in bootstrap. |
-| `source/hooks/useFeed.ts` | Remove `enrichStopEvent()`. Add decision persistence in `onDecision`. Simplify `onEvent` enrichment loop. |
-| `source/hooks/__tests__/useFeedEnrichStop.test.ts` | Delete (tests migrate to mapper). |
-| `source/feed/__tests__/mapper.test.ts` | Add tests for agent.message generation, currentRun rebuild. |
-| `source/sessions/store.ts` | Add `recordFeedEvents()`. Add event_count increment. |
-| `source/sessions/schema.ts` | Add event_count column migration. |
-| `source/sessions/types.ts` | Add `eventCount` to `AthenaSession`. |
-| `source/sessions/registry.ts` | Add `findSessionByAdapterId()`. Read event_count in registry functions. |
-| `source/app.tsx` | Remove auto-spawn useEffect. Hold initialSessionId as ref. Pass to first prompt. Fix session picker messageCount. |
-| `source/cli.tsx` | Rewrite --continue resolution to use Athena registry only. |
-| `source/context/HookContext.tsx` | Add useEffect cleanup for SessionStore. |
+| File                                               | Change                                                                                                            |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `source/feed/mapper.ts`                            | Add agent.message generation in Stop/SubagentStop. Rebuild currentRun in bootstrap.                               |
+| `source/hooks/useFeed.ts`                          | Remove `enrichStopEvent()`. Add decision persistence in `onDecision`. Simplify `onEvent` enrichment loop.         |
+| `source/hooks/__tests__/useFeedEnrichStop.test.ts` | Delete (tests migrate to mapper).                                                                                 |
+| `source/feed/__tests__/mapper.test.ts`             | Add tests for agent.message generation, currentRun rebuild.                                                       |
+| `source/sessions/store.ts`                         | Add `recordFeedEvents()`. Add event_count increment.                                                              |
+| `source/sessions/schema.ts`                        | Add event_count column migration.                                                                                 |
+| `source/sessions/types.ts`                         | Add `eventCount` to `AthenaSession`.                                                                              |
+| `source/sessions/registry.ts`                      | Add `findSessionByAdapterId()`. Read event_count in registry functions.                                           |
+| `source/app.tsx`                                   | Remove auto-spawn useEffect. Hold initialSessionId as ref. Pass to first prompt. Fix session picker messageCount. |
+| `source/cli.tsx`                                   | Rewrite --continue resolution to use Athena registry only.                                                        |
+| `source/context/HookContext.tsx`                   | Add useEffect cleanup for SessionStore.                                                                           |
 
 ## Implementation Order
 

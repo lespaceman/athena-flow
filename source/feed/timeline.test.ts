@@ -604,7 +604,7 @@ describe('isEventExpandable', () => {
 			const ev = {
 				...base({kind}),
 				kind,
-				data: {} as any,
+				data: {} as Record<string, unknown>,
 			} as FeedEvent;
 			expect(isEventExpandable(ev)).toBe(true);
 		}
@@ -620,7 +620,7 @@ describe('isEventExpandable', () => {
 			const ev = {
 				...base({kind}),
 				kind,
-				data: {} as any,
+				data: {} as Record<string, unknown>,
 			} as FeedEvent;
 			expect(isEventExpandable(ev)).toBe(false);
 		}
