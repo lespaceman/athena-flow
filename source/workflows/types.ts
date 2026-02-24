@@ -7,8 +7,10 @@
 
 export type LoopConfig = {
 	enabled: boolean;
-	completionPromise: string;
+	completionMarker: string;
 	maxIterations: number;
+	continueMessage?: string;
+	trackerTemplate?: string;
 };
 
 export type WorkflowConfig = {
