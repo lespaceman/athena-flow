@@ -172,16 +172,10 @@ function stripMarkdownInline(text: string): string {
 function firstSentence(text: string): string {
 	const nlIdx = text.indexOf('\n');
 	const sentIdx = text.indexOf('. ');
-	let end: number;
-	if (nlIdx === -1 && sentIdx === -1) {
-		end = text.length;
-	} else if (nlIdx === -1) {
-		end = sentIdx + 1; // include the period
-	} else if (sentIdx === -1) {
-		end = nlIdx;
-	} else {
-		end = Math.min(nlIdx, sentIdx + 1);
-	}
+	// Convert -1 (not found) to Infinity so Math.min picks the real match
+	const nlEnd = nlIdx === -1 ? Infinity : nlIdx;
+	const sentEnd = sentIdx === -1 ? Infinity : sentIdx + 1; // +1 to include the period
+	const end = Math.min(nlEnd, sentEnd, text.length);
 	return text.slice(0, end).trim();
 }
 

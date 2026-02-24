@@ -106,13 +106,16 @@ function shortenPath(filePath: string): string {
 	return segments.slice(-2).join('/');
 }
 
+const filePathExtractor = (input: Record<string, unknown>): string =>
+	shortenPath(String(input.file_path ?? ''));
+
 const PRIMARY_INPUT_EXTRACTORS: Record<
 	string,
 	(input: Record<string, unknown>) => string
 > = {
-	Read: input => shortenPath(String(input.file_path ?? '')),
-	Write: input => shortenPath(String(input.file_path ?? '')),
-	Edit: input => shortenPath(String(input.file_path ?? '')),
+	Read: filePathExtractor,
+	Write: filePathExtractor,
+	Edit: filePathExtractor,
 	Bash: input => compactText(String(input.command ?? ''), 40),
 	Glob: input => String(input.pattern ?? ''),
 	Grep: input => {
