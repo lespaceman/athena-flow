@@ -18,7 +18,7 @@ Package athena-cli for npm public registry distribution with conventional-commit
 
 ## Package Identity
 
-- **Name**: `athena-cli`
+- **Name**: `athena-flow` (npm; `athena` was taken)
 - **Binaries**: `athena-cli`, `athena-hook-forwarder`
 - **Node**: `>=18`
 - **License**: MIT
@@ -63,5 +63,5 @@ Version mapping:
 
 - Add `repository`, `description`, `keywords`, `homepage`, `bugs` to `package.json`
 - Verify `dist/cli.js` has `#!/usr/bin/env node` shebang
-- `files: ["dist"]` already restricts published contents
+- `files: ["dist"]` already restricts published contents — exclude sourcemaps (`.js.map`, `.d.ts.map`) via `.npmignore`
 - Add `prepublishOnly` guard script

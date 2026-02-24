@@ -10,17 +10,21 @@
 
 ---
 
-### Task 1: Package.json Hygiene
+### Task 1: Package.json Hygiene + Sourcemap Exclusion
 
 **Files:**
 - Modify: `package.json`
+- Create: `.npmignore`
 
-**Step 1: Add metadata and prepublishOnly script**
+**Step 1: Rename package and add metadata**
+
+Change `name` in `package.json` from `"athena-cli"` to `"athena-flow"`.
 
 Add these fields to `package.json`:
 
 ```json
 {
+  "name": "athena-flow",
   "description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
   "repository": {
     "type": "git",
@@ -40,16 +44,28 @@ Add to `scripts`:
 "prepublishOnly": "npm run lint && npm test && npm run build"
 ```
 
-**Step 2: Verify package contents**
+**Step 2: Create .npmignore to exclude sourcemaps**
+
+`.npmignore`:
+
+```
+# Sourcemaps — not needed by consumers
+dist/**/*.js.map
+dist/**/*.d.ts.map
+```
+
+> The `files` field in package.json whitelists `dist/`, but `.npmignore` overrides it for exclusions within that directory. This keeps the package smaller and avoids leaking source structure.
+
+**Step 3: Verify package contents**
 
 Run: `npm pack --dry-run`
-Expected: Only `dist/` files, `package.json`, `README.md`, `LICENSE` listed. No `source/`, no test files, no `node_modules/`.
+Expected: `dist/` JS and `.d.ts` files listed, but NO `.js.map` or `.d.ts.map` files. No `source/`, no test files.
 
-**Step 3: Commit**
+**Step 4: Commit**
 
 ```bash
-git add package.json
-git commit -m "chore: add npm metadata and prepublishOnly guard"
+git add package.json .npmignore
+git commit -m "chore: rename to athena-flow, add npm metadata, exclude sourcemaps"
 ```
 
 ---
