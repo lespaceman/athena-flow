@@ -9,6 +9,7 @@ import {
 	actorLabel,
 	summarizeValue,
 	summarizeToolInput,
+	summarizeToolPrimaryInput,
 	formatInputBuffer,
 	renderInputLines,
 	MAX_INPUT_ROWS,
@@ -202,6 +203,97 @@ describe('summarizeToolInput', () => {
 
 	it('handles single key', () => {
 		expect(summarizeToolInput({cmd: 'ls'})).toBe('cmd="ls"');
+	});
+});
+
+describe('summarizeToolPrimaryInput', () => {
+	it('shortens Read file_path to last 2 segments', () => {
+		expect(
+			summarizeToolPrimaryInput('Read', {
+				file_path: '/home/user/project/source/app.tsx',
+			}),
+		).toBe('source/app.tsx');
+	});
+
+	it('shortens Write file_path to last 2 segments', () => {
+		expect(
+			summarizeToolPrimaryInput('Write', {
+				file_path: '/home/user/project/source/foo.ts',
+				content: '...',
+			}),
+		).toBe('source/foo.ts');
+	});
+
+	it('shortens Edit file_path to last 2 segments', () => {
+		expect(
+			summarizeToolPrimaryInput('Edit', {
+				file_path: '/a/b/bar.ts',
+				old_string: 'x',
+				new_string: 'y',
+			}),
+		).toBe('b/bar.ts');
+	});
+
+	it('extracts Bash command', () => {
+		expect(summarizeToolPrimaryInput('Bash', {command: 'npm test'})).toBe(
+			'npm test',
+		);
+	});
+
+	it('truncates long Bash commands to 40 chars', () => {
+		const longCmd = 'a'.repeat(50);
+		const result = summarizeToolPrimaryInput('Bash', {command: longCmd});
+		expect(result.length).toBeLessThanOrEqual(43);
+	});
+
+	it('extracts Glob pattern', () => {
+		expect(summarizeToolPrimaryInput('Glob', {pattern: '**/*.test.ts'})).toBe(
+			'**/*.test.ts',
+		);
+	});
+
+	it('extracts Grep pattern with glob', () => {
+		expect(
+			summarizeToolPrimaryInput('Grep', {pattern: 'TODO', glob: '*.ts'}),
+		).toBe('"TODO" *.ts');
+	});
+
+	it('extracts Grep pattern without glob', () => {
+		expect(summarizeToolPrimaryInput('Grep', {pattern: 'TODO'})).toBe('"TODO"');
+	});
+
+	it('extracts Task subagent_type and description', () => {
+		expect(
+			summarizeToolPrimaryInput('Task', {
+				subagent_type: 'general-purpose',
+				description: 'Write tests',
+				prompt: '...',
+			}),
+		).toBe('[general-purpose] Write tests');
+	});
+
+	it('extracts WebSearch query quoted', () => {
+		expect(summarizeToolPrimaryInput('WebSearch', {query: 'react hooks'})).toBe(
+			'"react hooks"',
+		);
+	});
+
+	it('extracts WebFetch url', () => {
+		expect(
+			summarizeToolPrimaryInput('WebFetch', {
+				url: 'https://example.com/api/v1/data',
+			}),
+		).toBe('https://example.com/api/v1/data');
+	});
+
+	it('falls back to key=value for unknown tools', () => {
+		expect(summarizeToolPrimaryInput('UnknownTool', {a: 1, b: 'hi'})).toBe(
+			'a=1 b="hi"',
+		);
+	});
+
+	it('returns empty string for empty input', () => {
+		expect(summarizeToolPrimaryInput('Read', {})).toBe('');
 	});
 });
 

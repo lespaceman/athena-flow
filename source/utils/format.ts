@@ -100,6 +100,45 @@ export function summarizeToolInput(input: Record<string, unknown>): string {
 	return pairs.join(' ');
 }
 
+function shortenPath(filePath: string): string {
+	const segments = filePath.split('/').filter(Boolean);
+	if (segments.length <= 2) return segments.join('/');
+	return segments.slice(-2).join('/');
+}
+
+const PRIMARY_INPUT_EXTRACTORS: Record<
+	string,
+	(input: Record<string, unknown>) => string
+> = {
+	Read: input => shortenPath(String(input.file_path ?? '')),
+	Write: input => shortenPath(String(input.file_path ?? '')),
+	Edit: input => shortenPath(String(input.file_path ?? '')),
+	Bash: input => compactText(String(input.command ?? ''), 40),
+	Glob: input => String(input.pattern ?? ''),
+	Grep: input => {
+		const p = `"${String(input.pattern ?? '')}"`;
+		const g = input.glob ? ` ${String(input.glob)}` : '';
+		return p + g;
+	},
+	Task: input => {
+		const type = String(input.subagent_type ?? '');
+		const desc = String(input.description ?? '');
+		return `[${type}] ${desc}`;
+	},
+	WebSearch: input => `"${String(input.query ?? '')}"`,
+	WebFetch: input => compactText(String(input.url ?? ''), 60),
+};
+
+export function summarizeToolPrimaryInput(
+	toolName: string,
+	toolInput: Record<string, unknown>,
+): string {
+	if (Object.keys(toolInput).length === 0) return '';
+	const extractor = PRIMARY_INPUT_EXTRACTORS[toolName];
+	if (extractor) return extractor(toolInput);
+	return summarizeToolInput(toolInput);
+}
+
 export const MAX_INPUT_ROWS = 6;
 const CURSOR_ON = '\x1b[7m';
 const CURSOR_OFF = '\x1b[27m';
