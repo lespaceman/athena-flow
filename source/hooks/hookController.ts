@@ -10,11 +10,14 @@
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
 import {type HookRule, matchRule} from '../types/rules.js';
+import type {LoopState} from '../workflows/loopManager.js';
 
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];
 	enqueuePermission: (event: RuntimeEvent) => void;
 	enqueueQuestion: (eventId: string) => void;
+	getLoopState?: () => LoopState | null;
+	updateLoopState?: (update: Partial<LoopState>) => void;
 	signal?: AbortSignal;
 };
 
@@ -92,6 +95,32 @@ export function handleEvent(
 				type: 'json',
 				source: 'rule',
 				intent: {kind: 'pre_tool_allow'},
+			},
+		};
+	}
+
+	// ── Stop: loop control ──
+	if (event.hookName === 'Stop') {
+		const state = cb.getLoopState?.();
+		if (!state || !state.active) return {handled: false};
+
+		if (state.iteration >= state.maxIterations) {
+			cb.updateLoopState?.({active: false});
+			return {handled: false};
+		}
+
+		if (state.trackerContent.includes(state.completionMarker)) {
+			cb.updateLoopState?.({active: false});
+			return {handled: false};
+		}
+
+		cb.updateLoopState?.({iteration: state.iteration + 1});
+		return {
+			handled: true,
+			decision: {
+				type: 'json',
+				source: 'rule',
+				intent: {kind: 'stop_block', reason: state.continueMessage},
 			},
 		};
 	}
