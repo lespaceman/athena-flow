@@ -98,6 +98,7 @@ export function useTimeline({
 			// by the paired tool.pre entry — skip it here.
 			if (
 				(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
+				event.data.tool_name !== 'Task' &&
 				postByToolUseId &&
 				event.data.tool_use_id &&
 				postByToolUseId.get(event.data.tool_use_id) === event
@@ -108,6 +109,7 @@ export function useTimeline({
 			// For tool.pre, look up paired post event
 			const pairedPost =
 				(event.kind === 'tool.pre' || event.kind === 'permission.request') &&
+				event.data.tool_name !== 'Task' &&
 				event.data.tool_use_id
 					? postByToolUseId?.get(event.data.tool_use_id)
 					: undefined;
