@@ -19,7 +19,9 @@ export type TimelineEntry = {
 	id: string;
 	ts: number;
 	runId?: string;
-	op: string;
+	op: string; // Title Case label (e.g. "Tool Call")
+	opTag: string; // Internal slug for styling (e.g. "tool.call")
+	detail: string; // DETAIL column content
 	actor: string;
 	actorId: string;
 	summary: string;
@@ -504,6 +506,20 @@ export function mergedEventOperation(
 }
 
 /**
+ * Return the merged Title Case label for a tool.pre that has a paired post/failure.
+ * Falls back to the default eventLabel when no postEvent is given.
+ */
+export function mergedEventLabel(
+	event: FeedEvent,
+	postEvent?: FeedEvent,
+): string {
+	if (!postEvent) return eventLabel(event);
+	if (postEvent.kind === 'tool.failure') return 'Tool Fail';
+	if (postEvent.kind === 'tool.post') return 'Tool OK';
+	return eventLabel(event);
+}
+
+/**
  * Return the merged summary for a tool.pre paired with its post/failure.
  * Format: "ToolName — result summary" with dimStart after the tool name.
  */
@@ -545,10 +561,18 @@ export function mergedEventSummary(
 }
 
 /** Column positions in formatted feed line (0-indexed char offsets). */
-export const FEED_GUTTER_WIDTH = 1; // leading gutter for category break / search / user border glyphs
-export const FEED_OP_COL_START = 7; // after " HH:MM " (1+5+1)
-export const FEED_OP_COL_END = 23; // 7 + 16 (op width)
-export const FEED_SUMMARY_COL_START = 37; // 1+5+1+16+1+12+1 = 37
+export const FEED_GUTTER_WIDTH = 1;
+export const FEED_EVENT_COL_START = 7; // after " HH:MM " (1+5+1)
+export const FEED_EVENT_COL_END = 19; // 7 + 12 (event width)
+export const FEED_DETAIL_COL_START = 20; // 19 + 1 gap
+export const FEED_DETAIL_COL_END = 36; // 20 + 16 (detail width)
+export const FEED_ACTOR_COL_START = 37; // 36 + 1 gap
+export const FEED_ACTOR_COL_END = 47; // 37 + 10 (actor width)
+export const FEED_SUMMARY_COL_START = 48; // 47 + 1 gap
+
+// Keep old names as aliases for backward compat
+export const FEED_OP_COL_START = FEED_EVENT_COL_START;
+export const FEED_OP_COL_END = FEED_EVENT_COL_END;
 
 export function formatFeedLine(
 	entry: TimelineEntry,
@@ -566,12 +590,13 @@ export function formatFeedLine(
 		: ' ';
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
-	const op = fit(entry.op, 16);
-	const actor = fit(entry.actor, 12);
+	const event = fit(entry.op, 12);
+	const detail = fit(entry.detail ?? '\u2500', 16);
+	const actor = fit(entry.actor, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
-	const summaryWidth = Math.max(0, bodyWidth - 36); // 5+1+16+1+12+1 = 36
+	const summaryWidth = Math.max(0, bodyWidth - 47); // 5+1+12+1+16+1+10+1 = 47
 	const body = fit(
-		`${time} ${op} ${actor} ${fit(entry.summary, summaryWidth)}`,
+		`${time} ${event} ${detail} ${actor} ${fit(entry.summary, summaryWidth)}`,
 		bodyWidth,
 	);
 	return ` ${body}${suffix}`;
@@ -579,11 +604,12 @@ export function formatFeedLine(
 
 export function formatFeedHeaderLine(width: number): string {
 	const time = fit('TIME', 5);
-	const op = fit('OP', 16);
-	const actor = fit('ACTOR', 12);
-	const summaryWidth = Math.max(0, width - 39); // 1+5+1+16+1+12+1+2 = 39
+	const event = fit('EVENT', 12);
+	const detail = fit('DETAIL', 16);
+	const actor = fit('ACTOR', 10);
+	const summaryWidth = Math.max(0, width - 50); // 1+5+1+12+1+16+1+10+1+2 = 50
 	const summaryLabel = fit('SUMMARY', summaryWidth);
-	return fit(` ${time} ${op} ${actor} ${summaryLabel}  `, width);
+	return fit(` ${time} ${event} ${detail} ${actor} ${summaryLabel}  `, width);
 }
 
 export function toRunStatus(

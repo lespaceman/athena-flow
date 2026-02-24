@@ -719,7 +719,9 @@ describe('formatFeedLine', () => {
 		id: 'e1',
 		ts: new Date('2026-01-15T10:30:45').getTime(),
 		runId: 'R1',
-		op: 'tool.call',
+		op: 'Tool Call',
+		opTag: 'tool.call',
+		detail: 'Bash',
 		actor: 'AGENT',
 		actorId: 'agent:root',
 		summary: 'Bash cmd',
@@ -754,9 +756,10 @@ describe('formatFeedLine', () => {
 		expect(line.trimEnd().endsWith('v')).toBe(true);
 	});
 
-	it('contains op and actor columns', () => {
+	it('contains event, detail and actor columns', () => {
 		const line = formatFeedLine(entry, 80, false, false, false);
-		expect(line).toContain('tool.call');
+		expect(line).toContain('Tool Call');
+		expect(line).toContain('Bash');
 		expect(line).toContain('AGENT');
 	});
 
@@ -775,7 +778,8 @@ describe('formatFeedHeaderLine', () => {
 		const header = formatFeedHeaderLine(80);
 		expect(header).toContain('TIME');
 		expect(header).not.toContain('RUN');
-		expect(header).toContain('OP');
+		expect(header).toContain('EVENT');
+		expect(header).toContain('DETAIL');
 		expect(header).toContain('ACTOR');
 		expect(header).toContain('SUMMARY');
 	});
@@ -925,6 +929,50 @@ describe('mergedEventOperation', () => {
 			data: {tool_name: 'Bash', tool_input: {}},
 		};
 		expect(mergedEventOperation(pre)).toBe('tool.call');
+	});
+});
+
+describe('mergedEventLabel', () => {
+	it('returns Tool OK when postEvent is tool.post', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {tool_name: 'Bash', tool_input: {}, tool_response: {}},
+		};
+		expect(mergedEventLabel(pre, post)).toBe('Tool OK');
+	});
+
+	it('returns Tool Fail when postEvent is tool.failure', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {},
+				error: 'fail',
+				is_interrupt: false,
+			},
+		};
+		expect(mergedEventLabel(pre, post)).toBe('Tool Fail');
+	});
+
+	it('falls back to eventLabel when no postEvent', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		expect(mergedEventLabel(pre)).toBe('Tool Call');
 	});
 });
 
