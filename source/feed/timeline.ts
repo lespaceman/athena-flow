@@ -4,7 +4,7 @@ import {
 	compactText,
 	fit,
 	formatClock,
-	summarizeToolInput,
+	summarizeToolPrimaryInput,
 } from '../utils/format.js';
 import {
 	extractFriendlyServerName,
@@ -114,11 +114,12 @@ type ToolSummaryResult = {text: string; dimStart?: number};
 
 function formatToolSummary(
 	toolName: string,
-	args: string,
+	toolInput: Record<string, unknown>,
 	errorSuffix?: string,
 ): ToolSummaryResult {
 	const name = resolveDisplayName(toolName);
-	const secondary = [args, errorSuffix].filter(Boolean).join(' ');
+	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
+	const secondary = [primaryInput, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
 		return {text: compactText(name, 200)};
 	}
@@ -130,19 +131,27 @@ export type SummaryResult = {text: string; dimStart?: number};
 
 export function eventSummary(event: FeedEvent): SummaryResult {
 	switch (event.kind) {
-		case 'tool.pre': {
-			const args = summarizeToolInput(event.data.tool_input);
-			return formatToolSummary(event.data.tool_name, args);
-		}
+		case 'tool.pre':
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.post':
-			return formatToolSummary(event.data.tool_name, '');
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.failure':
-			return formatToolSummary(event.data.tool_name, '', event.data.error);
-		case 'permission.request':
 			return formatToolSummary(
 				event.data.tool_name,
-				summarizeToolInput(event.data.tool_input),
+				event.data.tool_input,
+				event.data.error,
 			);
+		case 'permission.request':
+			return formatToolSummary(event.data.tool_name, event.data.tool_input);
+		case 'subagent.start':
+		case 'subagent.stop': {
+			const desc = event.data.description;
+			if (desc) {
+				const text = compactText(`${event.data.agent_type}: ${desc}`, 200);
+				return {text, dimStart: event.data.agent_type.length + 2};
+			}
+			return {text: compactText(event.data.agent_type, 200)};
+		}
 		default:
 			return {text: eventSummaryText(event)};
 	}
@@ -159,6 +168,17 @@ function stripMarkdownInline(text: string): string {
 		.replace(/~~(.+?)~~/g, '$1');
 }
 
+/** Extract first sentence (ends with `. ` or newline) from text. */
+function firstSentence(text: string): string {
+	const nlIdx = text.indexOf('\n');
+	const sentIdx = text.indexOf('. ');
+	// Convert -1 (not found) to Infinity so Math.min picks the real match
+	const nlEnd = nlIdx === -1 ? Infinity : nlIdx;
+	const sentEnd = sentIdx === -1 ? Infinity : sentIdx + 1; // +1 to include the period
+	const end = Math.min(nlEnd, sentEnd, text.length);
+	return text.slice(0, end).trim();
+}
+
 function eventSummaryText(event: FeedEvent): string {
 	switch (event.kind) {
 		case 'run.start':
@@ -168,17 +188,11 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'run.end':
 			return compactText(
-				`status=${event.data.status} tools=${event.data.counters.tool_uses} fail=${event.data.counters.tool_failures} perm=${event.data.counters.permission_requests} blk=${event.data.counters.blocks}`,
+				`${event.data.status} — ${event.data.counters.tool_uses} tools, ${event.data.counters.tool_failures} failures`,
 				200,
 			);
 		case 'user.prompt':
 			return compactText(event.data.prompt, 200);
-		case 'subagent.start':
-		case 'subagent.stop':
-			return compactText(
-				`${event.data.agent_type} ${event.data.agent_id}`,
-				200,
-			);
 		case 'permission.decision': {
 			const detail =
 				event.data.decision_type === 'deny'
@@ -193,19 +207,20 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'stop.decision':
 			return compactText(event.data.reason || event.data.decision_type, 200);
-		case 'session.start':
-			return compactText(
-				`source=${event.data.source}${event.data.model ? ` model=${event.data.model}` : ''}`,
-				200,
-			);
+		case 'session.start': {
+			const model = event.data.model;
+			return model
+				? compactText(`${event.data.source} (${model})`, 200)
+				: compactText(event.data.source, 200);
+		}
 		case 'session.end':
-			return compactText(`reason=${event.data.reason}`, 200);
+			return compactText(event.data.reason, 200);
 		case 'notification':
 			return compactText(stripMarkdownInline(event.data.message), 200);
 		case 'compact.pre':
-			return compactText(`trigger=${event.data.trigger}`, 200);
+			return compactText(event.data.trigger, 200);
 		case 'setup':
-			return compactText(`trigger=${event.data.trigger}`, 200);
+			return compactText(event.data.trigger, 200);
 		case 'unknown.hook':
 			return compactText(event.data.hook_event_name, 200);
 		case 'todo.add':
@@ -226,7 +241,10 @@ function eventSummaryText(event: FeedEvent): string {
 				200,
 			);
 		case 'agent.message':
-			return compactText(stripMarkdownInline(event.data.message), 200);
+			return compactText(
+				firstSentence(stripMarkdownInline(event.data.message)),
+				200,
+			);
 		case 'teammate.idle':
 			return compactText(
 				`${event.data.teammate_name} idle in ${event.data.team_name}`,
@@ -395,6 +413,7 @@ export function mergedEventSummary(
 	const toolName = event.data.tool_name;
 	const toolInput = event.data.tool_input ?? {};
 	const name = resolveDisplayName(toolName);
+	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
 
 	let resultText: string;
 	if (postEvent.kind === 'tool.failure') {
@@ -414,7 +433,8 @@ export function mergedEventSummary(
 		return eventSummary(event);
 	}
 
-	const full = `${name} — ${resultText}`;
+	const prefix = primaryInput ? `${name} ${primaryInput}` : name;
+	const full = `${prefix} — ${resultText}`;
 	return {text: compactText(full, 200), dimStart: name.length};
 }
 

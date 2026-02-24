@@ -149,6 +149,109 @@ describe('eventSummary', () => {
 		expect(eventSummary(ev).text).toBe('Fix the login bug');
 	});
 
+	it('formats subagent.start with description', () => {
+		const ev = {
+			...base({kind: 'subagent.start'}),
+			kind: 'subagent.start' as const,
+			data: {
+				agent_id: 'a1',
+				agent_type: 'general-purpose',
+				description: 'Write Playwright tests',
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('general-purpose: Write Playwright tests');
+		expect(result.dimStart).toBe('general-purpose:'.length + 1);
+	});
+
+	it('formats subagent.start without description — agent_type only', () => {
+		const ev = {
+			...base({kind: 'subagent.start'}),
+			kind: 'subagent.start' as const,
+			data: {agent_id: 'a1', agent_type: 'general-purpose'},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('general-purpose');
+		expect(result.dimStart).toBeUndefined();
+	});
+
+	it('formats subagent.stop with description', () => {
+		const ev = {
+			...base({kind: 'subagent.stop'}),
+			kind: 'subagent.stop' as const,
+			data: {
+				agent_id: 'a1',
+				agent_type: 'Explore',
+				stop_hook_active: false,
+				description: 'Find test patterns',
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Explore: Find test patterns');
+	});
+
+	it('formats session.start as natural text with model', () => {
+		const ev = {
+			...base({kind: 'session.start'}),
+			kind: 'session.start' as const,
+			data: {source: 'startup', model: 'opus'},
+		};
+		expect(eventSummary(ev).text).toBe('startup (opus)');
+	});
+
+	it('formats session.start without model', () => {
+		const ev = {
+			...base({kind: 'session.start'}),
+			kind: 'session.start' as const,
+			data: {source: 'startup'},
+		};
+		expect(eventSummary(ev).text).toBe('startup');
+	});
+
+	it('formats session.end as reason only', () => {
+		const ev = {
+			...base({kind: 'session.end'}),
+			kind: 'session.end' as const,
+			data: {reason: 'completed'},
+		};
+		expect(eventSummary(ev).text).toBe('completed');
+	});
+
+	it('formats run.end with natural text', () => {
+		const ev = {
+			...base({kind: 'run.end'}),
+			kind: 'run.end' as const,
+			data: {
+				status: 'completed' as const,
+				counters: {
+					tool_uses: 5,
+					tool_failures: 0,
+					permission_requests: 1,
+					blocks: 0,
+				},
+			},
+		};
+		expect(eventSummary(ev).text).toBe('completed — 5 tools, 0 failures');
+	});
+
+	it('formats compact.pre as trigger only', () => {
+		const ev = {
+			...base({kind: 'compact.pre'}),
+			kind: 'compact.pre' as const,
+			data: {trigger: 'auto'},
+		};
+		expect(eventSummary(ev).text).toBe('auto');
+	});
+
+	it('formats setup as trigger only', () => {
+		const ev = {
+			...base({kind: 'setup'}),
+			kind: 'setup' as const,
+			data: {trigger: 'first-run'},
+		};
+		expect(eventSummary(ev).text).toBe('first-run');
+	});
+
 	it('formats config.change summary', () => {
 		const ev = {
 			...base(),
@@ -189,6 +292,33 @@ describe('eventSummary — agent.message', () => {
 		const result = eventSummary(ev);
 		expect(result.text).not.toMatch(/^##/);
 		expect(result.text).toContain('How Ralph Loop Works');
+	});
+
+	it('extracts first sentence from long agent.message', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message:
+					'Here is a summary of what was accomplished. Completed: Google Search E2E Test Case Specifications.',
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Here is a summary of what was accomplished.');
+	});
+
+	it('extracts first line when no sentence break', () => {
+		const ev = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {
+				message: 'First line content\nSecond line content',
+				scope: 'root' as const,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('First line content');
 	});
 });
 
@@ -300,6 +430,91 @@ describe('eventSummary MCP formatting', () => {
 			},
 		};
 		expect(eventSummary(ev).dimStart).toBeUndefined();
+	});
+
+	it('formats tool.pre with primary input instead of key=value', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.dimStart).toBe('Read'.length + 1);
+	});
+
+	it('formats tool.pre for Bash with command', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'npm test'}},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash npm test');
+	});
+
+	it('formats tool.pre for Task with [type] description', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Task',
+				tool_input: {
+					subagent_type: 'general-purpose',
+					description: 'Write tests',
+					prompt: '...',
+				},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toContain('[general-purpose] Write tests');
+	});
+
+	it('formats tool.post with primary input', () => {
+		const ev = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+				tool_response: {},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.dimStart).toBe('Read'.length + 1);
+	});
+
+	it('formats tool.failure with primary input and error', () => {
+		const ev = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'bad-cmd'},
+				error: 'not found',
+				is_interrupt: false,
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash bad-cmd not found');
+	});
+
+	it('formats permission.request with primary input', () => {
+		const ev = {
+			...base({kind: 'permission.request'}),
+			kind: 'permission.request' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'rm -rf /'},
+				permission_suggestions: [],
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Bash rm -rf /');
 	});
 });
 
@@ -627,7 +842,7 @@ describe('mergedEventOperation', () => {
 });
 
 describe('mergedEventSummary', () => {
-	it('returns merged summary with tool result when paired', () => {
+	it('returns merged summary with primary input and tool result when paired', () => {
 		const pre = {
 			...base({kind: 'tool.pre'}),
 			kind: 'tool.pre' as const,
@@ -643,10 +858,51 @@ describe('mergedEventSummary', () => {
 			},
 		};
 		const result = mergedEventSummary(pre, post);
-		expect(result.text).toContain('Bash');
-		expect(result.text).toContain('—');
-		expect(result.text).toContain('exit 0');
+		expect(result.text).toBe('Bash ls — exit 0');
 		expect(result.dimStart).toBe('Bash'.length);
+	});
+
+	it('includes primary input in merged Read summary', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+			},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/project/source/app.tsx'},
+				tool_response: [{type: 'text', file: {content: 'line1\nline2\nline3'}}],
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toContain('Read');
+		expect(result.text).toContain('source/app.tsx');
+		expect(result.text).toContain('3 lines');
+	});
+
+	it('includes command in merged Bash summary', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {command: 'npm test'}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'npm test'},
+				tool_response: {stdout: '', stderr: '', exitCode: 0},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toBe('Bash npm test — exit 0');
 	});
 
 	it('returns merged summary with error for tool.failure', () => {
@@ -678,6 +934,6 @@ describe('mergedEventSummary', () => {
 		};
 		const result = mergedEventSummary(pre);
 		expect(result.text).toContain('Read');
-		expect(result.text).toContain('/foo.ts');
+		expect(result.text).toContain('foo.ts');
 	});
 });
