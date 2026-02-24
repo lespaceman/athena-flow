@@ -99,7 +99,10 @@ describe('mapDecisionToResult', () => {
 		const result = mapDecisionToResult(makeEvent('Stop'), {
 			type: 'json',
 			source: 'rule',
-			intent: {kind: 'stop_block', reason: 'Continue working on remaining items.'},
+			intent: {
+				kind: 'stop_block',
+				reason: 'Continue working on remaining items.',
+			},
 		});
 		expect(result.action).toBe('json_output');
 		expect(result.stdout_json).toEqual({
