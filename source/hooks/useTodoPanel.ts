@@ -50,8 +50,11 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		Record<string, TodoPanelStatus>
 	>({});
 	const startedAtRef = useRef<Map<string, number>>(new Map());
+	const [tickCounter, setTickCounter] = useState(0);
 
 	const todoItems = useMemo((): TodoPanelItem[] => {
+		// tickCounter forces re-evaluation every second while items are active
+		void tickCounter;
 		const fromTasks = tasks.map((task, index) => ({
 			id: `task-${index}-${task.content.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
 			text: task.content,
@@ -72,15 +75,16 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 				startedAt.set(todo.id, now);
 			}
 			let elapsed: string | undefined;
-			if (
-				(todo.status === 'done' || todo.status === 'failed') &&
-				startedAt.has(todo.id)
-			) {
+			const hasElapsed =
+				todo.status === 'doing' ||
+				todo.status === 'done' ||
+				todo.status === 'failed';
+			if (hasElapsed && startedAt.has(todo.id)) {
 				elapsed = formatElapsed(now - startedAt.get(todo.id)!);
 			}
 			return {...todo, elapsed};
 		});
-	}, [tasks, extraTodos, todoStatusOverrides]);
+	}, [tasks, extraTodos, todoStatusOverrides, tickCounter]);
 
 	const sortedItems = useMemo(() => {
 		return todoShowDone
@@ -133,20 +137,28 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		};
 	}, [todoItems]);
 
+	// Tick interval to refresh elapsed times while items are active
+	useEffect(() => {
+		if (doingCount === 0) return;
+		const id = setInterval(() => setTickCounter(c => c + 1), 1000);
+		return () => clearInterval(id);
+	}, [doingCount]);
+
 	// Clamp cursor when items shrink
 	useEffect(() => {
 		setTodoCursor(prev => Math.min(prev, Math.max(0, sortedItems.length - 1)));
 	}, [sortedItems.length]);
 
-	// Auto-scroll to keep active (doing) item visible
+	// Auto-scroll to keep active (doing) item and next pending visible
 	useEffect(() => {
 		const activeIdx = sortedItems.findIndex(i => i.status === 'doing');
 		if (activeIdx < 0) return;
+		const lastMustSee = Math.min(activeIdx + 1, sortedItems.length - 1);
 		setTodoScroll(prev => {
-			const maxVisible = 5;
+			const maxVisible = 3;
 			if (activeIdx < prev) return activeIdx;
-			if (activeIdx >= prev + maxVisible)
-				return Math.max(0, activeIdx - maxVisible + 1);
+			if (lastMustSee >= prev + maxVisible)
+				return Math.max(0, lastMustSee - maxVisible + 1);
 			return prev;
 		});
 	}, [sortedItems]);

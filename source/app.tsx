@@ -648,7 +648,7 @@ function AppContent({
 	const todoColors = useMemo(
 		() => ({
 			doing: theme.status.warning,
-			done: theme.status.success,
+			done: theme.textMuted,
 			failed: theme.status.error,
 			blocked: theme.status.warning,
 			text: theme.text,

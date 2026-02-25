@@ -108,7 +108,7 @@ export function todoGlyphs(
 						glyph: chalk.hex(colors.doing)(table.doing),
 						text: (raw: string) => chalk.hex(colors.text)(raw),
 						suffix: chalk.hex(colors.doing)('\u2190 active'),
-						elapsed: empty,
+						elapsed: (raw: string) => chalk.hex(colors.doing)(raw),
 					};
 				case 'failed':
 					return {
