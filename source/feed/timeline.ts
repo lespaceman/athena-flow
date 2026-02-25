@@ -1,7 +1,6 @@
 import {type Message} from '../types/index.js';
 import {
 	compactText,
-	fit,
 	summarizeToolPrimaryInput,
 	shortenPathStructured,
 } from '../utils/format.js';
