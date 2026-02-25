@@ -247,7 +247,7 @@ function AppContent({
 		setSearchMatchPos,
 	} = timeline;
 
-	const todoPanel = useTodoPanel({tasks, todoVisible: true, focusMode});
+	const todoPanel = useTodoPanel({tasks});
 
 	useEffect(() => {
 		if (

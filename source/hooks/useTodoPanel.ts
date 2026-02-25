@@ -11,8 +11,6 @@ import {formatElapsed} from '../utils/formatElapsed.js';
 
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
-	todoVisible: boolean;
-	focusMode: string;
 };
 
 export type UseTodoPanelResult = {
