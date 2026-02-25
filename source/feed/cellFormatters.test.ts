@@ -356,10 +356,10 @@ describe('formatDetails', () => {
 describe('computeDuplicateActors', () => {
 	test('marks consecutive same-actor entries as duplicate', () => {
 		const entries = [
-			{actorId: 'a'},
-			{actorId: 'a'},
-			{actorId: 'b'},
-			{actorId: 'b'},
+			{actorId: 'a', opTag: 'tool.ok'},
+			{actorId: 'a', opTag: 'tool.ok'},
+			{actorId: 'b', opTag: 'tool.ok'},
+			{actorId: 'b', opTag: 'tool.ok'},
 		] as TimelineEntry[];
 		computeDuplicateActors(entries);
 		expect(entries[0]!.duplicateActor).toBe(false);
@@ -369,7 +369,7 @@ describe('computeDuplicateActors', () => {
 	});
 
 	test('first entry is never duplicate', () => {
-		const entries = [{actorId: 'a'}] as TimelineEntry[];
+		const entries = [{actorId: 'a', opTag: 'tool.ok'}] as TimelineEntry[];
 		computeDuplicateActors(entries);
 		expect(entries[0]!.duplicateActor).toBe(false);
 	});

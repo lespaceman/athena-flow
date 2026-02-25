@@ -135,7 +135,8 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	Read: filePathExtractor,
 	Write: filePathExtractor,
 	Edit: filePathExtractor,
-	Bash: input => compactText(compactCommandPaths(String(input.command ?? '')), 40),
+	Bash: input =>
+		compactText(compactCommandPaths(String(input.command ?? '')), 40),
 	Glob: input => String(input.pattern ?? ''),
 	Grep: input => {
 		const p = `"${String(input.pattern ?? '')}"`;

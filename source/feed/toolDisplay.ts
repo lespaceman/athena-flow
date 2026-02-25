@@ -13,7 +13,11 @@
  */
 
 import {parseToolName} from '../utils/toolNameParser.js';
-import {shortenPathStructured, compactText, compactCommandPaths} from '../utils/format.js';
+import {
+	shortenPathStructured,
+	compactText,
+	compactCommandPaths,
+} from '../utils/format.js';
 import {isBashToolResponse} from '../components/hookEventUtils.js';
 import {
 	type SummarySegment,

@@ -240,7 +240,9 @@ describe('summarizeToolPrimaryInput', () => {
 	});
 
 	it('compacts paths in Bash commands', () => {
-		const input = {command: 'ls /home/nadeemm/Projects/ai-projects/deep/nested'};
+		const input = {
+			command: 'ls /home/nadeemm/Projects/ai-projects/deep/nested',
+		};
 		const result = summarizeToolPrimaryInput('Bash', input);
 		expect(result).toContain('…/');
 		expect(result).not.toContain('/home/nadeemm');
@@ -304,10 +306,14 @@ describe('summarizeToolPrimaryInput', () => {
 
 	it('summarizeToolPrimaryInput returns question count for AskUserQuestion', () => {
 		const input = {questions: [{question: 'Pick one?', options: ['a', 'b']}]};
-		expect(summarizeToolPrimaryInput('AskUserQuestion', input)).toBe('1 question');
+		expect(summarizeToolPrimaryInput('AskUserQuestion', input)).toBe(
+			'1 question',
+		);
 
 		const multi = {questions: [{question: 'Q1'}, {question: 'Q2'}]};
-		expect(summarizeToolPrimaryInput('AskUserQuestion', multi)).toBe('2 questions');
+		expect(summarizeToolPrimaryInput('AskUserQuestion', multi)).toBe(
+			'2 questions',
+		);
 	});
 });
 
