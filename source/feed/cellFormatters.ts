@@ -57,3 +57,65 @@ export function formatGutter(opts: FormatGutterOpts): string {
 	}
 	return ' ';
 }
+
+export function formatTime(
+	ts: number,
+	contentWidth: number,
+	theme: Theme,
+): string {
+	const clock = formatClock(ts);
+	return chalk.hex(theme.textMuted)(fitImpl(clock, contentWidth));
+}
+
+export function formatEvent(
+	opLabel: string,
+	contentWidth: number,
+	theme: Theme,
+	opTag?: string,
+): string {
+	const fitted = fitImpl(opLabel, contentWidth);
+	const color = opTag ? opCategoryColor(opTag, theme) : undefined;
+	return color ? chalk.hex(color)(fitted) : chalk.hex(theme.text)(fitted);
+}
+
+export function formatActor(
+	actor: string,
+	duplicate: boolean,
+	contentWidth: number,
+	theme: Theme,
+	actorId: string,
+): string {
+	if (contentWidth <= 0) return '';
+	if (duplicate) {
+		const pad = Math.floor((contentWidth - 1) / 2);
+		const text = ' '.repeat(pad) + '\u00B7' + ' '.repeat(contentWidth - pad - 1);
+		return chalk.dim.hex(theme.textMuted)(text);
+	}
+	const fitted = fitImpl(actor, contentWidth);
+	if (actorId === 'system') return chalk.dim.hex(theme.textMuted)(fitted);
+	if (actorId === 'user') return chalk.hex(theme.userMessage.text)(fitted);
+	return chalk.hex(theme.text)(fitted);
+}
+
+export function formatTool(
+	toolColumn: string,
+	contentWidth: number,
+	theme: Theme,
+): string {
+	if (contentWidth <= 0) return '';
+	return chalk.hex(theme.text)(fitImpl(toolColumn, contentWidth));
+}
+
+export function formatSuffix(
+	expandable: boolean,
+	expanded: boolean,
+	ascii: boolean,
+	theme: Theme,
+): string {
+	if (!expandable) return '  ';
+	const g = getGlyphs(ascii);
+	if (expanded) {
+		return chalk.hex(theme.status.success)(g['feed.expandExpanded']) + ' ';
+	}
+	return chalk.hex(theme.accent)(g['feed.expandCollapsed']) + ' ';
+}
