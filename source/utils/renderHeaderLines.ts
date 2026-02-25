@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import type {HeaderModel} from './headerModel.js';
+import {renderContextBar} from './contextBar.js';
 
 export function truncateSessionId(id: string, maxWidth: number): string {
 	if (id.length <= maxWidth) return id;
@@ -23,14 +24,14 @@ export function renderHeaderLines(
 	const wfLabel = hasColor ? chalk.dim('Workflow: ') : 'Workflow: ';
 	const hLabel = hasColor ? chalk.dim('Harness: ') : 'Harness: ';
 
-	// Context as plain text
-	const usedK =
-		model.context.used !== null
-			? `${Math.round(model.context.used / 1000)}k`
-			: '0k';
-	const maxK = `${Math.round(model.context.max / 1000)}k`;
-	const ctxLabel = hasColor ? chalk.dim('Ctx: ') : 'Ctx: ';
-	const ctxText = `${ctxLabel}${usedK} / ${maxK}`;
+	// Context bar (visual progress)
+	const ctxBarWidth = 20;
+	const ctxText = renderContextBar(
+		model.context.used,
+		model.context.max,
+		ctxBarWidth,
+		hasColor,
+	);
 
 	// Truncated session ID
 	const sid = truncateSessionId(model.session_id, 8);
