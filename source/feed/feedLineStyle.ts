@@ -174,6 +174,8 @@ export function styleFeedLine(
 					return summaryBase;
 				case 'target':
 					return chalk.hex(theme.textMuted);
+				case 'filename':
+					return chalk.hex(theme.text);
 				case 'outcome':
 					return opts.outcomeZero
 						? chalk.hex(theme.status.warning)

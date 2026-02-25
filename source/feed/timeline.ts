@@ -5,6 +5,7 @@ import {
 	fit,
 	formatClock,
 	summarizeToolPrimaryInput,
+	shortenPathStructured,
 } from '../utils/format.js';
 import {
 	extractFriendlyServerName,
@@ -16,7 +17,12 @@ import {resolveVerb} from './verbMap.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
-export type SummarySegmentRole = 'verb' | 'target' | 'outcome' | 'plain';
+export type SummarySegmentRole =
+	| 'verb'
+	| 'target'
+	| 'filename'
+	| 'outcome'
+	| 'plain';
 export type SummarySegment = {text: string; role: SummarySegmentRole};
 
 export type TimelineEntry = {
@@ -223,6 +229,8 @@ function resolveDisplayName(toolName: string): string {
 
 type ToolSummaryResult = {text: string; segments: SummarySegment[]};
 
+const PATH_TOOLS = new Set(['Read', 'Write', 'Edit', 'Glob', 'Grep']);
+
 function formatToolSummary(
 	toolName: string,
 	toolInput: Record<string, unknown>,
@@ -238,11 +246,38 @@ function formatToolSummary(
 	}
 	const full = `${verb} ${secondary}`;
 	const text = compactText(full, 200);
+	const rest = text.slice(verb.length);
+
+	// X4: Split target into prefix (dim) + filename (bright) for path-based tools
+	const baseName = parsed.isMcp ? toolName : toolName;
+	const filePath = toolInput.file_path ?? toolInput.pattern ?? toolInput.path;
+	if (PATH_TOOLS.has(baseName) && typeof filePath === 'string') {
+		const {prefix, filename} = shortenPathStructured(filePath);
+		if (prefix && filename) {
+			const idx = rest.indexOf(prefix);
+			if (idx >= 0) {
+				const beforeFilename = rest.slice(0, idx + prefix.length);
+				const afterFilename = rest.slice(idx + prefix.length + filename.length);
+				return {
+					text,
+					segments: [
+						{text: verb, role: 'verb'},
+						{text: beforeFilename, role: 'target'},
+						{text: filename, role: 'filename'},
+						...(afterFilename
+							? [{text: afterFilename, role: 'target' as const}]
+							: []),
+					],
+				};
+			}
+		}
+	}
+
 	return {
 		text,
 		segments: [
 			{text: verb, role: 'verb'},
-			{text: text.slice(verb.length), role: 'target'},
+			{text: rest, role: 'target'},
 		],
 	};
 }

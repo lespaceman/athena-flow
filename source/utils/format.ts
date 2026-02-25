@@ -107,6 +107,17 @@ export function shortenPath(filePath: string): string {
 	return '…/' + segments.slice(-2).join('/');
 }
 
+export type StructuredPath = {prefix: string; filename: string};
+
+export function shortenPathStructured(filePath: string): StructuredPath {
+	const segments = filePath.split('/').filter(Boolean);
+	if (segments.length === 0) return {prefix: '', filename: filePath};
+	const filename = segments[segments.length - 1]!;
+	if (segments.length === 1) return {prefix: '', filename};
+	if (segments.length === 2) return {prefix: segments[0] + '/', filename};
+	return {prefix: '…/' + segments[segments.length - 2] + '/', filename};
+}
+
 const filePathExtractor = (input: Record<string, unknown>): string =>
 	shortenPath(String(input.file_path ?? ''));
 

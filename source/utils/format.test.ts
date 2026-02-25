@@ -14,6 +14,7 @@ import {
 	renderInputLines,
 	MAX_INPUT_ROWS,
 	shortenPath,
+	shortenPathStructured,
 } from './format.js';
 
 describe('compactText', () => {
@@ -309,6 +310,34 @@ describe('shortenPath', () => {
 	});
 	it('strips absolute prefix even for 2-segment paths', () => {
 		expect(shortenPath('/home/file.ts')).toBe('home/file.ts');
+	});
+});
+
+describe('shortenPathStructured', () => {
+	it('returns prefix and filename for long paths', () => {
+		const result = shortenPathStructured(
+			'/home/user/projects/athena/source/feed/timeline.ts',
+		);
+		expect(result.prefix).toBe('…/feed/');
+		expect(result.filename).toBe('timeline.ts');
+	});
+
+	it('returns empty prefix for single-segment paths', () => {
+		const result = shortenPathStructured('timeline.ts');
+		expect(result.prefix).toBe('');
+		expect(result.filename).toBe('timeline.ts');
+	});
+
+	it('returns prefix and filename for 2-segment paths', () => {
+		const result = shortenPathStructured('/home/file.ts');
+		expect(result.prefix).toBe('home/');
+		expect(result.filename).toBe('file.ts');
+	});
+
+	it('handles 3-segment paths with …/ prefix', () => {
+		const result = shortenPathStructured('/a/b/c.ts');
+		expect(result.prefix).toBe('…/b/');
+		expect(result.filename).toBe('c.ts');
 	});
 });
 

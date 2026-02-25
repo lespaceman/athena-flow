@@ -84,6 +84,42 @@ describe('styleFeedLine summary segments', () => {
 		}
 	});
 
+	it('styles filename segments with bright text color (X4)', () => {
+		const prev = chalk.level;
+		chalk.level = 3;
+		try {
+			const summary = 'Read …/feed/timeline.ts';
+			const padded = summary + ' '.repeat(50);
+			const line = ` 08:55 Tool OK    AGENT      ${padded}▸`;
+
+			const segments: ResolvedSegment[] = [
+				{start: 31, end: 35, role: 'verb'}, // "Read"
+				{start: 35, end: 42, role: 'target'}, // " …/feed/"
+				{start: 42, end: 53, role: 'filename'}, // "timeline.ts"
+			];
+
+			const result = styleFeedLine(line, {
+				focused: false,
+				matched: false,
+				actorId: 'agent:root',
+				isError: false,
+				theme: darkTheme,
+				opTag: 'tool.ok',
+				summarySegments: segments,
+			});
+
+			expect(stripAnsi(result)).toContain('Read …/feed/timeline.ts');
+			// filename uses theme.text (#c9d1d9 → 201;209;217)
+			const textRgb = '201;209;217';
+			expect(result).toContain(`38;2;${textRgb}m`);
+			// target prefix uses theme.textMuted (#484f58 → 72;79;88)
+			const mutedRgb = '72;79;88';
+			expect(result).toContain(`38;2;${mutedRgb}m`);
+		} finally {
+			chalk.level = prev;
+		}
+	});
+
 	it('renders plain segments with lifecycle muted style', () => {
 		const prev = chalk.level;
 		chalk.level = 3;
