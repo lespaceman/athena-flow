@@ -7,6 +7,7 @@ import {
 import {type TodoItem} from '../types/todo.js';
 
 import {generateId} from '../types/index.js';
+import {formatElapsed} from '../utils/formatElapsed.js';
 
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
@@ -50,6 +51,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 	const [todoStatusOverrides, setTodoStatusOverrides] = useState<
 		Record<string, TodoPanelStatus>
 	>({});
+	const startedAtRef = useRef<Map<string, number>>(new Map());
 
 	const todoItems = useMemo((): TodoPanelItem[] => {
 		const fromTasks = tasks.map((task, index) => ({
@@ -63,7 +65,23 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 			...todo,
 			status: todoStatusOverrides[todo.id] ?? todo.status,
 		}));
-		return merged;
+
+		// Track start times and compute elapsed
+		const now = Date.now();
+		const startedAt = startedAtRef.current;
+		return merged.map(todo => {
+			if (todo.status === 'doing' && !startedAt.has(todo.id)) {
+				startedAt.set(todo.id, now);
+			}
+			let elapsed: string | undefined;
+			if (
+				(todo.status === 'done' || todo.status === 'failed') &&
+				startedAt.has(todo.id)
+			) {
+				elapsed = formatElapsed(now - startedAt.get(todo.id)!);
+			}
+			return {...todo, elapsed};
+		});
 	}, [tasks, extraTodos, todoStatusOverrides]);
 
 	const sortedItems = useMemo(() => {
