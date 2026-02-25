@@ -316,22 +316,8 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 				event.data.error,
 			);
 		case 'subagent.start':
-		case 'subagent.stop': {
-			const desc = event.data.description;
-			if (desc) {
-				const verbPart = `${event.data.agent_type}:`;
-				const text = compactText(`${verbPart} ${desc}`, 200);
-				return {
-					text,
-					segments: [
-						{text: verbPart, role: 'verb'},
-						{text: text.slice(verbPart.length), role: 'target'},
-					],
-				};
-			}
-			const text = compactText(event.data.agent_type, 200);
-			return {text, segments: [{text, role: 'verb'}]};
-		}
+		case 'subagent.stop':
+			return {text: '', segments: []};
 		default: {
 			const text = eventSummaryText(event);
 			return {text, segments: [{text, role: 'plain'}]};

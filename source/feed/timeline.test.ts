@@ -524,8 +524,8 @@ describe('eventSummary', () => {
 		expect(eventSummary(ev).text).toBe('Fix the login bug');
 	});
 
-	it('formats subagent.start with description', () => {
-		const ev = {
+	it('returns empty segments for subagent.start and subagent.stop', () => {
+		const start = {
 			...base({kind: 'subagent.start'}),
 			kind: 'subagent.start' as const,
 			data: {
@@ -534,26 +534,11 @@ describe('eventSummary', () => {
 				description: 'Write Playwright tests',
 			},
 		};
-		const result = eventSummary(ev);
-		expect(result.text).toBe('general-purpose: Write Playwright tests');
-		expect(result.segments[0]!.role).toBe('verb');
-		expect(result.segments[1]!.role).toBe('target');
-	});
+		const startResult = eventSummary(start);
+		expect(startResult.segments).toEqual([]);
+		expect(startResult.text).toBe('');
 
-	it('formats subagent.start without description — agent_type only', () => {
-		const ev = {
-			...base({kind: 'subagent.start'}),
-			kind: 'subagent.start' as const,
-			data: {agent_id: 'a1', agent_type: 'general-purpose'},
-		};
-		const result = eventSummary(ev);
-		expect(result.text).toBe('general-purpose');
-		expect(result.segments).toHaveLength(1);
-		expect(result.segments[0]!.role).toBe('verb');
-	});
-
-	it('formats subagent.stop with description', () => {
-		const ev = {
+		const stop = {
 			...base({kind: 'subagent.stop'}),
 			kind: 'subagent.stop' as const,
 			data: {
@@ -563,8 +548,9 @@ describe('eventSummary', () => {
 				description: 'Find test patterns',
 			},
 		};
-		const result = eventSummary(ev);
-		expect(result.text).toBe('Explore: Find test patterns');
+		const stopResult = eventSummary(stop);
+		expect(stopResult.segments).toEqual([]);
+		expect(stopResult.text).toBe('');
 	});
 
 	it('formats session.start as natural text with model', () => {
