@@ -11,7 +11,7 @@ export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
 	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
-	if (op === 'agent.msg') return theme.status.info;
+	if (op === 'agent.msg') return theme.textMuted;
 	if (
 		op.startsWith('run.') ||
 		op.startsWith('sess.') ||
