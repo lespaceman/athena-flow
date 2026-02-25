@@ -77,7 +77,7 @@ cli.tsx (readConfig) → config.workflow?
                        workflowPluginDirs ++ configPluginDirs → registerPlugins() → { mcpConfig, workflows } + commands
                          ↓                                       ↓
                   isolationConfig.pluginDirs →             activeWorkflow selected →
-                  spawnClaude(env, model) →                useClaudeProcess → applyPromptTemplate + writeLoopState
+                  spawnClaude(env, model) →                useClaudeProcess → applyPromptTemplate + LoopManager
 ```
 
 Workflows are the primary orchestration layer. They live in a standalone registry (`~/.config/athena/workflows/`)
@@ -108,7 +108,8 @@ plugins not covered by a workflow (e.g., `site-knowledge`). Both coexist — wor
 - **source/workflows/types.ts**: `WorkflowConfig` (name, plugins, promptTemplate, loop?, isolation?, model?, env?), `LoopConfig` types
 - **source/workflows/registry.ts**: `resolveWorkflow`, `installWorkflow`, `listWorkflows`, `removeWorkflow` — manages `~/.config/athena/workflows/`
 - **source/workflows/installer.ts**: `installWorkflowPlugins(workflow)` — resolves marketplace plugin refs to dirs
-- **source/workflows/applyWorkflow.ts**: `applyPromptTemplate`, `writeLoopState`, `removeLoopState` utilities
+- **source/workflows/applyWorkflow.ts**: `applyPromptTemplate` utility
+- **source/workflows/loopManager.ts**: `createLoopManager` factory — tracker file lifecycle (initialize, getState, incrementIteration, deactivate, cleanup)
 - **source/workflows/index.ts**: Barrel re-export for workflow module
 - **source/setup/**: Setup wizard — `SetupWizard.tsx` orchestrator, `useSetupState.ts` state machine, step components (ThemeStep, HarnessStep, WorkflowStep), reusable `StepSelector`/`StepStatus`. Triggered by first-run, `athena-cli setup`, or `/setup` command. Renders as `{type: 'setup'}` AppPhase.
 

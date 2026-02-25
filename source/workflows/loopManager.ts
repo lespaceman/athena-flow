@@ -138,16 +138,20 @@ export function createLoopManager(
 	}
 
 	function updateFrontmatter(updates: Record<string, string>): void {
-		const content = fs.readFileSync(trackerPath, 'utf-8');
-		const parsed = parseFrontmatter(content);
-		if (!parsed) return;
+		try {
+			const content = fs.readFileSync(trackerPath, 'utf-8');
+			const parsed = parseFrontmatter(content);
+			if (!parsed) return;
 
-		const newFrontmatter = {...parsed.frontmatter, ...updates};
-		fs.writeFileSync(
-			trackerPath,
-			serializeFrontmatter(newFrontmatter, parsed.body),
-			'utf-8',
-		);
+			const newFrontmatter = {...parsed.frontmatter, ...updates};
+			fs.writeFileSync(
+				trackerPath,
+				serializeFrontmatter(newFrontmatter, parsed.body),
+				'utf-8',
+			);
+		} catch {
+			// Fail open — if tracker is gone or unwritable, let Claude stop naturally
+		}
 	}
 
 	function incrementIteration(): void {

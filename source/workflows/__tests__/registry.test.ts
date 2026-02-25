@@ -131,6 +131,27 @@ describe('resolveWorkflow', () => {
 		expect(result.loop!.trackerTemplate).toBe('# Inline Template');
 	});
 
+	it('throws when trackerTemplate .md file does not exist', () => {
+		const workflow = {
+			name: 'missing-tmpl',
+			plugins: [],
+			promptTemplate: '{input}',
+			loop: {
+				enabled: true,
+				completionMarker: 'DONE',
+				maxIterations: 10,
+				trackerTemplate: './nonexistent.md',
+			},
+		};
+		files[
+			'/home/testuser/.config/athena/workflows/missing-tmpl/workflow.json'
+		] = JSON.stringify(workflow);
+
+		expect(() => resolveWorkflow('missing-tmpl')).toThrow(
+			/trackerTemplate.*not found/,
+		);
+	});
+
 	it('throws when workflow.json is missing promptTemplate', () => {
 		files['/home/testuser/.config/athena/workflows/bad2/workflow.json'] =
 			JSON.stringify({name: 'bad2', plugins: []});
