@@ -119,3 +119,52 @@ export function formatSuffix(
 	}
 	return chalk.hex(theme.accent)(g['feed.expandCollapsed']) + ' ';
 }
+
+export function buildDetailsPrefix(
+	mode: 'full' | 'compact' | 'narrow',
+	toolColumn: string | undefined,
+	actorStr: string | undefined,
+	theme: Theme,
+): {text: string; length: number} {
+	if (mode === 'full') return {text: '', length: 0};
+
+	let prefix = '';
+
+	// Narrow: actor comes first
+	if (mode === 'narrow' && actorStr) {
+		prefix += chalk.hex(theme.textMuted)(fitImpl(actorStr, 10)) + ' ';
+	}
+
+	// Compact & narrow: tool as bright prefix
+	if (toolColumn) {
+		prefix += chalk.hex(theme.text)(toolColumn) + '  ';
+	}
+
+	if (!prefix) return {text: '', length: 0};
+	return {text: prefix, length: stripAnsi(prefix).length};
+}
+
+export function layoutTargetAndOutcome(
+	target: string,
+	outcomeStr: string | undefined,
+	width: number,
+): string {
+	if (width <= 0) return '';
+	if (!outcomeStr) {
+		return fitImpl(target, width);
+	}
+
+	const outcomeLen = outcomeStr.length;
+	const targetBudget = width - outcomeLen - 2; // 2 = minimum gap
+
+	// Not enough room to separate — inline fallback
+	if (targetBudget < 10) {
+		return fitImpl(`${target}  ${outcomeStr}`, width);
+	}
+
+	// Right-align outcome
+	const fittedTarget = fitImpl(target, targetBudget);
+	const padNeeded = width - fittedTarget.length - outcomeLen;
+	const padding = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';
+	return fittedTarget + padding + outcomeStr;
+}

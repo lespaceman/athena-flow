@@ -1,7 +1,7 @@
 import {describe, test, expect} from 'vitest';
 import stripAnsi from 'strip-ansi';
 import {darkTheme} from '../theme/themes.js';
-import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix} from './cellFormatters.js';
+import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix, buildDetailsPrefix, layoutTargetAndOutcome} from './cellFormatters.js';
 
 const theme = darkTheme;
 
@@ -170,5 +170,56 @@ describe('formatSuffix', () => {
 
 	test('ascii mode expanded shows v ', () => {
 		expect(stripAnsi(formatSuffix(true, true, true, theme))).toBe('v ');
+	});
+});
+
+describe('buildDetailsPrefix', () => {
+	test('full mode returns empty prefix', () => {
+		const r = buildDetailsPrefix('full', 'Read', 'AGENT', theme);
+		expect(r).toEqual({text: '', length: 0});
+	});
+
+	test('compact mode prepends tool only', () => {
+		const r = buildDetailsPrefix('compact', 'Read', undefined, theme);
+		expect(r.length).toBeGreaterThan(0);
+		expect(stripAnsi(r.text)).toContain('Read');
+	});
+
+	test('narrow mode prepends actor then tool', () => {
+		const r = buildDetailsPrefix('narrow', 'Read', 'AGENT', theme);
+		const plain = stripAnsi(r.text);
+		expect(plain.indexOf('AGENT')).toBeLessThan(plain.indexOf('Read'));
+	});
+
+	test('prefix length matches stripped text length', () => {
+		const r = buildDetailsPrefix('narrow', 'Read', 'AGENT', theme);
+		expect(r.length).toBe(stripAnsi(r.text).length);
+	});
+
+	test('compact with no tool returns empty', () => {
+		const r = buildDetailsPrefix('compact', undefined, undefined, theme);
+		expect(r).toEqual({text: '', length: 0});
+	});
+});
+
+describe('layoutTargetAndOutcome', () => {
+	test('no outcome returns fitted target', () => {
+		const r = layoutTargetAndOutcome('src/app.tsx', undefined, 30);
+		expect(r).toHaveLength(30);
+	});
+
+	test('right-aligns outcome when space permits', () => {
+		const r = layoutTargetAndOutcome('src/app.tsx', '120 lines', 40);
+		expect(r.endsWith('120 lines')).toBe(true);
+		expect(r).toHaveLength(40);
+	});
+
+	test('inline fallback when width is tight', () => {
+		const r = layoutTargetAndOutcome('src/app.tsx', '120 lines', 20);
+		expect(r).toHaveLength(20);
+	});
+
+	test('zero width returns empty', () => {
+		expect(layoutTargetAndOutcome('src/app.tsx', '120 lines', 0)).toBe('');
 	});
 });
