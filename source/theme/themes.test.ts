@@ -7,19 +7,19 @@ import {
 } from './themes.js';
 
 describe('themes', () => {
-	it('darkTheme has all required tokens with Catppuccin Mocha palette', () => {
+	it('darkTheme has all required tokens with GitHub Dark palette', () => {
 		expect(darkTheme.name).toBe('dark');
-		expect(darkTheme.accent).toBe('#89b4fa');
-		expect(darkTheme.status.success).toBe('#a6e3a1');
-		expect(darkTheme.status.error).toBe('#f38ba8');
-		expect(darkTheme.status.warning).toBe('#f9e2af');
-		expect(darkTheme.status.info).toBe('#89dceb');
-		expect(darkTheme.status.working).toBe('#f5a623');
-		expect(darkTheme.status.neutral).toBe('#6c7086');
-		expect(darkTheme.accentSecondary).toBe('#cba6f7');
-		expect(darkTheme.contextBar.medium).toBe('#fab387');
-		expect(darkTheme.userMessage.text).toBe('#bac2de');
-		expect(darkTheme.userMessage.background).toBe('#313244');
+		expect(darkTheme.accent).toBe('#58a6ff');
+		expect(darkTheme.status.success).toBe('#3fb950');
+		expect(darkTheme.status.error).toBe('#f85149');
+		expect(darkTheme.status.warning).toBe('#d29922');
+		expect(darkTheme.status.info).toBe('#79c0ff');
+		expect(darkTheme.status.working).toBe('#e3b341');
+		expect(darkTheme.status.neutral).toBe('#484f58');
+		expect(darkTheme.accentSecondary).toBe('#a371f7');
+		expect(darkTheme.contextBar.medium).toBe('#d29922');
+		expect(darkTheme.userMessage.text).toBe('#c9d1d9');
+		expect(darkTheme.userMessage.background).toBe('#161b22');
 	});
 
 	it('lightTheme has distinct Catppuccin Latte palette', () => {

@@ -30,8 +30,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// textMuted #6c7086 → RGB 108;112;134
-		expect(result).toContain('38;2;108;112;134');
+		// textMuted #484f58 → RGB 72;79;88
+		expect(result).toContain('38;2;72;79;88');
 	});
 
 	it('applies default text color for subagent actor (same as agent)', () => {
@@ -42,8 +42,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// text #cdd6f4 → RGB 205;214;244
-		expect(result).toContain('38;2;205;214;244');
+		// text #e6edf3 → RGB 230;237;243
+		expect(result).toContain('38;2;230;237;243');
 	});
 
 	it('applies error color overriding actor', () => {
@@ -54,8 +54,8 @@ describe('styleFeedLine', () => {
 			isError: true,
 			theme: darkTheme,
 		});
-		// status.error #f38ba8 → RGB 243;139;168
-		expect(result).toContain('38;2;243;139;168');
+		// status.error #f85149 → RGB 248;81;73
+		expect(result).toContain('38;2;248;81;73');
 	});
 
 	it('applies accent border glyph for focused row (no inverse)', () => {
@@ -70,8 +70,8 @@ describe('styleFeedLine', () => {
 		expect(result).not.toContain('\x1b[7m');
 		// Has focus border glyph ▎
 		expect(result).toContain('▎');
-		// accent #89b4fa → RGB 137;180;250
-		expect(result).toContain('38;2;137;180;250');
+		// accent #58a6ff → RGB 88;166;255
+		expect(result).toContain('38;2;88;166;255');
 	});
 
 	it('prepends accent ▌ for search matches', () => {
@@ -95,8 +95,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// accent #89b4fa → RGB 137;180;250
-		expect(result).toContain('38;2;137;180;250');
+		// accent #58a6ff → RGB 88;166;255
+		expect(result).toContain('38;2;88;166;255');
 		expect(result).toContain('▸');
 	});
 
@@ -110,8 +110,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// status.success #a6e3a1 → RGB 166;227;161
-		expect(result).toContain('38;2;166;227;161');
+		// status.success #3fb950 → RGB 63;185;80
+		expect(result).toContain('38;2;63;185;80');
 		expect(result).toContain('▾');
 	});
 
@@ -125,8 +125,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// accent #89b4fa → RGB 137;180;250
-		expect(result).toContain('38;2;137;180;250');
+		// accent #58a6ff → RGB 88;166;255
+		expect(result).toContain('38;2;88;166;255');
 		expect(result).toContain('>');
 	});
 
@@ -140,8 +140,8 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// status.success #a6e3a1 → RGB 166;227;161
-		expect(result).toContain('38;2;166;227;161');
+		// status.success #3fb950 → RGB 63;185;80
+		expect(result).toContain('38;2;63;185;80');
 		expect(result).toContain('v');
 	});
 
@@ -158,7 +158,7 @@ describe('styleFeedLine', () => {
 	});
 
 	it('dims tool.ok and tool.call with textMuted, keeps tool.fail as error', () => {
-		// textMuted #6c7086 → RGB 108;112;134
+		// textMuted #484f58 → RGB 72;79;88
 		const toolOk = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
@@ -167,7 +167,7 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.ok',
 		});
-		expect(toolOk).toContain('38;2;108;112;134');
+		expect(toolOk).toContain('38;2;72;79;88');
 
 		const toolCall = styleFeedLine(baseLine, {
 			focused: false,
@@ -177,9 +177,9 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.call',
 		});
-		expect(toolCall).toContain('38;2;108;112;134');
+		expect(toolCall).toContain('38;2;72;79;88');
 
-		// status.error #f38ba8 → RGB 243;139;168
+		// status.error #f85149 → RGB 248;81;73
 		const toolFail = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
@@ -188,7 +188,7 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.fail',
 		});
-		expect(toolFail).toContain('38;2;243;139;168');
+		expect(toolFail).toContain('38;2;248;81;73');
 	});
 
 	it('does not color OP when focused (inverse takes precedence)', () => {
@@ -284,10 +284,10 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// TIME segment should use textMuted (#6c7086 → 108;112;134), not text color
+		// TIME segment should use textMuted (#484f58 → 72;79;88), not text color
 		const timeSegment = result.slice(0, 30);
-		expect(timeSegment).toContain('38;2;108;112;134');
-		expect(timeSegment).not.toContain('38;2;205;214;244');
+		expect(timeSegment).toContain('38;2;72;79;88');
+		expect(timeSegment).not.toContain('38;2;230;237;243');
 	});
 
 	it('tool.ok dims EVENT only, ACTOR+SUMMARY stay bright (QW1)', () => {
@@ -299,10 +299,10 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.ok',
 		});
-		// EVENT column should have textMuted (108;112;134)
-		expect(result).toContain('38;2;108;112;134');
-		// ACTOR + SUMMARY should still have bright text color (205;214;244)
-		expect(result).toContain('38;2;205;214;244');
+		// EVENT column should have textMuted (72;79;88)
+		expect(result).toContain('38;2;72;79;88');
+		// ACTOR + SUMMARY should still have bright text color (230;237;243)
+		expect(result).toContain('38;2;230;237;243');
 	});
 
 	it('dims entire row for lifecycle events (S9)', () => {
@@ -315,7 +315,7 @@ describe('styleFeedLine', () => {
 			opTag: 'stop.request',
 		});
 		const timeSegment = result.slice(0, 30);
-		expect(timeSegment).toContain('38;2;108;112;134');
+		expect(timeSegment).toContain('38;2;72;79;88');
 	});
 
 	it('dims entire row for session events (S9)', () => {
@@ -328,7 +328,7 @@ describe('styleFeedLine', () => {
 			opTag: 'sess.start',
 		});
 		const timeSegment = result.slice(0, 30);
-		expect(timeSegment).toContain('38;2;108;112;134');
+		expect(timeSegment).toContain('38;2;72;79;88');
 	});
 
 	it('applies info color to agent.msg summary (S6)', () => {
@@ -342,9 +342,9 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'agent.msg',
 		});
-		// status.info is #89dceb → RGB 137;220;235
+		// status.info is #79c0ff → RGB 121;192;255
 		// The summary portion (after ACTOR) should contain this color
-		expect(result).toContain('38;2;137;220;235');
+		expect(result).toContain('38;2;121;192;255');
 	});
 
 	it('applies focus border (not user border) when focused on prompt', () => {
@@ -360,7 +360,7 @@ describe('styleFeedLine', () => {
 		});
 		// Focus border ▎ is present with accent color, not user border color
 		expect(styled).toContain('▎');
-		// accent #89b4fa → RGB 137;180;250
-		expect(styled).toContain('38;2;137;180;250');
+		// accent #58a6ff → RGB 88;166;255
+		expect(styled).toContain('38;2;88;166;255');
 	});
 });
