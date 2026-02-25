@@ -15,6 +15,7 @@ import {
 	isEventExpandable,
 	toRunStatus,
 	VERBOSE_ONLY_KINDS,
+	computeDuplicateActors,
 } from '../feed/timeline.js';
 import {compactText, actorLabel} from '../utils/format.js';
 import {
@@ -84,6 +85,7 @@ export function useTimeline({
 					error: false,
 					expandable: details.length > 120,
 					details,
+					duplicateActor: false,
 				});
 				continue;
 			}
@@ -159,11 +161,13 @@ export function useTimeline({
 				details,
 				feedEvent: event,
 				pairedPostEvent: pairedPost,
+					duplicateActor: false,
 			});
 			if (event.kind === 'run.end') {
 				activeRunId = undefined;
 			}
 		}
+		computeDuplicateActors(entries);
 		return entries;
 	}, [feedItems, postByToolUseId, verbose]);
 

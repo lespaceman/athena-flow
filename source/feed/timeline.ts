@@ -42,9 +42,17 @@ export type TimelineEntry = {
 	error: boolean;
 	expandable: boolean;
 	details: string;
+	duplicateActor: boolean;
 	feedEvent?: FeedEvent;
 	pairedPostEvent?: FeedEvent;
 };
+
+export function computeDuplicateActors(entries: TimelineEntry[]): void {
+	for (let i = 0; i < entries.length; i++) {
+		entries[i]!.duplicateActor =
+			i > 0 && entries[i]!.actorId === entries[i - 1]!.actorId;
+	}
+}
 
 export type RunSummary = {
 	runId: string;

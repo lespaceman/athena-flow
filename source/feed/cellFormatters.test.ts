@@ -2,7 +2,8 @@ import {describe, test, expect} from 'vitest';
 import stripAnsi from 'strip-ansi';
 import {darkTheme} from '../theme/themes.js';
 import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix, buildDetailsPrefix, layoutTargetAndOutcome, formatDetails} from './cellFormatters.js';
-import type {SummarySegment} from './timeline.js';
+import type {SummarySegment, TimelineEntry} from './timeline.js';
+import {computeDuplicateActors} from './timeline.js';
 
 const theme = darkTheme;
 
@@ -311,5 +312,33 @@ describe('formatDetails', () => {
 		// At chalk level 0, verify both produce valid output
 		expect(stripAnsi(noZero)).toContain('0 files');
 		expect(stripAnsi(withZero)).toContain('0 files');
+	});
+});
+
+describe('computeDuplicateActors', () => {
+	test('marks consecutive same-actor entries as duplicate', () => {
+		const entries = [
+			{actorId: 'a'},
+			{actorId: 'a'},
+			{actorId: 'b'},
+			{actorId: 'b'},
+		] as TimelineEntry[];
+		computeDuplicateActors(entries);
+		expect(entries[0]!.duplicateActor).toBe(false);
+		expect(entries[1]!.duplicateActor).toBe(true);
+		expect(entries[2]!.duplicateActor).toBe(false);
+		expect(entries[3]!.duplicateActor).toBe(true);
+	});
+
+	test('first entry is never duplicate', () => {
+		const entries = [{actorId: 'a'}] as TimelineEntry[];
+		computeDuplicateActors(entries);
+		expect(entries[0]!.duplicateActor).toBe(false);
+	});
+
+	test('empty array is a no-op', () => {
+		const entries: TimelineEntry[] = [];
+		computeDuplicateActors(entries);
+		expect(entries).toHaveLength(0);
 	});
 });
