@@ -65,11 +65,11 @@ function summarizeEdit(
 }
 
 function summarizeWrite(
-	input: Record<string, unknown>,
-	response: unknown,
+	_input: Record<string, unknown>,
+	_response: unknown,
 ): string {
-	const filePath = prop(response, 'filePath') ?? input['file_path'];
-	return `wrote ${filePath}`;
+	// Path is already shown as primary input — no outcome needed
+	return '';
 }
 
 function summarizeGlob(
@@ -87,8 +87,8 @@ function summarizeGrep(
 	_input: Record<string, unknown>,
 	response: unknown,
 ): string {
-	const text = typeof response === 'string' ? response : '';
-	const matches = text.split('\n').filter(Boolean).length;
+	if (typeof response !== 'string') return '';
+	const matches = response.split('\n').filter(Boolean).length;
 	return `${matches} matches`;
 }
 

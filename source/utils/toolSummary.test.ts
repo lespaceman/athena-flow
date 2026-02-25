@@ -48,16 +48,13 @@ describe('summarizeToolResult', () => {
 		expect(result).toBe('replaced 2 → 3 lines');
 	});
 
-	it('summarizes Write with file path', () => {
+	it('Write returns empty — path is already in primary input', () => {
 		const result = summarizeToolResult(
 			'Write',
-			{
-				file_path: '/tmp/output.txt',
-				content: 'hello',
-			},
+			{file_path: '/tmp/output.txt', content: 'hello'},
 			{filePath: '/tmp/output.txt', success: true},
 		);
-		expect(result).toBe('wrote /tmp/output.txt');
+		expect(result).toBe('');
 	});
 
 	it('summarizes Glob with file count', () => {
@@ -123,6 +120,11 @@ describe('summarizeToolResult', () => {
 
 	it('returns empty string for WebSearch when no results', () => {
 		expect(summarizeToolResult('WebSearch', {}, {})).toBe('');
+	});
+
+	it('returns empty string for Grep when response is not a string', () => {
+		expect(summarizeToolResult('Grep', {pattern: 'foo'}, null)).toBe('');
+		expect(summarizeToolResult('Grep', {pattern: 'foo'}, {})).toBe('');
 	});
 
 	it('summarizes failure with error string', () => {
