@@ -80,6 +80,16 @@ export function styleFeedLine(
 		? chalk.hex(theme.status.error)
 		: actorStyle(actorId, theme);
 
+	// Full-row dimming: lifecycle and Tool OK events get muted base for all segments
+	const isLifecycleRow =
+		opts.opTag !== undefined &&
+		/^(run\.|sess\.|stop\.|sub\.)/.test(opts.opTag);
+	const isToolOk = opts.opTag === 'tool.ok';
+	const rowBase =
+		!isError && (isLifecycleRow || isToolOk)
+			? chalk.hex(theme.textMuted)
+			: base;
+
 	// Determine if EVENT segment gets separate coloring
 	const opColor =
 		opts.opTag && !isError ? opCategoryColor(opts.opTag, theme) : undefined;
@@ -117,7 +127,7 @@ export function styleFeedLine(
 		gutterStyle = chalk.dim.hex(theme.textMuted);
 	} else {
 		gutterChar = ' ';
-		gutterStyle = base;
+		gutterStyle = rowBase;
 	}
 
 	// Build styled string by painting segments
@@ -125,7 +135,7 @@ export function styleFeedLine(
 	const segments: {start: number; end: number; style: ChalkInstance}[] = [];
 
 	// TIME segment (1..EVENT_START)
-	segments.push({start: 1, end: FEED_EVENT_COL_START, style: base});
+	segments.push({start: 1, end: FEED_EVENT_COL_START, style: rowBase});
 	// EVENT segment (colored by category)
 	segments.push({
 		start: FEED_EVENT_COL_START,
@@ -135,9 +145,12 @@ export function styleFeedLine(
 
 	// After EVENT: actor + summary (may have dim portion and glyph)
 	const afterEventEnd = glyphPos ?? line.length;
-	const actorStyle_ = opts.duplicateActor
-		? chalk.dim.hex(theme.textMuted)
-		: base;
+	const actorStyle_ =
+		isLifecycleRow || isToolOk
+			? rowBase
+			: opts.duplicateActor
+				? chalk.dim.hex(theme.textMuted)
+				: base;
 
 	// Actor segment (EVENT_COL_END..ACTOR_COL_END)
 	const actorEnd = Math.min(FEED_ACTOR_COL_END, afterEventEnd);
@@ -160,7 +173,7 @@ export function styleFeedLine(
 
 	if (effectiveDim !== undefined) {
 		if (effectiveDim > summaryStart) {
-			segments.push({start: summaryStart, end: effectiveDim, style: base});
+			segments.push({start: summaryStart, end: effectiveDim, style: rowBase});
 		}
 		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
 		const dimStyle = opts.outcomeZero
@@ -168,7 +181,7 @@ export function styleFeedLine(
 			: chalk.hex(theme.textMuted);
 		segments.push({start: effectiveDim, end: afterEventEnd, style: dimStyle});
 	} else if (summaryStart < afterEventEnd) {
-		segments.push({start: summaryStart, end: afterEventEnd, style: base});
+		segments.push({start: summaryStart, end: afterEventEnd, style: rowBase});
 	}
 
 	// Glyph segment

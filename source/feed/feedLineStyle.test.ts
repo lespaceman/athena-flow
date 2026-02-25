@@ -276,6 +276,48 @@ describe('styleFeedLine', () => {
 		expect(styled).toContain('▎');
 	});
 
+	it('dims entire row for tool.ok events (QW1)', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			opTag: 'tool.ok',
+		});
+		// The TIME segment (chars 1-7) should use textMuted (#6c7086 → 108;112;134)
+		// not the default text color (#cdd6f4 → 205;214;244)
+		const timeSegment = result.slice(0, 30);
+		expect(timeSegment).toContain('38;2;108;112;134');
+		expect(timeSegment).not.toContain('38;2;205;214;244');
+	});
+
+	it('dims entire row for lifecycle events (S9)', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			opTag: 'stop.request',
+		});
+		const timeSegment = result.slice(0, 30);
+		expect(timeSegment).toContain('38;2;108;112;134');
+	});
+
+	it('dims entire row for session events (S9)', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			opTag: 'sess.start',
+		});
+		const timeSegment = result.slice(0, 30);
+		expect(timeSegment).toContain('38;2;108;112;134');
+	});
+
 	it('applies focus border (not user border) when focused on prompt', () => {
 		const line =
 			' HH:MM User Prompt USER       Tell me about X                      ';
