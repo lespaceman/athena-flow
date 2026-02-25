@@ -875,7 +875,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.text).toBe('Read …/source/app.tsx');
 		expect(result.dimStart).toBe('Read'.length + 1);
 	});
 
@@ -903,7 +903,8 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.text).toContain('[general-purpose] Write tests');
+		expect(result.text).toContain('Write tests');
+		expect(result.text).not.toContain('[general-purpose]');
 	});
 
 	it('formats tool.post with primary input', () => {
@@ -917,7 +918,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.text).toBe('Read source/app.tsx');
+		expect(result.text).toBe('Read …/source/app.tsx');
 		expect(result.dimStart).toBe('Read'.length + 1);
 	});
 
