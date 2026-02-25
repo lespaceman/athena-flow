@@ -19,6 +19,8 @@ export type FrameContext = {
 	accentColor?: string;
 	hintsForced?: boolean | null;
 	ascii?: boolean;
+	/** Status of the most recent completed run, or null if no run has finished yet. */
+	lastRunStatus?: 'completed' | 'failed' | 'aborted' | null;
 };
 
 export type FrameLines = {
@@ -111,6 +113,10 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		inputPlaceholder = ':command';
 	} else if (ctx.inputMode === 'search') {
 		inputPlaceholder = '/search';
+	} else if (ctx.lastRunStatus === 'completed') {
+		inputPlaceholder = 'Run complete \u2014 type a follow-up or :retry';
+	} else if (ctx.lastRunStatus === 'failed' || ctx.lastRunStatus === 'aborted') {
+		inputPlaceholder = 'Run failed \u2014 type a follow-up or :retry';
 	} else {
 		inputPlaceholder = 'Type a prompt or :command';
 	}

@@ -1,24 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import chalk from 'chalk';
 import {buildFrameLines, type FrameContext} from './buildFrameLines.js';
-import {type TimelineEntry} from '../feed/timeline.js';
-
-/** Minimal TimelineEntry stub for tests that only need a truthy expandedEntry. */
-function stubTimelineEntry(overrides?: Partial<TimelineEntry>): TimelineEntry {
-	return {
-		id: 'test',
-		ts: 0,
-		op: 'test',
-		actor: 'AGENT',
-		actorId: 'agent:root',
-		summary: 'test entry',
-		searchText: 'test entry',
-		error: false,
-		expandable: true,
-		details: '',
-		...overrides,
-	};
-}
 
 const baseCtx: FrameContext = {
 	innerWidth: 80,
@@ -33,107 +14,25 @@ const baseCtx: FrameContext = {
 	cursorOffset: 0,
 	dialogActive: false,
 	dialogType: '',
+	lastRunStatus: null,
 };
 
-describe('buildFrameLines hints', () => {
-	it('shows glyph hints when input is empty in INPUT mode', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines(baseCtx);
-			expect(result.footerHelp).not.toBeNull();
-			expect(result.footerHelp).toContain('Send');
-		} finally {
-			chalk.level = saved;
-		}
+describe('buildFrameLines contextual prompt', () => {
+	it('shows default prompt when no run has completed', () => {
+		const {inputLines} = buildFrameLines(baseCtx);
+		const line = inputLines.join('');
+		expect(line).toContain('Type a prompt or :command');
 	});
 
-	it('returns null footerHelp when input has text (auto-hide)', () => {
-		const result = buildFrameLines({...baseCtx, inputValue: 'hello'});
-		expect(result.footerHelp).toBeNull();
+	it('shows contextual prompt after completed run (X2)', () => {
+		const {inputLines} = buildFrameLines({...baseCtx, lastRunStatus: 'completed'});
+		const line = inputLines.join('');
+		expect(line).toContain('Run complete');
 	});
 
-	it('shows hints when input has text but hintsForced is true', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines({
-				...baseCtx,
-				inputValue: 'hello',
-				hintsForced: true,
-			});
-			expect(result.footerHelp).not.toBeNull();
-		} finally {
-			chalk.level = saved;
-		}
-	});
-
-	it('shows feed hints in feed mode', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines({...baseCtx, focusMode: 'feed'});
-			expect(result.footerHelp).not.toBeNull();
-			expect(result.footerHelp).toContain('Expand');
-			expect(result.footerHelp).toContain('Search');
-		} finally {
-			chalk.level = saved;
-		}
-	});
-
-	it('shows todo hints in todo mode', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines({...baseCtx, focusMode: 'todo'});
-			expect(result.footerHelp).not.toBeNull();
-			expect(result.footerHelp).toContain('Toggle');
-			expect(result.footerHelp).toContain('Jump');
-		} finally {
-			chalk.level = saved;
-		}
-	});
-
-	it('includes search info in feed hints when searching', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines({
-				...baseCtx,
-				focusMode: 'feed',
-				searchQuery: 'test',
-				searchMatches: [1, 2, 3],
-				searchMatchPos: 0,
-			});
-			expect(result.footerHelp).toContain('1/3');
-		} finally {
-			chalk.level = saved;
-		}
-	});
-
-	it('shows details hints when expandedEntry is set', () => {
-		const saved = chalk.level;
-		chalk.level = 3;
-		try {
-			const result = buildFrameLines({
-				...baseCtx,
-				focusMode: 'feed',
-				expandedEntry: stubTimelineEntry(),
-			});
-			expect(result.footerHelp).not.toBeNull();
-			expect(result.footerHelp).toContain('Scroll');
-			expect(result.footerHelp).toContain('Page');
-			expect(result.footerHelp).toContain('Back');
-		} finally {
-			chalk.level = saved;
-		}
-	});
-
-	it('returns inputLines array with prefix and badge', () => {
-		const result = buildFrameLines(baseCtx);
-		expect(result.inputLines).toBeInstanceOf(Array);
-		expect(result.inputLines.length).toBeGreaterThanOrEqual(1);
-		expect(result.inputLines[0]).toContain('input>');
-		expect(result.inputLines[0]).toContain('[IDLE]');
+	it('shows contextual prompt after failed run (X2)', () => {
+		const {inputLines} = buildFrameLines({...baseCtx, lastRunStatus: 'failed'});
+		const line = inputLines.join('');
+		expect(line).toContain('Run failed');
 	});
 });

@@ -450,6 +450,17 @@ function AppContent({
 
 	// ── Frame lines + Layout ────────────────────────────────
 
+	// Derive last run status for contextual input prompt (X2)
+	const lastRunStatus = (() => {
+		if (isClaudeRunning) return null;
+		const last = runSummaries[runSummaries.length - 1];
+		if (!last) return null;
+		if (last.status === 'SUCCEEDED') return 'completed' as const;
+		if (last.status === 'FAILED') return 'failed' as const;
+		if (last.status === 'CANCELLED') return 'aborted' as const;
+		return null;
+	})();
+
 	const frame = buildFrameLines({
 		innerWidth,
 		focusMode,
@@ -468,6 +479,7 @@ function AppContent({
 		accentColor: theme.inputPrompt,
 		hintsForced,
 		ascii: !!ascii,
+		lastRunStatus,
 	});
 
 	const footerRows =
