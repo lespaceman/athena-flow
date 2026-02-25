@@ -14,7 +14,7 @@ import {
 	layoutTargetAndOutcome,
 	formatDetails,
 } from './cellFormatters.js';
-import type {SummarySegment, TimelineEntry} from './timeline.js';
+import type {TimelineEntry} from './timeline.js';
 import {computeDuplicateActors} from './timeline.js';
 
 const theme = darkTheme;

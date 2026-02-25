@@ -3,11 +3,9 @@ import stripAnsi from 'strip-ansi';
 import {darkTheme} from '../theme/themes.js';
 import {formatFeedLine, type TimelineEntry} from './timeline.js';
 import {
-	formatGutter,
 	formatTime,
 	formatEvent,
 	formatActor,
-	formatTool,
 	formatSuffix,
 	formatDetails,
 	fit,
@@ -27,24 +25,14 @@ const WIDTH = 80;
 function assembleNewLine(
 	entry: TimelineEntry,
 	width: number,
-	focused: boolean,
+	_focused: boolean,
 	expanded: boolean,
-	matched: boolean,
+	_matched: boolean,
 	ascii: boolean,
 	duplicateActor: boolean,
-	categoryBreak: boolean,
-	minuteBreak: boolean,
+	_categoryBreak: boolean,
+	_minuteBreak: boolean,
 ): string {
-	const gutter = formatGutter({
-		focused,
-		matched,
-		categoryBreak,
-		minuteBreak,
-		isUserBorder: entry.opTag === 'prompt' || entry.opTag === 'msg.user',
-		ascii,
-		theme,
-	});
-
 	const time = stripAnsi(formatTime(entry.ts, 5, theme));
 	const event = stripAnsi(formatEvent(entry.op, 12, theme, entry.opTag));
 	const actor = stripAnsi(
