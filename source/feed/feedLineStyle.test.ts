@@ -318,6 +318,22 @@ describe('styleFeedLine', () => {
 		expect(timeSegment).toContain('38;2;108;112;134');
 	});
 
+	it('applies info color to agent.msg summary (S6)', () => {
+		const agentMsgLine =
+			' 08:55 Agent Msg     AGENT      Here is a summary of the results       ?';
+		const result = styleFeedLine(agentMsgLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			opTag: 'agent.msg',
+		});
+		// status.info is #89dceb → RGB 137;220;235
+		// The summary portion (after ACTOR) should contain this color
+		expect(result).toContain('38;2;137;220;235');
+	});
+
 	it('applies focus border (not user border) when focused on prompt', () => {
 		const line =
 			' HH:MM User Prompt USER       Tell me about X                      ';

@@ -90,6 +90,10 @@ export function styleFeedLine(
 			? chalk.hex(theme.textMuted)
 			: base;
 
+	// Agent messages: summary text uses info color (blue)
+	const isAgentMsg = opts.opTag === 'agent.msg';
+	const summaryBase = isAgentMsg ? chalk.hex(theme.status.info) : rowBase;
+
 	// Determine if EVENT segment gets separate coloring
 	const opColor =
 		opts.opTag && !isError ? opCategoryColor(opts.opTag, theme) : undefined;
@@ -173,7 +177,11 @@ export function styleFeedLine(
 
 	if (effectiveDim !== undefined) {
 		if (effectiveDim > summaryStart) {
-			segments.push({start: summaryStart, end: effectiveDim, style: rowBase});
+			segments.push({
+				start: summaryStart,
+				end: effectiveDim,
+				style: summaryBase,
+			});
 		}
 		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
 		const dimStyle = opts.outcomeZero
@@ -181,7 +189,7 @@ export function styleFeedLine(
 			: chalk.hex(theme.textMuted);
 		segments.push({start: effectiveDim, end: afterEventEnd, style: dimStyle});
 	} else if (summaryStart < afterEventEnd) {
-		segments.push({start: summaryStart, end: afterEventEnd, style: rowBase});
+		segments.push({start: summaryStart, end: afterEventEnd, style: summaryBase});
 	}
 
 	// Glyph segment
