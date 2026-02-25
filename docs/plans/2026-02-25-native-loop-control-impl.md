@@ -13,6 +13,7 @@
 ### Task 1: Update LoopConfig type
 
 **Files:**
+
 - Modify: `source/workflows/types.ts:8-12`
 
 **Step 1: Write the failing test**
@@ -50,6 +51,7 @@ git commit -m "refactor: rename LoopConfig.completionPromise to completionMarker
 ### Task 2: Add `stop_block` to RuntimeIntent
 
 **Files:**
+
 - Modify: `source/runtime/types.ts:57-62`
 
 **Step 1: Add the new variant**
@@ -83,6 +85,7 @@ git commit -m "feat: add stop_block variant to RuntimeIntent"
 ### Task 3: Add `stop_block` case to decisionMapper
 
 **Files:**
+
 - Modify: `source/runtime/adapters/claudeHooks/decisionMapper.ts:99-102`
 - Test: `source/runtime/adapters/claudeHooks/__tests__/decisionMapper.test.ts`
 
@@ -95,7 +98,10 @@ it('maps stop_block intent to top-level decision block', () => {
 	const result = mapDecisionToResult(makeEvent('Stop'), {
 		type: 'json',
 		source: 'rule',
-		intent: {kind: 'stop_block', reason: 'Continue working on remaining items.'},
+		intent: {
+			kind: 'stop_block',
+			reason: 'Continue working on remaining items.',
+		},
 	});
 	expect(result.action).toBe('json_output');
 	expect(result.stdout_json).toEqual({
@@ -142,6 +148,7 @@ git commit -m "feat: add stop_block decision mapping for Stop hook"
 ### Task 4: Create LoopManager
 
 **Files:**
+
 - Create: `source/workflows/loopManager.ts`
 - Create: `source/workflows/__tests__/loopManager.test.ts`
 
@@ -193,10 +200,15 @@ const DEFAULT_CONFIG = {
 describe('createLoopManager', () => {
 	describe('initialize', () => {
 		it('creates tracker file with frontmatter and default template', () => {
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			mgr.initialize();
 
-			expect(mkdirSyncMock).toHaveBeenCalledWith('/sessions/s1', {recursive: true});
+			expect(mkdirSyncMock).toHaveBeenCalledWith('/sessions/s1', {
+				recursive: true,
+			});
 			expect(writeFileSyncMock).toHaveBeenCalledTimes(1);
 			const content = writeFileSyncMock.mock.calls[0]![1] as string;
 			expect(content).toContain('iteration: 0');
@@ -207,7 +219,10 @@ describe('createLoopManager', () => {
 		});
 
 		it('uses custom tracker template when provided', () => {
-			const config = {...DEFAULT_CONFIG, trackerTemplate: '# Custom\n\n- [ ] Item 1'};
+			const config = {
+				...DEFAULT_CONFIG,
+				trackerTemplate: '# Custom\n\n- [ ] Item 1',
+			};
 			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', config);
 			mgr.initialize();
 
@@ -219,7 +234,10 @@ describe('createLoopManager', () => {
 
 	describe('getState', () => {
 		it('returns null when tracker file does not exist', () => {
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			expect(mgr.getState()).toBeNull();
 		});
 
@@ -236,7 +254,10 @@ describe('createLoopManager', () => {
 				'Some content here',
 			].join('\n');
 
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			const state = mgr.getState();
 
 			expect(state).not.toBeNull();
@@ -250,7 +271,10 @@ describe('createLoopManager', () => {
 
 		it('returns null when frontmatter is malformed', () => {
 			files['/sessions/s1/loop-tracker.md'] = 'no frontmatter here';
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			expect(mgr.getState()).toBeNull();
 		});
 	});
@@ -268,7 +292,10 @@ describe('createLoopManager', () => {
 				'# Progress',
 			].join('\n');
 
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			mgr.incrementIteration();
 
 			expect(writeFileSyncMock).toHaveBeenCalledTimes(1);
@@ -291,7 +318,10 @@ describe('createLoopManager', () => {
 				'# Progress',
 			].join('\n');
 
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			mgr.deactivate();
 
 			const content = writeFileSyncMock.mock.calls[0]![1] as string;
@@ -302,14 +332,22 @@ describe('createLoopManager', () => {
 	describe('cleanup', () => {
 		it('removes tracker file when it exists', () => {
 			files['/sessions/s1/loop-tracker.md'] = 'content';
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			mgr.cleanup();
 
-			expect(unlinkSyncMock).toHaveBeenCalledWith('/sessions/s1/loop-tracker.md');
+			expect(unlinkSyncMock).toHaveBeenCalledWith(
+				'/sessions/s1/loop-tracker.md',
+			);
 		});
 
 		it('does nothing when tracker file does not exist', () => {
-			const mgr = createLoopManager('/sessions/s1/loop-tracker.md', DEFAULT_CONFIG);
+			const mgr = createLoopManager(
+				'/sessions/s1/loop-tracker.md',
+				DEFAULT_CONFIG,
+			);
 			mgr.cleanup();
 
 			expect(unlinkSyncMock).not.toHaveBeenCalled();
@@ -496,7 +534,14 @@ export function createLoopManager(
 		}
 	}
 
-	return {initialize, isActive, getState, incrementIteration, deactivate, cleanup};
+	return {
+		initialize,
+		isActive,
+		getState,
+		incrementIteration,
+		deactivate,
+		cleanup,
+	};
 }
 ```
 
@@ -522,6 +567,7 @@ git commit -m "feat: add LoopManager for native loop control"
 ### Task 5: Add Stop handler to hookController
 
 **Files:**
+
 - Modify: `source/hooks/hookController.ts:14-18,98-101`
 - Test: `source/hooks/hookController.test.ts`
 
@@ -532,7 +578,11 @@ Add to `source/hooks/hookController.test.ts`. First update the `makeCallbacks` h
 ```typescript
 import type {LoopState} from '../workflows/loopManager.js';
 
-function makeCallbacks(loopState?: LoopState | null): ControllerCallbacks & {_rules: HookRule[]; _loopState: LoopState | null; _loopUpdates: Partial<LoopState>[]} {
+function makeCallbacks(loopState?: LoopState | null): ControllerCallbacks & {
+	_rules: HookRule[];
+	_loopState: LoopState | null;
+	_loopUpdates: Partial<LoopState>[];
+} {
 	return {
 		_rules: [],
 		_loopState: loopState ?? null,
@@ -643,11 +693,13 @@ Expected: FAIL — Stop events fall through to `{handled: false}` and no loop ca
 In `source/hooks/hookController.ts`, update `ControllerCallbacks` and add Stop handler:
 
 Add import at top:
+
 ```typescript
 import type {LoopState} from '../workflows/loopManager.js';
 ```
 
 Update `ControllerCallbacks`:
+
 ```typescript
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];
@@ -711,6 +763,7 @@ git commit -m "feat: add Stop hook handler for native loop control"
 ### Task 6: Add trackerTemplate file resolution to resolveWorkflow
 
 **Files:**
+
 - Modify: `source/workflows/registry.ts:25-50`
 - Test: `source/workflows/__tests__/registry.test.ts`
 
@@ -728,9 +781,12 @@ In `source/workflows/registry.ts`, after parsing the workflow JSON and before re
 // Resolve trackerTemplate file reference if it ends with .md
 if (
 	raw['loop'] &&
-	typeof (raw['loop'] as Record<string, unknown>)['trackerTemplate'] === 'string'
+	typeof (raw['loop'] as Record<string, unknown>)['trackerTemplate'] ===
+		'string'
 ) {
-	const tmpl = (raw['loop'] as Record<string, unknown>)['trackerTemplate'] as string;
+	const tmpl = (raw['loop'] as Record<string, unknown>)[
+		'trackerTemplate'
+	] as string;
 	if (tmpl.endsWith('.md')) {
 		const workflowDir = path.dirname(workflowPath);
 		const tmplPath = path.resolve(workflowDir, tmpl);
@@ -759,6 +815,7 @@ git commit -m "feat: resolve trackerTemplate .md file references in resolveWorkf
 ### Task 7: Remove old ralph-loop state functions, update barrel export
 
 **Files:**
+
 - Modify: `source/workflows/applyWorkflow.ts`
 - Modify: `source/workflows/index.ts`
 - Modify: `source/workflows/applyWorkflow.test.ts`
@@ -796,7 +853,11 @@ export {
 	removeWorkflow,
 } from './registry.js';
 export {installWorkflowPlugins} from './installer.js';
-export {createLoopManager, type LoopState, type LoopManager} from './loopManager.js';
+export {
+	createLoopManager,
+	type LoopState,
+	type LoopManager,
+} from './loopManager.js';
 ```
 
 **Step 3: Update applyWorkflow.test.ts**
@@ -853,6 +914,7 @@ git commit -m "refactor: remove ralph-loop state functions, export LoopManager"
 ### Task 8: Integrate LoopManager into useClaudeProcess
 
 **Files:**
+
 - Modify: `source/hooks/useClaudeProcess.ts`
 
 This is the integration task that wires everything together. The LoopManager lifecycle replaces the old `writeLoopState`/`removeLoopState` calls.
@@ -860,6 +922,7 @@ This is the integration task that wires everything together. The LoopManager lif
 **Step 1: Update imports**
 
 Replace:
+
 ```typescript
 import {
 	applyPromptTemplate,
@@ -869,8 +932,13 @@ import {
 ```
 
 With:
+
 ```typescript
-import {applyPromptTemplate, createLoopManager, type LoopManager} from '../workflows/index.js';
+import {
+	applyPromptTemplate,
+	createLoopManager,
+	type LoopManager,
+} from '../workflows/index.js';
 ```
 
 **Step 2: Add LoopManager ref**
@@ -886,6 +954,7 @@ const loopManagerRef = useRef<LoopManager | null>(null);
 In the `spawn` callback, replace the loop state section:
 
 Replace:
+
 ```typescript
 // Apply workflow: transform prompt and arm loop
 let effectivePrompt = prompt;
@@ -899,6 +968,7 @@ if (workflow) {
 ```
 
 With:
+
 ```typescript
 // Apply workflow: transform prompt and arm loop
 let effectivePrompt = prompt;
@@ -918,6 +988,7 @@ if (workflow) {
 **Step 4: Update kill() — replace removeLoopState with LoopManager.cleanup**
 
 Replace:
+
 ```typescript
 // Clean up ralph-loop state to prevent zombie loops
 if (workflow?.loop?.enabled) {
@@ -926,6 +997,7 @@ if (workflow?.loop?.enabled) {
 ```
 
 With:
+
 ```typescript
 // Clean up loop tracker to prevent zombie loops
 loopManagerRef.current?.cleanup();
@@ -941,6 +1013,7 @@ loopManager: LoopManager | null;
 ```
 
 And return it:
+
 ```typescript
 return {
 	spawn,
@@ -971,6 +1044,7 @@ git commit -m "feat: integrate LoopManager into useClaudeProcess lifecycle"
 ### Task 9: Wire LoopManager callbacks into hookController dispatch
 
 **Files:**
+
 - The file that creates `ControllerCallbacks` and calls `handleEvent()` — find via: `grep -r "handleEvent" source/ --include="*.ts" | grep -v test | grep -v ".d.ts"`
 
 This task connects the LoopManager (from useClaudeProcess) to the hookController callbacks so Stop events actually trigger loop evaluation. The exact wiring depends on which component/hook constructs the `ControllerCallbacks` object — find it and add `getLoopState` and `updateLoopState` using the loopManager.

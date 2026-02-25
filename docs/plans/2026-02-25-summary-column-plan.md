@@ -12,9 +12,10 @@
 
 ### Task 1: Kill "— done" — toolSummary.ts
 
-The biggest noise reduction. The `summarizeToolResult()` fallback returns `'done'` for unknown tools and several known tools. Change these to return `''` (empty string), and update `mergedEventSummary()` to omit the ` — ` separator when the result is empty.
+The biggest noise reduction. The `summarizeToolResult()` fallback returns `'done'` for unknown tools and several known tools. Change these to return `''` (empty string), and update `mergedEventSummary()` to omit the `—` separator when the result is empty.
 
 **Files:**
+
 - Modify: `source/utils/toolSummary.ts`
 - Modify: `source/feed/timeline.ts:525-560` (mergedEventSummary)
 - Test: `source/utils/toolSummary.test.ts`
@@ -50,6 +51,7 @@ Expected: FAIL — these currently return `'done'`
 **Step 3: Update toolSummary.ts**
 
 Change all `return 'done'` to `return ''`:
+
 - Line 39: `summarizeBash` fallback → `return ''`
 - Line 51: `summarizeRead` fallback → `return ''`
 - Line 83: `summarizeGlob` fallback → `return ''`
@@ -58,6 +60,7 @@ Change all `return 'done'` to `return ''`:
 - Line 153: default fallback → `return ''`
 
 Change `summarizeTask` (line 111-117) to return just the agent type (outcome badge):
+
 ```ts
 function summarizeTask(
 	input: Record<string, unknown>,
@@ -70,7 +73,7 @@ function summarizeTask(
 
 **Step 4: Update mergedEventSummary in timeline.ts**
 
-In `mergedEventSummary()` (line 557-559), skip the ` — ` separator when resultText is empty:
+In `mergedEventSummary()` (line 557-559), skip the `—` separator when resultText is empty:
 
 ```ts
 const prefix = primaryInput ? `${name} ${primaryInput}` : name;
@@ -104,6 +107,7 @@ git commit -m "feat(feed): remove '— done' noise from summary column"
 Strip `[server-name]` prefix from MCP tool display names in the summary column. The ACTOR column already provides server context. Extract a clean human verb from the MCP action name.
 
 **Files:**
+
 - Modify: `source/feed/timeline.ts:222-235` (formatToolSummary)
 - Create: `source/feed/verbMap.ts` (MCP action → clean verb mapping)
 - Test: `source/feed/timeline.test.ts`
@@ -112,7 +116,10 @@ Strip `[server-name]` prefix from MCP tool display names in the summary column. 
 
 ```ts
 it('strips MCP bracket prefix and uses clean verb', () => {
-	const event = makeToolPreEvent('mcp__plugin_x_agent-web-interface__navigate', {url: 'https://google.com'});
+	const event = makeToolPreEvent(
+		'mcp__plugin_x_agent-web-interface__navigate',
+		{url: 'https://google.com'},
+	);
 	const result = eventSummary(event);
 	expect(result.text).toMatch(/^Navigate /);
 	expect(result.text).not.toContain('[agent-web-interface]');
@@ -162,7 +169,10 @@ const MCP_VERB_MAP: Record<string, string> = {
  * For MCP tools, strips the [server] prefix and maps action → human verb.
  * For built-in tools, returns the tool name as-is (already a clean verb).
  */
-export function resolveVerb(toolName: string, parsed: {isMcp: boolean; mcpAction?: string}): string {
+export function resolveVerb(
+	toolName: string,
+	parsed: {isMcp: boolean; mcpAction?: string},
+): string {
 	if (!parsed.isMcp || !parsed.mcpAction) return toolName;
 	const mapped = MCP_VERB_MAP[parsed.mcpAction];
 	if (mapped) return mapped;
@@ -219,6 +229,7 @@ git commit -m "feat(feed): extract clean verbs, strip MCP bracket prefix from su
 Update `shortenPath` to prefix with `…/` when segments are dropped, and strip leading `/` for absolute paths.
 
 **Files:**
+
 - Modify: `source/utils/format.ts:103-107` (shortenPath)
 - Test: `source/utils/format.test.ts`
 
@@ -227,8 +238,9 @@ Update `shortenPath` to prefix with `…/` when segments are dropped, and strip 
 ```ts
 describe('shortenPath', () => {
 	it('prefixes with …/ when segments are dropped', () => {
-		expect(shortenPath('/home/user/projects/athena/source/feed/timeline.ts'))
-			.toBe('…/feed/timeline.ts');
+		expect(
+			shortenPath('/home/user/projects/athena/source/feed/timeline.ts'),
+		).toBe('…/feed/timeline.ts');
 	});
 
 	it('leaves short paths unchanged', () => {
@@ -285,6 +297,7 @@ git commit -m "feat(feed): add …/ prefix to shortened paths"
 Add an `outcome` field to `SummaryResult` so the rendering layer can right-align it. Update `formatFeedLine` to pad between target and outcome.
 
 **Files:**
+
 - Modify: `source/feed/timeline.ts` (SummaryResult type, mergedEventSummary, formatFeedLine)
 - Modify: `source/hooks/useTimeline.ts` (pass outcome to TimelineEntry)
 - Modify: `source/utils/buildBodyLines.ts` (if it references summary)
@@ -295,7 +308,11 @@ Add an `outcome` field to `SummaryResult` so the rendering layer can right-align
 ```ts
 it('mergedEventSummary returns outcome separately', () => {
 	const pre = makeToolPreEvent('Glob', {pattern: '**/*.ts'});
-	const post = makeToolPostEvent('Glob', {pattern: '**/*.ts'}, {filenames: new Array(13)});
+	const post = makeToolPostEvent(
+		'Glob',
+		{pattern: '**/*.ts'},
+		{filenames: new Array(13)},
+	);
 	const result = mergedEventSummary(pre, post);
 	expect(result.outcome).toBe('13 files');
 	expect(result.text).not.toContain('—');
@@ -309,6 +326,7 @@ Run: `npx vitest run source/feed/timeline.test.ts`
 **Step 3: Update SummaryResult and TimelineEntry types**
 
 In `timeline.ts`:
+
 ```ts
 export type SummaryResult = {
 	text: string;
@@ -321,6 +339,7 @@ export type SummaryResult = {
 ```
 
 Add to `TimelineEntry`:
+
 ```ts
 summaryOutcome?: string;
 summaryOutcomeZero?: boolean;
@@ -329,6 +348,7 @@ summaryOutcomeZero?: boolean;
 **Step 4: Update mergedEventSummary to separate outcome**
 
 Instead of assembling `prefix — resultText`, return:
+
 ```ts
 const prefix = primaryInput ? `${verb} ${primaryInput}` : verb;
 if (!resultText) {
@@ -373,19 +393,20 @@ export function formatFeedLine(
 		const targetWidth = summaryWidth - outcomeLen - 2; // 2-space gap minimum
 		if (targetWidth > 10) {
 			const target = fit(entry.summary, targetWidth);
-			summaryText = target + fit(entry.summaryOutcome, summaryWidth - targetWidth);
+			summaryText =
+				target + fit(entry.summaryOutcome, summaryWidth - targetWidth);
 		} else {
 			// Too narrow — inline with 2-space gap
-			summaryText = fit(`${entry.summary}  ${entry.summaryOutcome}`, summaryWidth);
+			summaryText = fit(
+				`${entry.summary}  ${entry.summaryOutcome}`,
+				summaryWidth,
+			);
 		}
 	} else {
 		summaryText = fit(entry.summary, summaryWidth);
 	}
 
-	const body = fit(
-		`${time} ${event} ${actor} ${summaryText}`,
-		bodyWidth,
-	);
+	const body = fit(`${time} ${event} ${actor} ${summaryText}`, bodyWidth);
 	return ` ${body}${suffix}`;
 }
 ```
@@ -393,6 +414,7 @@ export function formatFeedLine(
 **Step 6: Update useTimeline.ts to pass outcome fields**
 
 In the `entries.push()` call (~line 130-146), add:
+
 ```ts
 summaryOutcome: pairedPost ? mergedResult.outcome : undefined,
 summaryOutcomeZero: pairedPost ? mergedResult.outcomeZero : undefined,
@@ -425,6 +447,7 @@ git commit -m "feat(feed): right-align outcomes in summary column"
 Add MCP-specific primary input extractors for browser tools (navigate → domain, find_elements → kind+label, click → truncated eid, type → text+selector).
 
 **Files:**
+
 - Modify: `source/utils/format.ts:112-133` (PRIMARY_INPUT_EXTRACTORS)
 - Test: `source/utils/format.test.ts`
 
@@ -478,7 +501,10 @@ In `format.ts`, update `summarizeToolPrimaryInput` to check for MCP action names
 import {parseToolName} from './toolNameParser.js';
 
 /** Extractors keyed by MCP action name (for MCP tools). */
-const MCP_INPUT_EXTRACTORS: Record<string, (input: Record<string, unknown>) => string> = {
+const MCP_INPUT_EXTRACTORS: Record<
+	string,
+	(input: Record<string, unknown>) => string
+> = {
 	navigate: input => {
 		const url = String(input.url ?? '');
 		try {
@@ -563,6 +589,7 @@ git commit -m "feat(feed): humanize browser operation parameters in summary"
 Change the Task tool's primary input to show description first, move agent type to outcome.
 
 **Files:**
+
 - Modify: `source/utils/format.ts:126-130` (Task extractor in PRIMARY_INPUT_EXTRACTORS)
 - Modify: `source/utils/toolSummary.ts:111-117` (summarizeTask — returns agent type as outcome)
 - Test: `source/utils/format.test.ts`
@@ -587,6 +614,7 @@ Run: `npx vitest run source/utils/format.test.ts`
 **Step 3: Update Task extractor**
 
 In `format.ts` PRIMARY_INPUT_EXTRACTORS:
+
 ```ts
 Task: input => compactText(String(input.description ?? ''), 60),
 ```
@@ -616,6 +644,7 @@ git commit -m "feat(feed): show Task description first, agent type as outcome ba
 Apply warning color to zero-count outcomes ("0 files", "0 matches") in `feedLineStyle.ts`.
 
 **Files:**
+
 - Modify: `source/feed/feedLineStyle.ts` (add outcome styling)
 - Modify: `source/feed/feedLineStyle.ts:22-34` (FeedLineStyleOptions — add outcomeZero)
 - Modify: `source/utils/buildBodyLines.ts` (pass outcomeZero)
@@ -630,6 +659,7 @@ Test that when `outcomeZero` is true, the styled line contains the warning color
 **Step 3: Update FeedLineStyleOptions**
 
 Add to the type:
+
 ```ts
 /** True when the outcome represents a zero result (e.g., "0 files"). */
 outcomeZero?: boolean;
@@ -676,6 +706,7 @@ git commit -m "feat(feed): warning tint for zero-result outcomes (0 files, 0 mat
 Run the full test suite, lint, and typecheck to ensure nothing is broken.
 
 **Files:**
+
 - No modifications
 
 **Step 1: Run full test suite**

@@ -23,16 +23,16 @@ athena-cli --sessions                   # Pick a session interactively
 
 ### Options
 
-| Flag | Description |
-|------|-------------|
-| `--project-dir` | Project directory for hook socket (default: cwd) |
-| `--plugin` | Path to a Claude Code plugin directory (repeatable) |
-| `--isolation` | Isolation preset: `strict` (default), `minimal`, `permissive` |
-| `--theme` | Color theme: `dark` (default), `light`, `high-contrast` |
-| `--workflow` | Workflow reference (e.g. `name@rev`) |
-| `--continue` | Resume most recent session, or specify a session ID |
-| `--sessions` | Launch interactive session picker |
-| `--verbose` | Show additional rendering detail |
+| Flag            | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| `--project-dir` | Project directory for hook socket (default: cwd)              |
+| `--plugin`      | Path to a Claude Code plugin directory (repeatable)           |
+| `--isolation`   | Isolation preset: `strict` (default), `minimal`, `permissive` |
+| `--theme`       | Color theme: `dark` (default), `light`, `high-contrast`       |
+| `--workflow`    | Workflow reference (e.g. `name@rev`)                          |
+| `--continue`    | Resume most recent session, or specify a session ID           |
+| `--sessions`    | Launch interactive session picker                             |
+| `--verbose`     | Show additional rendering detail                              |
 
 ### Configuration
 
@@ -45,8 +45,8 @@ Config files are merged in order: global → project → CLI flags.
 
 ```json
 {
-  "plugins": ["/path/to/plugin"],
-  "additionalDirectories": ["/path/to/allow"]
+	"plugins": ["/path/to/plugin"],
+	"additionalDirectories": ["/path/to/allow"]
 }
 ```
 

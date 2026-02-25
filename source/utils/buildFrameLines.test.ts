@@ -25,7 +25,10 @@ describe('buildFrameLines contextual prompt', () => {
 	});
 
 	it('shows contextual prompt after completed run (X2)', () => {
-		const {inputLines} = buildFrameLines({...baseCtx, lastRunStatus: 'completed'});
+		const {inputLines} = buildFrameLines({
+			...baseCtx,
+			lastRunStatus: 'completed',
+		});
 		const line = inputLines.join('');
 		expect(line).toContain('Run complete');
 	});

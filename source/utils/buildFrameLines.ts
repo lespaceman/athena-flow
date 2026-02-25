@@ -115,7 +115,10 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		inputPlaceholder = '/search';
 	} else if (ctx.lastRunStatus === 'completed') {
 		inputPlaceholder = 'Run complete \u2014 type a follow-up or :retry';
-	} else if (ctx.lastRunStatus === 'failed' || ctx.lastRunStatus === 'aborted') {
+	} else if (
+		ctx.lastRunStatus === 'failed' ||
+		ctx.lastRunStatus === 'aborted'
+	) {
 		inputPlaceholder = 'Run failed \u2014 type a follow-up or :retry';
 	} else {
 		inputPlaceholder = 'Type a prompt or :command';

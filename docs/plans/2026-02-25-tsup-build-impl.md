@@ -13,6 +13,7 @@
 ### Task 1: Install tsup
 
 **Files:**
+
 - Modify: `package.json`
 
 **Step 1: Install tsup as devDependency**
@@ -31,6 +32,7 @@ git commit -m "chore: install tsup"
 ### Task 2: Create tsup config
 
 **Files:**
+
 - Create: `tsup.config.ts`
 
 **Step 1: Create tsup.config.ts**
@@ -61,6 +63,7 @@ export default defineConfig({
 ```
 
 > **Why these externals:**
+>
 > - `better-sqlite3`: Native C++ addon — cannot be bundled
 > - `ink`, `react`, `@inkjs/ui`: Ink requires a singleton React instance; bundling duplicates it and breaks rendering
 > - `react-devtools-core`: Optional peer dep of Ink, conditionally imported
@@ -90,9 +93,11 @@ git commit -m "feat: add tsup build configuration"
 ### Task 3: Fix package.json require
 
 **Files:**
+
 - Modify: `source/cli.tsx:25-26`
 
 **Context:** `cli.tsx` currently does:
+
 ```ts
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -131,6 +136,7 @@ git commit -m "fix: make package.json version read compatible with tsup bundle"
 ### Task 4: Update package.json scripts
 
 **Files:**
+
 - Modify: `package.json`
 
 **Step 1: Update scripts**
@@ -160,11 +166,7 @@ Since tsup with `clean: true` won't leave stale test files, simplify:
 
 ```json
 {
-	"files": [
-		"dist",
-		"!dist/**/*.js.map",
-		"!dist/**/*.d.ts.map"
-	]
+	"files": ["dist", "!dist/**/*.js.map", "!dist/**/*.d.ts.map"]
 }
 ```
 
@@ -199,6 +201,7 @@ git commit -m "chore: switch build scripts from tsc to tsup"
 ### Task 5: Update tsconfig for typecheck-only
 
 **Files:**
+
 - Modify: `tsconfig.json`
 
 **Step 1: Remove output-related options**
@@ -250,19 +253,23 @@ git commit -m "refactor: make tsconfig typecheck-only (tsup handles emit)"
 ### Task 6: Update CI workflow
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`
 
 **Step 1: Update typecheck step**
 
 In `.github/workflows/ci.yml`, change:
+
 ```yaml
-      - name: Typecheck
-        run: npx tsc --noEmit
+- name: Typecheck
+  run: npx tsc --noEmit
 ```
+
 to:
+
 ```yaml
-      - name: Typecheck
-        run: npm run typecheck
+- name: Typecheck
+  run: npm run typecheck
 ```
 
 This uses our new script instead of calling tsc directly.

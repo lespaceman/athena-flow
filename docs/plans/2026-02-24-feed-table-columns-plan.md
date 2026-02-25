@@ -13,6 +13,7 @@
 ### Task 1: Add `eventLabel()` and `eventDetail()` to timeline.ts
 
 **Files:**
+
 - Modify: `source/feed/timeline.ts:44-101` (eventOperation area)
 - Test: `source/feed/timeline.test.ts`
 
@@ -30,38 +31,294 @@ import {
 describe('eventLabel', () => {
 	it('returns Title Case labels for all event kinds', () => {
 		const cases: Array<[() => FeedEvent, string]> = [
-			[() => ({...base(), kind: 'tool.pre' as const, data: {tool_name: 'Bash', tool_input: {}}}), 'Tool Call'],
-			[() => ({...base({kind: 'tool.post'}), kind: 'tool.post' as const, data: {tool_name: 'Bash', tool_input: {}, tool_response: {}}}), 'Tool OK'],
-			[() => ({...base({kind: 'tool.failure'}), kind: 'tool.failure' as const, data: {tool_name: 'Bash', tool_input: {}, error: 'fail'}}), 'Tool Fail'],
-			[() => ({...base({kind: 'user.prompt'}), kind: 'user.prompt' as const, data: {prompt: 'hi', cwd: '/'}}), 'User Prompt'],
-			[() => ({...base({kind: 'subagent.start'}), kind: 'subagent.start' as const, data: {agent_id: 'a1', agent_type: 'Explore'}}), 'Sub Start'],
-			[() => ({...base({kind: 'subagent.stop'}), kind: 'subagent.stop' as const, data: {agent_id: 'a1', agent_type: 'Explore', stop_hook_active: false}}), 'Sub Stop'],
-			[() => ({...base({kind: 'permission.request'}), kind: 'permission.request' as const, data: {tool_name: 'Bash', tool_input: {}, permission_suggestions: []}}), 'Perm Request'],
-			[() => ({...base({kind: 'permission.decision'}), kind: 'permission.decision' as const, data: {decision_type: 'allow' as const}}), 'Perm Allow'],
-			[() => ({...base({kind: 'permission.decision'}), kind: 'permission.decision' as const, data: {decision_type: 'deny' as const, message: 'no'}}), 'Perm Deny'],
-			[() => ({...base({kind: 'permission.decision'}), kind: 'permission.decision' as const, data: {decision_type: 'ask' as const}}), 'Perm Ask'],
-			[() => ({...base({kind: 'permission.decision'}), kind: 'permission.decision' as const, data: {decision_type: 'no_opinion' as const}}), 'Perm Skip'],
-			[() => ({...base({kind: 'stop.request'}), kind: 'stop.request' as const, data: {stop_hook_active: true}}), 'Stop Request'],
-			[() => ({...base({kind: 'stop.decision'}), kind: 'stop.decision' as const, data: {decision_type: 'block' as const, reason: 'x'}}), 'Stop Block'],
-			[() => ({...base({kind: 'stop.decision'}), kind: 'stop.decision' as const, data: {decision_type: 'allow' as const}}), 'Stop Allow'],
-			[() => ({...base({kind: 'stop.decision'}), kind: 'stop.decision' as const, data: {decision_type: 'no_opinion' as const}}), 'Stop Skip'],
-			[() => ({...base({kind: 'run.start'}), kind: 'run.start' as const, data: {trigger: {type: 'user_prompt_submit' as const}}}), 'Run Start'],
-			[() => ({...base({kind: 'run.end'}), kind: 'run.end' as const, data: {status: 'completed' as const, counters: {tool_uses: 0, tool_failures: 0, permission_requests: 0, blocks: 0}}}), 'Run OK'],
-			[() => ({...base({kind: 'run.end'}), kind: 'run.end' as const, data: {status: 'failed' as const, counters: {tool_uses: 0, tool_failures: 0, permission_requests: 0, blocks: 0}}}), 'Run Fail'],
-			[() => ({...base({kind: 'run.end'}), kind: 'run.end' as const, data: {status: 'aborted' as const, counters: {tool_uses: 0, tool_failures: 0, permission_requests: 0, blocks: 0}}}), 'Run Abort'],
-			[() => ({...base({kind: 'session.start'}), kind: 'session.start' as const, data: {source: 'startup'}}), 'Sess Start'],
-			[() => ({...base({kind: 'session.end'}), kind: 'session.end' as const, data: {reason: 'done'}}), 'Sess End'],
-			[() => ({...base({kind: 'notification'}), kind: 'notification' as const, data: {message: 'hi'}}), 'Notify'],
-			[() => ({...base({kind: 'compact.pre'}), kind: 'compact.pre' as const, data: {trigger: 'auto'}}), 'Compact'],
-			[() => ({...base({kind: 'setup'}), kind: 'setup' as const, data: {trigger: 'init'}}), 'Setup'],
-			[() => ({...base({kind: 'unknown.hook'}), kind: 'unknown.hook' as const, data: {hook_event_name: 'x', payload: {}}}), 'Unknown'],
-			[() => ({...base({kind: 'todo.add'}), kind: 'todo.add' as const, data: {todo_id: 't1', text: 'x'}}), 'Todo Add'],
-			[() => ({...base({kind: 'todo.update'}), kind: 'todo.update' as const, data: {todo_id: 't1', patch: {}}}), 'Todo Update'],
-			[() => ({...base({kind: 'todo.done'}), kind: 'todo.done' as const, data: {todo_id: 't1'}}), 'Todo Done'],
-			[() => ({...base({kind: 'agent.message'}), kind: 'agent.message' as const, data: {message: 'hi', source: 'hook' as const, scope: 'root' as const}}), 'Agent Msg'],
-			[() => ({...base(), kind: 'teammate.idle' as const, data: {teammate_name: 'a', team_name: 'b'}}), 'Team Idle'],
-			[() => ({...base(), kind: 'task.completed' as const, data: {task_id: 't1', task_subject: 'x'}}), 'Task OK'],
-			[() => ({...base(), kind: 'config.change' as const, data: {source: 'user'}}), 'Config Chg'],
+			[
+				() => ({
+					...base(),
+					kind: 'tool.pre' as const,
+					data: {tool_name: 'Bash', tool_input: {}},
+				}),
+				'Tool Call',
+			],
+			[
+				() => ({
+					...base({kind: 'tool.post'}),
+					kind: 'tool.post' as const,
+					data: {tool_name: 'Bash', tool_input: {}, tool_response: {}},
+				}),
+				'Tool OK',
+			],
+			[
+				() => ({
+					...base({kind: 'tool.failure'}),
+					kind: 'tool.failure' as const,
+					data: {tool_name: 'Bash', tool_input: {}, error: 'fail'},
+				}),
+				'Tool Fail',
+			],
+			[
+				() => ({
+					...base({kind: 'user.prompt'}),
+					kind: 'user.prompt' as const,
+					data: {prompt: 'hi', cwd: '/'},
+				}),
+				'User Prompt',
+			],
+			[
+				() => ({
+					...base({kind: 'subagent.start'}),
+					kind: 'subagent.start' as const,
+					data: {agent_id: 'a1', agent_type: 'Explore'},
+				}),
+				'Sub Start',
+			],
+			[
+				() => ({
+					...base({kind: 'subagent.stop'}),
+					kind: 'subagent.stop' as const,
+					data: {
+						agent_id: 'a1',
+						agent_type: 'Explore',
+						stop_hook_active: false,
+					},
+				}),
+				'Sub Stop',
+			],
+			[
+				() => ({
+					...base({kind: 'permission.request'}),
+					kind: 'permission.request' as const,
+					data: {tool_name: 'Bash', tool_input: {}, permission_suggestions: []},
+				}),
+				'Perm Request',
+			],
+			[
+				() => ({
+					...base({kind: 'permission.decision'}),
+					kind: 'permission.decision' as const,
+					data: {decision_type: 'allow' as const},
+				}),
+				'Perm Allow',
+			],
+			[
+				() => ({
+					...base({kind: 'permission.decision'}),
+					kind: 'permission.decision' as const,
+					data: {decision_type: 'deny' as const, message: 'no'},
+				}),
+				'Perm Deny',
+			],
+			[
+				() => ({
+					...base({kind: 'permission.decision'}),
+					kind: 'permission.decision' as const,
+					data: {decision_type: 'ask' as const},
+				}),
+				'Perm Ask',
+			],
+			[
+				() => ({
+					...base({kind: 'permission.decision'}),
+					kind: 'permission.decision' as const,
+					data: {decision_type: 'no_opinion' as const},
+				}),
+				'Perm Skip',
+			],
+			[
+				() => ({
+					...base({kind: 'stop.request'}),
+					kind: 'stop.request' as const,
+					data: {stop_hook_active: true},
+				}),
+				'Stop Request',
+			],
+			[
+				() => ({
+					...base({kind: 'stop.decision'}),
+					kind: 'stop.decision' as const,
+					data: {decision_type: 'block' as const, reason: 'x'},
+				}),
+				'Stop Block',
+			],
+			[
+				() => ({
+					...base({kind: 'stop.decision'}),
+					kind: 'stop.decision' as const,
+					data: {decision_type: 'allow' as const},
+				}),
+				'Stop Allow',
+			],
+			[
+				() => ({
+					...base({kind: 'stop.decision'}),
+					kind: 'stop.decision' as const,
+					data: {decision_type: 'no_opinion' as const},
+				}),
+				'Stop Skip',
+			],
+			[
+				() => ({
+					...base({kind: 'run.start'}),
+					kind: 'run.start' as const,
+					data: {trigger: {type: 'user_prompt_submit' as const}},
+				}),
+				'Run Start',
+			],
+			[
+				() => ({
+					...base({kind: 'run.end'}),
+					kind: 'run.end' as const,
+					data: {
+						status: 'completed' as const,
+						counters: {
+							tool_uses: 0,
+							tool_failures: 0,
+							permission_requests: 0,
+							blocks: 0,
+						},
+					},
+				}),
+				'Run OK',
+			],
+			[
+				() => ({
+					...base({kind: 'run.end'}),
+					kind: 'run.end' as const,
+					data: {
+						status: 'failed' as const,
+						counters: {
+							tool_uses: 0,
+							tool_failures: 0,
+							permission_requests: 0,
+							blocks: 0,
+						},
+					},
+				}),
+				'Run Fail',
+			],
+			[
+				() => ({
+					...base({kind: 'run.end'}),
+					kind: 'run.end' as const,
+					data: {
+						status: 'aborted' as const,
+						counters: {
+							tool_uses: 0,
+							tool_failures: 0,
+							permission_requests: 0,
+							blocks: 0,
+						},
+					},
+				}),
+				'Run Abort',
+			],
+			[
+				() => ({
+					...base({kind: 'session.start'}),
+					kind: 'session.start' as const,
+					data: {source: 'startup'},
+				}),
+				'Sess Start',
+			],
+			[
+				() => ({
+					...base({kind: 'session.end'}),
+					kind: 'session.end' as const,
+					data: {reason: 'done'},
+				}),
+				'Sess End',
+			],
+			[
+				() => ({
+					...base({kind: 'notification'}),
+					kind: 'notification' as const,
+					data: {message: 'hi'},
+				}),
+				'Notify',
+			],
+			[
+				() => ({
+					...base({kind: 'compact.pre'}),
+					kind: 'compact.pre' as const,
+					data: {trigger: 'auto'},
+				}),
+				'Compact',
+			],
+			[
+				() => ({
+					...base({kind: 'setup'}),
+					kind: 'setup' as const,
+					data: {trigger: 'init'},
+				}),
+				'Setup',
+			],
+			[
+				() => ({
+					...base({kind: 'unknown.hook'}),
+					kind: 'unknown.hook' as const,
+					data: {hook_event_name: 'x', payload: {}},
+				}),
+				'Unknown',
+			],
+			[
+				() => ({
+					...base({kind: 'todo.add'}),
+					kind: 'todo.add' as const,
+					data: {todo_id: 't1', text: 'x'},
+				}),
+				'Todo Add',
+			],
+			[
+				() => ({
+					...base({kind: 'todo.update'}),
+					kind: 'todo.update' as const,
+					data: {todo_id: 't1', patch: {}},
+				}),
+				'Todo Update',
+			],
+			[
+				() => ({
+					...base({kind: 'todo.done'}),
+					kind: 'todo.done' as const,
+					data: {todo_id: 't1'},
+				}),
+				'Todo Done',
+			],
+			[
+				() => ({
+					...base({kind: 'agent.message'}),
+					kind: 'agent.message' as const,
+					data: {
+						message: 'hi',
+						source: 'hook' as const,
+						scope: 'root' as const,
+					},
+				}),
+				'Agent Msg',
+			],
+			[
+				() => ({
+					...base(),
+					kind: 'teammate.idle' as const,
+					data: {teammate_name: 'a', team_name: 'b'},
+				}),
+				'Team Idle',
+			],
+			[
+				() => ({
+					...base(),
+					kind: 'task.completed' as const,
+					data: {task_id: 't1', task_subject: 'x'},
+				}),
+				'Task OK',
+			],
+			[
+				() => ({
+					...base(),
+					kind: 'config.change' as const,
+					data: {source: 'user'},
+				}),
+				'Config Chg',
+			],
 		];
 		for (const [factory, expected] of cases) {
 			expect(eventLabel(factory())).toBe(expected);
@@ -80,42 +337,77 @@ Expected: FAIL — `eventLabel` is not exported
 ```typescript
 describe('eventDetail', () => {
 	it('returns tool name for tool events', () => {
-		const ev = {...base(), kind: 'tool.pre' as const, data: {tool_name: 'Bash', tool_input: {}}};
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
 		expect(eventDetail(ev)).toBe('Bash');
 	});
 
 	it('returns friendly MCP tool display for MCP tools', () => {
-		const ev = {...base(), kind: 'tool.pre' as const, data: {tool_name: 'mcp__plugin_web-testing_agent-web__navigate', tool_input: {}}};
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'mcp__plugin_web-testing_agent-web__navigate',
+				tool_input: {},
+			},
+		};
 		expect(eventDetail(ev)).toContain('navigate');
 	});
 
 	it('returns tool name for permission.request', () => {
-		const ev = {...base({kind: 'permission.request'}), kind: 'permission.request' as const, data: {tool_name: 'Read', tool_input: {}, permission_suggestions: []}};
+		const ev = {
+			...base({kind: 'permission.request'}),
+			kind: 'permission.request' as const,
+			data: {tool_name: 'Read', tool_input: {}, permission_suggestions: []},
+		};
 		expect(eventDetail(ev)).toBe('Read');
 	});
 
 	it('returns agent_type for subagent events', () => {
-		const ev = {...base({kind: 'subagent.start'}), kind: 'subagent.start' as const, data: {agent_id: 'a1', agent_type: 'general-purpose'}};
+		const ev = {
+			...base({kind: 'subagent.start'}),
+			kind: 'subagent.start' as const,
+			data: {agent_id: 'a1', agent_type: 'general-purpose'},
+		};
 		expect(eventDetail(ev)).toBe('general-purpose');
 	});
 
 	it('returns priority for todo.add', () => {
-		const ev = {...base({kind: 'todo.add'}), kind: 'todo.add' as const, data: {todo_id: 't1', text: 'x', priority: 'p1' as const}};
+		const ev = {
+			...base({kind: 'todo.add'}),
+			kind: 'todo.add' as const,
+			data: {todo_id: 't1', text: 'x', priority: 'p1' as const},
+		};
 		expect(eventDetail(ev)).toBe('P1');
 	});
 
 	it('returns source for session.start', () => {
-		const ev = {...base({kind: 'session.start'}), kind: 'session.start' as const, data: {source: 'startup'}};
+		const ev = {
+			...base({kind: 'session.start'}),
+			kind: 'session.start' as const,
+			data: {source: 'startup'},
+		};
 		expect(eventDetail(ev)).toBe('startup');
 	});
 
 	it('returns source for config.change', () => {
-		const ev = {...base(), kind: 'config.change' as const, data: {source: 'user'}};
+		const ev = {
+			...base(),
+			kind: 'config.change' as const,
+			data: {source: 'user'},
+		};
 		expect(eventDetail(ev)).toBe('user');
 	});
 
 	it('returns ─ for events without detail', () => {
-		const ev = {...base({kind: 'user.prompt'}), kind: 'user.prompt' as const, data: {prompt: 'hi', cwd: '/'}};
+		const ev = {
+			...base({kind: 'user.prompt'}),
+			kind: 'user.prompt' as const,
+			data: {prompt: 'hi', cwd: '/'},
+		};
 		expect(eventDetail(ev)).toBe('─');
 	});
 });
@@ -156,19 +448,26 @@ export function eventLabel(event: FeedEvent): string {
 			return 'Perm Request';
 		case 'permission.decision':
 			switch (event.data.decision_type) {
-				case 'allow': return 'Perm Allow';
-				case 'deny': return 'Perm Deny';
-				case 'ask': return 'Perm Ask';
-				case 'no_opinion': return 'Perm Skip';
+				case 'allow':
+					return 'Perm Allow';
+				case 'deny':
+					return 'Perm Deny';
+				case 'ask':
+					return 'Perm Ask';
+				case 'no_opinion':
+					return 'Perm Skip';
 			}
 			break;
 		case 'stop.request':
 			return 'Stop Request';
 		case 'stop.decision':
 			switch (event.data.decision_type) {
-				case 'block': return 'Stop Block';
-				case 'allow': return 'Stop Allow';
-				case 'no_opinion': return 'Stop Skip';
+				case 'block':
+					return 'Stop Block';
+				case 'allow':
+					return 'Stop Allow';
+				case 'no_opinion':
+					return 'Stop Skip';
 			}
 			break;
 		case 'session.start':
@@ -254,29 +553,55 @@ git commit -m "feat(feed): add eventLabel() and eventDetail() for Title Case col
 ### Task 2: Add `mergedEventLabel()` and update column constants
 
 **Files:**
+
 - Modify: `source/feed/timeline.ts:390-498` (merged helpers + constants + formatFeedLine + formatFeedHeaderLine)
 - Test: `source/feed/timeline.test.ts`
 
 **Step 1: Write failing test for `mergedEventLabel()`**
 
 ```typescript
-import { mergedEventLabel } from './timeline.js';
+import {mergedEventLabel} from './timeline.js';
 
 describe('mergedEventLabel', () => {
 	it('returns Tool OK when postEvent is tool.post', () => {
-		const pre = {...base({kind: 'tool.pre'}), kind: 'tool.pre' as const, data: {tool_name: 'Bash', tool_input: {}}};
-		const post = {...base({kind: 'tool.post'}), kind: 'tool.post' as const, data: {tool_name: 'Bash', tool_input: {}, tool_response: {}}};
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {tool_name: 'Bash', tool_input: {}, tool_response: {}},
+		};
 		expect(mergedEventLabel(pre, post)).toBe('Tool OK');
 	});
 
 	it('returns Tool Fail when postEvent is tool.failure', () => {
-		const pre = {...base({kind: 'tool.pre'}), kind: 'tool.pre' as const, data: {tool_name: 'Bash', tool_input: {}}};
-		const post = {...base({kind: 'tool.failure'}), kind: 'tool.failure' as const, data: {tool_name: 'Bash', tool_input: {}, error: 'fail', is_interrupt: false}};
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
+		const post = {
+			...base({kind: 'tool.failure'}),
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {},
+				error: 'fail',
+				is_interrupt: false,
+			},
+		};
 		expect(mergedEventLabel(pre, post)).toBe('Tool Fail');
 	});
 
 	it('falls back to eventLabel when no postEvent', () => {
-		const pre = {...base({kind: 'tool.pre'}), kind: 'tool.pre' as const, data: {tool_name: 'Bash', tool_input: {}}};
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Bash', tool_input: {}},
+		};
 		expect(mergedEventLabel(pre)).toBe('Tool Call');
 	});
 });
@@ -290,7 +615,10 @@ Expected: FAIL
 **Step 3: Implement `mergedEventLabel()`**
 
 ```typescript
-export function mergedEventLabel(event: FeedEvent, postEvent?: FeedEvent): string {
+export function mergedEventLabel(
+	event: FeedEvent,
+	postEvent?: FeedEvent,
+): string {
 	if (!postEvent) return eventLabel(event);
 	if (postEvent.kind === 'tool.failure') return 'Tool Fail';
 	if (postEvent.kind === 'tool.post') return 'Tool OK';
@@ -305,13 +633,13 @@ Replace the existing column constants:
 ```typescript
 /** Column positions in formatted feed line (0-indexed char offsets). */
 export const FEED_GUTTER_WIDTH = 1;
-export const FEED_EVENT_COL_START = 7;      // after " HH:MM " (1+5+1)
-export const FEED_EVENT_COL_END = 19;       // 7 + 12 (event width)
-export const FEED_DETAIL_COL_START = 20;    // 19 + 1 gap
-export const FEED_DETAIL_COL_END = 36;      // 20 + 16 (detail width)
-export const FEED_ACTOR_COL_START = 37;     // 36 + 1 gap
-export const FEED_ACTOR_COL_END = 47;       // 37 + 10 (actor width)
-export const FEED_SUMMARY_COL_START = 48;   // 47 + 1 gap
+export const FEED_EVENT_COL_START = 7; // after " HH:MM " (1+5+1)
+export const FEED_EVENT_COL_END = 19; // 7 + 12 (event width)
+export const FEED_DETAIL_COL_START = 20; // 19 + 1 gap
+export const FEED_DETAIL_COL_END = 36; // 20 + 16 (detail width)
+export const FEED_ACTOR_COL_START = 37; // 36 + 1 gap
+export const FEED_ACTOR_COL_END = 47; // 37 + 10 (actor width)
+export const FEED_SUMMARY_COL_START = 48; // 47 + 1 gap
 
 // Keep old names as aliases for backward compat with feedLineStyle.ts (updated in Task 4)
 export const FEED_OP_COL_START = FEED_EVENT_COL_START;
@@ -337,7 +665,7 @@ export function formatFeedLine(
 		: ' ';
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
-	const event = fit(entry.op, 12);    // now Title Case label
+	const event = fit(entry.op, 12); // now Title Case label
 	const detail = fit(entry.detail ?? '\u2500', 16);
 	const actor = fit(entry.actor, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
@@ -371,9 +699,9 @@ export type TimelineEntry = {
 	id: string;
 	ts: number;
 	runId?: string;
-	op: string;       // Now stores Title Case label (e.g. "Tool Call")
-	opTag: string;    // Internal slug for styling (e.g. "tool.call")
-	detail: string;   // DETAIL column content
+	op: string; // Now stores Title Case label (e.g. "Tool Call")
+	opTag: string; // Internal slug for styling (e.g. "tool.call")
+	detail: string; // DETAIL column content
 	actor: string;
 	actorId: string;
 	summary: string;
@@ -422,6 +750,7 @@ git commit -m "feat(feed): 5-column layout with EVENT/DETAIL columns and updated
 ### Task 3: Update `useTimeline.ts` to populate `detail` and `opTag`
 
 **Files:**
+
 - Modify: `source/hooks/useTimeline.ts:56-145`
 
 **Step 1: Update imports**
@@ -458,9 +787,7 @@ Replace `op` assignment with both `op` (label) and `opTag` (slug), add `detail`:
 const opTag = pairedPost
 	? mergedEventOperation(event, pairedPost)
 	: eventOperation(event);
-const op = pairedPost
-	? mergedEventLabel(event, pairedPost)
-	: eventLabel(event);
+const op = pairedPost ? mergedEventLabel(event, pairedPost) : eventLabel(event);
 const detail = eventDetail(event);
 // ... rest stays the same
 entries.push({
@@ -489,6 +816,7 @@ git commit -m "feat(feed): populate detail and opTag fields in useTimeline"
 ### Task 4: Update `feedLineStyle.ts` and `buildBodyLines.ts`
 
 **Files:**
+
 - Modify: `source/feed/feedLineStyle.ts`
 - Modify: `source/utils/buildBodyLines.ts`
 - Test: `source/feed/feedLineStyle.test.ts`
@@ -514,7 +842,7 @@ The `op` param in `FeedLineStyleOptions` is now `opTag` (the slug). Rename the f
 ```typescript
 export type FeedLineStyleOptions = {
 	// ... existing fields ...
-	opTag?: string;  // was `op`
+	opTag?: string; // was `op`
 	// ...
 };
 ```
@@ -538,7 +866,11 @@ segments.push({
 const afterEventEnd = glyphPos ?? line.length;
 if (dimPos !== undefined && dimPos < afterEventEnd) {
 	segments.push({start: FEED_EVENT_COL_END, end: dimPos, style: base});
-	segments.push({start: dimPos, end: afterEventEnd, style: chalk.hex(theme.textMuted)});
+	segments.push({
+		start: dimPos,
+		end: afterEventEnd,
+		style: chalk.hex(theme.textMuted),
+	});
 } else {
 	segments.push({start: FEED_EVENT_COL_END, end: afterEventEnd, style: base});
 }
@@ -652,12 +984,12 @@ git commit -m "fix(feed): resolve lint/type issues from column refinement"
 
 ### Summary of changes
 
-| File | Change |
-|------|--------|
-| `source/feed/timeline.ts` | Add `eventLabel()`, `eventDetail()`, `mergedEventLabel()`. Update `TimelineEntry` (add `detail`, `opTag`). Update column constants. Rewrite `formatFeedLine()` and `formatFeedHeaderLine()` for 5 columns. Keep `eventOperation()` for internal slug use. |
-| `source/feed/timeline.test.ts` | Add tests for `eventLabel`, `eventDetail`, `mergedEventLabel`. Update existing `formatFeedLine`/`formatFeedHeaderLine` tests. |
-| `source/feed/feedLineStyle.ts` | Rename `op` → `opTag` in options. Update segment slice positions to new column offsets. |
-| `source/feed/feedLineStyle.test.ts` | Update baselines and option field name. |
-| `source/hooks/useTimeline.ts` | Populate `op` with label, `opTag` with slug, `detail` from `eventDetail()`. |
-| `source/utils/buildBodyLines.ts` | Pass `opTag` to styleFeedLine and opCategory. |
-| `source/utils/buildBodyLines.test.ts` | Update tests if needed. |
+| File                                  | Change                                                                                                                                                                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source/feed/timeline.ts`             | Add `eventLabel()`, `eventDetail()`, `mergedEventLabel()`. Update `TimelineEntry` (add `detail`, `opTag`). Update column constants. Rewrite `formatFeedLine()` and `formatFeedHeaderLine()` for 5 columns. Keep `eventOperation()` for internal slug use. |
+| `source/feed/timeline.test.ts`        | Add tests for `eventLabel`, `eventDetail`, `mergedEventLabel`. Update existing `formatFeedLine`/`formatFeedHeaderLine` tests.                                                                                                                             |
+| `source/feed/feedLineStyle.ts`        | Rename `op` → `opTag` in options. Update segment slice positions to new column offsets.                                                                                                                                                                   |
+| `source/feed/feedLineStyle.test.ts`   | Update baselines and option field name.                                                                                                                                                                                                                   |
+| `source/hooks/useTimeline.ts`         | Populate `op` with label, `opTag` with slug, `detail` from `eventDetail()`.                                                                                                                                                                               |
+| `source/utils/buildBodyLines.ts`      | Pass `opTag` to styleFeedLine and opCategory.                                                                                                                                                                                                             |
+| `source/utils/buildBodyLines.test.ts` | Update tests if needed.                                                                                                                                                                                                                                   |

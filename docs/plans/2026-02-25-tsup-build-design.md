@@ -18,6 +18,7 @@ Replace plain `tsc` with tsup (esbuild) as the production build tool. Keep tsc f
 **Features**: code splitting, declarations (dts), sourcemaps, clean
 
 **Externals** (not bundled):
+
 - `better-sqlite3` — native C++ addon
 - `ink`, `react`, `@inkjs/ui` — Ink singleton must not be duplicated
 
@@ -27,11 +28,11 @@ Replace plain `tsc` with tsup (esbuild) as the production build tool. Keep tsc f
 
 ## Script Changes
 
-| Script | Before | After |
-|--------|--------|-------|
-| `build` | `tsc` | `tsup` |
-| `typecheck` | (new) | `tsc --noEmit` |
-| `dev` | `tsc --watch` | `tsup --watch` |
+| Script           | Before                           | After                                |
+| ---------------- | -------------------------------- | ------------------------------------ |
+| `build`          | `tsc`                            | `tsup`                               |
+| `typecheck`      | (new)                            | `tsc --noEmit`                       |
+| `dev`            | `tsc --watch`                    | `tsup --watch`                       |
 | `prepublishOnly` | `lint && test && clean && build` | `lint && typecheck && test && build` |
 
 ## Output

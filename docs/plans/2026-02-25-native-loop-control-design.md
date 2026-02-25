@@ -18,11 +18,11 @@ Loop control currently depends on an external ralph-loop plugin installed from t
 
 ```typescript
 export type LoopConfig = {
-  enabled: boolean;
-  completionMarker: string;    // string to scan for in tracker body
-  maxIterations: number;
-  continueMessage?: string;    // static message sent when blocking stop (default provided)
-  trackerTemplate?: string;    // inline markdown OR relative file path (auto-detect: ends with .md = file)
+	enabled: boolean;
+	completionMarker: string; // string to scan for in tracker body
+	maxIterations: number;
+	continueMessage?: string; // static message sent when blocking stop (default provided)
+	trackerTemplate?: string; // inline markdown OR relative file path (auto-detect: ends with .md = file)
 };
 ```
 
@@ -33,32 +33,34 @@ export type LoopConfig = {
 **trackerTemplate resolution**: If the value ends with `.md`, it's resolved as a file path relative to the workflow.json location (e.g., `"./loop-tracker.md"` in a marketplace plugin directory). Otherwise it's treated as an inline markdown string.
 
 **Example workflow.json (file reference)**:
+
 ```json
 {
-  "name": "e2e-testing",
-  "plugins": ["e2e-test-builder@owner/repo"],
-  "promptTemplate": "Use /add-e2e-tests {input}",
-  "loop": {
-    "enabled": true,
-    "completionMarker": "E2E_COMPLETE",
-    "maxIterations": 15,
-    "trackerTemplate": "./loop-tracker.md"
-  }
+	"name": "e2e-testing",
+	"plugins": ["e2e-test-builder@owner/repo"],
+	"promptTemplate": "Use /add-e2e-tests {input}",
+	"loop": {
+		"enabled": true,
+		"completionMarker": "E2E_COMPLETE",
+		"maxIterations": 15,
+		"trackerTemplate": "./loop-tracker.md"
+	}
 }
 ```
 
 **Example workflow.json (inline)**:
+
 ```json
 {
-  "name": "e2e-testing",
-  "plugins": ["e2e-test-builder@owner/repo"],
-  "promptTemplate": "Use /add-e2e-tests {input}",
-  "loop": {
-    "enabled": true,
-    "completionMarker": "E2E_COMPLETE",
-    "maxIterations": 15,
-    "trackerTemplate": "# E2E Test Progress\n\n## Status\n_pending_"
-  }
+	"name": "e2e-testing",
+	"plugins": ["e2e-test-builder@owner/repo"],
+	"promptTemplate": "Use /add-e2e-tests {input}",
+	"loop": {
+		"enabled": true,
+		"completionMarker": "E2E_COMPLETE",
+		"maxIterations": 15,
+		"trackerTemplate": "# E2E Test Progress\n\n## Status\n_pending_"
+	}
 }
 ```
 
@@ -81,17 +83,20 @@ When `useClaudeProcess.spawn()` is called with `workflow.loop.enabled`:
 ---
 iteration: 0
 max_iterations: 15
-completion_marker: "E2E_COMPLETE"
+completion_marker: 'E2E_COMPLETE'
 active: true
-started_at: "2026-02-25T10:00:00Z"
+started_at: '2026-02-25T10:00:00Z'
 ---
+
 # E2E Test Progress
 
 ## Criteria
+
 - [ ] All tests passing
 - [ ] Coverage threshold met
 
 ## Status
+
 _pending_
 ```
 
@@ -114,21 +119,21 @@ On process kill/exit, athena sets `active: false` in frontmatter or removes the 
 
 ```typescript
 export type ControllerCallbacks = {
-  getRules: () => HookRule[];
-  enqueuePermission: (event: RuntimeEvent) => void;
-  enqueueQuestion: (eventId: string) => void;
-  getLoopState?: () => LoopState | null;       // NEW
-  updateLoopState?: (update: Partial<LoopState>) => void;  // NEW
-  signal?: AbortSignal;
+	getRules: () => HookRule[];
+	enqueuePermission: (event: RuntimeEvent) => void;
+	enqueueQuestion: (eventId: string) => void;
+	getLoopState?: () => LoopState | null; // NEW
+	updateLoopState?: (update: Partial<LoopState>) => void; // NEW
+	signal?: AbortSignal;
 };
 
 type LoopState = {
-  active: boolean;
-  iteration: number;
-  maxIterations: number;
-  completionMarker: string;
-  continueMessage: string;
-  trackerContent: string;   // raw markdown body (below frontmatter)
+	active: boolean;
+	iteration: number;
+	maxIterations: number;
+	completionMarker: string;
+	continueMessage: string;
+	trackerContent: string; // raw markdown body (below frontmatter)
 };
 ```
 
@@ -159,12 +164,12 @@ Stop event received
 
 ```typescript
 export type RuntimeIntent =
-  | {kind: 'permission_allow'}
-  | {kind: 'permission_deny'; reason: string}
-  | {kind: 'question_answer'; answers: Record<string, string>}
-  | {kind: 'pre_tool_allow'}
-  | {kind: 'pre_tool_deny'; reason: string}
-  | {kind: 'stop_block'; reason: string};   // NEW
+	| {kind: 'permission_allow'}
+	| {kind: 'permission_deny'; reason: string}
+	| {kind: 'question_answer'; answers: Record<string, string>}
+	| {kind: 'pre_tool_allow'}
+	| {kind: 'pre_tool_deny'; reason: string}
+	| {kind: 'stop_block'; reason: string}; // NEW
 ```
 
 ### decisionMapper Addition
@@ -192,21 +197,21 @@ Pure utility (not a React hook) managing tracker state:
 // source/workflows/loopManager.ts
 
 export type LoopManager = {
-  isActive(): boolean;
-  getState(): LoopState | null;
-  evaluate(): LoopDecision;
-  incrementIteration(): void;
-  deactivate(): void;
-  cleanup(): void;
+	isActive(): boolean;
+	getState(): LoopState | null;
+	evaluate(): LoopDecision;
+	incrementIteration(): void;
+	deactivate(): void;
+	cleanup(): void;
 };
 
 type LoopDecision =
-  | { action: 'continue'; reason: string }
-  | { action: 'stop'; reason: string };
+	| {action: 'continue'; reason: string}
+	| {action: 'stop'; reason: string};
 
 export function createLoopManager(
-  trackerPath: string,
-  config: LoopConfig,
+	trackerPath: string,
+	config: LoopConfig,
 ): LoopManager;
 ```
 
@@ -214,16 +219,16 @@ Instantiated once when workflow starts. Its methods are passed as callbacks to h
 
 ## Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Tracker file deleted mid-loop | `getLoopState()` returns null → passthrough → Claude stops. Log warning. |
-| Tracker file unreadable | Same as deleted — fail open, let Claude stop. |
-| maxIterations reached | Deactivate loop, passthrough, log "max iterations reached". |
-| Completion marker found | Deactivate loop, passthrough, log "completion marker found". |
-| User kills process | `cleanup()` removes tracker file. |
-| Session resume with stale tracker | Check if tracker exists with `active: true`. Re-initialize LoopManager if so. |
-| No trackerTemplate in config | Default: `"# Loop Progress\n\n_In progress_"` |
-| Multiple Stop events rapidly | LoopManager reads from disk each time. Sequential UDS processing prevents races. |
+| Scenario                          | Behavior                                                                         |
+| --------------------------------- | -------------------------------------------------------------------------------- |
+| Tracker file deleted mid-loop     | `getLoopState()` returns null → passthrough → Claude stops. Log warning.         |
+| Tracker file unreadable           | Same as deleted — fail open, let Claude stop.                                    |
+| maxIterations reached             | Deactivate loop, passthrough, log "max iterations reached".                      |
+| Completion marker found           | Deactivate loop, passthrough, log "completion marker found".                     |
+| User kills process                | `cleanup()` removes tracker file.                                                |
+| Session resume with stale tracker | Check if tracker exists with `active: true`. Re-initialize LoopManager if so.    |
+| No trackerTemplate in config      | Default: `"# Loop Progress\n\n_In progress_"`                                    |
+| Multiple Stop events rapidly      | LoopManager reads from disk each time. Sequential UDS processing prevents races. |
 
 **Fail-safe principle**: Always fail open. If anything goes wrong reading/parsing the tracker, let Claude stop. Never risk an infinite loop.
 

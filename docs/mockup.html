@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Athena Flow TUI — Before / After Mockup</title>
+		<style>
+			@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				background: #1a1a2e;
+				color: #c8c8d4;
+				font-family: 'JetBrains Mono', monospace;
+				font-size: 13px;
+				line-height: 1.5;
+				padding: 32px 40px;
+				min-height: 100vh;
+			}
+
+			.page-title {
+				color: #8888aa;
+				font-size: 11px;
+				font-weight: 500;
+				letter-spacing: 2px;
+				text-transform: uppercase;
+				margin-bottom: 8px;
+			}
+
+			.page-heading {
+				color: #e0e0f0;
+				font-size: 20px;
+				font-weight: 600;
+				margin-bottom: 32px;
+			}
+
+			.page-heading span {
+				color: #5e6ad2;
+			}
+
+			.label-row {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				margin-bottom: 16px;
+			}
+
+			.label-tag {
+				font-size: 10px;
+				font-weight: 600;
+				letter-spacing: 1.5px;
+				text-transform: uppercase;
+				padding: 3px 10px;
+				border-radius: 4px;
+			}
+
+			.label-before {
+				background: #3a2a2a;
+				color: #c07070;
+			}
+
+			.label-after {
+				background: #2a3a2e;
+				color: #70c080;
+			}
+
+			.label-desc {
+				color: #666680;
+				font-size: 11px;
+			}
+
+			/* Terminal frame */
+			.terminal {
+				background: #0d1117;
+				border: 1px solid #262a33;
+				border-radius: 8px;
+				overflow: hidden;
+				margin-bottom: 40px;
+				box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+			}
+
+			.terminal-dots {
+				display: flex;
+				gap: 6px;
+				padding: 10px 14px;
+				background: #161b22;
+				border-bottom: 1px solid #262a33;
+			}
+
+			.terminal-dots span {
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+			}
+			.dot-r {
+				background: #f85149;
+			}
+			.dot-y {
+				background: #d29922;
+			}
+			.dot-g {
+				background: #3fb950;
+			}
+
+			.terminal-body {
+				padding: 12px 16px;
+				font-size: 12.5px;
+				line-height: 1.65;
+				overflow-x: auto;
+			}
+
+			/* Header bar */
+			.header {
+				display: flex;
+				gap: 16px;
+				padding: 6px 0;
+				border-bottom: 1px solid #21262d;
+				margin-bottom: 8px;
+				white-space: nowrap;
+			}
+
+			.header .brand {
+				color: #58a6ff;
+				font-weight: 700;
+			}
+			.header .meta {
+				color: #6e7681;
+			}
+			.header .meta b {
+				color: #8b949e;
+				font-weight: 500;
+			}
+
+			/* Stage checklist */
+			.stages {
+				padding: 6px 0 8px 0;
+				border-bottom: 1px solid #21262d;
+				margin-bottom: 10px;
+			}
+
+			.stage-header {
+				color: #8b949e;
+				margin-bottom: 2px;
+			}
+
+			.stage-header .diamond {
+				color: #58a6ff;
+			}
+			.stage-header .count {
+				color: #c9d1d9;
+				font-weight: 500;
+			}
+
+			.stage {
+				padding-left: 16px;
+				white-space: nowrap;
+			}
+
+			.stage .icon-done {
+				color: #3fb950;
+			}
+			.stage .icon-active {
+				color: #d29922;
+			}
+			.stage .icon-pending {
+				color: #484f58;
+			}
+			.stage .text-done {
+				color: #484f58;
+			}
+			.stage .text-active {
+				color: #e6edf3;
+				font-weight: 500;
+			}
+			.stage .text-pending {
+				color: #484f58;
+			}
+			.stage .elapsed {
+				color: #3a3f47;
+				font-size: 11px;
+			}
+			.stage .arrow {
+				color: #d29922;
+				font-size: 11px;
+			}
+
+			/* Log columns header */
+			.log-header {
+				display: grid;
+				padding: 4px 0;
+				border-bottom: 1px solid #21262d;
+				margin-bottom: 2px;
+				color: #484f58;
+				font-weight: 600;
+				font-size: 11px;
+				letter-spacing: 0.5px;
+			}
+
+			/* BEFORE grid */
+			.grid-before {
+				grid-template-columns: 48px 90px 120px 1fr;
+				gap: 8px;
+			}
+
+			/* AFTER grid */
+			.grid-after {
+				grid-template-columns: 48px 90px 100px 1fr;
+				gap: 8px;
+			}
+
+			/* Log rows */
+			.log-row {
+				display: grid;
+				padding: 1px 0;
+				white-space: nowrap;
+				position: relative;
+			}
+
+			.log-row .time {
+				color: #484f58;
+			}
+			.log-row .event {
+				font-weight: 500;
+			}
+			.log-row .actor {
+			}
+			.log-row .summary {
+				color: #8b949e;
+			}
+
+			/* Before-specific styles */
+			.before .event-ok {
+				color: #3fb950;
+			}
+			.before .event-msg {
+				color: #d29922;
+			}
+			.before .event-sub {
+				color: #6e7681;
+			}
+			.before .actor-sub {
+				color: #8b949e;
+			}
+			.before .actor-agent {
+				color: #8b949e;
+			}
+
+			/* Highlight row — BEFORE (full cyan bg) */
+			.before .highlight-row {
+				background: #0c2d48;
+				border-radius: 2px;
+			}
+
+			/* AFTER-specific styles */
+			.after .event-ok {
+				color: #3a3f47;
+				font-weight: 400;
+			} /* Dimmed! */
+			.after .event-err {
+				color: #f85149;
+				font-weight: 600;
+			}
+			.after .event-retry {
+				color: #d29922;
+				font-weight: 600;
+			}
+			.after .event-msg {
+				color: #d29922;
+				font-weight: 500;
+			}
+			.after .event-sub {
+				color: #6e7681;
+			}
+
+			.after .actor-sub {
+				color: #8b949e;
+			}
+			.after .actor-dim {
+				color: #2d333b;
+			} /* Dimmed consecutive duplicate */
+			.after .actor-agent {
+				color: #8b949e;
+			}
+
+			/* Highlight row — AFTER (left accent only) */
+			.after .highlight-row {
+				background: transparent;
+			}
+			.after .highlight-row::before {
+				content: '';
+				position: absolute;
+				left: -16px;
+				top: 0;
+				bottom: 0;
+				width: 3px;
+				background: #58a6ff;
+				border-radius: 2px;
+			}
+
+			/* Path dimming in AFTER */
+			.path-prefix {
+				color: #2d333b;
+			}
+			.path-file {
+				color: #c9d1d9;
+			}
+
+			/* Summary emphasis in AFTER */
+			.after .summary {
+				color: #c9d1d9;
+			}
+			.after .summary-dim {
+				color: #484f58;
+			}
+
+			/* Minute separator */
+			.minute-sep {
+				border-top: 1px solid #161b22;
+				margin-top: 3px;
+				padding-top: 3px;
+			}
+
+			/* Bottom bar */
+			.bottom-bar {
+				display: flex;
+				justify-content: space-between;
+				padding: 8px 0 4px 0;
+				border-top: 1px solid #21262d;
+				margin-top: 8px;
+				color: #484f58;
+				font-size: 11px;
+			}
+
+			.bottom-bar .nav-hint b {
+				color: #6e7681;
+			}
+			.bottom-bar .state {
+				color: #3fb950;
+			}
+
+			/* Ctx bar */
+			.ctx-bar {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+			}
+			.ctx-track {
+				display: inline-block;
+				width: 80px;
+				height: 6px;
+				background: #161b22;
+				border-radius: 3px;
+				overflow: hidden;
+				vertical-align: middle;
+			}
+			.ctx-fill {
+				display: block;
+				height: 100%;
+				background: #3fb950;
+				border-radius: 3px;
+				transition: width 0.3s;
+			}
+
+			/* Input prompt */
+			.input-row {
+				padding: 6px 0 2px 0;
+				color: #6e7681;
+			}
+			.input-row .prompt {
+				color: #58a6ff;
+				font-weight: 500;
+			}
+			.input-row .hint {
+				color: #2d333b;
+			}
+			.input-row .ctx-hint {
+				color: #484f58;
+				font-style: italic;
+			}
+
+			/* Annotation callouts */
+			.callouts {
+				margin-top: 24px;
+				margin-bottom: 48px;
+			}
+			.callout {
+				display: flex;
+				gap: 12px;
+				align-items: baseline;
+				margin-bottom: 6px;
+			}
+			.callout-num {
+				flex-shrink: 0;
+				width: 20px;
+				height: 20px;
+				border-radius: 50%;
+				background: #5e6ad2;
+				color: #fff;
+				font-size: 10px;
+				font-weight: 700;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.callout-text {
+				color: #8888aa;
+				font-size: 12px;
+			}
+			.callout-text b {
+				color: #c8c8d4;
+				font-weight: 500;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="page-title">Athena Flow TUI</div>
+		<div class="page-heading">Quick Wins <span>— Before / After</span></div>
+
+		<!-- ==================== BEFORE ==================== -->
+
+		<div class="label-row">
+			<span class="label-tag label-before">Before</span>
+			<span class="label-desc"
+				>Current state — green "Tool OK" dominates, duplicate actors, no
+				completed stages</span
+			>
+		</div>
+
+		<div class="terminal">
+			<div class="terminal-dots">
+				<span class="dot-r"></span><span class="dot-y"></span
+				><span class="dot-g"></span>
+			</div>
+			<div class="terminal-body before">
+				<div class="header">
+					<span class="brand">ATHENA FLOW</span>
+					<span class="meta">Workflow: <b>e2e-test-builder</b></span>
+					<span class="meta">Harness: <b>Claude Code</b></span>
+					<span class="meta">S: <b>S3f41</b></span>
+					<span class="meta">Ctx: <b>0k / 200k</b></span>
+				</div>
+
+				<div class="stages">
+					<div class="stage-header">
+						<span class="diamond">◆</span> IDLE
+						<span class="count">5/8 tasks done</span>
+					</div>
+					<div class="stage">
+						<span class="icon-active">■</span>
+						<span class="text-active"
+							>Stage B: Write Playwright tests from specs</span
+						>
+					</div>
+					<div class="stage">
+						<span class="icon-pending">□</span>
+						<span class="text-pending"
+							>Check 4: Run tests and verify they pass</span
+						>
+					</div>
+					<div class="stage">
+						<span class="icon-pending">□</span>
+						<span class="text-pending">Check 5: Verify all TC-IDs covered</span>
+					</div>
+				</div>
+
+				<div class="log-header grid-before">
+					<span>TIME</span><span>EVENT</span><span>ACTOR</span
+					><span>SUMMARY</span>
+				</div>
+
+				<div class="log-row grid-before">
+					<span class="time">02:22</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>[agent-web-interface] find_elements kind="button" label="Feeling
+						Lucky" — done</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:22</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>[agent-web-interface] click eid="264ddc58e08d" — done</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>Write test-cases/google-search.md — wrote
+						/home/nadeemm/Projects/ai-projects/automation-test-setup/test-cases/goog...</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Read test-cases/google-search.md — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>[agent-web-interface] close_session — done</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:25</span>
+					<span class="event event-sub">Sub Stop</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">general-purpose</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">·02:25</span>
+					<span class="event event-msg">Agent Msg</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>Here is a summary of what was accomplished.</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:25</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-agent">AGENT</span>
+					<span class="summary"
+						>Task [general-purpose] Explore Google and generate test specs</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:25</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-agent">AGENT</span>
+					<span class="summary">Read test-cases/google-search.md — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool Call</span>
+					<span class="actor actor-agent">AGENT</span>
+					<span class="summary"
+						>Task [general-purpose] Write Playwright tests + page object</span
+					>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">·02:26</span>
+					<span class="event event-sub">Sub Start</span>
+					<span class="actor actor-agent">AGENT</span>
+					<span class="summary">general-purpose</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">·02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Read test-cases/google-search.md — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Read fixtures/index.ts — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Read pages/BasePage.ts — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>Read automation-test-setup/playwright.config.ts — done</span
+					>
+				</div>
+				<div class="log-row grid-before highlight-row">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Read pages/NytSearchPage.ts — done</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Glob tests/nyt-search.spec.ts — 0 files</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Glob tests/nyt-search.spec.ts — 0 files</span>
+				</div>
+				<div class="log-row grid-before">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary">Glob tests/*.spec.ts — 0 files</span>
+				</div>
+
+				<div class="bottom-bar">
+					<span class="nav-hint"
+						><b>↑↓</b> Navigate <b>↵</b> Expand <b>/</b> Search <b>:</b> Cmd
+						<b>End</b> Tail</span
+					>
+					<span class="state">[IDLE]</span>
+				</div>
+				<div class="input-row">
+					<span class="prompt">input&gt;</span>
+					<span class="hint">Type a prompt or :command</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- ==================== AFTER ==================== -->
+
+		<div class="label-row">
+			<span class="label-tag label-after">After</span>
+			<span class="label-desc"
+				>Quick wins applied — dimmed happy-path noise, full stage history,
+				accent highlight</span
+			>
+		</div>
+
+		<div class="terminal">
+			<div class="terminal-dots">
+				<span class="dot-r"></span><span class="dot-y"></span
+				><span class="dot-g"></span>
+			</div>
+			<div class="terminal-body after">
+				<div class="header">
+					<span class="brand">ATHENA FLOW</span>
+					<span class="meta">Workflow: <b>e2e-test-builder</b></span>
+					<span class="meta">Harness: <b>Claude Code</b></span>
+					<span class="meta">S: <b>S3f41</b></span>
+					<span class="meta"
+						><span class="ctx-bar"
+							>Ctx:
+							<span class="ctx-track"
+								><span class="ctx-fill" style="width: 14%"></span
+							></span>
+							<b>28k / 200k</b></span
+						></span
+					>
+				</div>
+
+				<div class="stages">
+					<div class="stage-header">
+						<span class="diamond">◆</span> IDLE
+						<span class="count">5/8 tasks done</span>
+					</div>
+					<div class="stage">
+						<span class="icon-done">✓</span>
+						<span class="text-done">Parse target URL and resolve config</span>
+						<span class="elapsed">3s</span>
+					</div>
+					<div class="stage">
+						<span class="icon-done">✓</span>
+						<span class="text-done">Explore app and map routes</span>
+						<span class="elapsed">12s</span>
+					</div>
+					<div class="stage">
+						<span class="icon-done">✓</span>
+						<span class="text-done">Generate structured test specs</span>
+						<span class="elapsed">8s</span>
+					</div>
+					<div class="stage">
+						<span class="icon-active">■</span>
+						<span class="text-active">Write Playwright tests from specs</span>
+						<span class="arrow">← active</span>
+					</div>
+					<div class="stage">
+						<span class="icon-pending">□</span>
+						<span class="text-pending">Run tests and verify they pass</span>
+					</div>
+					<div class="stage">
+						<span class="icon-pending">□</span>
+						<span class="text-pending">Verify all TC-IDs covered</span>
+					</div>
+				</div>
+
+				<div class="log-header grid-after">
+					<span>TIME</span><span>EVENT</span><span>ACTOR</span
+					><span>SUMMARY</span>
+				</div>
+
+				<div class="log-row grid-after">
+					<span class="time">02:22</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>[agent-web-interface] find_elements kind="button" label="Feeling
+						Lucky" — done</span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:22</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>[agent-web-interface] click eid="264ddc58e08d" — done</span
+					>
+				</div>
+
+				<div class="log-row grid-after minute-sep">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Write <span class="path-prefix">…/test-cases/</span
+						><span class="path-file">google-search.md</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/test-cases/</span
+						><span class="path-file">google-search.md</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:24</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>[agent-web-interface] close_session — done</span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:25</span>
+					<span class="event event-sub">Sub Stop</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary summary-dim">general-purpose</span>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">·02:25</span>
+					<span class="event event-msg">Agent Msg</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Here is a summary of what was accomplished.</span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:25</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-agent">AGENT</span>
+					<span class="summary"
+						>Task [general-purpose] Explore Google and generate test specs</span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:25</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/test-cases/</span
+						><span class="path-file">google-search.md</span></span
+					>
+				</div>
+
+				<div class="log-row grid-after minute-sep">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool Call</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Task [general-purpose] Write Playwright tests + page object</span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">·02:26</span>
+					<span class="event event-sub">Sub Start</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary summary-dim">general-purpose</span>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">·02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-sub">SUB-AGENT</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/test-cases/</span
+						><span class="path-file">google-search.md</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/</span
+						><span class="path-file">fixtures/index.ts</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/pages/</span
+						><span class="path-file">BasePage.ts</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/</span
+						><span class="path-file">playwright.config.ts</span></span
+					>
+				</div>
+				<div class="log-row grid-after highlight-row">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Read <span class="path-prefix">…/pages/</span
+						><span class="path-file">NytSearchPage.ts</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Glob <span class="path-prefix">…/tests/</span
+						><span class="path-file">nyt-search.spec.ts</span>
+						<span class="summary-dim">— 0 files</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-ok">Tool OK</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Glob <span class="path-prefix">…/tests/</span
+						><span class="path-file">*.spec.ts</span>
+						<span class="summary-dim">— 0 files</span></span
+					>
+				</div>
+
+				<!-- Bonus: show what an ERROR would look like -->
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-err">Error</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Glob <span class="path-prefix">…/tests/</span
+						><span class="path-file">**/*.spec.ts</span>
+						<span class="summary-dim">— permission denied</span></span
+					>
+				</div>
+				<div class="log-row grid-after">
+					<span class="time">02:26</span>
+					<span class="event event-retry">Retry</span>
+					<span class="actor actor-dim">·</span>
+					<span class="summary"
+						>Glob <span class="path-prefix">…/tests/</span
+						><span class="path-file">**/*.spec.ts</span>
+						<span class="summary-dim">— attempt 2/3</span></span
+					>
+				</div>
+
+				<div class="bottom-bar">
+					<span class="nav-hint"
+						><b>↑↓</b> Navigate <b>↵</b> Expand <b>/</b> Search <b>:</b> Cmd
+						<b>End</b> Tail</span
+					>
+					<span class="state">[IDLE]</span>
+				</div>
+				<div class="input-row">
+					<span class="prompt">input&gt;</span>
+					<span class="ctx-hint"
+						>Stage B complete — press Enter to continue or :retry to
+						re-run</span
+					>
+				</div>
+			</div>
+		</div>
+
+		<!-- Callouts -->
+		<div class="callouts">
+			<div class="callout">
+				<span class="callout-num">1</span>
+				<span class="callout-text"
+					><b>"Tool OK" dimmed to near-invisible gray.</b> Green is now reserved
+					for errors/retries that actually need attention. The summary column —
+					the useful part — is brighter by default.</span
+				>
+			</div>
+			<div class="callout">
+				<span class="callout-num">2</span>
+				<span class="callout-text"
+					><b>Consecutive duplicate actors collapse to "·".</b> SUB-AGENT only
+					appears when the actor changes (e.g. back to AGENT), reducing visual
+					repetition without losing information.</span
+				>
+			</div>
+			<div class="callout">
+				<span class="callout-num">3</span>
+				<span class="callout-text"
+					><b>Full stage history with ✓ and elapsed times.</b> Completed stages
+					are dimmed but visible, giving instant context on how the run got here
+					and how long each phase took.</span
+				>
+			</div>
+			<div class="callout">
+				<span class="callout-num">4</span>
+				<span class="callout-text"
+					><b
+						>Highlight row uses left-border accent instead of full-width
+						background.</b
+					>
+					The blue bar draws the eye without crushing text contrast.</span
+				>
+			</div>
+			<div class="callout">
+				<span class="callout-num">+</span>
+				<span class="callout-text"
+					><b>Bonus: Error/Retry get the loud colors.</b> Red for errors, amber
+					for retries — these are the events worth interrupting your scan for.
+					Also: context bar is now visual, paths dim the prefix, and the input
+					prompt is contextual.</span
+				>
+			</div>
+		</div>
+	</body>
+</html>
