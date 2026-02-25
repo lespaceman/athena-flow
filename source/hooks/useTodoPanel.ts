@@ -7,13 +7,7 @@ import {
 import {type TodoItem} from '../types/todo.js';
 
 import {generateId} from '../types/index.js';
-
-const STATUS_ORDER: Record<TodoPanelStatus, number> = {
-	doing: 0,
-	open: 1,
-	blocked: 1,
-	done: 2,
-};
+import {formatElapsed} from '../utils/formatElapsed.js';
 
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
@@ -34,6 +28,7 @@ export type UseTodoPanelResult = {
 	doingCount: number;
 	blockedCount: number;
 	openCount: number;
+	failedCount: number;
 	remainingCount: number;
 	setTodoVisible: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoShowDone: React.Dispatch<React.SetStateAction<boolean>>;
@@ -49,13 +44,14 @@ export type UseTodoPanelResult = {
 
 export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 	const [todoVisible, setTodoVisible] = useState(true);
-	const [todoShowDone, setTodoShowDone] = useState(false);
+	const [todoShowDone, setTodoShowDone] = useState(true);
 	const [todoCursor, setTodoCursor] = useState(0);
 	const [todoScroll, setTodoScroll] = useState(0);
 	const [extraTodos, setExtraTodos] = useState<TodoPanelItem[]>([]);
 	const [todoStatusOverrides, setTodoStatusOverrides] = useState<
 		Record<string, TodoPanelStatus>
 	>({});
+	const startedAtRef = useRef<Map<string, number>>(new Map());
 
 	const todoItems = useMemo((): TodoPanelItem[] => {
 		const fromTasks = tasks.map((task, index) => ({
@@ -69,51 +65,75 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 			...todo,
 			status: todoStatusOverrides[todo.id] ?? todo.status,
 		}));
-		return merged;
+
+		// Track start times and compute elapsed
+		const now = Date.now();
+		const startedAt = startedAtRef.current;
+		return merged.map(todo => {
+			if (todo.status === 'doing' && !startedAt.has(todo.id)) {
+				startedAt.set(todo.id, now);
+			}
+			let elapsed: string | undefined;
+			if (
+				(todo.status === 'done' || todo.status === 'failed') &&
+				startedAt.has(todo.id)
+			) {
+				elapsed = formatElapsed(now - startedAt.get(todo.id)!);
+			}
+			return {...todo, elapsed};
+		});
 	}, [tasks, extraTodos, todoStatusOverrides]);
 
 	const sortedItems = useMemo(() => {
-		const filtered = todoShowDone
+		return todoShowDone
 			? todoItems
 			: todoItems.filter(todo => todo.status !== 'done');
-		return [...filtered].sort(
-			(a, b) => (STATUS_ORDER[a.status] ?? 1) - (STATUS_ORDER[b.status] ?? 1),
-		);
 	}, [todoItems, todoShowDone]);
 
 	const visibleTodoItemsRef = useRef(sortedItems);
 	visibleTodoItemsRef.current = sortedItems;
 
-	const {doneCount, doingCount, blockedCount, openCount, remainingCount} =
-		useMemo(() => {
-			let done = 0;
-			let doing = 0;
-			let blocked = 0;
-			let open = 0;
-			for (const todo of todoItems) {
-				switch (todo.status) {
-					case 'done':
-						done++;
-						break;
-					case 'doing':
-						doing++;
-						break;
-					case 'blocked':
-						blocked++;
-						break;
-					case 'open':
-						open++;
-						break;
-				}
+	const {
+		doneCount,
+		doingCount,
+		blockedCount,
+		openCount,
+		failedCount,
+		remainingCount,
+	} = useMemo(() => {
+		let done = 0;
+		let doing = 0;
+		let blocked = 0;
+		let open = 0;
+		let failed = 0;
+		for (const todo of todoItems) {
+			switch (todo.status) {
+				case 'done':
+					done++;
+					break;
+				case 'doing':
+					doing++;
+					break;
+				case 'blocked':
+					blocked++;
+					break;
+				case 'open':
+					open++;
+					break;
+				case 'failed':
+					failed++;
+					break;
 			}
-			return {
-				doneCount: done,
-				doingCount: doing,
-				blockedCount: blocked,
-				openCount: open,
-				remainingCount: todoItems.length - done,
-			};
-		}, [todoItems]);
+		}
+		return {
+			doneCount: done,
+			doingCount: doing,
+			blockedCount: blocked,
+			openCount: open,
+			failedCount: failed,
+			remainingCount: todoItems.length - done,
+		};
+	}, [todoItems]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
@@ -137,7 +157,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 
 	const toggleTodoStatus = useCallback((index: number) => {
 		const selected = visibleTodoItemsRef.current[index];
-		if (!selected) return;
+		if (!selected || selected.status === 'failed') return;
 		setTodoStatusOverrides(prev => ({
 			...prev,
 			[selected.id]:
@@ -158,6 +178,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		doingCount,
 		blockedCount,
 		openCount,
+		failedCount,
 		remainingCount,
 		setTodoVisible,
 		setTodoShowDone,

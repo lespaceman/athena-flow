@@ -10,6 +10,7 @@ import {
 	todoGlyphs,
 } from '../feed/todoPanel.js';
 import chalk from 'chalk';
+import stripAnsi from 'strip-ansi';
 import {compactText, fitAnsi, formatRunLabel} from './format.js';
 import {styleFeedLine} from '../feed/feedLineStyle.js';
 import {type Theme} from '../theme/types.js';
@@ -179,10 +180,33 @@ export function buildBodyLines({
 				}
 				const isFocused = todoFocus === 'todo' && tCursor === tScroll + i;
 				const caret = isFocused ? g.caret : ' ';
-				const prefix = `${caret} ${g.statusGlyph(item.status)}  `;
-				const maxTitleWidth = Math.max(1, innerWidth - prefix.length);
-				const title = fitAnsi(item.text, maxTitleWidth).trimEnd();
-				bodyLines.push(fitAnsi(`${prefix}${title}`, innerWidth));
+				const row = g.styledRow(item);
+
+				const glyphStr = row.glyph;
+				const suffixStr = row.suffix;
+				const elapsedStr = item.elapsed ? row.elapsed(item.elapsed) : '';
+
+				// Layout: [caret] [glyph]  [text...] [suffix] [elapsed]
+				const fixedWidth = 4; // caret + space + glyph + 2 spaces
+				const suffixWidth = suffixStr ? stripAnsi(suffixStr).length + 1 : 0;
+				const elapsedWidth = elapsedStr ? stripAnsi(elapsedStr).length + 1 : 0;
+				const maxTitleWidth = Math.max(
+					1,
+					innerWidth - fixedWidth - suffixWidth - elapsedWidth,
+				);
+				const title = row.text(fitAnsi(item.text, maxTitleWidth).trimEnd());
+
+				let line = `${caret} ${glyphStr}  ${title}`;
+				if (suffixStr) line += ` ${suffixStr}`;
+				if (elapsedStr) {
+					const currentLen = stripAnsi(line).length;
+					const pad = Math.max(
+						1,
+						innerWidth - currentLen - stripAnsi(elapsedStr).length,
+					);
+					line += ' '.repeat(pad) + elapsedStr;
+				}
+				bodyLines.push(fitAnsi(line, innerWidth));
 			}
 
 			if (hasScrollDown) {

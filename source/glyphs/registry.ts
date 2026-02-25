@@ -15,6 +15,7 @@ export type GlyphKey =
 	| 'todo.done'
 	| 'todo.open'
 	| 'todo.blocked'
+	| 'todo.failed'
 	| 'todo.caret'
 	| 'todo.scrollUp'
 	| 'todo.scrollDown'
@@ -96,6 +97,7 @@ export const GLYPH_REGISTRY: Record<
 	'todo.done': {unicode: '✓', ascii: 'x'},
 	'todo.open': {unicode: '□', ascii: '-'},
 	'todo.blocked': {unicode: '□', ascii: '-'},
+	'todo.failed': {unicode: '✗', ascii: '!'},
 	'todo.caret': {unicode: '▶', ascii: '>'},
 	'todo.scrollUp': {unicode: '▲', ascii: '^'},
 	'todo.scrollDown': {unicode: '▼', ascii: 'v'},
