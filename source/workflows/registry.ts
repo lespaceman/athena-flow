@@ -47,25 +47,17 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 	}
 
 	// Resolve trackerTemplate file reference if it ends with .md
-	if (
-		raw['loop'] &&
-		typeof (raw['loop'] as Record<string, unknown>)['trackerTemplate'] ===
-			'string'
-	) {
-		const tmpl = (raw['loop'] as Record<string, unknown>)[
-			'trackerTemplate'
-		] as string;
-		if (tmpl.endsWith('.md')) {
-			const workflowDir = path.dirname(workflowPath);
-			const tmplPath = path.resolve(workflowDir, tmpl);
-			if (!fs.existsSync(tmplPath)) {
-				throw new Error(
-					`Invalid workflow.json: trackerTemplate "${tmpl}" not found at ${tmplPath}`,
-				);
-			}
-			(raw['loop'] as Record<string, unknown>)['trackerTemplate'] =
-				fs.readFileSync(tmplPath, 'utf-8');
+	const loop = raw['loop'] as Record<string, unknown> | undefined;
+	const tmpl = loop?.['trackerTemplate'];
+	if (typeof tmpl === 'string' && tmpl.endsWith('.md')) {
+		const workflowDir = path.dirname(workflowPath);
+		const tmplPath = path.resolve(workflowDir, tmpl);
+		if (!fs.existsSync(tmplPath)) {
+			throw new Error(
+				`Invalid workflow.json: trackerTemplate "${tmpl}" not found at ${tmplPath}`,
+			);
 		}
+		loop!['trackerTemplate'] = fs.readFileSync(tmplPath, 'utf-8');
 	}
 
 	return raw as unknown as WorkflowConfig;

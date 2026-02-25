@@ -104,12 +104,10 @@ export function handleEvent(
 		const state = cb.getLoopState?.();
 		if (!state || !state.active) return {handled: false};
 
-		if (state.iteration >= state.maxIterations) {
-			cb.updateLoopState?.({active: false});
-			return {handled: false};
-		}
+		const reachedLimit = state.iteration >= state.maxIterations;
+		const completed = state.trackerContent.includes(state.completionMarker);
 
-		if (state.trackerContent.includes(state.completionMarker)) {
+		if (reachedLimit || completed) {
 			cb.updateLoopState?.({active: false});
 			return {handled: false};
 		}
