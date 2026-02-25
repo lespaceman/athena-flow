@@ -12,6 +12,7 @@ export type TodoPanelItem = {
 	linkedEventId?: string;
 	owner?: string;
 	localOnly?: boolean;
+	elapsed?: string;
 };
 
 export function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
@@ -27,8 +28,16 @@ export function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
 	}
 }
 
+export type StyledRow = {
+	glyph: string;
+	text: (raw: string) => string;
+	suffix: string;
+	elapsed: (raw: string) => string;
+};
+
 export type TodoGlyphs = {
 	statusGlyph: (status: TodoPanelStatus) => string;
+	styledRow: (item: TodoPanelItem) => StyledRow;
 	caret: string;
 	dividerChar: string;
 	scrollUp: string;
@@ -68,11 +77,63 @@ export function todoGlyphs(
 	colors?: TodoGlyphColors,
 ): TodoGlyphs {
 	const table = getTodoGlyphSet(ascii);
+	const identity = (raw: string) => raw;
+	const empty = () => '';
 	return {
 		statusGlyph(status: TodoPanelStatus): string {
 			const raw = table[status];
 			if (!colors) return raw;
 			return chalk.hex(colorForStatus(status, colors))(raw);
+		},
+		styledRow(item: TodoPanelItem): StyledRow {
+			if (!colors) {
+				return {
+					glyph: table[item.status],
+					text: identity,
+					suffix: '',
+					elapsed: identity,
+				};
+			}
+			switch (item.status) {
+				case 'done':
+					return {
+						glyph: chalk.dim(chalk.hex(colors.done)(table.done)),
+						text: (raw: string) => chalk.hex(colors.textMuted)(raw),
+						suffix: '',
+						elapsed: (raw: string) =>
+							chalk.dim(chalk.hex(colors.textMuted)(raw)),
+					};
+				case 'doing':
+					return {
+						glyph: chalk.hex(colors.doing)(table.doing),
+						text: (raw: string) => chalk.hex(colors.text)(raw),
+						suffix: chalk.hex(colors.doing)('\u2190 active'),
+						elapsed: empty,
+					};
+				case 'failed':
+					return {
+						glyph: chalk.hex(colors.failed)(table.failed),
+						text: (raw: string) => chalk.hex(colors.text)(raw),
+						suffix: chalk.hex(colors.failed)('\u2190 failed'),
+						elapsed: (raw: string) =>
+							chalk.dim(chalk.hex(colors.textMuted)(raw)),
+					};
+				case 'blocked':
+					return {
+						glyph: chalk.hex(colors.blocked)(table.blocked),
+						text: (raw: string) =>
+							chalk.dim(chalk.hex(colors.blocked)(raw)),
+						suffix: chalk.hex(colors.blocked)('\u2190 blocked'),
+						elapsed: empty,
+					};
+				default:
+					return {
+						glyph: chalk.hex(colors.textMuted)(table.open),
+						text: (raw: string) => chalk.hex(colors.textMuted)(raw),
+						suffix: '',
+						elapsed: empty,
+					};
+			}
 		},
 		caret: table.caret,
 		dividerChar: getGlyphs(ascii)['general.divider'],
