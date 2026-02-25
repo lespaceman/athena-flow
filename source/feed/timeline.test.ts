@@ -700,8 +700,63 @@ describe('eventSummary — agent.message', () => {
 	});
 });
 
-describe('eventSummary MCP formatting', () => {
-	it('formats MCP tool.pre with [server] action', () => {
+describe('eventSummary MCP clean verb formatting', () => {
+	it('strips MCP bracket prefix and uses clean verb', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'mcp__plugin_x_agent-web-interface__navigate',
+				tool_input: {url: 'https://google.com'},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toMatch(/^Navigate /);
+		expect(result.text).not.toContain('[agent-web-interface]');
+	});
+
+	it('uses fallback capitalized verb for unknown MCP actions', () => {
+		const ev = {
+			...base(),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'mcp__my-server__do_fancy_thing',
+				tool_input: {},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('Do fancy thing');
+		expect(result.text).not.toContain('[');
+	});
+
+	it('uses clean verb in mergedEventSummary', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {url: 'https://example.com'},
+			},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__navigate',
+				tool_input: {url: 'https://example.com'},
+				tool_response: {},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.text).toMatch(/^Navigate/);
+		expect(result.text).not.toContain('[agent-web-interface]');
+	});
+});
+
+describe('eventSummary MCP formatting (clean verb)', () => {
+	it('formats MCP tool.pre with clean verb', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -711,7 +766,7 @@ describe('eventSummary MCP formatting', () => {
 				tool_input: {url: 'https://example.com'},
 			},
 		};
-		expect(eventSummary(ev).text).toContain('[agent-web-interface] navigate');
+		expect(eventSummary(ev).text).toMatch(/^Navigate /);
 	});
 
 	it('formats built-in tool.pre without brackets', () => {
@@ -728,7 +783,7 @@ describe('eventSummary MCP formatting', () => {
 		expect(text).not.toContain('[');
 	});
 
-	it('formats MCP permission.request with [server] action', () => {
+	it('formats MCP permission.request with clean verb', () => {
 		const ev = {
 			...base(),
 			kind: 'permission.request' as const,
@@ -738,10 +793,10 @@ describe('eventSummary MCP formatting', () => {
 				permission_suggestions: [],
 			},
 		};
-		expect(eventSummary(ev).text).toContain('[agent-web-interface] click');
+		expect(eventSummary(ev).text).toMatch(/^Click /);
 	});
 
-	it('formats MCP tool.post with [server] action', () => {
+	it('formats MCP tool.post with clean verb', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.post' as const,
@@ -752,10 +807,10 @@ describe('eventSummary MCP formatting', () => {
 				tool_response: {},
 			},
 		};
-		expect(eventSummary(ev).text).toContain('[agent-web-interface] navigate');
+		expect(eventSummary(ev).text).toBe('Navigate');
 	});
 
-	it('formats MCP tool.failure with [server] action', () => {
+	it('formats MCP tool.failure with clean verb and error', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.failure' as const,
@@ -768,11 +823,11 @@ describe('eventSummary MCP formatting', () => {
 			},
 		};
 		const {text} = eventSummary(ev);
-		expect(text).toContain('[agent-web-interface] navigate');
+		expect(text).toMatch(/^Navigate /);
 		expect(text).toContain('timeout');
 	});
 
-	it('formats non-plugin MCP tool without plugin prefix', () => {
+	it('formats non-plugin MCP tool with fallback capitalized verb', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -781,7 +836,7 @@ describe('eventSummary MCP formatting', () => {
 				tool_input: {},
 			},
 		};
-		expect(eventSummary(ev).text).toContain('[my-server] do_thing');
+		expect(eventSummary(ev).text).toBe('Do thing');
 	});
 
 	it('returns dimStart for tool.pre with args', () => {

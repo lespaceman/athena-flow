@@ -12,6 +12,7 @@ import {
 } from '../utils/toolNameParser.js';
 import {summarizeToolResult} from '../utils/toolSummary.js';
 import {type FeedEvent, type FeedEventKind} from './types.js';
+import {resolveVerb} from './verbMap.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
@@ -224,14 +225,15 @@ function formatToolSummary(
 	toolInput: Record<string, unknown>,
 	errorSuffix?: string,
 ): ToolSummaryResult {
-	const name = resolveDisplayName(toolName);
+	const parsed = parseToolName(toolName);
+	const verb = resolveVerb(toolName, parsed);
 	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
 	const secondary = [primaryInput, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
-		return {text: compactText(name, 200)};
+		return {text: compactText(verb, 200)};
 	}
-	const full = `${name} ${secondary}`;
-	return {text: compactText(full, 200), dimStart: name.length + 1};
+	const full = `${verb} ${secondary}`;
+	return {text: compactText(full, 200), dimStart: verb.length + 1};
 }
 
 export type SummaryResult = {text: string; dimStart?: number};
@@ -533,7 +535,8 @@ export function mergedEventSummary(
 
 	const toolName = event.data.tool_name;
 	const toolInput = event.data.tool_input ?? {};
-	const name = resolveDisplayName(toolName);
+	const parsed = parseToolName(toolName);
+	const name = resolveVerb(toolName, parsed);
 	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
 
 	let resultText: string;
