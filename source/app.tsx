@@ -529,11 +529,13 @@ function AppContent({
 			if (prev === 'input') {
 				if (todoPanel.todoVisible && visibleTodoItemsRef.current.length > 0)
 					return 'todo';
+				feedNav.jumpToTail();
 				return 'feed';
 			}
+			feedNav.jumpToTail();
 			return 'feed';
 		});
-	}, [todoPanel.todoVisible]);
+	}, [todoPanel.todoVisible, feedNav]);
 
 	// ── Permission/question handlers ────────────────────────
 
