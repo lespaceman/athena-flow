@@ -9,14 +9,11 @@ import {
 	eventSummary,
 	isEventError,
 	isEventExpandable,
-	formatFeedLine,
-	formatFeedHeaderLine,
 	toRunStatus,
 	deriveRunTitle,
 	mergedEventOperation,
 	mergedEventSummary,
 	VERBOSE_ONLY_KINDS,
-	type TimelineEntry,
 } from './timeline.js';
 
 function base(overrides: Partial<FeedEventBase> = {}): FeedEventBase {
@@ -1063,96 +1060,6 @@ describe('isEventExpandable', () => {
 			} as FeedEvent;
 			expect(isEventExpandable(ev)).toBe(false);
 		}
-	});
-});
-
-describe('formatFeedLine', () => {
-	const entry: TimelineEntry = {
-		id: 'e1',
-		ts: new Date('2026-01-15T10:30:45').getTime(),
-		runId: 'R1',
-		op: 'Tool Call',
-		opTag: 'tool.call',
-		actor: 'AGENT',
-		actorId: 'agent:root',
-		toolColumn: 'Bash',
-		summary: 'Bash cmd',
-		summarySegments: [{text: 'Bash cmd', role: 'plain'}],
-		searchText: 'bash cmd',
-		error: false,
-		expandable: true,
-		details: '',
-	};
-
-	it('produces output of exact width', () => {
-		const {line} = formatFeedLine(entry, 80, false, false, false);
-		expect(line.length).toBe(80);
-	});
-
-	it('shows ▸ suffix when expandable but not expanded (unicode)', () => {
-		const {line} = formatFeedLine(entry, 80, false, false, false);
-		expect(line.trimEnd().endsWith('▸')).toBe(true);
-	});
-
-	it('shows ▾ suffix when expanded (unicode)', () => {
-		const {line} = formatFeedLine(entry, 80, false, true, false);
-		expect(line.trimEnd().endsWith('▾')).toBe(true);
-	});
-
-	it('shows > suffix in ascii mode', () => {
-		const {line} = formatFeedLine(entry, 80, false, false, false, true);
-		expect(line.trimEnd().endsWith('>')).toBe(true);
-	});
-
-	it('shows v suffix when expanded in ascii mode', () => {
-		const {line} = formatFeedLine(entry, 80, false, true, false, true);
-		expect(line.trimEnd().endsWith('v')).toBe(true);
-	});
-
-	it('contains event, detail and actor columns', () => {
-		const {line} = formatFeedLine(entry, 80, false, false, false);
-		expect(line).toContain('Tool Call');
-		expect(line).toContain('Bash');
-		expect(line).toContain('AGENT');
-	});
-
-	it('right-aligns outcome text near the right edge', () => {
-		const entryWithOutcome: TimelineEntry = {
-			...entry,
-			summaryOutcome: '13 files',
-		};
-		const {line} = formatFeedLine(entryWithOutcome, 80, false, false, false);
-		expect(line.length).toBe(80);
-		// Outcome should appear in the line
-		expect(line).toContain('13 files');
-		// Outcome should be near the right edge (within last ~15 chars of summary area)
-		const outcomeIdx = line.indexOf('13 files');
-		expect(outcomeIdx).toBeGreaterThan(50);
-	});
-
-	it('does not contain RUN column or prefix markers', () => {
-		const {line} = formatFeedLine(entry, 80, true, false, true);
-		// No > prefix or * match marker
-		expect(line.startsWith('>')).toBe(false);
-		expect(line).not.toContain('*');
-		// No RUN column (R1)
-		expect(line).not.toContain('R1');
-	});
-});
-
-describe('formatFeedHeaderLine', () => {
-	it('contains column headers', () => {
-		const header = formatFeedHeaderLine(80);
-		expect(header).toContain('TIME');
-		expect(header).not.toContain('RUN');
-		expect(header).toContain('EVENT');
-		expect(header).toContain('ACTOR');
-		expect(header).toContain('SUMMARY');
-	});
-
-	it('is exactly the requested width', () => {
-		const header = formatFeedHeaderLine(60);
-		expect(header.length).toBe(60);
 	});
 });
 

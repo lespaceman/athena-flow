@@ -54,8 +54,6 @@ describe('formatGutter', () => {
 		const r = formatGutter({
 			focused: true,
 			matched: false,
-			categoryBreak: false,
-			minuteBreak: false,
 			isUserBorder: false,
 			ascii: false,
 			theme,
@@ -67,8 +65,6 @@ describe('formatGutter', () => {
 		const r = formatGutter({
 			focused: false,
 			matched: true,
-			categoryBreak: false,
-			minuteBreak: false,
 			isUserBorder: false,
 			ascii: false,
 			theme,
@@ -80,8 +76,6 @@ describe('formatGutter', () => {
 		const r = formatGutter({
 			focused: false,
 			matched: false,
-			categoryBreak: false,
-			minuteBreak: false,
 			isUserBorder: true,
 			ascii: false,
 			theme,
@@ -89,38 +83,10 @@ describe('formatGutter', () => {
 		expect(stripAnsi(r)).toBe('▎');
 	});
 
-	test('minute break (no category) returns ─', () => {
-		const r = formatGutter({
-			focused: false,
-			matched: false,
-			categoryBreak: false,
-			minuteBreak: true,
-			isUserBorder: false,
-			ascii: false,
-			theme,
-		});
-		expect(stripAnsi(r)).toBe('─');
-	});
-
-	test('category break returns ·', () => {
-		const r = formatGutter({
-			focused: false,
-			matched: false,
-			categoryBreak: true,
-			minuteBreak: false,
-			isUserBorder: false,
-			ascii: false,
-			theme,
-		});
-		expect(stripAnsi(r)).toBe('·');
-	});
-
 	test('default returns space', () => {
 		const r = formatGutter({
 			focused: false,
 			matched: false,
-			categoryBreak: false,
-			minuteBreak: false,
 			isUserBorder: false,
 			ascii: false,
 			theme,
@@ -132,8 +98,6 @@ describe('formatGutter', () => {
 		const r = formatGutter({
 			focused: true,
 			matched: false,
-			categoryBreak: false,
-			minuteBreak: false,
 			isUserBorder: false,
 			ascii: true,
 			theme,
@@ -141,12 +105,10 @@ describe('formatGutter', () => {
 		expect(stripAnsi(r)).toBe('|');
 	});
 
-	test('priority: matched > userBorder > minuteBreak > categoryBreak', () => {
+	test('priority: matched > userBorder', () => {
 		const r = formatGutter({
 			focused: false,
 			matched: true,
-			categoryBreak: true,
-			minuteBreak: true,
 			isUserBorder: true,
 			ascii: false,
 			theme,

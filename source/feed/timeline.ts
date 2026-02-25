@@ -1,9 +1,7 @@
-import {feedGlyphs} from '../glyphs/index.js';
 import {type Message} from '../types/index.js';
 import {
 	compactText,
 	fit,
-	formatClock,
 	summarizeToolPrimaryInput,
 	shortenPathStructured,
 } from '../utils/format.js';
@@ -16,6 +14,12 @@ import {type FeedEvent, type FeedEventKind} from './types.js';
 import {resolveVerb} from './verbMap.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+
+/** Extract coarse event category from op string for visual grouping. */
+export function opCategory(op: string): string {
+	const dot = op.indexOf('.');
+	return dot >= 0 ? op.slice(0, dot) : op;
+}
 
 export type SummarySegmentRole =
 	| 'verb'
@@ -645,117 +649,6 @@ export function mergedEventSummary(
 		outcome: resultText,
 		outcomeZero: /^0\s/.test(resultText),
 	};
-}
-
-/** Column positions in formatted feed line (0-indexed char offsets). */
-export const FEED_GUTTER_WIDTH = 1;
-export const FEED_EVENT_COL_START = 7; // after " HH:MM " (1+5+1)
-export const FEED_EVENT_COL_END = 19; // 7 + 12 (event width)
-export const FEED_ACTOR_COL_START = 20; // 19 + 1 gap
-export const FEED_ACTOR_COL_END = 30; // 20 + 10 (actor width)
-export const FEED_SUMMARY_COL_START = 31; // 30 + 1 gap
-
-// Keep old names as aliases for backward compat
-export const FEED_OP_COL_START = FEED_EVENT_COL_START;
-export const FEED_OP_COL_END = FEED_EVENT_COL_END;
-
-/** Resolved segment position in the final formatted line. */
-export type ResolvedSegment = {
-	start: number;
-	end: number;
-	role: SummarySegmentRole;
-};
-
-export type FormatFeedLineResult = {
-	line: string;
-	summarySegments: ResolvedSegment[];
-};
-
-export function formatFeedLine(
-	entry: TimelineEntry,
-	width: number,
-	focused: boolean,
-	expanded: boolean,
-	matched: boolean,
-	ascii = false,
-	duplicateActor = false,
-): FormatFeedLineResult {
-	const g = feedGlyphs(ascii);
-	const glyph = entry.expandable
-		? expanded
-			? g.expandExpanded
-			: g.expandCollapsed
-		: ' ';
-	const suffix = ` ${glyph}`;
-	const time = fit(formatClock(entry.ts), 5);
-	const event = fit(entry.op, 12);
-	const actorText = duplicateActor ? '\u00B7' : entry.actor;
-	const actor = fit(actorText, 10);
-	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
-	const summaryWidth = Math.max(0, bodyWidth - 30); // 5+1+12+1+10+1 = 30
-
-	// Build summary text and track segment boundaries within it
-	let summaryText: string;
-	let outcomeStart = -1; // char offset within summaryText where outcome begins
-	if (entry.summaryOutcome && summaryWidth > 20) {
-		const outcomeLen = entry.summaryOutcome.length;
-		const targetWidth = summaryWidth - outcomeLen - 2; // 2-space gap minimum
-		if (targetWidth > 10) {
-			const target = fit(entry.summary, targetWidth);
-			outcomeStart = target.length + 2; // after "  " gap
-			summaryText = target + '  ' + entry.summaryOutcome;
-		} else {
-			summaryText = fit(
-				`${entry.summary}  ${entry.summaryOutcome}`,
-				summaryWidth,
-			);
-		}
-	} else {
-		summaryText = fit(entry.summary, summaryWidth);
-	}
-	const body = fit(`${time} ${event} ${actor} ${summaryText}`, bodyWidth);
-	const line = ` ${body}${suffix}`;
-
-	// Resolve segment positions: FEED_SUMMARY_COL_START is the absolute offset
-	const resolved: ResolvedSegment[] = [];
-	const summaryAbsStart = FEED_SUMMARY_COL_START;
-	let cursor = 0;
-	for (const seg of entry.summarySegments) {
-		const segStart = summaryAbsStart + cursor;
-		const segEnd = summaryAbsStart + cursor + seg.text.length;
-		// Only include if it falls within the line
-		if (segStart < line.length) {
-			resolved.push({
-				start: segStart,
-				end: Math.min(segEnd, line.length),
-				role: seg.role,
-			});
-		}
-		cursor += seg.text.length;
-	}
-	// Add outcome segment if present and resolved
-	if (outcomeStart >= 0 && entry.summaryOutcome) {
-		const absStart = summaryAbsStart + outcomeStart;
-		const absEnd = absStart + entry.summaryOutcome.length;
-		if (absStart < line.length) {
-			resolved.push({
-				start: absStart,
-				end: Math.min(absEnd, line.length),
-				role: 'outcome',
-			});
-		}
-	}
-
-	return {line, summarySegments: resolved};
-}
-
-export function formatFeedHeaderLine(width: number): string {
-	const time = fit('TIME', 5);
-	const event = fit('EVENT', 12);
-	const actor = fit('ACTOR', 10);
-	const summaryWidth = Math.max(0, width - 33); // 1+5+1+12+1+10+1+2 = 33
-	const summaryLabel = fit('SUMMARY', summaryWidth);
-	return fit(` ${time} ${event} ${actor} ${summaryLabel}  `, width);
 }
 
 export function toRunStatus(

@@ -20,6 +20,8 @@ import {useTimeline} from './hooks/useTimeline.js';
 import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
 import {buildBodyLines} from './utils/buildBodyLines.js';
+import {FeedGrid} from './components/FeedGrid.js';
+import {useFeedColumns} from './hooks/useFeedColumns.js';
 import {buildFrameLines} from './utils/buildFrameLines.js';
 import {buildHeaderModel} from './utils/headerModel.js';
 import {renderHeaderLines} from './utils/renderHeaderLines.js';
@@ -500,7 +502,6 @@ function AppContent({
 	});
 
 	const {
-		bodyHeight,
 		feedHeaderRows,
 		feedContentRows,
 		actualTodoRows,
@@ -687,9 +688,8 @@ function AppContent({
 
 	// ── Body lines ──────────────────────────────────────────
 
-	const clippedBodyLines = buildBodyLines({
+	const prefixBodyLines = buildBodyLines({
 		innerWidth,
-		bodyHeight,
 		detail: expandedEntry
 			? {
 					expandedEntry,
@@ -700,17 +700,6 @@ function AppContent({
 					showLineNumbers: detailShowLineNumbers,
 				}
 			: null,
-		feed: {
-			feedHeaderRows,
-			feedContentRows,
-			feedViewportStart: feedNav.feedViewportStart,
-			visibleFeedEntries: feedNav.visibleFeedEntries,
-			filteredEntries,
-			feedCursor: feedNav.feedCursor,
-			expandedId: feedNav.expandedId,
-			focusMode,
-			searchMatchSet,
-		},
 		todo: {
 			actualTodoRows,
 			todoPanel: {
@@ -730,6 +719,9 @@ function AppContent({
 		theme,
 	});
 
+	const feedCols = useFeedColumns(feedNav.visibleFeedEntries, innerWidth);
+	const showFeedGrid = !expandedEntry;
+
 	// ── Render ──────────────────────────────────────────────
 
 	return (
@@ -737,9 +729,26 @@ function AppContent({
 			<Text>{topBorder}</Text>
 			<Text>{frameLine(headerLine1)}</Text>
 			<Text>{sectionBorder}</Text>
-			{clippedBodyLines.map((line, index) => (
+			{prefixBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{frameLine(line)}</Text>
 			))}
+			{showFeedGrid && (
+				<FeedGrid
+					feedHeaderRows={feedHeaderRows}
+					feedContentRows={feedContentRows}
+					feedViewportStart={feedNav.feedViewportStart}
+					filteredEntries={filteredEntries}
+					visibleFeedEntries={feedNav.visibleFeedEntries}
+					feedCursor={feedNav.feedCursor}
+					expandedId={feedNav.expandedId}
+					focusMode={focusMode}
+					searchMatchSet={searchMatchSet}
+					ascii={useAscii}
+					theme={theme}
+					innerWidth={innerWidth}
+					cols={feedCols}
+				/>
+			)}
 			<Text>{sectionBorder}</Text>
 			{frame.footerHelp !== null && (
 				<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>

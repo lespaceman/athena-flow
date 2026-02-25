@@ -1,9 +1,11 @@
 import {
 	type TimelineEntry,
 	type RunSummary,
-	formatFeedLine,
-	formatFeedHeaderLine,
+	opCategory,
 } from '../feed/timeline.js';
+
+// Re-export for backward compatibility with existing consumers
+export {opCategory};
 import {
 	type TodoPanelItem,
 	type TodoGlyphColors,
@@ -12,7 +14,6 @@ import {
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {compactText, fitAnsi, formatRunLabel} from './format.js';
-import {styleFeedLine} from '../feed/feedLineStyle.js';
 import {type Theme} from '../theme/types.js';
 
 export type DetailViewState = {
@@ -22,18 +23,6 @@ export type DetailViewState = {
 	detailLines: string[];
 	detailContentRows: number;
 	showLineNumbers?: boolean;
-};
-
-export type FeedViewState = {
-	feedHeaderRows: number;
-	feedContentRows: number;
-	feedViewportStart: number;
-	visibleFeedEntries: TimelineEntry[];
-	filteredEntries: TimelineEntry[];
-	feedCursor: number;
-	expandedId: string | null;
-	focusMode: string;
-	searchMatchSet: Set<number>;
 };
 
 export type TodoViewState = {
@@ -60,25 +49,15 @@ export type RunOverlayState = {
 
 export type BuildBodyLinesOptions = {
 	innerWidth: number;
-	bodyHeight: number;
 	detail: DetailViewState | null;
-	feed: FeedViewState;
 	todo: TodoViewState;
 	runOverlay: RunOverlayState;
 	theme: Theme;
 };
 
-/** Extract coarse event category from op string for visual grouping. */
-export function opCategory(op: string): string {
-	const dot = op.indexOf('.');
-	return dot >= 0 ? op.slice(0, dot) : op;
-}
-
 export function buildBodyLines({
 	innerWidth,
-	bodyHeight,
 	detail,
-	feed,
 	todo,
 	runOverlay,
 	theme,
@@ -122,17 +101,6 @@ export function buildBodyLines({
 	} else {
 		const {actualTodoRows, todoPanel: tp, focusMode: todoFocus} = todo;
 		const {actualRunOverlayRows, runSummaries, runFilter} = runOverlay;
-		const {
-			feedHeaderRows,
-			feedContentRows,
-			feedViewportStart,
-			visibleFeedEntries,
-			filteredEntries,
-			feedCursor,
-			expandedId,
-			focusMode: feedFocus,
-			searchMatchSet,
-		} = feed;
 
 		if (actualTodoRows > 0) {
 			const {
@@ -242,92 +210,8 @@ export function buildBodyLines({
 			}
 		}
 
-		if (feedHeaderRows > 0) {
-			bodyLines.push(
-				fitAnsi(
-					chalk.bold.hex(theme.textMuted)(formatFeedHeaderLine(innerWidth)),
-					innerWidth,
-				),
-			);
-		}
-
-		if (feedContentRows > 0) {
-			if (visibleFeedEntries.length === 0) {
-				bodyLines.push(fitAnsi('(no feed events)', innerWidth));
-				for (let i = 1; i < feedContentRows; i++) {
-					bodyLines.push(fitAnsi('', innerWidth));
-				}
-			} else {
-				let prevCat: string | undefined;
-				let prevActorId: string | undefined;
-				let prevMinute: number | undefined;
-				let feedLinesEmitted = 0;
-				let entryOffset = 0;
-				while (feedLinesEmitted < feedContentRows) {
-					const idx = feedViewportStart + entryOffset;
-					const entry = filteredEntries[idx];
-					if (!entry) {
-						bodyLines.push(fitAnsi('', innerWidth));
-						feedLinesEmitted++;
-						break;
-					}
-					const cat = opCategory(entry.opTag);
-					const isBreak = prevCat !== undefined && cat !== prevCat;
-					prevCat = cat;
-					const entryMinute = Math.floor(entry.ts / 60000);
-					const isMinuteBreak =
-						entryOffset > 0 &&
-						prevMinute !== undefined &&
-						entryMinute !== prevMinute &&
-						!isBreak;
-					prevMinute = entryMinute;
-
-					// X3: Visible minute separator — blank line gap
-					if (isMinuteBreak && feedLinesEmitted < feedContentRows - 1) {
-						bodyLines.push(fitAnsi('', innerWidth));
-						feedLinesEmitted++;
-					}
-
-					const isDuplicateActor =
-						entryOffset > 0 && !isBreak && prevActorId === entry.actorId;
-					prevActorId = entry.actorId;
-					const isFocused = feedFocus === 'feed' && idx === feedCursor;
-					const isExpanded = expandedId === entry.id;
-					const isMatched = searchMatchSet.has(idx);
-					const {line: plain, summarySegments} = formatFeedLine(
-						entry,
-						innerWidth,
-						isFocused,
-						isExpanded,
-						isMatched,
-						todo.ascii,
-						isDuplicateActor,
-					);
-					const styled = styleFeedLine(plain, {
-						focused: isFocused,
-						matched: isMatched,
-						actorId: entry.actorId,
-						isError: entry.error,
-						theme,
-						ascii: todo.ascii,
-						opTag: entry.opTag,
-						summarySegments,
-						outcomeZero: entry.summaryOutcomeZero,
-						categoryBreak: isBreak,
-						duplicateActor: isDuplicateActor,
-						minuteBreak: isMinuteBreak,
-					});
-					bodyLines.push(fitAnsi(styled, innerWidth));
-					feedLinesEmitted++;
-					entryOffset++;
-				}
-			}
-		}
+		// Feed rows are rendered by <FeedGrid> in app.tsx — not included here.
 	}
 
-	const clippedBodyLines = bodyLines.slice(0, bodyHeight);
-	while (clippedBodyLines.length < bodyHeight) {
-		clippedBodyLines.push(fitAnsi('', innerWidth));
-	}
-	return clippedBodyLines;
+	return bodyLines;
 }

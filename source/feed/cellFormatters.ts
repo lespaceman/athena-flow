@@ -25,23 +25,13 @@ export function opCategoryColor(op: string, theme: Theme): string | undefined {
 export type FormatGutterOpts = {
 	focused: boolean;
 	matched: boolean;
-	categoryBreak: boolean;
-	minuteBreak: boolean;
 	isUserBorder: boolean;
 	ascii: boolean;
 	theme: Theme;
 };
 
 export function formatGutter(opts: FormatGutterOpts): string {
-	const {
-		focused,
-		matched,
-		categoryBreak,
-		minuteBreak,
-		isUserBorder,
-		ascii,
-		theme,
-	} = opts;
+	const {focused, matched, isUserBorder, ascii, theme} = opts;
 	const g = getGlyphs(ascii);
 
 	if (focused) {
@@ -53,12 +43,6 @@ export function formatGutter(opts: FormatGutterOpts): string {
 	if (isUserBorder) {
 		const borderColor = theme.userMessage.border ?? theme.accent;
 		return chalk.hex(borderColor)(g['feed.userBorder']);
-	}
-	if (minuteBreak && !categoryBreak) {
-		return chalk.dim.hex(theme.textMuted)('─');
-	}
-	if (categoryBreak) {
-		return chalk.dim.hex(theme.textMuted)('·');
 	}
 	return ' ';
 }
