@@ -87,7 +87,7 @@ export function styleFeedLine(
 	const rowBase =
 		!isError && isLifecycleRow ? chalk.hex(theme.textMuted) : base;
 
-	// TIME column is always muted per color-palette.md
+	// TIME column is always muted — it's reference info, not scannable
 	const timeStyle = isError
 		? chalk.hex(theme.status.error)
 		: chalk.hex(theme.textMuted);
