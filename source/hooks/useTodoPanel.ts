@@ -140,6 +140,19 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		setTodoCursor(prev => Math.min(prev, Math.max(0, sortedItems.length - 1)));
 	}, [sortedItems.length]);
 
+	// Auto-scroll to keep active (doing) item visible
+	useEffect(() => {
+		const activeIdx = sortedItems.findIndex(i => i.status === 'doing');
+		if (activeIdx < 0) return;
+		setTodoScroll(prev => {
+			const maxVisible = 5;
+			if (activeIdx < prev) return activeIdx;
+			if (activeIdx >= prev + maxVisible)
+				return Math.max(0, activeIdx - maxVisible + 1);
+			return prev;
+		});
+	}, [sortedItems]);
+
 	const addTodo = useCallback((priority: 'P0' | 'P1' | 'P2', text: string) => {
 		setExtraTodos(prev => [
 			...prev,

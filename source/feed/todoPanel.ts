@@ -98,7 +98,7 @@ export function todoGlyphs(
 				case 'done':
 					return {
 						glyph: chalk.dim(chalk.hex(colors.done)(table.done)),
-						text: (raw: string) => chalk.hex(colors.textMuted)(raw),
+						text: (raw: string) => chalk.dim(chalk.hex(colors.textMuted)(raw)),
 						suffix: '',
 						elapsed: (raw: string) =>
 							chalk.dim(chalk.hex(colors.textMuted)(raw)),

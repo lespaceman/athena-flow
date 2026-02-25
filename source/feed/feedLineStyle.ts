@@ -83,13 +83,14 @@ export function styleFeedLine(
 	// Full-row dimming: lifecycle events get muted base for all segments
 	// (Tool OK only dims the EVENT column via opCategoryColor, not the whole row)
 	const isLifecycleRow =
-		opts.opTag !== undefined &&
-		/^(run\.|sess\.|stop\.|sub\.)/.test(opts.opTag);
+		opts.opTag !== undefined && /^(run\.|sess\.|stop\.|sub\.)/.test(opts.opTag);
 	const rowBase =
 		!isError && isLifecycleRow ? chalk.hex(theme.textMuted) : base;
 
 	// TIME column is always muted per color-palette.md
-	const timeStyle = isError ? chalk.hex(theme.status.error) : chalk.hex(theme.textMuted);
+	const timeStyle = isError
+		? chalk.hex(theme.status.error)
+		: chalk.hex(theme.textMuted);
 
 	// Agent messages: summary text uses info color (blue)
 	const isAgentMsg = opts.opTag === 'agent.msg';
@@ -189,7 +190,11 @@ export function styleFeedLine(
 			: chalk.hex(theme.textMuted);
 		segments.push({start: effectiveDim, end: afterEventEnd, style: dimStyle});
 	} else if (summaryStart < afterEventEnd) {
-		segments.push({start: summaryStart, end: afterEventEnd, style: summaryBase});
+		segments.push({
+			start: summaryStart,
+			end: afterEventEnd,
+			style: summaryBase,
+		});
 	}
 
 	// Glyph segment
