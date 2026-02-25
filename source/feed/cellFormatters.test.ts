@@ -119,9 +119,9 @@ describe('formatActor', () => {
 		expect(stripAnsi(r)).toContain('AGENT');
 	});
 
-	test('duplicate shows centered dot', () => {
+	test('duplicate shows left-aligned dot', () => {
 		const r = formatActor('AGENT', true, 10, theme, 'agent:root');
-		expect(stripAnsi(r).trim()).toBe('·');
+		expect(stripAnsi(r)).toBe('·         ');
 		expect(stripAnsi(r)).toHaveLength(10);
 	});
 
@@ -155,23 +155,23 @@ describe('formatTool', () => {
 
 describe('formatSuffix', () => {
 	test('expandable collapsed shows ▸ ', () => {
-		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe('▸ ');
+		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe(' ▸');
 	});
 
-	test('expandable expanded shows ▾ ', () => {
-		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe('▾ ');
+	test('expandable expanded shows  ▾', () => {
+		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe(' ▾');
 	});
 
 	test('not expandable shows two spaces', () => {
 		expect(stripAnsi(formatSuffix(false, false, false, theme))).toBe('  ');
 	});
 
-	test('ascii mode collapsed shows > ', () => {
-		expect(stripAnsi(formatSuffix(true, false, true, theme))).toBe('> ');
+	test('ascii mode collapsed shows  >', () => {
+		expect(stripAnsi(formatSuffix(true, false, true, theme))).toBe(' >');
 	});
 
-	test('ascii mode expanded shows v ', () => {
-		expect(stripAnsi(formatSuffix(true, true, true, theme))).toBe('v ');
+	test('ascii mode expanded shows  v', () => {
+		expect(stripAnsi(formatSuffix(true, true, true, theme))).toBe(' v');
 	});
 });
 

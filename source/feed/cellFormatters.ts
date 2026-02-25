@@ -87,8 +87,8 @@ export function formatActor(
 ): string {
 	if (contentWidth <= 0) return '';
 	if (duplicate) {
-		const pad = Math.floor((contentWidth - 1) / 2);
-		const text = ' '.repeat(pad) + '\u00B7' + ' '.repeat(contentWidth - pad - 1);
+		// Left-aligned dot matching fit('·', width) behavior in old path
+		const text = fitImpl('\u00B7', contentWidth);
 		return chalk.dim.hex(theme.textMuted)(text);
 	}
 	const fitted = fitImpl(actor, contentWidth);
@@ -115,9 +115,9 @@ export function formatSuffix(
 	if (!expandable) return '  ';
 	const g = getGlyphs(ascii);
 	if (expanded) {
-		return chalk.hex(theme.status.success)(g['feed.expandExpanded']) + ' ';
+		return ' ' + chalk.hex(theme.status.success)(g['feed.expandExpanded']);
 	}
-	return chalk.hex(theme.accent)(g['feed.expandCollapsed']) + ' ';
+	return ' ' + chalk.hex(theme.accent)(g['feed.expandCollapsed']);
 }
 
 export function buildDetailsPrefix(
