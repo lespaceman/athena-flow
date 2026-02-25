@@ -8,14 +8,6 @@ import {type TodoItem} from '../types/todo.js';
 
 import {generateId} from '../types/index.js';
 
-const STATUS_ORDER: Record<TodoPanelStatus, number> = {
-	doing: 0,
-	open: 1,
-	blocked: 1,
-	failed: 1,
-	done: 2,
-};
-
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
 	todoVisible: boolean;
@@ -50,7 +42,7 @@ export type UseTodoPanelResult = {
 
 export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 	const [todoVisible, setTodoVisible] = useState(true);
-	const [todoShowDone, setTodoShowDone] = useState(false);
+	const [todoShowDone, setTodoShowDone] = useState(true);
 	const [todoCursor, setTodoCursor] = useState(0);
 	const [todoScroll, setTodoScroll] = useState(0);
 	const [extraTodos, setExtraTodos] = useState<TodoPanelItem[]>([]);
@@ -74,12 +66,9 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 	}, [tasks, extraTodos, todoStatusOverrides]);
 
 	const sortedItems = useMemo(() => {
-		const filtered = todoShowDone
+		return todoShowDone
 			? todoItems
 			: todoItems.filter(todo => todo.status !== 'done');
-		return [...filtered].sort(
-			(a, b) => (STATUS_ORDER[a.status] ?? 1) - (STATUS_ORDER[b.status] ?? 1),
-		);
 	}, [todoItems, todoShowDone]);
 
 	const visibleTodoItemsRef = useRef(sortedItems);
