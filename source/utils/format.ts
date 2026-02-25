@@ -107,6 +107,13 @@ export function shortenPath(filePath: string): string {
 	return '…/' + segments.slice(-2).join('/');
 }
 
+/** Replace absolute paths in a command string with shortened form. */
+export function compactCommandPaths(cmd: string): string {
+	return cmd.replace(/\/(?:[\w.@-]+\/){2,}[\w.@-]+/g, match =>
+		shortenPath(match),
+	);
+}
+
 export type StructuredPath = {prefix: string; filename: string};
 
 export function shortenPathStructured(filePath: string): StructuredPath {
@@ -128,7 +135,7 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	Read: filePathExtractor,
 	Write: filePathExtractor,
 	Edit: filePathExtractor,
-	Bash: input => compactText(String(input.command ?? ''), 40),
+	Bash: input => compactText(compactCommandPaths(String(input.command ?? '')), 40),
 	Glob: input => String(input.pattern ?? ''),
 	Grep: input => {
 		const p = `"${String(input.pattern ?? '')}"`;

@@ -13,7 +13,7 @@
  */
 
 import {parseToolName} from '../utils/toolNameParser.js';
-import {shortenPathStructured, compactText} from '../utils/format.js';
+import {shortenPathStructured, compactText, compactCommandPaths} from '../utils/format.js';
 import {isBashToolResponse} from '../components/hookEventUtils.js';
 import {
 	type SummarySegment,
@@ -86,7 +86,7 @@ function grepSegments(input: unknown): SummarySegment[] {
 
 function commandSegments(input: unknown): SummarySegment[] {
 	const cmd = String(prop(input, 'command') ?? '');
-	return [{text: compactText(cmd, 50), role: 'target'}];
+	return [{text: compactText(compactCommandPaths(cmd), 50), role: 'target'}];
 }
 
 // ── Outcome helpers ─────────────────────────────────────

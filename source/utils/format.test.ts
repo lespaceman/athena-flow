@@ -239,6 +239,13 @@ describe('summarizeToolPrimaryInput', () => {
 		);
 	});
 
+	it('compacts paths in Bash commands', () => {
+		const input = {command: 'ls /home/nadeemm/Projects/ai-projects/deep/nested'};
+		const result = summarizeToolPrimaryInput('Bash', input);
+		expect(result).toContain('…/');
+		expect(result).not.toContain('/home/nadeemm');
+	});
+
 	it('truncates long Bash commands to 40 chars', () => {
 		const longCmd = 'a'.repeat(50);
 		const result = summarizeToolPrimaryInput('Bash', {command: longCmd});
