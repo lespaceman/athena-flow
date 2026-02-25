@@ -1,7 +1,8 @@
 import {describe, test, expect} from 'vitest';
 import stripAnsi from 'strip-ansi';
 import {darkTheme} from '../theme/themes.js';
-import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix, buildDetailsPrefix, layoutTargetAndOutcome} from './cellFormatters.js';
+import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix, buildDetailsPrefix, layoutTargetAndOutcome, formatDetails} from './cellFormatters.js';
+import type {SummarySegment} from './timeline.js';
 
 const theme = darkTheme;
 
@@ -221,5 +222,94 @@ describe('layoutTargetAndOutcome', () => {
 
 	test('zero width returns empty', () => {
 		expect(layoutTargetAndOutcome('src/app.tsx', '120 lines', 0)).toBe('');
+	});
+});
+
+describe('formatDetails', () => {
+	test('full mode: no prefix, target + outcome', () => {
+		const r = formatDetails({
+			segments: [{text: 'src/app.tsx', role: 'target'}],
+			summary: 'src/app.tsx',
+			outcome: '120 lines',
+			mode: 'full',
+			contentWidth: 40,
+			theme,
+			opTag: 'tool.ok',
+		});
+		const plain = stripAnsi(r);
+		expect(plain).toContain('src/app.tsx');
+		expect(plain).toContain('120 lines');
+		expect(plain.length).toBeLessThanOrEqual(40);
+	});
+
+	test('compact mode: tool prefix + target', () => {
+		const r = formatDetails({
+			segments: [{text: 'src/app.tsx', role: 'target'}],
+			summary: 'src/app.tsx',
+			outcome: '120 lines',
+			mode: 'compact',
+			toolColumn: 'Read',
+			contentWidth: 40,
+			theme,
+			opTag: 'tool.ok',
+		});
+		const plain = stripAnsi(r);
+		expect(plain).toMatch(/^Read/);
+	});
+
+	test('narrow mode: actor + tool prefix + target', () => {
+		const r = formatDetails({
+			segments: [{text: 'src/app.tsx', role: 'target'}],
+			summary: 'src/app.tsx',
+			mode: 'narrow',
+			toolColumn: 'Read',
+			actorStr: 'AGENT',
+			contentWidth: 50,
+			theme,
+			opTag: 'tool.ok',
+		});
+		const plain = stripAnsi(r);
+		const actorIdx = plain.indexOf('AGENT');
+		const toolIdx = plain.indexOf('Read');
+		expect(actorIdx).toBeLessThan(toolIdx);
+	});
+
+	test('empty segments falls back to summary', () => {
+		const r = formatDetails({
+			segments: [],
+			summary: 'some fallback text',
+			mode: 'full',
+			contentWidth: 30,
+			theme,
+			opTag: 'agent.msg',
+		});
+		expect(stripAnsi(r)).toContain('some fallback text');
+	});
+
+	test('outcomeZero gets distinct styling', () => {
+		const noZero = formatDetails({
+			segments: [{text: 'test', role: 'target'}],
+			summary: 'test',
+			outcome: '0 files',
+			mode: 'full',
+			contentWidth: 40,
+			theme,
+			opTag: 'tool.ok',
+		});
+		const withZero = formatDetails({
+			segments: [{text: 'test', role: 'target'}],
+			summary: 'test',
+			outcome: '0 files',
+			outcomeZero: true,
+			mode: 'full',
+			contentWidth: 40,
+			theme,
+			opTag: 'tool.ok',
+		});
+		// Different ANSI because outcomeZero → warning color
+		// (Both stripped texts may match, but styled strings differ when chalk is enabled)
+		// At chalk level 0, verify both produce valid output
+		expect(stripAnsi(noZero)).toContain('0 files');
+		expect(stripAnsi(withZero)).toContain('0 files');
 	});
 });

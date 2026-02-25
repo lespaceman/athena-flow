@@ -168,3 +168,133 @@ export function layoutTargetAndOutcome(
 	const padding = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';
 	return fittedTarget + padding + outcomeStr;
 }
+
+// ── Internal: render segments with role-based styling ────────
+
+import type {SummarySegment, SummarySegmentRole} from './timeline.js';
+
+function renderSegments(
+	segments: SummarySegment[],
+	summary: string,
+	width: number,
+	theme: Theme,
+	opTag: string,
+	isError: boolean,
+): string {
+	if (width <= 0) return '';
+	if (segments.length === 0) {
+		return fitImpl(summary, width);
+	}
+
+	const isAgentMsg = opTag === 'agent.msg';
+	const baseColor = isAgentMsg ? theme.status.info : theme.text;
+
+	const roleColor = (role: SummarySegmentRole): string => {
+		if (isError) return theme.status.error;
+		switch (role) {
+			case 'verb':
+				return baseColor;
+			case 'target':
+				return theme.textMuted;
+			case 'filename':
+				return theme.text;
+			case 'outcome':
+				return theme.textMuted;
+			case 'plain':
+				return baseColor;
+		}
+	};
+
+	let result = '';
+	let usedWidth = 0;
+	for (const seg of segments) {
+		if (usedWidth >= width) break;
+		const remaining = width - usedWidth;
+		const text =
+			seg.text.length > remaining
+				? seg.text.slice(0, remaining)
+				: seg.text;
+		result += chalk.hex(roleColor(seg.role))(text);
+		usedWidth += text.length;
+	}
+
+	// Pad to width
+	if (usedWidth < width) {
+		result += ' '.repeat(width - usedWidth);
+	}
+	return result;
+}
+
+// ── Internal: style outcome string ──────────────────────────
+
+function renderOutcome(
+	outcome: string | undefined,
+	outcomeZero: boolean | undefined,
+	theme: Theme,
+): string | undefined {
+	if (!outcome) return undefined;
+	if (outcomeZero) return chalk.hex(theme.status.warning)(outcome);
+	return chalk.hex(theme.textMuted)(outcome);
+}
+
+export type FormatDetailsOpts = {
+	segments: SummarySegment[];
+	summary: string;
+	outcome?: string;
+	outcomeZero?: boolean;
+	mode: 'full' | 'compact' | 'narrow';
+	toolColumn?: string;
+	actorStr?: string;
+	contentWidth: number;
+	theme: Theme;
+	opTag: string;
+	isError?: boolean;
+};
+
+export function formatDetails(opts: FormatDetailsOpts): string {
+	const {
+		segments,
+		summary,
+		outcome,
+		outcomeZero,
+		mode,
+		toolColumn,
+		actorStr,
+		contentWidth,
+		theme,
+		opTag,
+		isError = false,
+	} = opts;
+
+	// Step 1: merged-column prefix
+	const prefix = buildDetailsPrefix(mode, toolColumn, actorStr, theme);
+	const innerWidth = Math.max(0, contentWidth - prefix.length);
+
+	// Step 2: render outcome
+	const outcomeStr = renderOutcome(outcome, outcomeZero, theme);
+	const outcomeClean = outcomeStr ? stripAnsi(outcomeStr) : undefined;
+
+	// Step 3: if no outcome, just render segments into innerWidth
+	if (!outcomeStr || innerWidth <= 0) {
+		return prefix.text + renderSegments(segments, summary, innerWidth, theme, opTag, isError);
+	}
+
+	// Step 4: lay out target + outcome with right-alignment
+	const outcomeLen = outcomeClean!.length;
+	const targetBudget = innerWidth - outcomeLen - 2;
+	if (targetBudget < 10) {
+		// Inline: segments + gap + outcome, all truncated
+		const segStr = renderSegments(segments, summary, Math.max(0, innerWidth - outcomeLen - 2), theme, opTag, isError);
+		const segClean = stripAnsi(segStr).trimEnd();
+		const padNeeded = innerWidth - segClean.length - outcomeLen;
+		const pad = padNeeded >= 2 ? ' '.repeat(padNeeded) : '  ';
+		const truncated = fitImpl(segClean + pad + stripAnsi(outcomeStr), innerWidth);
+		return prefix.text + truncated;
+	}
+
+	const segStr = renderSegments(segments, summary, targetBudget, theme, opTag, isError);
+	const segClean = stripAnsi(segStr);
+	const padNeeded = innerWidth - segClean.length - outcomeLen;
+	const pad = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';
+	return prefix.text + segStr + pad + outcomeStr;
+}
