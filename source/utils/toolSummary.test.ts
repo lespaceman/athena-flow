@@ -92,7 +92,7 @@ describe('summarizeToolResult', () => {
 		expect(result).toBe('2 results');
 	});
 
-	it('summarizes Task with agent type', () => {
+	it('summarizes Task with agent type only', () => {
 		const result = summarizeToolResult(
 			'Task',
 			{
@@ -101,12 +101,28 @@ describe('summarizeToolResult', () => {
 			},
 			{status: 'completed', content: [{type: 'text', text: 'done'}]},
 		);
-		expect(result).toBe('Explore — done');
+		expect(result).toBe('Explore');
 	});
 
-	it('returns "done" for unknown tools', () => {
+	it('returns empty string for unknown tools', () => {
 		const result = summarizeToolResult('CustomTool', {}, 'some result');
-		expect(result).toBe('done');
+		expect(result).toBe('');
+	});
+
+	it('returns empty string for unknown MCP tools', () => {
+		expect(summarizeToolResult('mcp__x__navigate', {}, {})).toBe('');
+	});
+
+	it('returns empty string for Read when no content extracted', () => {
+		expect(summarizeToolResult('Read', {}, null)).toBe('');
+	});
+
+	it('returns empty string for Glob when no filenames or numFiles', () => {
+		expect(summarizeToolResult('Glob', {}, {})).toBe('');
+	});
+
+	it('returns empty string for WebSearch when no results', () => {
+		expect(summarizeToolResult('WebSearch', {}, {})).toBe('');
 	});
 
 	it('summarizes failure with error string', () => {

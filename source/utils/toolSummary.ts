@@ -36,7 +36,7 @@ function summarizeBash(
 		}
 		return `exit ${exitCode}`;
 	}
-	return 'done';
+	return '';
 }
 
 function summarizeRead(
@@ -48,7 +48,7 @@ function summarizeRead(
 		const lines = content.split('\n').length;
 		return `${lines} lines`;
 	}
-	return 'done';
+	return '';
 }
 
 function summarizeEdit(
@@ -80,7 +80,7 @@ function summarizeGlob(
 	if (Array.isArray(filenames)) return `${filenames.length} files`;
 	const numFiles = prop(response, 'numFiles');
 	if (typeof numFiles === 'number') return `${numFiles} files`;
-	return 'done';
+	return '';
 }
 
 function summarizeGrep(
@@ -105,7 +105,7 @@ function summarizeWebSearch(
 		}
 		return `${count} results`;
 	}
-	return 'done';
+	return '';
 }
 
 function summarizeTask(
@@ -113,7 +113,7 @@ function summarizeTask(
 	_response: unknown,
 ): string {
 	const agentType = input['subagent_type'] ?? 'agent';
-	return `${agentType} — done`;
+	return String(agentType);
 }
 
 const SUMMARIZERS: Record<string, Summarizer> = {
@@ -147,8 +147,8 @@ export function summarizeToolResult(
 		try {
 			return summarizer(toolInput, toolResponse);
 		} catch {
-			return 'done';
+			return '';
 		}
 	}
-	return 'done';
+	return '';
 }

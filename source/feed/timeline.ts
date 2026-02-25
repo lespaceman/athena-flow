@@ -555,6 +555,9 @@ export function mergedEventSummary(
 	}
 
 	const prefix = primaryInput ? `${name} ${primaryInput}` : name;
+	if (!resultText) {
+		return {text: compactText(prefix, 200), dimStart: name.length};
+	}
 	const full = `${prefix} — ${resultText}`;
 	return {text: compactText(full, 200), dimStart: name.length};
 }
