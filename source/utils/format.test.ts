@@ -345,6 +345,23 @@ describe('MCP browser input extractors', () => {
 	});
 });
 
+describe('Skill prefix stripping', () => {
+	it('strips plugin prefix from Skill input', () => {
+		const result = summarizeToolPrimaryInput('Skill', {
+			skill: 'e2e-test-builder:add-e2e-tests',
+		});
+		expect(result).toBe('add-e2e-tests');
+		expect(result).not.toContain('e2e-test-builder');
+	});
+
+	it('keeps Skill input without plugin prefix unchanged', () => {
+		const result = summarizeToolPrimaryInput('Skill', {
+			skill: 'commit',
+		});
+		expect(result).toBe('commit');
+	});
+});
+
 describe('Task description reorder', () => {
 	it('Task shows description as primary input, not [type] prefix', () => {
 		const result = summarizeToolPrimaryInput('Task', {

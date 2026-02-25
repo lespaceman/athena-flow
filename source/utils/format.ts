@@ -127,7 +127,11 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	Task: input => compactText(String(input.description ?? ''), 60),
 	WebSearch: input => `"${String(input.query ?? '')}"`,
 	WebFetch: input => compactText(String(input.url ?? ''), 60),
-	Skill: input => compactText(String(input.skill ?? ''), 40),
+	Skill: input => {
+		const name = String(input.skill ?? '');
+		const colonIdx = name.indexOf(':');
+		return compactText(colonIdx >= 0 ? name.slice(colonIdx + 1) : name, 40);
+	},
 	NotebookEdit: input => {
 		const path = String(input.notebook_path ?? '');
 		return path ? shortenPath(path) : '';
