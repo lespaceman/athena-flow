@@ -52,8 +52,10 @@ export type TimelineEntry = {
 
 export function computeDuplicateActors(entries: TimelineEntry[]): void {
 	for (let i = 0; i < entries.length; i++) {
-		entries[i]!.duplicateActor =
-			i > 0 && entries[i]!.actorId === entries[i - 1]!.actorId;
+		const prev = i > 0 ? entries[i - 1]! : undefined;
+		const sameActor = prev !== undefined && entries[i]!.actorId === prev.actorId;
+		const isBreak = prev !== undefined && opCategory(entries[i]!.opTag) !== opCategory(prev.opTag);
+		entries[i]!.duplicateActor = sameActor && !isBreak;
 	}
 }
 

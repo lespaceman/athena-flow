@@ -14,6 +14,8 @@ import {
 	mergedEventOperation,
 	mergedEventSummary,
 	VERBOSE_ONLY_KINDS,
+	computeDuplicateActors,
+	type TimelineEntry,
 } from './timeline.js';
 
 function base(overrides: Partial<FeedEventBase> = {}): FeedEventBase {
@@ -1166,6 +1168,20 @@ describe('VERBOSE_ONLY_KINDS', () => {
 		expect(VERBOSE_ONLY_KINDS.has('tool.failure')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('permission.request')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('subagent.start')).toBe(false);
+	});
+});
+
+describe('computeDuplicateActors', () => {
+	it('resets at category boundaries', () => {
+		const entries = [
+			{actorId: 'agent:root', opTag: 'tool.ok', duplicateActor: false},
+			{actorId: 'agent:root', opTag: 'tool.ok', duplicateActor: false},
+			{actorId: 'agent:root', opTag: 'agent.msg', duplicateActor: false},
+		] as TimelineEntry[];
+		computeDuplicateActors(entries);
+		expect(entries[0]!.duplicateActor).toBe(false);
+		expect(entries[1]!.duplicateActor).toBe(true);
+		expect(entries[2]!.duplicateActor).toBe(false);
 	});
 });
 

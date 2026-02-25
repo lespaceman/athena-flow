@@ -69,7 +69,6 @@ export function FeedGrid({
 	}
 
 	let prevCat: string | undefined;
-	let prevActorId: string | undefined;
 	let prevMinute: number | undefined;
 	let feedLinesEmitted = 0;
 	let entryOffset = 0;
@@ -120,9 +119,7 @@ export function FeedGrid({
 			feedLinesEmitted++;
 		}
 
-		const isDuplicateActor =
-			entryOffset > 0 && !isBreak && prevActorId === entry.actorId;
-		prevActorId = entry.actorId;
+		const isDuplicateActor = entry.duplicateActor;
 
 		const isFocused = focusMode === 'feed' && idx === feedCursor;
 		const isExpanded = expandedId === entry.id;
