@@ -1,5 +1,6 @@
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
+import {parseToolName} from './toolNameParser.js';
 
 export function compactText(value: string, max: number): string {
 	const clean = value.replace(/\s+/g, ' ').trim();
@@ -100,10 +101,10 @@ export function summarizeToolInput(input: Record<string, unknown>): string {
 	return pairs.join(' ');
 }
 
-function shortenPath(filePath: string): string {
+export function shortenPath(filePath: string): string {
 	const segments = filePath.split('/').filter(Boolean);
 	if (segments.length <= 2) return segments.join('/');
-	return segments.slice(-2).join('/');
+	return '…/' + segments.slice(-2).join('/');
 }
 
 const filePathExtractor = (input: Record<string, unknown>): string =>
@@ -123,13 +124,54 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 		const g = input.glob ? ` ${String(input.glob)}` : '';
 		return p + g;
 	},
-	Task: input => {
-		const type = String(input.subagent_type ?? '');
-		const desc = String(input.description ?? '');
-		return `[${type}] ${desc}`;
-	},
+	Task: input => compactText(String(input.description ?? ''), 60),
 	WebSearch: input => `"${String(input.query ?? '')}"`,
 	WebFetch: input => compactText(String(input.url ?? ''), 60),
+};
+
+/** Extractors keyed by MCP action name (for MCP tools). */
+const MCP_INPUT_EXTRACTORS: Record<
+	string,
+	(input: Record<string, unknown>) => string
+> = {
+	navigate: input => {
+		const url = String(input.url ?? '');
+		try {
+			const u = new URL(url);
+			return u.hostname.replace(/^www\./, '');
+		} catch {
+			return compactText(url, 40);
+		}
+	},
+	find_elements: input => {
+		const parts: string[] = [];
+		if (input.kind) parts.push(String(input.kind));
+		if (input.label) parts.push(`"${String(input.label)}"`);
+		return parts.join(' ') || '';
+	},
+	click: input => {
+		const eid = String(input.eid ?? '');
+		return eid ? `eid:${eid.slice(0, 6)}…` : '';
+	},
+	type: input => {
+		const text = String(input.text ?? '');
+		const eid = input.eid ? String(input.eid).slice(0, 5) + '…' : '';
+		const quoted = `"${compactText(text, 30)}"`;
+		return eid ? `${quoted} → ${eid}` : quoted;
+	},
+	hover: input => {
+		const eid = String(input.eid ?? '');
+		return eid ? `eid:${eid.slice(0, 6)}…` : '';
+	},
+	select: input => {
+		const value = String(input.value ?? '');
+		return value ? `"${compactText(value, 30)}"` : '';
+	},
+	press: input => String(input.key ?? ''),
+	scroll_page: input => String(input.direction ?? ''),
+	take_screenshot: () => '',
+	close_session: () => '',
+	close_page: () => '',
 };
 
 export function summarizeToolPrimaryInput(
@@ -139,6 +181,11 @@ export function summarizeToolPrimaryInput(
 	if (Object.keys(toolInput).length === 0) return '';
 	const extractor = PRIMARY_INPUT_EXTRACTORS[toolName];
 	if (extractor) return extractor(toolInput);
+	const parsed = parseToolName(toolName);
+	if (parsed.isMcp && parsed.mcpAction) {
+		const mcpExtractor = MCP_INPUT_EXTRACTORS[parsed.mcpAction];
+		if (mcpExtractor) return mcpExtractor(toolInput);
+	}
 	return summarizeToolInput(toolInput);
 }
 

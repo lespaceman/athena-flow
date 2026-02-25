@@ -13,6 +13,7 @@ import {
 	formatInputBuffer,
 	renderInputLines,
 	MAX_INPUT_ROWS,
+	shortenPath,
 } from './format.js';
 
 describe('compactText', () => {
@@ -209,7 +210,7 @@ describe('summarizeToolPrimaryInput', () => {
 			summarizeToolPrimaryInput('Read', {
 				file_path: '/home/user/project/source/app.tsx',
 			}),
-		).toBe('source/app.tsx');
+		).toBe('…/source/app.tsx');
 	});
 
 	it('shortens Write file_path to last 2 segments', () => {
@@ -218,7 +219,7 @@ describe('summarizeToolPrimaryInput', () => {
 				file_path: '/home/user/project/source/foo.ts',
 				content: '...',
 			}),
-		).toBe('source/foo.ts');
+		).toBe('…/source/foo.ts');
 	});
 
 	it('shortens Edit file_path to last 2 segments', () => {
@@ -228,7 +229,7 @@ describe('summarizeToolPrimaryInput', () => {
 				old_string: 'x',
 				new_string: 'y',
 			}),
-		).toBe('b/bar.ts');
+		).toBe('…/b/bar.ts');
 	});
 
 	it('extracts Bash command', () => {
@@ -259,14 +260,14 @@ describe('summarizeToolPrimaryInput', () => {
 		expect(summarizeToolPrimaryInput('Grep', {pattern: 'TODO'})).toBe('"TODO"');
 	});
 
-	it('extracts Task subagent_type and description', () => {
+	it('extracts Task description as primary input', () => {
 		expect(
 			summarizeToolPrimaryInput('Task', {
 				subagent_type: 'general-purpose',
 				description: 'Write tests',
 				prompt: '...',
 			}),
-		).toBe('[general-purpose] Write tests');
+		).toBe('Write tests');
 	});
 
 	it('extracts WebSearch query quoted', () => {
@@ -291,6 +292,67 @@ describe('summarizeToolPrimaryInput', () => {
 
 	it('returns empty string for empty input', () => {
 		expect(summarizeToolPrimaryInput('Read', {})).toBe('');
+	});
+});
+
+describe('shortenPath', () => {
+	it('prefixes with …/ when segments are dropped', () => {
+		expect(
+			shortenPath('/home/user/projects/athena/source/feed/timeline.ts'),
+		).toBe('…/feed/timeline.ts');
+	});
+	it('leaves short paths unchanged', () => {
+		expect(shortenPath('feed/timeline.ts')).toBe('feed/timeline.ts');
+	});
+	it('leaves single segment unchanged', () => {
+		expect(shortenPath('timeline.ts')).toBe('timeline.ts');
+	});
+	it('strips absolute prefix even for 2-segment paths', () => {
+		expect(shortenPath('/home/file.ts')).toBe('home/file.ts');
+	});
+});
+
+describe('MCP browser input extractors', () => {
+	it('navigate extracts domain from url', () => {
+		expect(
+			summarizeToolPrimaryInput('mcp__plugin_x_agent-web-interface__navigate', {
+				url: 'https://www.google.com/search?q=test',
+			}),
+		).toBe('google.com');
+	});
+	it('find_elements shows kind and label', () => {
+		expect(
+			summarizeToolPrimaryInput(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{kind: 'button', label: 'Feeling Lucky'},
+			),
+		).toBe('button "Feeling Lucky"');
+	});
+	it('click truncates eid', () => {
+		expect(
+			summarizeToolPrimaryInput('mcp__plugin_x_agent-web-interface__click', {
+				eid: '264ddc58e08d',
+			}),
+		).toBe('eid:264ddc…');
+	});
+	it('type shows text and eid', () => {
+		expect(
+			summarizeToolPrimaryInput('mcp__plugin_x_agent-web-interface__type', {
+				text: 'hello world',
+				eid: 'abc123',
+			}),
+		).toBe('"hello world" → abc12…');
+	});
+});
+
+describe('Task description reorder', () => {
+	it('Task shows description as primary input, not [type] prefix', () => {
+		const result = summarizeToolPrimaryInput('Task', {
+			subagent_type: 'general-purpose',
+			description: 'Write Playwright tests',
+		});
+		expect(result).toBe('Write Playwright tests');
+		expect(result).not.toContain('[general-purpose]');
 	});
 });
 
