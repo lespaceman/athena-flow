@@ -29,6 +29,8 @@ export type FeedLineStyleOptions = {
 	opTag?: string;
 	/** Char offset within summary where dim styling should begin. */
 	summaryDimStart?: number;
+	/** True when the outcome represents a zero result (e.g., "0 files"). */
+	outcomeZero?: boolean;
 	/** True when this line starts a new event category group. */
 	categoryBreak?: boolean;
 };
@@ -127,10 +129,13 @@ export function styleFeedLine(
 	if (dimPos !== undefined && dimPos < afterEventEnd) {
 		segments.push({start: FEED_EVENT_COL_END, end: dimPos, style: base});
 		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
+		const dimStyle = opts.outcomeZero
+			? chalk.hex(theme.status.warning)
+			: chalk.hex(theme.textMuted);
 		segments.push({
 			start: dimPos,
 			end: afterEventEnd,
-			style: chalk.hex(theme.textMuted),
+			style: dimStyle,
 		});
 	} else {
 		segments.push({start: FEED_EVENT_COL_END, end: afterEventEnd, style: base});

@@ -1108,6 +1108,20 @@ describe('formatFeedLine', () => {
 		expect(line).toContain('AGENT');
 	});
 
+	it('right-aligns outcome text near the right edge', () => {
+		const entryWithOutcome: TimelineEntry = {
+			...entry,
+			summaryOutcome: '13 files',
+		};
+		const line = formatFeedLine(entryWithOutcome, 80, false, false, false);
+		expect(line.length).toBe(80);
+		// Outcome should appear in the line
+		expect(line).toContain('13 files');
+		// Outcome should be near the right edge (within last ~15 chars of summary area)
+		const outcomeIdx = line.indexOf('13 files');
+		expect(outcomeIdx).toBeGreaterThan(50);
+	});
+
 	it('does not contain RUN column or prefix markers', () => {
 		const line = formatFeedLine(entry, 80, true, false, true);
 		// No > prefix or * match marker
@@ -1321,6 +1335,47 @@ describe('mergedEventLabel', () => {
 });
 
 describe('mergedEventSummary', () => {
+	it('returns outcome separately from text', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Glob', tool_input: {pattern: '**/*.ts'}},
+		};
+		const filenames = Array.from({length: 13}, (_, i) => `file${i}.ts`);
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Glob',
+				tool_input: {pattern: '**/*.ts'},
+				tool_response: {filenames},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.outcome).toBe('13 files');
+		expect(result.text).not.toContain('—');
+	});
+
+	it('marks zero results with outcomeZero', () => {
+		const pre = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {tool_name: 'Glob', tool_input: {pattern: '**/*.xyz'}},
+		};
+		const post = {
+			...base({kind: 'tool.post'}),
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Glob',
+				tool_input: {pattern: '**/*.xyz'},
+				tool_response: {filenames: []},
+			},
+		};
+		const result = mergedEventSummary(pre, post);
+		expect(result.outcome).toBe('0 files');
+		expect(result.outcomeZero).toBe(true);
+	});
+
 	it('returns merged summary with primary input and tool result when paired', () => {
 		const pre = {
 			...base({kind: 'tool.pre'}),
@@ -1337,7 +1392,8 @@ describe('mergedEventSummary', () => {
 			},
 		};
 		const result = mergedEventSummary(pre, post);
-		expect(result.text).toBe('Bash ls — exit 0');
+		expect(result.outcome).toBe('exit 0');
+		expect(result.text).not.toContain('—');
 		expect(result.dimStart).toBe('Bash'.length);
 	});
 
@@ -1362,7 +1418,7 @@ describe('mergedEventSummary', () => {
 		const result = mergedEventSummary(pre, post);
 		expect(result.text).toContain('Read');
 		expect(result.text).toContain('source/app.tsx');
-		expect(result.text).toContain('3 lines');
+		expect(result.outcome).toBe('3 lines');
 	});
 
 	it('includes command in merged Bash summary', () => {
@@ -1381,7 +1437,8 @@ describe('mergedEventSummary', () => {
 			},
 		};
 		const result = mergedEventSummary(pre, post);
-		expect(result.text).toBe('Bash npm test — exit 0');
+		expect(result.text).toBe('Bash npm test');
+		expect(result.outcome).toBe('exit 0');
 	});
 
 	it('returns merged summary with error for tool.failure', () => {
@@ -1402,7 +1459,7 @@ describe('mergedEventSummary', () => {
 		};
 		const result = mergedEventSummary(pre, post);
 		expect(result.text).toContain('Bash');
-		expect(result.text).toContain('command not found');
+		expect(result.outcome).toBe('command not found');
 	});
 
 	it('falls back to eventSummary when no postEvent', () => {

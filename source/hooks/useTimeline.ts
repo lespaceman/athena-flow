@@ -123,9 +123,10 @@ export function useTimeline({
 			const op = pairedPost
 				? mergedEventLabel(event, pairedPost)
 				: eventLabel(event);
-			const {text: summary, dimStart: summaryDimStart} = pairedPost
+			const summaryResult = pairedPost
 				? mergedEventSummary(event, pairedPost)
 				: eventSummary(event);
+			const {text: summary, dimStart: summaryDimStart} = summaryResult;
 			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
 			entries.push({
 				id: event.event_id,
@@ -137,6 +138,8 @@ export function useTimeline({
 				actorId: event.actor_id,
 				summary,
 				summaryDimStart,
+				summaryOutcome: summaryResult.outcome,
+				summaryOutcomeZero: summaryResult.outcomeZero,
 				searchText: `${summary}\n${details}`,
 				error: isEventError(event) || pairedPost?.kind === 'tool.failure',
 				expandable: isEventExpandable(event),

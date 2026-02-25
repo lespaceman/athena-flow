@@ -260,6 +260,7 @@ export function buildBodyLines({
 						ascii: todo.ascii,
 						opTag: entry.opTag,
 						summaryDimStart: entry.summaryDimStart,
+						outcomeZero: entry.summaryOutcomeZero,
 						categoryBreak: isBreak,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));

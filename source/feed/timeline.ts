@@ -27,6 +27,8 @@ export type TimelineEntry = {
 	summary: string;
 	/** Char offset within summary where dim styling should begin (undefined = no dim). */
 	summaryDimStart?: number;
+	summaryOutcome?: string;
+	summaryOutcomeZero?: boolean;
 	searchText: string;
 	error: boolean;
 	expandable: boolean;
@@ -236,7 +238,14 @@ function formatToolSummary(
 	return {text: compactText(full, 200), dimStart: verb.length + 1};
 }
 
-export type SummaryResult = {text: string; dimStart?: number};
+export type SummaryResult = {
+	text: string;
+	dimStart?: number;
+	/** Right-aligned outcome text (e.g., "13 files", "exit 0"). Empty/undefined = no outcome. */
+	outcome?: string;
+	/** True when outcome is a zero-result (0 files, 0 matches) — signals warning tint. */
+	outcomeZero?: boolean;
+};
 
 export function eventSummary(event: FeedEvent): SummaryResult {
 	switch (event.kind) {
@@ -561,8 +570,13 @@ export function mergedEventSummary(
 	if (!resultText) {
 		return {text: compactText(prefix, 200), dimStart: name.length};
 	}
-	const full = `${prefix} — ${resultText}`;
-	return {text: compactText(full, 200), dimStart: name.length};
+	const isZero = /^0\s/.test(resultText);
+	return {
+		text: compactText(prefix, 200),
+		dimStart: name.length,
+		outcome: resultText,
+		outcomeZero: isZero,
+	};
 }
 
 /** Column positions in formatted feed line (0-indexed char offsets). */
@@ -597,10 +611,25 @@ export function formatFeedLine(
 	const actor = fit(entry.actor, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
 	const summaryWidth = Math.max(0, bodyWidth - 30); // 5+1+12+1+10+1 = 30
-	const body = fit(
-		`${time} ${event} ${actor} ${fit(entry.summary, summaryWidth)}`,
-		bodyWidth,
-	);
+	let summaryText: string;
+	if (entry.summaryOutcome && summaryWidth > 20) {
+		const outcomeLen = entry.summaryOutcome.length;
+		const targetWidth = summaryWidth - outcomeLen - 2; // 2-space gap minimum
+		if (targetWidth > 10) {
+			const target = fit(entry.summary, targetWidth);
+			summaryText =
+				target + fit(entry.summaryOutcome, summaryWidth - targetWidth);
+		} else {
+			// Too narrow — inline with 2-space gap
+			summaryText = fit(
+				`${entry.summary}  ${entry.summaryOutcome}`,
+				summaryWidth,
+			);
+		}
+	} else {
+		summaryText = fit(entry.summary, summaryWidth);
+	}
+	const body = fit(`${time} ${event} ${actor} ${summaryText}`, bodyWidth);
 	return ` ${body}${suffix}`;
 }
 
