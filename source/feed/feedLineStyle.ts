@@ -4,6 +4,7 @@ import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 import {
 	FEED_EVENT_COL_START,
 	FEED_EVENT_COL_END,
+	FEED_ACTOR_COL_END,
 	FEED_SUMMARY_COL_START,
 } from './timeline.js';
 
@@ -33,12 +34,15 @@ export type FeedLineStyleOptions = {
 	outcomeZero?: boolean;
 	/** True when this line starts a new event category group. */
 	categoryBreak?: boolean;
+	/** True when actor is same as previous row (show · instead). */
+	duplicateActor?: boolean;
+	/** True when the minute changed between this row and the previous. */
+	minuteBreak?: boolean;
 };
 
 function opCategoryColor(op: string, theme: Theme): string | undefined {
-	if (op === 'tool.ok') return theme.status.success;
 	if (op === 'tool.fail') return theme.status.error;
-	if (op.startsWith('tool.')) return theme.status.warning;
+	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
 	if (op === 'agent.msg') return theme.status.info;
 	if (
@@ -63,9 +67,12 @@ export function styleFeedLine(
 ): string {
 	const {focused, matched, actorId, isError, theme, ascii} = opts;
 
-	// Focused row: inverse accent on entire line, no glyph coloring needed
+	// Focused row: accent-colored left border + bright text (no inverse)
 	if (focused) {
-		return chalk.hex(theme.accent).inverse(line);
+		const g = getGlyphs(ascii);
+		const border = chalk.hex(theme.accent)(g['feed.focusBorder']);
+		const rest = chalk.hex(theme.text)(line.slice(1));
+		return border + rest;
 	}
 
 	// Error overrides actor color
@@ -89,7 +96,10 @@ export function styleFeedLine(
 	const hasGlyph = lastChar && trimmed.length >= 2 && trimmed.at(-2) === ' ';
 	const glyphPos = hasGlyph ? trimmed.length - 1 : undefined;
 
-	// Determine gutter glyph (position 0) — replaces the leading space
+	// Determine gutter glyph (position 0) — replaces the leading space.
+	// Priority: matched > user border > minute break > category break > default.
+	// Note: prompt/msg.user are caught by the user-border branch, so the
+	// minute-break and category-break branches never need to exclude them.
 	let gutterChar: string;
 	let gutterStyle: ChalkInstance;
 	if (matched) {
@@ -99,11 +109,10 @@ export function styleFeedLine(
 		const borderColor = theme.userMessage.border ?? theme.accent;
 		gutterChar = getGlyphs(ascii)['feed.userBorder'];
 		gutterStyle = chalk.hex(borderColor);
-	} else if (
-		opts.categoryBreak &&
-		opts.opTag !== 'prompt' &&
-		opts.opTag !== 'msg.user'
-	) {
+	} else if (opts.minuteBreak && !opts.categoryBreak) {
+		gutterChar = '─';
+		gutterStyle = chalk.dim.hex(theme.textMuted);
+	} else if (opts.categoryBreak) {
 		gutterChar = '·';
 		gutterStyle = chalk.dim.hex(theme.textMuted);
 	} else {
@@ -124,21 +133,42 @@ export function styleFeedLine(
 		style: opColor ? chalk.hex(opColor) : base,
 	});
 
-	// After EVENT: detail + actor + summary (may have dim portion and glyph)
+	// After EVENT: actor + summary (may have dim portion and glyph)
 	const afterEventEnd = glyphPos ?? line.length;
-	if (dimPos !== undefined && dimPos < afterEventEnd) {
-		segments.push({start: FEED_EVENT_COL_END, end: dimPos, style: base});
+	const actorStyle_ = opts.duplicateActor
+		? chalk.dim.hex(theme.textMuted)
+		: base;
+
+	// Actor segment (EVENT_COL_END..ACTOR_COL_END)
+	const actorEnd = Math.min(FEED_ACTOR_COL_END, afterEventEnd);
+	if (actorEnd > FEED_EVENT_COL_END) {
+		segments.push({
+			start: FEED_EVENT_COL_END,
+			end: actorEnd,
+			style: actorStyle_,
+		});
+	}
+
+	// Summary segment (ACTOR_COL_END..end), with optional dim portion.
+	// When dimPos is set and falls within the summary range, split into
+	// bright prefix + dim/warning suffix. Otherwise render as a single span.
+	const summaryStart = actorEnd;
+	const effectiveDim =
+		dimPos !== undefined && dimPos < afterEventEnd
+			? Math.max(dimPos, summaryStart)
+			: undefined;
+
+	if (effectiveDim !== undefined) {
+		if (effectiveDim > summaryStart) {
+			segments.push({start: summaryStart, end: effectiveDim, style: base});
+		}
 		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
 		const dimStyle = opts.outcomeZero
 			? chalk.hex(theme.status.warning)
 			: chalk.hex(theme.textMuted);
-		segments.push({
-			start: dimPos,
-			end: afterEventEnd,
-			style: dimStyle,
-		});
-	} else {
-		segments.push({start: FEED_EVENT_COL_END, end: afterEventEnd, style: base});
+		segments.push({start: effectiveDim, end: afterEventEnd, style: dimStyle});
+	} else if (summaryStart < afterEventEnd) {
+		segments.push({start: summaryStart, end: afterEventEnd, style: base});
 	}
 
 	// Glyph segment

@@ -1,6 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {formatTokens, formatModelName} from '../../utils/formatters.js';
+import chalk from 'chalk';
+import {formatModelName} from '../../utils/formatters.js';
+import {renderContextBar} from '../../utils/contextBar.js';
 import type {ClaudeState} from '../../types/headerMetrics.js';
 import {getStateColors, STATE_LABELS} from './constants.js';
 import {useTheme} from '../../theme/index.js';
@@ -17,6 +19,7 @@ type Props = {
 	spinnerFrame: string;
 	toolCallCount: number;
 	contextSize: number | null;
+	contextMax?: number;
 	isServerRunning: boolean;
 };
 
@@ -28,6 +31,7 @@ export default function Header({
 	spinnerFrame,
 	toolCallCount,
 	contextSize,
+	contextMax,
 	isServerRunning,
 }: Props) {
 	const theme = useTheme();
@@ -50,8 +54,15 @@ export default function Header({
 				<Text>{formatModelName(modelName)}</Text>
 				<Text dimColor> | tools:</Text>
 				<Text>{toolCallCount}</Text>
-				<Text dimColor> | ctx:</Text>
-				<Text>{formatTokens(contextSize)}</Text>
+				<Text dimColor> | </Text>
+				<Text>
+					{renderContextBar(
+						contextSize,
+						contextMax ?? 200_000,
+						20,
+						chalk.level > 0,
+					)}
+				</Text>
 				<Text dimColor> | </Text>
 				<Text
 					color={isServerRunning ? theme.status.success : theme.status.error}

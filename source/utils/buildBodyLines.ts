@@ -254,6 +254,8 @@ export function buildBodyLines({
 				}
 			} else {
 				let prevCat: string | undefined;
+				let prevActorId: string | undefined;
+				let prevMinute: number | undefined;
 				for (let i = 0; i < feedContentRows; i++) {
 					const idx = feedViewportStart + i;
 					const entry = filteredEntries[idx];
@@ -264,6 +266,16 @@ export function buildBodyLines({
 					const cat = opCategory(entry.opTag);
 					const isBreak = prevCat !== undefined && cat !== prevCat;
 					prevCat = cat;
+					const entryMinute = Math.floor(entry.ts / 60000);
+					const isMinuteBreak =
+						i > 0 &&
+						prevMinute !== undefined &&
+						entryMinute !== prevMinute &&
+						!isBreak;
+					prevMinute = entryMinute;
+					const isDuplicateActor =
+						i > 0 && !isBreak && prevActorId === entry.actorId;
+					prevActorId = entry.actorId;
 					const isFocused = feedFocus === 'feed' && idx === feedCursor;
 					const isExpanded = expandedId === entry.id;
 					const isMatched = searchMatchSet.has(idx);
@@ -274,6 +286,7 @@ export function buildBodyLines({
 						isExpanded,
 						isMatched,
 						todo.ascii,
+						isDuplicateActor,
 					);
 					const styled = styleFeedLine(plain, {
 						focused: isFocused,
@@ -286,6 +299,8 @@ export function buildBodyLines({
 						summaryDimStart: entry.summaryDimStart,
 						outcomeZero: entry.summaryOutcomeZero,
 						categoryBreak: isBreak,
+						duplicateActor: isDuplicateActor,
+						minuteBreak: isMinuteBreak,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
 				}

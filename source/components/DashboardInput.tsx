@@ -3,7 +3,7 @@ import {Box, Text, useInput} from 'ink';
 import {useTextInput} from '../hooks/useTextInput.js';
 import {fit} from '../utils/format.js';
 
-const PLACEHOLDER = 'Type a message or /command...';
+const DEFAULT_PLACEHOLDER = 'Type a message or /command...';
 
 type Props = {
 	width: number;
@@ -14,14 +14,16 @@ type Props = {
 	onHistoryBack?: (currentValue: string) => string | undefined;
 	onHistoryForward?: () => string | undefined;
 	runLabel?: string;
+	placeholder?: string;
 };
 
 function renderInputText(
 	value: string,
 	cursorOffset: number,
 	width: number,
+	placeholder: string = DEFAULT_PLACEHOLDER,
 ): string {
-	if (value.length === 0) return fit(`|${PLACEHOLDER}`, width);
+	if (value.length === 0) return fit(`|${placeholder}`, width);
 	const withCursor =
 		value.slice(0, cursorOffset) + '|' + value.slice(cursorOffset);
 	if (withCursor.length <= width) return withCursor.padEnd(width, ' ');
@@ -40,6 +42,7 @@ export default function DashboardInput({
 	onHistoryBack,
 	onHistoryForward,
 	runLabel = 'RUN',
+	placeholder,
 }: Props) {
 	const setValueRef = useRef<(value: string) => void>(() => {});
 
@@ -86,7 +89,7 @@ export default function DashboardInput({
 	const contentWidth = Math.max(1, width - prefix.length - suffix.length);
 	const content = disabled
 		? fit(disabledMessage ?? 'Waiting for decision...', contentWidth)
-		: renderInputText(value, cursorOffset, contentWidth);
+		: renderInputText(value, cursorOffset, contentWidth, placeholder);
 	const dimContent = disabled || value.length === 0;
 
 	return (

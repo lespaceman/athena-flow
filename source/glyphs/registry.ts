@@ -72,6 +72,7 @@ export type GlyphKey =
 	| 'general.divider'
 	// Feed visual polish
 	| 'feed.userBorder'
+	| 'feed.focusBorder'
 	// Hints
 	| 'hint.enter'
 	| 'hint.escape'
@@ -165,6 +166,7 @@ export const GLYPH_REGISTRY: Record<
 	'general.divider': {unicode: '─', ascii: '-'},
 	// Feed visual polish
 	'feed.userBorder': {unicode: '▎', ascii: '|'},
+	'feed.focusBorder': {unicode: '▎', ascii: '|'},
 
 	// Hints
 	'hint.enter': {unicode: '↵', ascii: 'Enter'},

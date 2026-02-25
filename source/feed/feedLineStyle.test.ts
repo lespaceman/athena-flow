@@ -58,7 +58,7 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('38;2;243;139;168');
 	});
 
-	it('applies inverse for focused row', () => {
+	it('applies accent border glyph for focused row (no inverse)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: true,
 			matched: false,
@@ -66,8 +66,12 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
-		// ANSI inverse escape code
-		expect(result).toContain('\x1b[7m');
+		// No inverse
+		expect(result).not.toContain('\x1b[7m');
+		// Has focus border glyph ▎
+		expect(result).toContain('▎');
+		// accent #89b4fa → RGB 137;180;250
+		expect(result).toContain('38;2;137;180;250');
 	});
 
 	it('prepends accent ▌ for search matches', () => {
@@ -153,8 +157,19 @@ describe('styleFeedLine', () => {
 		expect(result).toContain('\x1b[2m');
 	});
 
-	it('colors OP segment with category color for tool.call', () => {
-		const result = styleFeedLine(baseLine, {
+	it('dims tool.ok and tool.call with textMuted, keeps tool.fail as error', () => {
+		// textMuted #6c7086 → RGB 108;112;134
+		const toolOk = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+			opTag: 'tool.ok',
+		});
+		expect(toolOk).toContain('38;2;108;112;134');
+
+		const toolCall = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
 			actorId: 'agent:root',
@@ -162,14 +177,18 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.call',
 		});
-		const withoutOp = styleFeedLine(baseLine, {
+		expect(toolCall).toContain('38;2;108;112;134');
+
+		// status.error #f38ba8 → RGB 243;139;168
+		const toolFail = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
 			actorId: 'agent:root',
 			isError: false,
 			theme: darkTheme,
+			opTag: 'tool.fail',
 		});
-		expect(result).not.toBe(withoutOp);
+		expect(toolFail).toContain('38;2;243;139;168');
 	});
 
 	it('does not color OP when focused (inverse takes precedence)', () => {
@@ -229,7 +248,7 @@ describe('styleFeedLine', () => {
 		expect(withUndefined).toBe(withoutOp);
 	});
 
-	it('focused takes priority over matched (no ▌)', () => {
+	it('focused takes priority over matched (shows ▎ not ▌)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: true,
 			matched: true,
@@ -237,7 +256,10 @@ describe('styleFeedLine', () => {
 			isError: false,
 			theme: darkTheme,
 		});
+		// Search match glyph ▌ should NOT appear
 		expect(result).not.toContain('▌');
+		// Focus border ▎ should appear
+		expect(result).toContain('▎');
 	});
 
 	it('applies user border accent for prompt op', () => {
@@ -254,7 +276,7 @@ describe('styleFeedLine', () => {
 		expect(styled).toContain('▎');
 	});
 
-	it('does not apply user border when focused', () => {
+	it('applies focus border (not user border) when focused on prompt', () => {
 		const line =
 			' HH:MM User Prompt USER       Tell me about X                      ';
 		const styled = styleFeedLine(line, {
@@ -265,6 +287,9 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'prompt',
 		});
-		expect(styled).not.toContain('▎');
+		// Focus border ▎ is present with accent color, not user border color
+		expect(styled).toContain('▎');
+		// accent #89b4fa → RGB 137;180;250
+		expect(styled).toContain('38;2;137;180;250');
 	});
 });

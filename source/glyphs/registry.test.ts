@@ -69,7 +69,8 @@ describe('domain helpers', () => {
 		expect(f.expandExpanded).toBe('▾');
 		expect(f.searchMatch).toBe('▌');
 		expect(f.userBorder).toBe('▎');
-		expect(Object.keys(f)).toHaveLength(4);
+		expect(f.focusBorder).toBe('▎');
+		expect(Object.keys(f)).toHaveLength(5);
 	});
 
 	it('todoGlyphSet returns todo keys', () => {

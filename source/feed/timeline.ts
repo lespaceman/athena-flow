@@ -595,6 +595,7 @@ export function formatFeedLine(
 	expanded: boolean,
 	matched: boolean,
 	ascii = false,
+	duplicateActor = false,
 ): string {
 	const g = feedGlyphs(ascii);
 	const glyph = entry.expandable
@@ -605,7 +606,8 @@ export function formatFeedLine(
 	const suffix = ` ${glyph}`;
 	const time = fit(formatClock(entry.ts), 5);
 	const event = fit(entry.op, 12);
-	const actor = fit(entry.actor, 10);
+	const actorText = duplicateActor ? '\u00B7' : entry.actor;
+	const actor = fit(actorText, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
 	const summaryWidth = Math.max(0, bodyWidth - 30); // 5+1+12+1+10+1 = 30
 	let summaryText: string;
