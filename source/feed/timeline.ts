@@ -568,7 +568,7 @@ export function mergedEventSummary(
 
 	const prefix = primaryInput ? `${name} ${primaryInput}` : name;
 	if (!resultText) {
-		return {text: compactText(prefix, 200), dimStart: name.length};
+		return {text: compactText(prefix, 200)};
 	}
 	const isZero = /^0\s/.test(resultText);
 	return {
@@ -617,8 +617,7 @@ export function formatFeedLine(
 		const targetWidth = summaryWidth - outcomeLen - 2; // 2-space gap minimum
 		if (targetWidth > 10) {
 			const target = fit(entry.summary, targetWidth);
-			summaryText =
-				target + fit(entry.summaryOutcome, summaryWidth - targetWidth);
+			summaryText = target + '  ' + entry.summaryOutcome;
 		} else {
 			// Too narrow — inline with 2-space gap
 			summaryText = fit(
