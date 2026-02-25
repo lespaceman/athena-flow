@@ -129,6 +129,11 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	WebFetch: input => compactText(String(input.url ?? ''), 60),
 };
 
+const eidExtractor = (input: Record<string, unknown>): string => {
+	const eid = String(input.eid ?? '');
+	return eid ? `eid:${eid.slice(0, 6)}…` : '';
+};
+
 /** Extractors keyed by MCP action name (for MCP tools). */
 const MCP_INPUT_EXTRACTORS: Record<
 	string,
@@ -149,20 +154,14 @@ const MCP_INPUT_EXTRACTORS: Record<
 		if (input.label) parts.push(`"${String(input.label)}"`);
 		return parts.join(' ') || '';
 	},
-	click: input => {
-		const eid = String(input.eid ?? '');
-		return eid ? `eid:${eid.slice(0, 6)}…` : '';
-	},
+	click: eidExtractor,
 	type: input => {
 		const text = String(input.text ?? '');
 		const eid = input.eid ? String(input.eid).slice(0, 5) + '…' : '';
 		const quoted = `"${compactText(text, 30)}"`;
 		return eid ? `${quoted} → ${eid}` : quoted;
 	},
-	hover: input => {
-		const eid = String(input.eid ?? '');
-		return eid ? `eid:${eid.slice(0, 6)}…` : '';
-	},
+	hover: eidExtractor,
 	select: input => {
 		const value = String(input.value ?? '');
 		return value ? `"${compactText(value, 30)}"` : '';

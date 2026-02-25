@@ -198,7 +198,6 @@ export function eventDetail(event: FeedEvent): string {
 		case 'todo.add':
 			return (event.data.priority ?? 'p1').toUpperCase();
 		case 'todo.update':
-			return event.data.todo_id;
 		case 'todo.done':
 			return event.data.todo_id;
 		case 'session.start':
@@ -250,8 +249,8 @@ export type SummaryResult = {
 export function eventSummary(event: FeedEvent): SummaryResult {
 	switch (event.kind) {
 		case 'tool.pre':
-			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.post':
+		case 'permission.request':
 			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'tool.failure':
 			return formatToolSummary(
@@ -259,8 +258,6 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 				event.data.tool_input,
 				event.data.error,
 			);
-		case 'permission.request':
-			return formatToolSummary(event.data.tool_name, event.data.tool_input);
 		case 'subagent.start':
 		case 'subagent.stop': {
 			const desc = event.data.description;

@@ -1,5 +1,3 @@
-// source/feed/verbMap.ts
-
 /** Maps MCP action names to clean human-readable verbs. */
 const MCP_VERB_MAP: Record<string, string> = {
 	navigate: 'Navigate',
