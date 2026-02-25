@@ -274,6 +274,12 @@ export function buildBodyLines({
 						entryMinute !== prevMinute &&
 						!isBreak;
 					prevMinute = entryMinute;
+
+					// X3: Visible minute separator — blank line gap
+					if (isMinuteBreak && bodyLines.length < bodyHeight - 1) {
+						bodyLines.push(fitAnsi('', innerWidth));
+					}
+
 					const isDuplicateActor =
 						i > 0 && !isBreak && prevActorId === entry.actorId;
 					prevActorId = entry.actorId;
