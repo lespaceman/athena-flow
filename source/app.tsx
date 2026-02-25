@@ -630,6 +630,20 @@ function AppContent({
 
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
+
+	const todoColors = useMemo(
+		() => ({
+			doing: theme.status.warning,
+			done: theme.status.success,
+			failed: theme.status.error,
+			blocked: theme.status.warning,
+			text: theme.text,
+			textMuted: theme.textMuted,
+			default: theme.status.neutral,
+		}),
+		[theme],
+	);
+
 	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
@@ -689,15 +703,7 @@ function AppContent({
 			},
 			focusMode,
 			ascii: useAscii,
-			colors: {
-				doing: theme.status.warning,
-				done: theme.status.success,
-				failed: theme.status.error,
-				blocked: theme.status.warning,
-				text: theme.text,
-				textMuted: theme.textMuted,
-				default: theme.status.neutral,
-			},
+			colors: todoColors,
 			appMode: appMode.type,
 			doneCount: todoPanel.doneCount,
 			totalCount: todoPanel.todoItems.length,

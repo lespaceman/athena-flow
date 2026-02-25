@@ -27,6 +27,7 @@ export type UseTodoPanelResult = {
 	doingCount: number;
 	blockedCount: number;
 	openCount: number;
+	failedCount: number;
 	remainingCount: number;
 	setTodoVisible: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoShowDone: React.Dispatch<React.SetStateAction<boolean>>;
@@ -74,36 +75,47 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 	const visibleTodoItemsRef = useRef(sortedItems);
 	visibleTodoItemsRef.current = sortedItems;
 
-	const {doneCount, doingCount, blockedCount, openCount, remainingCount} =
-		useMemo(() => {
-			let done = 0;
-			let doing = 0;
-			let blocked = 0;
-			let open = 0;
-			for (const todo of todoItems) {
-				switch (todo.status) {
-					case 'done':
-						done++;
-						break;
-					case 'doing':
-						doing++;
-						break;
-					case 'blocked':
-						blocked++;
-						break;
-					case 'open':
-						open++;
-						break;
-				}
+	const {
+		doneCount,
+		doingCount,
+		blockedCount,
+		openCount,
+		failedCount,
+		remainingCount,
+	} = useMemo(() => {
+		let done = 0;
+		let doing = 0;
+		let blocked = 0;
+		let open = 0;
+		let failed = 0;
+		for (const todo of todoItems) {
+			switch (todo.status) {
+				case 'done':
+					done++;
+					break;
+				case 'doing':
+					doing++;
+					break;
+				case 'blocked':
+					blocked++;
+					break;
+				case 'open':
+					open++;
+					break;
+				case 'failed':
+					failed++;
+					break;
 			}
-			return {
-				doneCount: done,
-				doingCount: doing,
-				blockedCount: blocked,
-				openCount: open,
-				remainingCount: todoItems.length - done,
-			};
-		}, [todoItems]);
+		}
+		return {
+			doneCount: done,
+			doingCount: doing,
+			blockedCount: blocked,
+			openCount: open,
+			failedCount: failed,
+			remainingCount: todoItems.length - done,
+		};
+	}, [todoItems]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
@@ -148,6 +160,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		doingCount,
 		blockedCount,
 		openCount,
+		failedCount,
 		remainingCount,
 		setTodoVisible,
 		setTodoShowDone,

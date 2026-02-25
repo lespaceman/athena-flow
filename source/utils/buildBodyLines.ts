@@ -188,19 +188,13 @@ export function buildBodyLines({
 
 				// Layout: [caret] [glyph]  [text...] [suffix] [elapsed]
 				const fixedWidth = 4; // caret + space + glyph + 2 spaces
-				const suffixWidth = suffixStr
-					? stripAnsi(suffixStr).length + 1
-					: 0;
-				const elapsedWidth = elapsedStr
-					? stripAnsi(elapsedStr).length + 1
-					: 0;
+				const suffixWidth = suffixStr ? stripAnsi(suffixStr).length + 1 : 0;
+				const elapsedWidth = elapsedStr ? stripAnsi(elapsedStr).length + 1 : 0;
 				const maxTitleWidth = Math.max(
 					1,
 					innerWidth - fixedWidth - suffixWidth - elapsedWidth,
 				);
-				const title = row.text(
-					fitAnsi(item.text, maxTitleWidth).trimEnd(),
-				);
+				const title = row.text(fitAnsi(item.text, maxTitleWidth).trimEnd());
 
 				let line = `${caret} ${glyphStr}  ${title}`;
 				if (suffixStr) line += ` ${suffixStr}`;

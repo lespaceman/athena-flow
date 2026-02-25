@@ -121,8 +121,7 @@ export function todoGlyphs(
 				case 'blocked':
 					return {
 						glyph: chalk.hex(colors.blocked)(table.blocked),
-						text: (raw: string) =>
-							chalk.dim(chalk.hex(colors.blocked)(raw)),
+						text: (raw: string) => chalk.dim(chalk.hex(colors.blocked)(raw)),
 						suffix: chalk.hex(colors.blocked)('\u2190 blocked'),
 						elapsed: empty,
 					};
