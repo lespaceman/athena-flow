@@ -1,7 +1,19 @@
 import {describe, test, expect} from 'vitest';
 import stripAnsi from 'strip-ansi';
 import {darkTheme} from '../theme/themes.js';
-import {formatGutter, opCategoryColor, fit, formatTime, formatEvent, formatActor, formatTool, formatSuffix, buildDetailsPrefix, layoutTargetAndOutcome, formatDetails} from './cellFormatters.js';
+import {
+	formatGutter,
+	opCategoryColor,
+	fit,
+	formatTime,
+	formatEvent,
+	formatActor,
+	formatTool,
+	formatSuffix,
+	buildDetailsPrefix,
+	layoutTargetAndOutcome,
+	formatDetails,
+} from './cellFormatters.js';
 import type {SummarySegment, TimelineEntry} from './timeline.js';
 import {computeDuplicateActors} from './timeline.js';
 
@@ -39,42 +51,106 @@ describe('opCategoryColor', () => {
 
 describe('formatGutter', () => {
 	test('focused returns ▎', () => {
-		const r = formatGutter({focused: true, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: true,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▎');
 	});
 
 	test('matched returns ▌', () => {
-		const r = formatGutter({focused: false, matched: true, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: true,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▌');
 	});
 
 	test('user border returns ▎', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: true, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: true,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▎');
 	});
 
 	test('minute break (no category) returns ─', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: true, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: true,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('─');
 	});
 
 	test('category break returns ·', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: true, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: true,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('·');
 	});
 
 	test('default returns space', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe(' ');
 	});
 
 	test('ascii mode: focused returns |', () => {
-		const r = formatGutter({focused: true, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: true, theme});
+		const r = formatGutter({
+			focused: true,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: true,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('|');
 	});
 
 	test('priority: matched > userBorder > minuteBreak > categoryBreak', () => {
-		const r = formatGutter({focused: false, matched: true, categoryBreak: true, minuteBreak: true, isUserBorder: true, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: true,
+			categoryBreak: true,
+			minuteBreak: true,
+			isUserBorder: true,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▌'); // matched wins
 	});
 });

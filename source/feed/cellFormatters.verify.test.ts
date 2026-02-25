@@ -152,8 +152,7 @@ describe('side-by-side: new formatters match old output', () => {
 		{
 			name: 'long path truncation',
 			entry: makeEntry({
-				summary:
-					'src/very/deeply/nested/path/to/component.tsx',
+				summary: 'src/very/deeply/nested/path/to/component.tsx',
 				summarySegments: [
 					{
 						text: 'src/very/deeply/nested/path/to/component.tsx',

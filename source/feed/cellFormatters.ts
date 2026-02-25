@@ -7,10 +7,7 @@ import stripAnsi from 'strip-ansi';
 // Re-export fit so all formatter consumers import from one place
 export {fit} from '../utils/format.js';
 
-export function opCategoryColor(
-	op: string,
-	theme: Theme,
-): string | undefined {
+export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
 	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
@@ -36,7 +33,15 @@ export type FormatGutterOpts = {
 };
 
 export function formatGutter(opts: FormatGutterOpts): string {
-	const {focused, matched, categoryBreak, minuteBreak, isUserBorder, ascii, theme} = opts;
+	const {
+		focused,
+		matched,
+		categoryBreak,
+		minuteBreak,
+		isUserBorder,
+		ascii,
+		theme,
+	} = opts;
 	const g = getGlyphs(ascii);
 
 	if (focused) {
@@ -211,9 +216,7 @@ function renderSegments(
 		if (usedWidth >= width) break;
 		const remaining = width - usedWidth;
 		const text =
-			seg.text.length > remaining
-				? seg.text.slice(0, remaining)
-				: seg.text;
+			seg.text.length > remaining ? seg.text.slice(0, remaining) : seg.text;
 		result += chalk.hex(roleColor(seg.role))(text);
 		usedWidth += text.length;
 	}
@@ -276,7 +279,10 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 
 	// Step 3: if no outcome, just render segments into innerWidth
 	if (!outcomeStr || innerWidth <= 0) {
-		return prefix.text + renderSegments(segments, summary, innerWidth, theme, opTag, isError);
+		return (
+			prefix.text +
+			renderSegments(segments, summary, innerWidth, theme, opTag, isError)
+		);
 	}
 
 	// Step 4: lay out target + outcome with right-alignment
@@ -284,15 +290,32 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 	const targetBudget = innerWidth - outcomeLen - 2;
 	if (targetBudget < 10) {
 		// Inline: segments + gap + outcome, all truncated
-		const segStr = renderSegments(segments, summary, Math.max(0, innerWidth - outcomeLen - 2), theme, opTag, isError);
+		const segStr = renderSegments(
+			segments,
+			summary,
+			Math.max(0, innerWidth - outcomeLen - 2),
+			theme,
+			opTag,
+			isError,
+		);
 		const segClean = stripAnsi(segStr).trimEnd();
 		const padNeeded = innerWidth - segClean.length - outcomeLen;
 		const pad = padNeeded >= 2 ? ' '.repeat(padNeeded) : '  ';
-		const truncated = fitImpl(segClean + pad + stripAnsi(outcomeStr), innerWidth);
+		const truncated = fitImpl(
+			segClean + pad + stripAnsi(outcomeStr),
+			innerWidth,
+		);
 		return prefix.text + truncated;
 	}
 
-	const segStr = renderSegments(segments, summary, targetBudget, theme, opTag, isError);
+	const segStr = renderSegments(
+		segments,
+		summary,
+		targetBudget,
+		theme,
+		opTag,
+		isError,
+	);
 	const segClean = stripAnsi(segStr);
 	const padNeeded = innerWidth - segClean.length - outcomeLen;
 	const pad = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';

@@ -161,7 +161,7 @@ export function useTimeline({
 				details,
 				feedEvent: event,
 				pairedPostEvent: pairedPost,
-					duplicateActor: false,
+				duplicateActor: false,
 			});
 			if (event.kind === 'run.end') {
 				activeRunId = undefined;
