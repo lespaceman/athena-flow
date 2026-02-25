@@ -625,6 +625,28 @@ describe('eventSummary', () => {
 	});
 });
 
+describe('eventSummary — segment roles', () => {
+	it('eventSummary uses target role for non-tool events', () => {
+		const stopReq = {
+			...base({kind: 'stop.request'}),
+			kind: 'stop.request' as const,
+			data: {stop_hook_active: false},
+		};
+		const result = eventSummary(stopReq);
+		expect(result.segments[0]!.role).toBe('target');
+	});
+
+	it('eventSummary uses plain role for agent.message', () => {
+		const msg = {
+			...base({kind: 'agent.message'}),
+			kind: 'agent.message' as const,
+			data: {message: 'Hello', scope: 'root' as const},
+		};
+		const result = eventSummary(msg);
+		expect(result.segments[0]!.role).toBe('plain');
+	});
+});
+
 describe('eventSummary — agent.message', () => {
 	it('strips markdown syntax from agent.message summary', () => {
 		const ev = {

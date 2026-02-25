@@ -318,9 +318,13 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'subagent.start':
 		case 'subagent.stop':
 			return {text: '', segments: []};
-		default: {
+		case 'agent.message': {
 			const text = eventSummaryText(event);
 			return {text, segments: [{text, role: 'plain'}]};
+		}
+		default: {
+			const text = eventSummaryText(event);
+			return {text, segments: [{text, role: 'target'}]};
 		}
 	}
 }
