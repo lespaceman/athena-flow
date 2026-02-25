@@ -114,9 +114,12 @@ export function useFeedNavigation({
 		return Math.max(0, Math.min(start, total - feedContentRows));
 	}, [filteredEntries.length, feedCursor, feedContentRows, tailFollow]);
 
+	// Slice extra entries beyond feedContentRows to account for minute
+	// separators that consume display lines without advancing the entry index.
+	// A 2x buffer is sufficient since at most every other line is a separator.
 	const visibleFeedEntries = filteredEntries.slice(
 		feedViewportStart,
-		feedViewportStart + feedContentRows,
+		feedViewportStart + feedContentRows * 2,
 	);
 
 	return {

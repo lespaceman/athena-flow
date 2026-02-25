@@ -124,7 +124,13 @@ export function useLayout({
 	}, [maxDetailScroll, feedNav]);
 
 	// Todo scroll adjustment
-	const todoListHeight = Math.max(0, actualTodoRows - 1);
+	// Subtract worst-case affordance lines (2) when items exceed raw slots,
+	// so maxScroll allows reaching the last item.
+	const itemSlots = Math.max(0, actualTodoRows - 2); // header + divider
+	const todoListHeight =
+		todoPanel.visibleTodoItems.length > itemSlots
+			? Math.max(0, itemSlots - 2)
+			: itemSlots;
 	useEffect(() => {
 		if (todoListHeight <= 0) {
 			todoPanel.setTodoScroll(0);

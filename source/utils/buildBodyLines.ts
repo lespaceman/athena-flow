@@ -162,11 +162,12 @@ export function buildBodyLines({
 			const itemSlots = actualTodoRows - 2; // minus header and divider
 			const totalItems = items.length;
 			const hasScrollUp = tScroll > 0;
-			const hasScrollDown = tScroll + itemSlots < totalItems;
 
-			// Scroll affordances consume item slots when present
+			// Two-pass affordance calculation: deduct scroll-up first,
+			// then check scroll-down against the reduced slot count.
 			let renderSlots = itemSlots;
 			if (hasScrollUp) renderSlots--;
+			const hasScrollDown = tScroll + renderSlots < totalItems;
 			if (hasScrollDown) renderSlots--;
 
 			if (hasScrollUp) {
@@ -257,31 +258,35 @@ export function buildBodyLines({
 				let prevCat: string | undefined;
 				let prevActorId: string | undefined;
 				let prevMinute: number | undefined;
-				for (let i = 0; i < feedContentRows; i++) {
-					const idx = feedViewportStart + i;
+				let feedLinesEmitted = 0;
+				let entryOffset = 0;
+				while (feedLinesEmitted < feedContentRows) {
+					const idx = feedViewportStart + entryOffset;
 					const entry = filteredEntries[idx];
 					if (!entry) {
 						bodyLines.push(fitAnsi('', innerWidth));
-						continue;
+						feedLinesEmitted++;
+						break;
 					}
 					const cat = opCategory(entry.opTag);
 					const isBreak = prevCat !== undefined && cat !== prevCat;
 					prevCat = cat;
 					const entryMinute = Math.floor(entry.ts / 60000);
 					const isMinuteBreak =
-						i > 0 &&
+						entryOffset > 0 &&
 						prevMinute !== undefined &&
 						entryMinute !== prevMinute &&
 						!isBreak;
 					prevMinute = entryMinute;
 
 					// X3: Visible minute separator — blank line gap
-					if (isMinuteBreak && bodyLines.length < bodyHeight - 1) {
+					if (isMinuteBreak && feedLinesEmitted < feedContentRows - 1) {
 						bodyLines.push(fitAnsi('', innerWidth));
+						feedLinesEmitted++;
 					}
 
 					const isDuplicateActor =
-						i > 0 && !isBreak && prevActorId === entry.actorId;
+						entryOffset > 0 && !isBreak && prevActorId === entry.actorId;
 					prevActorId = entry.actorId;
 					const isFocused = feedFocus === 'feed' && idx === feedCursor;
 					const isExpanded = expandedId === entry.id;
@@ -310,6 +315,8 @@ export function buildBodyLines({
 						minuteBreak: isMinuteBreak,
 					});
 					bodyLines.push(fitAnsi(styled, innerWidth));
+					feedLinesEmitted++;
+					entryOffset++;
 				}
 			}
 		}
