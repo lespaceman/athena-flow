@@ -539,7 +539,8 @@ describe('eventSummary', () => {
 		};
 		const result = eventSummary(ev);
 		expect(result.text).toBe('general-purpose: Write Playwright tests');
-		expect(result.dimStart).toBe('general-purpose:'.length + 1);
+		expect(result.segments[0]!.role).toBe('verb');
+		expect(result.segments[1]!.role).toBe('target');
 	});
 
 	it('formats subagent.start without description — agent_type only', () => {
@@ -550,7 +551,8 @@ describe('eventSummary', () => {
 		};
 		const result = eventSummary(ev);
 		expect(result.text).toBe('general-purpose');
-		expect(result.dimStart).toBeUndefined();
+		expect(result.segments).toHaveLength(1);
+		expect(result.segments[0]!.role).toBe('verb');
 	});
 
 	it('formats subagent.stop with description', () => {
@@ -839,7 +841,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 		expect(eventSummary(ev).text).toBe('Do thing');
 	});
 
-	it('returns dimStart for tool.pre with args', () => {
+	it('returns verb+target segments for tool.pre with args', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -849,10 +851,11 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.dimStart).toBe('Read'.length + 1);
+		expect(result.segments[0]!.role).toBe('verb');
+		expect(result.segments[1]!.role).toBe('target');
 	});
 
-	it('returns no dimStart for tool.post without args', () => {
+	it('returns verb-only segments for tool.post without args', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.post' as const,
@@ -862,7 +865,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 				tool_response: {},
 			},
 		};
-		expect(eventSummary(ev).dimStart).toBeUndefined();
+		expect(eventSummary(ev).segments).toHaveLength(1);
 	});
 
 	it('formats tool.pre with primary input instead of key=value', () => {
@@ -876,7 +879,8 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 		};
 		const result = eventSummary(ev);
 		expect(result.text).toBe('Read …/source/app.tsx');
-		expect(result.dimStart).toBe('Read'.length + 1);
+		expect(result.segments[0]!.role).toBe('verb');
+		expect(result.segments[1]!.role).toBe('target');
 	});
 
 	it('formats tool.pre for Bash with command', () => {
@@ -919,7 +923,8 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 		};
 		const result = eventSummary(ev);
 		expect(result.text).toBe('Read …/source/app.tsx');
-		expect(result.dimStart).toBe('Read'.length + 1);
+		expect(result.segments[0]!.role).toBe('verb');
+		expect(result.segments[1]!.role).toBe('target');
 	});
 
 	it('formats tool.failure with primary input and error', () => {
@@ -1071,6 +1076,7 @@ describe('formatFeedLine', () => {
 		actor: 'AGENT',
 		actorId: 'agent:root',
 		summary: 'Bash cmd',
+		summarySegments: [{text: 'Bash cmd', role: 'plain'}],
 		searchText: 'bash cmd',
 		error: false,
 		expandable: true,
@@ -1078,32 +1084,32 @@ describe('formatFeedLine', () => {
 	};
 
 	it('produces output of exact width', () => {
-		const line = formatFeedLine(entry, 80, false, false, false);
+		const {line} = formatFeedLine(entry, 80, false, false, false);
 		expect(line.length).toBe(80);
 	});
 
 	it('shows ▸ suffix when expandable but not expanded (unicode)', () => {
-		const line = formatFeedLine(entry, 80, false, false, false);
+		const {line} = formatFeedLine(entry, 80, false, false, false);
 		expect(line.trimEnd().endsWith('▸')).toBe(true);
 	});
 
 	it('shows ▾ suffix when expanded (unicode)', () => {
-		const line = formatFeedLine(entry, 80, false, true, false);
+		const {line} = formatFeedLine(entry, 80, false, true, false);
 		expect(line.trimEnd().endsWith('▾')).toBe(true);
 	});
 
 	it('shows > suffix in ascii mode', () => {
-		const line = formatFeedLine(entry, 80, false, false, false, true);
+		const {line} = formatFeedLine(entry, 80, false, false, false, true);
 		expect(line.trimEnd().endsWith('>')).toBe(true);
 	});
 
 	it('shows v suffix when expanded in ascii mode', () => {
-		const line = formatFeedLine(entry, 80, false, true, false, true);
+		const {line} = formatFeedLine(entry, 80, false, true, false, true);
 		expect(line.trimEnd().endsWith('v')).toBe(true);
 	});
 
 	it('contains event, detail and actor columns', () => {
-		const line = formatFeedLine(entry, 80, false, false, false);
+		const {line} = formatFeedLine(entry, 80, false, false, false);
 		expect(line).toContain('Tool Call');
 		expect(line).toContain('Bash');
 		expect(line).toContain('AGENT');
@@ -1114,7 +1120,7 @@ describe('formatFeedLine', () => {
 			...entry,
 			summaryOutcome: '13 files',
 		};
-		const line = formatFeedLine(entryWithOutcome, 80, false, false, false);
+		const {line} = formatFeedLine(entryWithOutcome, 80, false, false, false);
 		expect(line.length).toBe(80);
 		// Outcome should appear in the line
 		expect(line).toContain('13 files');
@@ -1124,7 +1130,7 @@ describe('formatFeedLine', () => {
 	});
 
 	it('does not contain RUN column or prefix markers', () => {
-		const line = formatFeedLine(entry, 80, true, false, true);
+		const {line} = formatFeedLine(entry, 80, true, false, true);
 		// No > prefix or * match marker
 		expect(line.startsWith('>')).toBe(false);
 		expect(line).not.toContain('*');
@@ -1395,7 +1401,8 @@ describe('mergedEventSummary', () => {
 		const result = mergedEventSummary(pre, post);
 		expect(result.outcome).toBe('exit 0');
 		expect(result.text).not.toContain('—');
-		expect(result.dimStart).toBe('Bash'.length);
+		expect(result.segments[0]!.role).toBe('verb');
+		expect(result.segments[0]!.text).toBe('Bash');
 	});
 
 	it('includes primary input in merged Read summary', () => {

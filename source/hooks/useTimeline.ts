@@ -74,6 +74,7 @@ export function useTimeline({
 					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
 					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
 					summary,
+					summarySegments: [{text: summary, role: 'plain' as const}],
 					searchText: `${summary}\n${details}`,
 					error: false,
 					expandable: details.length > 120,
@@ -126,7 +127,7 @@ export function useTimeline({
 			const summaryResult = pairedPost
 				? mergedEventSummary(event, pairedPost)
 				: eventSummary(event);
-			const {text: summary, dimStart: summaryDimStart} = summaryResult;
+			const {text: summary, segments: summarySegments} = summaryResult;
 			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
 			entries.push({
 				id: event.event_id,
@@ -137,7 +138,7 @@ export function useTimeline({
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
 				summary,
-				summaryDimStart,
+				summarySegments,
 				summaryOutcome: summaryResult.outcome,
 				summaryOutcomeZero: summaryResult.outcomeZero,
 				searchText: `${summary}\n${details}`,

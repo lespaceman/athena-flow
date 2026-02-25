@@ -2,10 +2,11 @@ import chalk, {type ChalkInstance} from 'chalk';
 import {type Theme} from '../theme/types.js';
 import {GLYPH_REGISTRY, getGlyphs} from '../glyphs/index.js';
 import {
+	type SummarySegmentRole,
+	type ResolvedSegment,
 	FEED_EVENT_COL_START,
 	FEED_EVENT_COL_END,
 	FEED_ACTOR_COL_END,
-	FEED_SUMMARY_COL_START,
 } from './timeline.js';
 
 /** All known collapsed glyphs (unicode + ascii). */
@@ -28,8 +29,8 @@ export type FeedLineStyleOptions = {
 	theme: Theme;
 	ascii?: boolean;
 	opTag?: string;
-	/** Char offset within summary where dim styling should begin. */
-	summaryDimStart?: number;
+	/** Structured summary segments with resolved absolute positions. */
+	summarySegments?: ResolvedSegment[];
 	/** True when the outcome represents a zero result (e.g., "0 files"). */
 	outcomeZero?: boolean;
 	/** True when this line starts a new event category group. */
@@ -100,12 +101,6 @@ export function styleFeedLine(
 	const opColor =
 		opts.opTag && !isError ? opCategoryColor(opts.opTag, theme) : undefined;
 
-	// Compute dim boundary: absolute char position in line where dim starts
-	const dimPos =
-		opts.summaryDimStart !== undefined
-			? FEED_SUMMARY_COL_START + opts.summaryDimStart
-			: undefined;
-
 	// Detect expand/collapse glyph at end of line
 	const trimmed = line.trimEnd();
 	const lastChar = trimmed.at(-1);
@@ -149,7 +144,7 @@ export function styleFeedLine(
 		style: opColor ? chalk.hex(opColor) : base,
 	});
 
-	// After EVENT: actor + summary (may have dim portion and glyph)
+	// After EVENT: actor + summary (may have structured segments and glyph)
 	const afterEventEnd = glyphPos ?? line.length;
 	const actorStyle_ = isLifecycleRow
 		? rowBase
@@ -167,28 +162,43 @@ export function styleFeedLine(
 		});
 	}
 
-	// Summary segment (ACTOR_COL_END..end), with optional dim portion.
-	// When dimPos is set and falls within the summary range, split into
-	// bright prefix + dim/warning suffix. Otherwise render as a single span.
+	// Summary segment — use structured segments when available, else single span.
 	const summaryStart = actorEnd;
-	const effectiveDim =
-		dimPos !== undefined && dimPos < afterEventEnd
-			? Math.max(dimPos, summaryStart)
-			: undefined;
-
-	if (effectiveDim !== undefined) {
-		if (effectiveDim > summaryStart) {
-			segments.push({
-				start: summaryStart,
-				end: effectiveDim,
-				style: summaryBase,
-			});
+	const resolvedSegs = opts.summarySegments;
+	if (resolvedSegs && resolvedSegs.length > 0) {
+		// Style function for each role
+		const roleStyle = (role: SummarySegmentRole): ChalkInstance => {
+			if (isError) return chalk.hex(theme.status.error);
+			switch (role) {
+				case 'verb':
+					return summaryBase;
+				case 'target':
+					return chalk.hex(theme.textMuted);
+				case 'outcome':
+					return opts.outcomeZero
+						? chalk.hex(theme.status.warning)
+						: chalk.hex(theme.textMuted);
+				case 'plain':
+					return summaryBase;
+			}
+		};
+		// Fill any gap before first segment
+		let cursor = summaryStart;
+		for (const seg of resolvedSegs) {
+			const segStart = Math.max(seg.start, summaryStart);
+			const segEnd = Math.min(seg.end, afterEventEnd);
+			if (segEnd <= segStart) continue;
+			// Gap fill between segments
+			if (segStart > cursor) {
+				segments.push({start: cursor, end: segStart, style: summaryBase});
+			}
+			segments.push({start: segStart, end: segEnd, style: roleStyle(seg.role)});
+			cursor = segEnd;
 		}
-		// Dim portion — use explicit muted color (dim SGR is unreliable with truecolor)
-		const dimStyle = opts.outcomeZero
-			? chalk.hex(theme.status.warning)
-			: chalk.hex(theme.textMuted);
-		segments.push({start: effectiveDim, end: afterEventEnd, style: dimStyle});
+		// Fill remaining summary space after last segment
+		if (cursor < afterEventEnd) {
+			segments.push({start: cursor, end: afterEventEnd, style: summaryBase});
+		}
 	} else if (summaryStart < afterEventEnd) {
 		segments.push({
 			start: summaryStart,

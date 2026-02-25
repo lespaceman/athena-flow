@@ -16,6 +16,9 @@ import {resolveVerb} from './verbMap.js';
 
 export type RunStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
 
+export type SummarySegmentRole = 'verb' | 'target' | 'outcome' | 'plain';
+export type SummarySegment = {text: string; role: SummarySegmentRole};
+
 export type TimelineEntry = {
 	id: string;
 	ts: number;
@@ -25,8 +28,7 @@ export type TimelineEntry = {
 	actor: string;
 	actorId: string;
 	summary: string;
-	/** Char offset within summary where dim styling should begin (undefined = no dim). */
-	summaryDimStart?: number;
+	summarySegments: SummarySegment[];
 	summaryOutcome?: string;
 	summaryOutcomeZero?: boolean;
 	searchText: string;
@@ -219,7 +221,7 @@ function resolveDisplayName(toolName: string): string {
 	return toolName;
 }
 
-type ToolSummaryResult = {text: string; dimStart?: number};
+type ToolSummaryResult = {text: string; segments: SummarySegment[]};
 
 function formatToolSummary(
 	toolName: string,
@@ -231,15 +233,23 @@ function formatToolSummary(
 	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
 	const secondary = [primaryInput, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
-		return {text: compactText(verb, 200)};
+		const text = compactText(verb, 200);
+		return {text, segments: [{text, role: 'verb'}]};
 	}
 	const full = `${verb} ${secondary}`;
-	return {text: compactText(full, 200), dimStart: verb.length + 1};
+	const text = compactText(full, 200);
+	return {
+		text,
+		segments: [
+			{text: verb, role: 'verb'},
+			{text: text.slice(verb.length), role: 'target'},
+		],
+	};
 }
 
 export type SummaryResult = {
 	text: string;
-	dimStart?: number;
+	segments: SummarySegment[];
 	/** Right-aligned outcome text (e.g., "13 files", "exit 0"). Empty/undefined = no outcome. */
 	outcome?: string;
 	/** True when outcome is a zero-result (0 files, 0 matches) — signals warning tint. */
@@ -262,13 +272,23 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'subagent.stop': {
 			const desc = event.data.description;
 			if (desc) {
-				const text = compactText(`${event.data.agent_type}: ${desc}`, 200);
-				return {text, dimStart: event.data.agent_type.length + 2};
+				const verbPart = `${event.data.agent_type}:`;
+				const text = compactText(`${verbPart} ${desc}`, 200);
+				return {
+					text,
+					segments: [
+						{text: verbPart, role: 'verb'},
+						{text: text.slice(verbPart.length), role: 'target'},
+					],
+				};
 			}
-			return {text: compactText(event.data.agent_type, 200)};
+			const text = compactText(event.data.agent_type, 200);
+			return {text, segments: [{text, role: 'verb'}]};
 		}
-		default:
-			return {text: eventSummaryText(event)};
+		default: {
+			const text = eventSummaryText(event);
+			return {text, segments: [{text, role: 'plain'}]};
+		}
 	}
 }
 
@@ -528,7 +548,7 @@ export function mergedEventLabel(
 
 /**
  * Return the merged summary for a tool.pre paired with its post/failure.
- * Format: "ToolName — result summary" with dimStart after the tool name.
+ * Format: "ToolName — result summary" with verb/target segments.
  */
 export function mergedEventSummary(
 	event: FeedEvent,
@@ -564,15 +584,22 @@ export function mergedEventSummary(
 	}
 
 	const prefix = primaryInput ? `${name} ${primaryInput}` : name;
+	const prefixText = compactText(prefix, 200);
+	const segments: SummarySegment[] = primaryInput
+		? [
+				{text: name, role: 'verb'},
+				{text: prefixText.slice(name.length), role: 'target'},
+			]
+		: [{text: prefixText, role: 'verb'}];
+
 	if (!resultText) {
-		return {text: compactText(prefix, 200)};
+		return {text: prefixText, segments};
 	}
-	const isZero = /^0\s/.test(resultText);
 	return {
-		text: compactText(prefix, 200),
-		dimStart: name.length,
+		text: prefixText,
+		segments,
 		outcome: resultText,
-		outcomeZero: isZero,
+		outcomeZero: /^0\s/.test(resultText),
 	};
 }
 
@@ -588,6 +615,18 @@ export const FEED_SUMMARY_COL_START = 31; // 30 + 1 gap
 export const FEED_OP_COL_START = FEED_EVENT_COL_START;
 export const FEED_OP_COL_END = FEED_EVENT_COL_END;
 
+/** Resolved segment position in the final formatted line. */
+export type ResolvedSegment = {
+	start: number;
+	end: number;
+	role: SummarySegmentRole;
+};
+
+export type FormatFeedLineResult = {
+	line: string;
+	summarySegments: ResolvedSegment[];
+};
+
 export function formatFeedLine(
 	entry: TimelineEntry,
 	width: number,
@@ -596,7 +635,7 @@ export function formatFeedLine(
 	matched: boolean,
 	ascii = false,
 	duplicateActor = false,
-): string {
+): FormatFeedLineResult {
 	const g = feedGlyphs(ascii);
 	const glyph = entry.expandable
 		? expanded
@@ -610,15 +649,18 @@ export function formatFeedLine(
 	const actor = fit(actorText, 10);
 	const bodyWidth = Math.max(0, width - 3); // 1 gutter + 2 suffix
 	const summaryWidth = Math.max(0, bodyWidth - 30); // 5+1+12+1+10+1 = 30
+
+	// Build summary text and track segment boundaries within it
 	let summaryText: string;
+	let outcomeStart = -1; // char offset within summaryText where outcome begins
 	if (entry.summaryOutcome && summaryWidth > 20) {
 		const outcomeLen = entry.summaryOutcome.length;
 		const targetWidth = summaryWidth - outcomeLen - 2; // 2-space gap minimum
 		if (targetWidth > 10) {
 			const target = fit(entry.summary, targetWidth);
+			outcomeStart = target.length + 2; // after "  " gap
 			summaryText = target + '  ' + entry.summaryOutcome;
 		} else {
-			// Too narrow — inline with 2-space gap
 			summaryText = fit(
 				`${entry.summary}  ${entry.summaryOutcome}`,
 				summaryWidth,
@@ -628,7 +670,39 @@ export function formatFeedLine(
 		summaryText = fit(entry.summary, summaryWidth);
 	}
 	const body = fit(`${time} ${event} ${actor} ${summaryText}`, bodyWidth);
-	return ` ${body}${suffix}`;
+	const line = ` ${body}${suffix}`;
+
+	// Resolve segment positions: FEED_SUMMARY_COL_START is the absolute offset
+	const resolved: ResolvedSegment[] = [];
+	const summaryAbsStart = FEED_SUMMARY_COL_START;
+	let cursor = 0;
+	for (const seg of entry.summarySegments) {
+		const segStart = summaryAbsStart + cursor;
+		const segEnd = summaryAbsStart + cursor + seg.text.length;
+		// Only include if it falls within the line
+		if (segStart < line.length) {
+			resolved.push({
+				start: segStart,
+				end: Math.min(segEnd, line.length),
+				role: seg.role,
+			});
+		}
+		cursor += seg.text.length;
+	}
+	// Add outcome segment if present and resolved
+	if (outcomeStart >= 0 && entry.summaryOutcome) {
+		const absStart = summaryAbsStart + outcomeStart;
+		const absEnd = absStart + entry.summaryOutcome.length;
+		if (absStart < line.length) {
+			resolved.push({
+				start: absStart,
+				end: Math.min(absEnd, line.length),
+				role: 'outcome',
+			});
+		}
+	}
+
+	return {line, summarySegments: resolved};
 }
 
 export function formatFeedHeaderLine(width: number): string {

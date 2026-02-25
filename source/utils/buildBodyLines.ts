@@ -144,7 +144,8 @@ export function buildBodyLines({
 
 			const isWorking = todo.appMode === 'working';
 			const idleGlyph = todo.ascii ? '*' : '\u25C7';
-			const leadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
+			const rawLeadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
+			const leadGlyph = chalk.hex(theme.status.info)(rawLeadGlyph);
 			const statusWord = isWorking ? 'WORKING' : 'IDLE';
 			const statusColor = isWorking ? todo.colors?.doing : todo.colors?.default;
 			const coloredStatus = statusColor
@@ -152,7 +153,7 @@ export function buildBodyLines({
 				: statusWord;
 			const stats =
 				todo.totalCount > 0
-					? `  ${todo.doneCount}/${todo.totalCount} tasks done`
+					? `  ${chalk.hex(theme.text)(`${todo.doneCount}/${todo.totalCount}`)} ${chalk.hex(theme.textMuted)('tasks done')}`
 					: '';
 			bodyLines.push(
 				fitAnsi(`${leadGlyph} ${coloredStatus}${stats}`, innerWidth),
@@ -279,7 +280,7 @@ export function buildBodyLines({
 					const isFocused = feedFocus === 'feed' && idx === feedCursor;
 					const isExpanded = expandedId === entry.id;
 					const isMatched = searchMatchSet.has(idx);
-					const plain = formatFeedLine(
+					const {line: plain, summarySegments} = formatFeedLine(
 						entry,
 						innerWidth,
 						isFocused,
@@ -296,7 +297,7 @@ export function buildBodyLines({
 						theme,
 						ascii: todo.ascii,
 						opTag: entry.opTag,
-						summaryDimStart: entry.summaryDimStart,
+						summarySegments,
 						outcomeZero: entry.summaryOutcomeZero,
 						categoryBreak: isBreak,
 						duplicateActor: isDuplicateActor,
