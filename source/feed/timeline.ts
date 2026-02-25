@@ -33,6 +33,7 @@ export type TimelineEntry = {
 	opTag: string; // Internal slug for styling (e.g. "tool.call")
 	actor: string;
 	actorId: string;
+	toolColumn: string; // Tool display name for TOOL column ('Read', 'Navigate', '' for non-tool)
 	summary: string;
 	summarySegments: SummarySegment[];
 	summaryOutcome?: string;
@@ -328,7 +329,7 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 }
 
 /** Strip inline markdown syntax for compact single-line display. */
-function stripMarkdownInline(text: string): string {
+export function stripMarkdownInline(text: string): string {
 	return text
 		.replace(/#{1,6}\s+/g, '')
 		.replace(/\*\*(.+?)\*\*/g, '$1')
@@ -339,7 +340,7 @@ function stripMarkdownInline(text: string): string {
 }
 
 /** Extract first sentence (ends with `. ` or newline) from text. */
-function firstSentence(text: string): string {
+export function firstSentence(text: string): string {
 	const nlIdx = text.indexOf('\n');
 	const sentIdx = text.indexOf('. ');
 	// Convert -1 (not found) to Infinity so Math.min picks the real match

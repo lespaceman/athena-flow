@@ -11,6 +11,7 @@ import {formatElapsed} from '../utils/formatElapsed.js';
 
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];
+	isWorking: boolean;
 };
 
 export type UseTodoPanelResult = {
@@ -40,7 +41,10 @@ export type UseTodoPanelResult = {
 	toggleTodoStatus: (index: number) => void;
 };
 
-export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
+export function useTodoPanel({
+	tasks,
+	isWorking,
+}: UseTodoPanelOptions): UseTodoPanelResult {
 	const [todoVisible, setTodoVisible] = useState(true);
 	const [todoShowDone, setTodoShowDone] = useState(true);
 	const [todoCursor, setTodoCursor] = useState(0);
@@ -50,6 +54,8 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		Record<string, TodoPanelStatus>
 	>({});
 	const startedAtRef = useRef<Map<string, number>>(new Map());
+	const completedAtRef = useRef<Map<string, number>>(new Map());
+	const pausedAtRef = useRef<number | null>(null);
 	const [tickCounter, setTickCounter] = useState(0);
 
 	const todoItems = useMemo((): TodoPanelItem[] => {
@@ -67,12 +73,39 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 			status: todoStatusOverrides[todo.id] ?? todo.status,
 		}));
 
-		// Track start times and compute elapsed
+		// Track start times and compute elapsed.
+		// When idle (not working), freeze elapsed at the paused timestamp.
+		// On resume, shift all timestamps forward by idle gap so idle time
+		// doesn't count toward elapsed.
 		const now = Date.now();
+		if (!isWorking && pausedAtRef.current === null) {
+			pausedAtRef.current = now;
+		} else if (isWorking && pausedAtRef.current !== null) {
+			const idleGap = now - pausedAtRef.current;
+			for (const [id, ts] of startedAtRef.current) {
+				startedAtRef.current.set(id, ts + idleGap);
+			}
+			for (const [id, ts] of completedAtRef.current) {
+				completedAtRef.current.set(id, ts + idleGap);
+			}
+			pausedAtRef.current = null;
+		}
+		const effectiveNow = isWorking ? now : (pausedAtRef.current ?? now);
 		const startedAt = startedAtRef.current;
+		const completedAt = completedAtRef.current;
 		return merged.map(todo => {
-			if (todo.status === 'doing' && !startedAt.has(todo.id)) {
-				startedAt.set(todo.id, now);
+			if (todo.status === 'doing') {
+				if (!startedAt.has(todo.id)) {
+					startedAt.set(todo.id, effectiveNow);
+				}
+				// Clear completedAt if re-opened (doing→done→doing)
+				completedAt.delete(todo.id);
+			} else if (
+				(todo.status === 'done' || todo.status === 'failed') &&
+				startedAt.has(todo.id) &&
+				!completedAt.has(todo.id)
+			) {
+				completedAt.set(todo.id, effectiveNow);
 			}
 			let elapsed: string | undefined;
 			const hasElapsed =
@@ -80,11 +113,12 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 				todo.status === 'done' ||
 				todo.status === 'failed';
 			if (hasElapsed && startedAt.has(todo.id)) {
-				elapsed = formatElapsed(now - startedAt.get(todo.id)!);
+				const end = completedAt.get(todo.id) ?? effectiveNow;
+				elapsed = formatElapsed(end - startedAt.get(todo.id)!);
 			}
 			return {...todo, elapsed};
 		});
-	}, [tasks, extraTodos, todoStatusOverrides, tickCounter]);
+	}, [tasks, extraTodos, todoStatusOverrides, tickCounter, isWorking]);
 
 	const sortedItems = useMemo(() => {
 		return todoShowDone
@@ -137,26 +171,35 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 		};
 	}, [todoItems]);
 
-	// Tick interval to refresh elapsed times while items are active
+	// Tick interval to refresh elapsed times while items are active and working
 	useEffect(() => {
-		if (doingCount === 0) return;
+		if (doingCount === 0 || !isWorking) return;
 		const id = setInterval(() => setTickCounter(c => c + 1), 1000);
 		return () => clearInterval(id);
-	}, [doingCount]);
+	}, [doingCount, isWorking]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
 		setTodoCursor(prev => Math.min(prev, Math.max(0, sortedItems.length - 1)));
 	}, [sortedItems.length]);
 
-	// Auto-scroll to keep active (doing) item and next pending visible
+	// Auto-scroll to keep the most interesting item visible.
+	// Priority: doing item > first incomplete item > current position.
+	// Must also move cursor so useLayout's cursor-following doesn't override.
 	useEffect(() => {
 		const activeIdx = sortedItems.findIndex(i => i.status === 'doing');
-		if (activeIdx < 0) return;
-		const lastMustSee = Math.min(activeIdx + 1, sortedItems.length - 1);
+		const targetIdx =
+			activeIdx >= 0
+				? activeIdx
+				: sortedItems.findIndex(
+						i => i.status !== 'done' && i.status !== 'failed',
+					);
+		if (targetIdx < 0) return;
+		setTodoCursor(targetIdx);
+		const lastMustSee = Math.min(targetIdx + 1, sortedItems.length - 1);
 		setTodoScroll(prev => {
 			const maxVisible = 3;
-			if (activeIdx < prev) return activeIdx;
+			if (targetIdx < prev) return targetIdx;
 			if (lastMustSee >= prev + maxVisible)
 				return Math.max(0, lastMustSee - maxVisible + 1);
 			return prev;

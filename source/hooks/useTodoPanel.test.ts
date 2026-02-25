@@ -21,16 +21,16 @@ function makeTasks(statuses: TodoItem['status'][]): TodoItem[] {
 	}));
 }
 
+type HookProps = {tasks: TodoItem[]; isWorking: boolean};
+
 describe('useTodoPanel', () => {
 	describe('elapsed times', () => {
 		it('doing items produce elapsed after tick', () => {
 			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() => useTodoPanel({tasks}));
+			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
 
-			// Initially elapsed should be "0s" (just started)
 			expect(result.current.todoItems[0]!.elapsed).toBe('0s');
 
-			// Advance 5 seconds
 			act(() => {
 				vi.advanceTimersByTime(5000);
 			});
@@ -38,30 +38,85 @@ describe('useTodoPanel', () => {
 			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
 		});
 
-		it('completed items retain their elapsed time', () => {
-			// Start with a doing task
+		it('completed items freeze their elapsed time', () => {
 			const tasks = makeTasks(['in_progress']);
 			const {result, rerender} = renderHook(
-				({tasks}: {tasks: TodoItem[]}) => useTodoPanel({tasks}),
-				{initialProps: {tasks}},
+				({tasks, isWorking}: HookProps) => useTodoPanel({tasks, isWorking}),
+				{initialProps: {tasks, isWorking: true}},
 			);
 
-			// Advance 10 seconds while doing
 			act(() => {
 				vi.advanceTimersByTime(10_000);
 			});
 
-			// Now mark as completed
 			const completedTasks = makeTasks(['completed']);
-			rerender({tasks: completedTasks});
+			rerender({tasks: completedTasks, isWorking: true});
 
 			expect(result.current.todoItems[0]!.elapsed).toBe('10s');
+
+			act(() => {
+				vi.advanceTimersByTime(5000);
+			});
+			rerender({tasks: completedTasks, isWorking: true});
+
+			expect(result.current.todoItems[0]!.elapsed).toBe('10s');
+		});
+
+		it('re-opened items clear completedAt and resume counting', () => {
+			const tasks = makeTasks(['in_progress']);
+			const {result, rerender} = renderHook(
+				({tasks, isWorking}: HookProps) => useTodoPanel({tasks, isWorking}),
+				{initialProps: {tasks, isWorking: true}},
+			);
+
+			act(() => {
+				vi.advanceTimersByTime(5000);
+			});
+			rerender({tasks: makeTasks(['completed']), isWorking: true});
+			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
+
+			rerender({tasks: makeTasks(['in_progress']), isWorking: true});
+
+			act(() => {
+				vi.advanceTimersByTime(3000);
+			});
+			expect(result.current.todoItems[0]!.elapsed).toBe('8s');
+		});
+
+		it('elapsed freezes when idle (not working)', () => {
+			const tasks = makeTasks(['in_progress']);
+			const {result, rerender} = renderHook(
+				({tasks, isWorking}: HookProps) => useTodoPanel({tasks, isWorking}),
+				{initialProps: {tasks, isWorking: true}},
+			);
+
+			act(() => {
+				vi.advanceTimersByTime(5000);
+			});
+			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
+
+			// Go idle
+			rerender({tasks, isWorking: false});
+			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
+
+			// Time passes while idle — should NOT grow
+			act(() => {
+				vi.advanceTimersByTime(10_000);
+			});
+			rerender({tasks, isWorking: false});
+			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
+
+			// Resume working — timer should continue from where it left off
+			rerender({tasks, isWorking: true});
+			act(() => {
+				vi.advanceTimersByTime(2000);
+			});
+			expect(result.current.todoItems[0]!.elapsed).toBe('7s');
 		});
 	});
 
 	describe('auto-scroll', () => {
 		it('keeps active and next pending item within visible window', () => {
-			// 6 tasks: first 3 done, 4th doing, 5th+6th pending
 			const tasks = makeTasks([
 				'completed',
 				'completed',
@@ -70,11 +125,26 @@ describe('useTodoPanel', () => {
 				'pending',
 				'pending',
 			]);
-			const {result} = renderHook(() => useTodoPanel({tasks}));
+			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
 
-			// activeIdx=3, lastMustSee=4. With maxVisible=3, scroll should be 2
-			// so visible window is [2,3,4] which includes both active(3) and next(4)
 			expect(result.current.todoScroll).toBe(2);
+		});
+
+		it('scrolls to first incomplete item when no doing item exists', () => {
+			const tasks = makeTasks([
+				'completed',
+				'completed',
+				'completed',
+				'completed',
+				'completed',
+				'pending',
+				'pending',
+			]);
+			const {result} = renderHook(() =>
+				useTodoPanel({tasks, isWorking: false}),
+			);
+
+			expect(result.current.todoScroll).toBe(4);
 		});
 	});
 });

@@ -1,6 +1,7 @@
 // source/utils/toolSummary.ts
 
 import {isBashToolResponse} from '../components/hookEventUtils.js';
+import {parseToolName} from './toolNameParser.js';
 
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {
@@ -89,9 +90,17 @@ function summarizeGrep(
 	_input: Record<string, unknown>,
 	response: unknown,
 ): string {
-	if (typeof response !== 'string') return '';
-	const matches = response.split('\n').filter(Boolean).length;
-	return `${matches} matches`;
+	if (typeof response === 'string') {
+		const matches = response.split('\n').filter(Boolean).length;
+		return `${matches} matches`;
+	}
+	if (typeof response === 'object' && response !== null) {
+		const numMatches = prop(response, 'numMatches');
+		if (typeof numMatches === 'number') return `${numMatches} matches`;
+		const count = prop(response, 'count');
+		if (typeof count === 'number') return `${count} matches`;
+	}
+	return '';
 }
 
 function summarizeWebSearch(
@@ -129,6 +138,24 @@ const SUMMARIZERS: Record<string, Summarizer> = {
 	Task: summarizeTask,
 };
 
+function summarizeFindElements(
+	_input: Record<string, unknown>,
+	response: unknown,
+): string {
+	if (typeof response === 'object' && response !== null) {
+		// Response may contain an elements/items array or be an array itself
+		const elements = prop(response, 'elements') ?? prop(response, 'items');
+		if (Array.isArray(elements)) return `${elements.length} found`;
+		if (Array.isArray(response)) return `${response.length} found`;
+	}
+	return '';
+}
+
+/** Summarizers keyed by MCP action name. */
+const MCP_SUMMARIZERS: Record<string, Summarizer> = {
+	find_elements: summarizeFindElements,
+};
+
 /**
  * Produce a short one-line outcome summary for a completed tool call.
  * If `error` is provided, it's a failure summary.
@@ -152,5 +179,18 @@ export function summarizeToolResult(
 			return '';
 		}
 	}
+
+	const parsed = parseToolName(toolName);
+	if (parsed.isMcp && parsed.mcpAction) {
+		const mcpSummarizer = MCP_SUMMARIZERS[parsed.mcpAction];
+		if (mcpSummarizer) {
+			try {
+				return mcpSummarizer(toolInput, toolResponse);
+			} catch {
+				return '';
+			}
+		}
+	}
+
 	return '';
 }

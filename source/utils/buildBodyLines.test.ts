@@ -30,6 +30,7 @@ function makeEntry(id: string, ts: number, opTag = 'tool.call'): TimelineEntry {
 		opTag,
 		actor: 'agent',
 		actorId: 'agent:root',
+		toolColumn: '',
 		summary: `summary-${id}`,
 		summarySegments: [{text: `summary-${id}`, role: 'plain'}],
 		searchText: `summary-${id}`,

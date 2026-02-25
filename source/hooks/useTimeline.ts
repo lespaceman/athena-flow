@@ -17,6 +17,10 @@ import {
 	VERBOSE_ONLY_KINDS,
 } from '../feed/timeline.js';
 import {compactText, actorLabel} from '../utils/format.js';
+import {
+	resolveToolColumn,
+	resolveEventToolColumn,
+} from '../feed/toolDisplay.js';
 
 export type UseTimelineOptions = {
 	feedItems: FeedItem[];
@@ -73,6 +77,7 @@ export function useTimeline({
 					opTag: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
 					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
 					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
+					toolColumn: '',
 					summary,
 					summarySegments: [{text: summary, role: 'plain' as const}],
 					searchText: `${summary}\n${details}`,
@@ -129,6 +134,12 @@ export function useTimeline({
 				: eventSummary(event);
 			const {text: summary, segments: summarySegments} = summaryResult;
 			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
+			const toolColumn =
+				event.kind === 'tool.pre' ||
+				event.kind === 'tool.post' ||
+				event.kind === 'tool.failure'
+					? resolveToolColumn(event.data.tool_name)
+					: resolveEventToolColumn(event);
 			entries.push({
 				id: event.event_id,
 				ts: event.ts,
@@ -137,6 +148,7 @@ export function useTimeline({
 				opTag,
 				actor: actorLabel(event.actor_id),
 				actorId: event.actor_id,
+				toolColumn,
 				summary,
 				summarySegments,
 				summaryOutcome: summaryResult.outcome,

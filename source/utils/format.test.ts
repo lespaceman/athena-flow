@@ -357,6 +357,38 @@ describe('MCP browser input extractors', () => {
 			),
 		).toBe('button "Feeling Lucky"');
 	});
+	it('find_elements falls back to region when no kind/label', () => {
+		expect(
+			summarizeToolPrimaryInput(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{region: 'nav'},
+			),
+		).toBe('nav');
+	});
+	it('find_elements returns "elements" when totally empty', () => {
+		expect(
+			summarizeToolPrimaryInput(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{limit: 10},
+			),
+		).toBe('elements');
+	});
+	it('get_element_details truncates eid', () => {
+		expect(
+			summarizeToolPrimaryInput(
+				'mcp__plugin_x_agent-web-interface__get_element_details',
+				{eid: 'd8765a92edef'},
+			),
+		).toBe('eid:d8765a…');
+	});
+	it('close_session returns "session"', () => {
+		expect(
+			summarizeToolPrimaryInput(
+				'mcp__plugin_x_agent-web-interface__close_session',
+				{},
+			),
+		).toBe('session');
+	});
 	it('click truncates eid', () => {
 		expect(
 			summarizeToolPrimaryInput('mcp__plugin_x_agent-web-interface__click', {

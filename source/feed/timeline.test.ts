@@ -1075,6 +1075,7 @@ describe('formatFeedLine', () => {
 		opTag: 'tool.call',
 		actor: 'AGENT',
 		actorId: 'agent:root',
+		toolColumn: 'Bash',
 		summary: 'Bash cmd',
 		summarySegments: [{text: 'Bash cmd', role: 'plain'}],
 		searchText: 'bash cmd',

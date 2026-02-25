@@ -119,6 +119,36 @@ describe('summarizeToolResult', () => {
 		expect(summarizeToolResult('mcp__x__navigate', {}, {})).toBe('');
 	});
 
+	it('summarizes MCP find_elements with element count', () => {
+		expect(
+			summarizeToolResult(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{kind: 'button'},
+				{elements: [{eid: 'a'}, {eid: 'b'}, {eid: 'c'}]},
+			),
+		).toBe('3 found');
+	});
+
+	it('summarizes MCP find_elements with items array', () => {
+		expect(
+			summarizeToolResult(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{},
+				{items: [{eid: 'a'}]},
+			),
+		).toBe('1 found');
+	});
+
+	it('returns empty for MCP find_elements with no recognizable shape', () => {
+		expect(
+			summarizeToolResult(
+				'mcp__plugin_x_agent-web-interface__find_elements',
+				{},
+				{status: 'ok'},
+			),
+		).toBe('');
+	});
+
 	it('returns empty string for Read when no content extracted', () => {
 		expect(summarizeToolResult('Read', {}, null)).toBe('');
 	});
@@ -131,9 +161,20 @@ describe('summarizeToolResult', () => {
 		expect(summarizeToolResult('WebSearch', {}, {})).toBe('');
 	});
 
-	it('returns empty string for Grep when response is not a string', () => {
+	it('returns empty string for Grep when response is null', () => {
 		expect(summarizeToolResult('Grep', {pattern: 'foo'}, null)).toBe('');
-		expect(summarizeToolResult('Grep', {pattern: 'foo'}, {})).toBe('');
+	});
+
+	it('summarizes Grep object response with numMatches', () => {
+		expect(
+			summarizeToolResult('Grep', {pattern: 'foo'}, {numMatches: 42}),
+		).toBe('42 matches');
+	});
+
+	it('summarizes Grep object response with count', () => {
+		expect(summarizeToolResult('Grep', {pattern: 'foo'}, {count: 7})).toBe(
+			'7 matches',
+		);
 	});
 
 	it('summarizes failure with error string', () => {

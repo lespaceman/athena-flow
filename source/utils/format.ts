@@ -172,8 +172,10 @@ const MCP_INPUT_EXTRACTORS: Record<
 		const parts: string[] = [];
 		if (input.kind) parts.push(String(input.kind));
 		if (input.label) parts.push(`"${String(input.label)}"`);
-		return parts.join(' ') || '';
+		if (parts.length === 0 && input.region) parts.push(String(input.region));
+		return parts.join(' ') || 'elements';
 	},
+	get_element_details: eidExtractor,
 	click: eidExtractor,
 	type: input => {
 		const text = String(input.text ?? '');
@@ -189,7 +191,7 @@ const MCP_INPUT_EXTRACTORS: Record<
 	press: input => String(input.key ?? ''),
 	scroll_page: input => String(input.direction ?? ''),
 	take_screenshot: () => '',
-	close_session: () => '',
+	close_session: () => 'session',
 	close_page: () => '',
 };
 
@@ -197,14 +199,17 @@ export function summarizeToolPrimaryInput(
 	toolName: string,
 	toolInput: Record<string, unknown>,
 ): string {
-	if (Object.keys(toolInput).length === 0) return '';
 	const extractor = PRIMARY_INPUT_EXTRACTORS[toolName];
-	if (extractor) return extractor(toolInput);
+	if (extractor) {
+		if (Object.keys(toolInput).length === 0) return '';
+		return extractor(toolInput);
+	}
 	const parsed = parseToolName(toolName);
 	if (parsed.isMcp && parsed.mcpAction) {
 		const mcpExtractor = MCP_INPUT_EXTRACTORS[parsed.mcpAction];
 		if (mcpExtractor) return mcpExtractor(toolInput);
 	}
+	if (Object.keys(toolInput).length === 0) return '';
 	return summarizeToolInput(toolInput);
 }
 

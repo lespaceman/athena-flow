@@ -171,7 +171,10 @@ export function buildBodyLines({
 			if (hasScrollDown) renderSlots--;
 
 			if (hasScrollUp) {
-				bodyLines.push(fitAnsi(g.scrollUp, innerWidth));
+				const aboveCount = tScroll;
+				bodyLines.push(
+					fitAnsi(`${g.scrollUp}  +${aboveCount} more`, innerWidth),
+				);
 			}
 
 			for (let i = 0; i < renderSlots; i++) {
