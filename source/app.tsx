@@ -692,6 +692,10 @@ function AppContent({
 			colors: {
 				doing: theme.status.warning,
 				done: theme.status.success,
+				failed: theme.status.error,
+				blocked: theme.status.warning,
+				text: theme.text,
+				textMuted: theme.textMuted,
 				default: theme.status.neutral,
 			},
 			appMode: appMode.type,

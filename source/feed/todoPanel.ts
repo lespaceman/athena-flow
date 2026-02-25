@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import {type TodoItem} from '../types/todo.js';
 import {todoGlyphSet as getTodoGlyphSet, getGlyphs} from '../glyphs/index.js';
 
-export type TodoPanelStatus = 'open' | 'doing' | 'blocked' | 'done';
+export type TodoPanelStatus = 'open' | 'doing' | 'blocked' | 'done' | 'failed';
 
 export type TodoPanelItem = {
 	id: string;
@@ -21,7 +21,7 @@ export function toTodoStatus(status: TodoItem['status']): TodoPanelStatus {
 		case 'completed':
 			return 'done';
 		case 'failed':
-			return 'blocked';
+			return 'failed';
 		default:
 			return 'open';
 	}
@@ -38,6 +38,10 @@ export type TodoGlyphs = {
 export type TodoGlyphColors = {
 	doing: string;
 	done: string;
+	failed: string;
+	blocked: string;
+	text: string;
+	textMuted: string;
 	default: string;
 };
 
@@ -50,6 +54,10 @@ function colorForStatus(
 			return colors.doing;
 		case 'done':
 			return colors.done;
+		case 'failed':
+			return colors.failed;
+		case 'blocked':
+			return colors.blocked;
 		default:
 			return colors.default;
 	}

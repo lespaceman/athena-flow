@@ -12,6 +12,7 @@ const STATUS_ORDER: Record<TodoPanelStatus, number> = {
 	doing: 0,
 	open: 1,
 	blocked: 1,
+	failed: 1,
 	done: 2,
 };
 
