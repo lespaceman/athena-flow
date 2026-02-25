@@ -294,6 +294,14 @@ describe('summarizeToolPrimaryInput', () => {
 	it('returns empty string for empty input', () => {
 		expect(summarizeToolPrimaryInput('Read', {})).toBe('');
 	});
+
+	it('summarizeToolPrimaryInput returns question count for AskUserQuestion', () => {
+		const input = {questions: [{question: 'Pick one?', options: ['a', 'b']}]};
+		expect(summarizeToolPrimaryInput('AskUserQuestion', input)).toBe('1 question');
+
+		const multi = {questions: [{question: 'Q1'}, {question: 'Q2'}]};
+		expect(summarizeToolPrimaryInput('AskUserQuestion', multi)).toBe('2 questions');
+	});
 });
 
 describe('shortenPath', () => {

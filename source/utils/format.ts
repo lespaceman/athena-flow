@@ -147,6 +147,11 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 		const path = String(input.notebook_path ?? '');
 		return path ? shortenPath(path) : '';
 	},
+	AskUserQuestion: input => {
+		const questions = input.questions;
+		const n = Array.isArray(questions) ? questions.length : 0;
+		return `${n} question${n !== 1 ? 's' : ''}`;
+	},
 };
 
 const eidExtractor = (input: Record<string, unknown>): string => {
