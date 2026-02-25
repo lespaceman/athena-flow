@@ -69,6 +69,15 @@ describe('summarizeToolResult', () => {
 		expect(result).toBe('3 files');
 	});
 
+	it('summarizes Glob with singular file', () => {
+		expect(
+			summarizeToolResult('Glob', {pattern: '*.ts'}, {filenames: ['a.ts']}),
+		).toBe('1 file');
+		expect(summarizeToolResult('Glob', {pattern: '*.ts'}, {numFiles: 1})).toBe(
+			'1 file',
+		);
+	});
+
 	it('summarizes Grep with match count', () => {
 		const result = summarizeToolResult(
 			'Grep',

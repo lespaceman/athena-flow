@@ -77,9 +77,11 @@ function summarizeGlob(
 	response: unknown,
 ): string {
 	const filenames = prop(response, 'filenames');
-	if (Array.isArray(filenames)) return `${filenames.length} files`;
+	if (Array.isArray(filenames))
+		return `${filenames.length} ${filenames.length === 1 ? 'file' : 'files'}`;
 	const numFiles = prop(response, 'numFiles');
-	if (typeof numFiles === 'number') return `${numFiles} files`;
+	if (typeof numFiles === 'number')
+		return `${numFiles} ${numFiles === 1 ? 'file' : 'files'}`;
 	return '';
 }
 

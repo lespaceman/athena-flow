@@ -249,7 +249,7 @@ function formatToolSummary(
 	const rest = text.slice(verb.length);
 
 	// X4: Split target into prefix (dim) + filename (bright) for path-based tools
-	const baseName = parsed.isMcp ? toolName : toolName;
+	const baseName = toolName;
 	const filePath = toolInput.file_path ?? toolInput.pattern ?? toolInput.path;
 	if (PATH_TOOLS.has(baseName) && typeof filePath === 'string') {
 		const {prefix, filename} = shortenPathStructured(filePath);
