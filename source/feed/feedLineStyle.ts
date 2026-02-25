@@ -80,15 +80,16 @@ export function styleFeedLine(
 		? chalk.hex(theme.status.error)
 		: actorStyle(actorId, theme);
 
-	// Full-row dimming: lifecycle and Tool OK events get muted base for all segments
+	// Full-row dimming: lifecycle events get muted base for all segments
+	// (Tool OK only dims the EVENT column via opCategoryColor, not the whole row)
 	const isLifecycleRow =
 		opts.opTag !== undefined &&
 		/^(run\.|sess\.|stop\.|sub\.)/.test(opts.opTag);
-	const isToolOk = opts.opTag === 'tool.ok';
 	const rowBase =
-		!isError && (isLifecycleRow || isToolOk)
-			? chalk.hex(theme.textMuted)
-			: base;
+		!isError && isLifecycleRow ? chalk.hex(theme.textMuted) : base;
+
+	// TIME column is always muted per color-palette.md
+	const timeStyle = isError ? chalk.hex(theme.status.error) : chalk.hex(theme.textMuted);
 
 	// Agent messages: summary text uses info color (blue)
 	const isAgentMsg = opts.opTag === 'agent.msg';
@@ -131,15 +132,15 @@ export function styleFeedLine(
 		gutterStyle = chalk.dim.hex(theme.textMuted);
 	} else {
 		gutterChar = ' ';
-		gutterStyle = rowBase;
+		gutterStyle = timeStyle;
 	}
 
 	// Build styled string by painting segments
 	let styled = gutterStyle(gutterChar);
 	const segments: {start: number; end: number; style: ChalkInstance}[] = [];
 
-	// TIME segment (1..EVENT_START)
-	segments.push({start: 1, end: FEED_EVENT_COL_START, style: rowBase});
+	// TIME segment (1..EVENT_START) — always muted per palette
+	segments.push({start: 1, end: FEED_EVENT_COL_START, style: timeStyle});
 	// EVENT segment (colored by category)
 	segments.push({
 		start: FEED_EVENT_COL_START,
@@ -149,12 +150,11 @@ export function styleFeedLine(
 
 	// After EVENT: actor + summary (may have dim portion and glyph)
 	const afterEventEnd = glyphPos ?? line.length;
-	const actorStyle_ =
-		isLifecycleRow || isToolOk
-			? rowBase
-			: opts.duplicateActor
-				? chalk.dim.hex(theme.textMuted)
-				: base;
+	const actorStyle_ = isLifecycleRow
+		? rowBase
+		: opts.duplicateActor
+			? chalk.dim.hex(theme.textMuted)
+			: base;
 
 	// Actor segment (EVENT_COL_END..ACTOR_COL_END)
 	const actorEnd = Math.min(FEED_ACTOR_COL_END, afterEventEnd);

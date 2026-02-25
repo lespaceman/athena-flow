@@ -276,7 +276,21 @@ describe('styleFeedLine', () => {
 		expect(styled).toContain('▎');
 	});
 
-	it('dims entire row for tool.ok events (QW1)', () => {
+	it('TIME is always muted per palette, even for normal rows', () => {
+		const result = styleFeedLine(baseLine, {
+			focused: false,
+			matched: false,
+			actorId: 'agent:root',
+			isError: false,
+			theme: darkTheme,
+		});
+		// TIME segment should use textMuted (#6c7086 → 108;112;134), not text color
+		const timeSegment = result.slice(0, 30);
+		expect(timeSegment).toContain('38;2;108;112;134');
+		expect(timeSegment).not.toContain('38;2;205;214;244');
+	});
+
+	it('tool.ok dims EVENT only, ACTOR+SUMMARY stay bright (QW1)', () => {
 		const result = styleFeedLine(baseLine, {
 			focused: false,
 			matched: false,
@@ -285,11 +299,10 @@ describe('styleFeedLine', () => {
 			theme: darkTheme,
 			opTag: 'tool.ok',
 		});
-		// The TIME segment (chars 1-7) should use textMuted (#6c7086 → 108;112;134)
-		// not the default text color (#cdd6f4 → 205;214;244)
-		const timeSegment = result.slice(0, 30);
-		expect(timeSegment).toContain('38;2;108;112;134');
-		expect(timeSegment).not.toContain('38;2;205;214;244');
+		// EVENT column should have textMuted (108;112;134)
+		expect(result).toContain('38;2;108;112;134');
+		// ACTOR + SUMMARY should still have bright text color (205;214;244)
+		expect(result).toContain('38;2;205;214;244');
 	});
 
 	it('dims entire row for lifecycle events (S9)', () => {
