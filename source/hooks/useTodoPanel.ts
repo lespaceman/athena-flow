@@ -157,7 +157,7 @@ export function useTodoPanel({tasks}: UseTodoPanelOptions): UseTodoPanelResult {
 
 	const toggleTodoStatus = useCallback((index: number) => {
 		const selected = visibleTodoItemsRef.current[index];
-		if (!selected) return;
+		if (!selected || selected.status === 'failed') return;
 		setTodoStatusOverrides(prev => ({
 			...prev,
 			[selected.id]:
