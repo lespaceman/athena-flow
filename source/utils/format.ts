@@ -127,6 +127,11 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	Task: input => compactText(String(input.description ?? ''), 60),
 	WebSearch: input => `"${String(input.query ?? '')}"`,
 	WebFetch: input => compactText(String(input.url ?? ''), 60),
+	Skill: input => compactText(String(input.skill ?? ''), 40),
+	NotebookEdit: input => {
+		const path = String(input.notebook_path ?? '');
+		return path ? shortenPath(path) : '';
+	},
 };
 
 const eidExtractor = (input: Record<string, unknown>): string => {
