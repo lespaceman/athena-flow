@@ -2,104 +2,146 @@ import {type Theme, type ThemeName} from './types.js';
 
 export const darkTheme: Theme = {
 	name: 'dark',
+
+	// ── Text hierarchy ──────────────────────────────────────
+	text: '#c9d1d9', // Primary text. Warm gray, not pure white.
+	textMuted: '#484f58', // Dim text. Paths, labels, happy-path events.
+	textInverse: '#0d1117', // Text on colored backgrounds.
+
+	// ── Accent ──────────────────────────────────────────────
 	border: '#58a6ff',
-	text: '#e6edf3',
-	textMuted: '#484f58',
-	textInverse: '#0d1117',
+	accent: '#58a6ff', // Blue. Focus bar, branding, selection, links.
+	accentSecondary: '#bc8cff', // Soft purple. Permission events.
+
+	// ── Status ──────────────────────────────────────────────
 	status: {
-		success: '#3fb950',
-		error: '#f85149',
-		warning: '#d29922',
-		info: '#79c0ff',
-		working: '#e3b341',
-		neutral: '#484f58',
+		success: '#3fb950', // Green. Completion, done glyphs.
+		error: '#f85149', // Red. Failures, blocks, Tool Fail.
+		warning: '#d29922', // Amber. Active stage, zero-result tint, caution.
+		info: '#58a6ff', // Blue. Agent messages, Run OK.
+		working: '#d29922', // Amber. Spinner state (same as warning).
+		neutral: '#8b949e', // Mid gray. Idle state, neutral badges.
 	},
-	accent: '#58a6ff',
-	accentSecondary: '#a371f7',
+
+	// ── Context bar ─────────────────────────────────────────
 	contextBar: {
-		low: '#3fb950',
-		medium: '#d29922',
-		high: '#f85149',
+		low: '#3fb950', // Green.  0–50% budget used.
+		medium: '#d29922', // Amber. 50–80% budget used.
+		high: '#f85149', // Red.   80–100% budget used.
 	},
+
+	// ── Dialog borders ──────────────────────────────────────
 	dialog: {
-		borderPermission: '#d29922',
-		borderQuestion: '#79c0ff',
+		borderPermission: '#d29922', // Amber border for permission prompts.
+		borderQuestion: '#58a6ff', // Blue border for question prompts.
 	},
-	inputPrompt: '#58a6ff',
+
+	// ── Input ───────────────────────────────────────────────
+	inputPrompt: '#58a6ff', // Blue "input>" prefix.
+
+	// ── User messages ───────────────────────────────────────
 	userMessage: {
-		text: '#c9d1d9',
-		background: '#161b22',
-		border: '#58a6ff',
+		text: '#c9d1d9', // Same as primary text.
+		background: '#161b22', // Slightly lifted from terminal bg.
+		border: '#30363d', // Subtle border.
 	},
 };
 
 export const lightTheme: Theme = {
 	name: 'light',
-	border: '#5c5cff',
-	text: '#4c4f69',
-	textMuted: '#6c6f85',
-	textInverse: '#eff1f5',
+
+	// ── Text hierarchy ──────────────────────────────────────
+	text: '#1f2328', // Near-black. Strong contrast.
+	textMuted: '#656d76', // Medium gray. Same role as dark textMuted.
+	textInverse: '#ffffff', // White on colored backgrounds.
+
+	// ── Accent ──────────────────────────────────────────────
+	border: '#0969da',
+	accent: '#0969da', // Darker blue for light backgrounds.
+	accentSecondary: '#8250df', // Purple, darkened for readability.
+
+	// ── Status ──────────────────────────────────────────────
 	status: {
-		success: '#40a02b',
-		error: '#d20f39',
-		warning: '#df8e1d',
-		info: '#1e66f5',
-		working: '#c45d00',
-		neutral: '#6c6f85',
+		success: '#1a7f37', // Dark green. Readable on white.
+		error: '#cf222e', // Dark red.
+		warning: '#9a6700', // Dark amber.
+		info: '#0969da', // Dark blue. Matches accent.
+		working: '#9a6700', // Dark amber.
+		neutral: '#656d76', // Mid gray.
 	},
-	accent: '#5c5cff',
-	accentSecondary: '#8839ef',
+
+	// ── Context bar ─────────────────────────────────────────
 	contextBar: {
-		low: '#40a02b',
-		medium: '#df8e1d',
-		high: '#d20f39',
+		low: '#1a7f37',
+		medium: '#9a6700',
+		high: '#cf222e',
 	},
+
+	// ── Dialog borders ──────────────────────────────────────
 	dialog: {
-		borderPermission: '#df8e1d',
-		borderQuestion: '#1e66f5',
+		borderPermission: '#9a6700',
+		borderQuestion: '#0969da',
 	},
-	inputPrompt: '#5c5cff',
+
+	// ── Input ───────────────────────────────────────────────
+	inputPrompt: '#0969da',
+
+	// ── User messages ───────────────────────────────────────
 	userMessage: {
-		text: '#4c4f69',
-		background: '#ccd0da',
-		border: '#5c5cff',
+		text: '#1f2328',
+		background: '#f6f8fa',
+		border: '#d0d7de',
 	},
 };
 
 /**
- * High-contrast theme — WCAG AA compliant (4.5:1+ contrast ratios on #1a1a2e bg).
- * Pairs with shape-based status glyphs so status is never conveyed by color alone.
+ * High-contrast theme — maximum differentiation for accessibility.
+ * Brighter values, wider gaps between hierarchy levels.
  */
 export const highContrastTheme: Theme = {
 	name: 'high-contrast',
-	border: '#ffffff',
-	text: '#f0f0f0',
-	textMuted: '#a0a4b8',
-	textInverse: '#1a1a2e',
+
+	// ── Text hierarchy ──────────────────────────────────────
+	text: '#f0f6fc', // Near-white. Maximum brightness.
+	textMuted: '#7d8590', // Brighter than dark theme's muted. Still readable.
+	textInverse: '#010409', // Near-black.
+
+	// ── Accent ──────────────────────────────────────────────
+	border: '#71b7ff',
+	accent: '#71b7ff', // Brighter blue. Punches through.
+	accentSecondary: '#d2a8ff', // Bright purple.
+
+	// ── Status ──────────────────────────────────────────────
 	status: {
-		success: '#50fa7b', // ~8.5:1 on #1a1a2e
-		error: '#ff5555', // ~5.2:1
-		warning: '#f1fa8c', // ~13:1
-		info: '#8be9fd', // ~9.5:1
-		working: '#ffb86c', // ~8.8:1
-		neutral: '#a0a4b8', // ~5.5:1
+		success: '#56d364', // Bright green. Higher saturation.
+		error: '#ff7b72', // Bright red. Softened for readability.
+		warning: '#e3b341', // Bright amber.
+		info: '#71b7ff', // Bright blue.
+		working: '#e3b341', // Bright amber.
+		neutral: '#9ea7b3', // Lighter gray.
 	},
-	accent: '#bd93f9',
-	accentSecondary: '#ff79c6',
+
+	// ── Context bar ─────────────────────────────────────────
 	contextBar: {
-		low: '#50fa7b',
-		medium: '#ffb86c',
-		high: '#ff5555',
+		low: '#56d364',
+		medium: '#e3b341',
+		high: '#ff7b72',
 	},
+
+	// ── Dialog borders ──────────────────────────────────────
 	dialog: {
-		borderPermission: '#f1fa8c',
-		borderQuestion: '#8be9fd',
+		borderPermission: '#e3b341',
+		borderQuestion: '#71b7ff',
 	},
-	inputPrompt: '#bd93f9',
+
+	// ── Input ───────────────────────────────────────────────
+	inputPrompt: '#71b7ff',
+
+	// ── User messages ───────────────────────────────────────
 	userMessage: {
-		text: '#f0f0f0',
-		background: '#2a2a4a',
-		border: '#bd93f9',
+		text: '#f0f6fc',
+		background: '#161b22',
+		border: '#3d444d',
 	},
 };
 
