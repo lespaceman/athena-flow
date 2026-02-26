@@ -3,6 +3,47 @@ import sliceAnsi from 'slice-ansi';
 import {parseToolName} from './toolNameParser.js';
 
 const SIMPLE_ASCII_RE = /^[\x20-\x7E]*$/;
+const WIDTH_CACHE_MAX = 2_000;
+const WIDTH_CACHE_MAX_TEXT_LENGTH = 512;
+const SPACE_CACHE_MAX = 128;
+const widthCache = new Map<string, number>();
+const spaceCache: string[] = [''];
+
+function cachedStringWidth(text: string): number {
+	if (text.length > WIDTH_CACHE_MAX_TEXT_LENGTH) {
+		return stringWidth(text);
+	}
+	const cached = widthCache.get(text);
+	if (cached !== undefined) {
+		// Promote recently-used keys so oldest entries can be evicted first.
+		widthCache.delete(text);
+		widthCache.set(text, cached);
+		return cached;
+	}
+	const measured = stringWidth(text);
+	widthCache.set(text, measured);
+	if (widthCache.size > WIDTH_CACHE_MAX) {
+		const oldest = widthCache.keys().next().value;
+		if (oldest !== undefined) {
+			widthCache.delete(oldest);
+		}
+	}
+	return measured;
+}
+
+export function spaces(count: number): string {
+	if (count <= 0) return '';
+	if (count < SPACE_CACHE_MAX) {
+		const cached = spaceCache[count];
+		if (cached !== undefined) {
+			return cached;
+		}
+		const generated = ' '.repeat(count);
+		spaceCache[count] = generated;
+		return generated;
+	}
+	return ' '.repeat(count);
+}
 
 function isSimpleAscii(text: string): boolean {
 	return SIMPLE_ASCII_RE.test(text);
@@ -13,7 +54,7 @@ function fitAscii(text: string, width: number): string {
 	const len = text.length;
 	if (len <= width) {
 		const pad = width - len;
-		return pad > 0 ? text + ' '.repeat(pad) : text;
+		return pad > 0 ? text + spaces(pad) : text;
 	}
 	if (width <= 3) return text.slice(0, width);
 	return text.slice(0, width - 3) + '...';
@@ -27,7 +68,7 @@ export function compactText(value: string, max: number): string {
 		if (max <= 3) return clean.slice(0, max);
 		return clean.slice(0, max - 3) + '...';
 	}
-	const w = stringWidth(clean);
+	const w = cachedStringWidth(clean);
 	if (w <= max) return clean;
 	if (max <= 3) return sliceAnsi(clean, 0, max);
 	return sliceAnsi(clean, 0, max - 3) + '...';
@@ -38,10 +79,10 @@ export function fit(text: string, width: number): string {
 		return fitAscii(text, width);
 	}
 	if (width <= 0) return '';
-	const w = stringWidth(text);
+	const w = cachedStringWidth(text);
 	if (w <= width) {
 		const pad = width - w;
-		return pad > 0 ? text + ' '.repeat(pad) : text;
+		return pad > 0 ? text + spaces(pad) : text;
 	}
 	if (width <= 3) return sliceAnsi(text, 0, width);
 	return sliceAnsi(text, 0, width - 3) + '...';
@@ -62,10 +103,10 @@ export function fitAnsi(text: string, width: number): string {
 		return fitAscii(text, width);
 	}
 	if (width <= 0) return '';
-	const visualWidth = stringWidth(text);
+	const visualWidth = cachedStringWidth(text);
 	if (visualWidth <= width) {
 		const pad = width - visualWidth;
-		return pad > 0 ? text + ' '.repeat(pad) : text;
+		return pad > 0 ? text + spaces(pad) : text;
 	}
 	if (width <= 3) return sliceAnsi(text, 0, width);
 	return sliceAnsi(text, 0, width - 3) + '...';

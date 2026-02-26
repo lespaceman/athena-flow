@@ -14,7 +14,7 @@ import {
 	formatDetails,
 	formatSuffix,
 } from '../feed/cellFormatters.js';
-import {fitAnsi} from '../utils/format.js';
+import {fitAnsi, spaces} from '../utils/format.js';
 
 type FeedColumnWidths = {
 	toolW: number;
@@ -39,6 +39,123 @@ type Props = {
 type FeedRowLineProps = Props & {
 	innerWidth: number;
 };
+
+const ROW_LINE_CACHE_MAX_VARIANTS = 16;
+const ROW_LINE_CACHE_MAX_ENTRIES = 2_000;
+const rowLineCache = new Map<
+	string,
+	{signature: string; variants: Map<string, string>}
+>();
+const detailSummaryCache = new WeakMap<
+	TimelineEntry,
+	{segments: TimelineEntry['summarySegments']; summary: string}
+>();
+const themeIdCache = new WeakMap<Theme, number>();
+let nextThemeId = 1;
+
+function getThemeId(theme: Theme): number {
+	const cached = themeIdCache.get(theme);
+	if (cached !== undefined) return cached;
+	const id = nextThemeId++;
+	themeIdCache.set(theme, id);
+	return id;
+}
+
+function getLineCache(entry: TimelineEntry): Map<string, string> {
+	const signature = [
+		entry.ts,
+		entry.op,
+		entry.opTag,
+		entry.actor,
+		entry.actorId,
+		entry.toolColumn,
+		entry.summary,
+		entry.summaryOutcome ?? '',
+		entry.summaryOutcomeZero ? 1 : 0,
+		entry.error ? 1 : 0,
+		entry.expandable ? 1 : 0,
+	].join('\u001F');
+
+	const cached = rowLineCache.get(entry.id);
+	if (cached && cached.signature === signature) {
+		// Promote recently-used rows so oldest entries can be evicted first.
+		rowLineCache.delete(entry.id);
+		rowLineCache.set(entry.id, cached);
+		return cached.variants;
+	}
+
+	const created = {signature, variants: new Map<string, string>()};
+	rowLineCache.set(entry.id, created);
+	if (rowLineCache.size > ROW_LINE_CACHE_MAX_ENTRIES) {
+		const oldestEntryId = rowLineCache.keys().next().value;
+		if (oldestEntryId !== undefined) {
+			rowLineCache.delete(oldestEntryId);
+		}
+	}
+	return created.variants;
+}
+
+function trimVerbPrefix(entry: TimelineEntry): {
+	segments: TimelineEntry['summarySegments'];
+	summary: string;
+} {
+	const cached = detailSummaryCache.get(entry);
+	if (cached) return cached;
+
+	let verbLen = 0;
+	const segments: TimelineEntry['summarySegments'] = [];
+	for (const segment of entry.summarySegments) {
+		if (segment.role === 'verb') {
+			verbLen += segment.text.length;
+			continue;
+		}
+		segments.push(segment);
+	}
+	if (segments.length > 0) {
+		const first = segments[0]!;
+		const trimmed = first.text.trimStart();
+		if (trimmed !== first.text) {
+			segments[0] = {...first, text: trimmed};
+		}
+	}
+
+	const result = {
+		segments,
+		summary: entry.summary.slice(verbLen).trimStart(),
+	};
+	detailSummaryCache.set(entry, result);
+	return result;
+}
+
+function buildLineCacheKey({
+	entry,
+	cols,
+	focused,
+	expanded,
+	matched,
+	isDuplicateActor,
+	ascii,
+	theme,
+	innerWidth,
+}: FeedRowLineProps): string {
+	return [
+		innerWidth,
+		cols.toolW,
+		cols.detailsW,
+		cols.resultW,
+		cols.gapW,
+		cols.detailsResultGapW,
+		cols.timeEventGapW,
+		focused ? 1 : 0,
+		expanded ? 1 : 0,
+		matched ? 1 : 0,
+		isDuplicateActor ? 1 : 0,
+		ascii ? 1 : 0,
+		entry.expandable ? 1 : 0,
+		entry.error ? 1 : 0,
+		getThemeId(theme),
+	].join('|');
+}
 
 /** Strip ANSI and re-color when row is focused. */
 function cell(content: string, overrideColor?: string): string {
@@ -89,19 +206,12 @@ function lineParts({
 		overrideColor,
 	);
 
-	// Strip leading verb segments — the TOOL column handles the tool name
-	const detailSegments = entry.summarySegments
-		.filter(s => s.role !== 'verb')
-		.map((s, i) => (i === 0 ? {...s, text: s.text.trimStart()} : s));
-	const verbLen = entry.summarySegments
-		.filter(s => s.role === 'verb')
-		.reduce((n, s) => n + s.text.length, 0);
-	const detailSummary = entry.summary.slice(verbLen).trimStart();
+	const detailSummaryInfo = trimVerbPrefix(entry);
 
 	const detail = cell(
 		formatDetails({
-			segments: detailSegments,
-			summary: detailSummary,
+			segments: detailSummaryInfo.segments,
+			summary: detailSummaryInfo.summary,
 			mode: 'full',
 			contentWidth: cols.detailsW,
 			theme,
@@ -140,6 +250,11 @@ export function formatFeedRowLine({
 	innerWidth,
 	...props
 }: FeedRowLineProps): string {
+	const cachedLines = getLineCache(props.entry);
+	const cacheKey = buildLineCacheKey({...props, innerWidth});
+	const cached = cachedLines.get(cacheKey);
+	if (cached !== undefined) return cached;
+
 	const parts = lineParts(props);
 	const {
 		cols: {gapW, timeEventGapW, detailsResultGapW, resultW},
@@ -148,21 +263,29 @@ export function formatFeedRowLine({
 	let line =
 		parts.gutter +
 		parts.time +
-		' '.repeat(timeEventGapW) +
+		spaces(timeEventGapW) +
 		parts.event +
-		' '.repeat(gapW) +
+		spaces(gapW) +
 		parts.actor +
-		' '.repeat(gapW) +
+		spaces(gapW) +
 		parts.tool +
-		' '.repeat(gapW) +
+		spaces(gapW) +
 		parts.detail;
 
 	if (resultW > 0) {
-		line += ' '.repeat(detailsResultGapW) + parts.result;
+		line += spaces(detailsResultGapW) + parts.result;
 	}
 
-	line += ' '.repeat(gapW) + parts.suffix;
-	return fitAnsi(line, innerWidth);
+	line += spaces(gapW) + parts.suffix;
+	const formatted = fitAnsi(line, innerWidth);
+	cachedLines.set(cacheKey, formatted);
+	if (cachedLines.size > ROW_LINE_CACHE_MAX_VARIANTS) {
+		const oldestKey = cachedLines.keys().next().value;
+		if (oldestKey !== undefined) {
+			cachedLines.delete(oldestKey);
+		}
+	}
+	return formatted;
 }
 
 function FeedRowImpl({

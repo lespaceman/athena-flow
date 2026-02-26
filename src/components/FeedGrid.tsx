@@ -3,7 +3,7 @@ import {Text} from 'ink';
 import {type TimelineEntry} from '../feed/timeline.js';
 import {type Theme} from '../theme/types.js';
 import {frameGlyphs} from '../glyphs/index.js';
-import {fitAnsi} from '../utils/format.js';
+import {fitAnsi, spaces} from '../utils/format.js';
 import {type FeedColumnWidths, formatFeedRowLine} from './FeedRow.js';
 import {formatFeedHeaderLine} from './FeedHeader.js';
 
@@ -38,7 +38,7 @@ function FeedGridImpl({
 }: Props) {
 	const rows: React.ReactNode[] = [];
 	const fr = frameGlyphs(ascii);
-	const blankLine = ' '.repeat(innerWidth);
+	const blankLine = spaces(innerWidth);
 	const frameLine = (content: string): string =>
 		`${fr.vertical}${content}${fr.vertical}`;
 

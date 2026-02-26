@@ -68,7 +68,7 @@ export type UICommandContext = {
 
 export type HookCommandContext = {
 	args: Record<string, string>;
-	feed: UseFeedResult;
+	feed: Pick<UseFeedResult, 'printTaskSnapshot'>;
 };
 
 export type PromptCommandContext = {

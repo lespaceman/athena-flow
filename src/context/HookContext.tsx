@@ -1,4 +1,9 @@
-import React, {createContext, useContext, useEffect, useMemo} from 'react';
+import React, {useEffect, useMemo} from 'react';
+import {
+	createContext,
+	useContext,
+	useContextSelector,
+} from 'use-context-selector';
 import path from 'node:path';
 import {useFeed} from '../hooks/useFeed.js';
 import {createClaudeHookRuntime} from '../runtime/adapters/claudeHooks/index.js';
@@ -11,6 +16,7 @@ import {
 
 const HookContext = createContext<HookContextValue | null>(null);
 const EMPTY_MESSAGES: never[] = [];
+const MISSING_CONTEXT = Symbol('missing-hook-context');
 
 export function HookProvider({
 	projectDir,
@@ -59,6 +65,20 @@ export function useHookContext(): HookContextValue {
 		throw new Error('useHookContext must be used within a HookProvider');
 	}
 	return context;
+}
+
+export function useHookContextSelector<T>(
+	selector: (value: HookContextValue) => T,
+): T {
+	const selected = useContextSelector(HookContext, value =>
+		value === null ? MISSING_CONTEXT : selector(value),
+	);
+	if (selected === MISSING_CONTEXT) {
+		throw new Error(
+			'useHookContextSelector must be used within a HookProvider',
+		);
+	}
+	return selected as T;
 }
 
 // Optional hook that doesn't throw if used outside provider

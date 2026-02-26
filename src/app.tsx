@@ -12,7 +12,7 @@ import {TextInput} from '@inkjs/ui';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
-import {HookProvider, useHookContext} from './context/HookContext.js';
+import {HookProvider, useHookContextSelector} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
 import {useAppMode} from './hooks/useAppMode.js';
@@ -158,25 +158,45 @@ function AppContent({
 	messagesRef.current = messages;
 
 	const theme = useTheme();
-	const hookServer = useHookContext();
-	const {
-		feedEvents,
-		items: feedItems,
-		tasks,
-		session,
-		currentRun,
-		currentPermissionRequest,
-		permissionQueueCount,
-		resolvePermission,
-		currentQuestionRequest,
-		questionQueueCount,
-		resolveQuestion,
-		postByToolUseId,
-		allocateSeq,
-	} = hookServer;
+	const feedEvents = useHookContextSelector(value => value.feedEvents);
+	const feedItems = useHookContextSelector(value => value.items);
+	const tasks = useHookContextSelector(value => value.tasks);
+	const session = useHookContextSelector(value => value.session);
+	const currentRun = useHookContextSelector(value => value.currentRun);
+	const currentPermissionRequest = useHookContextSelector(
+		value => value.currentPermissionRequest,
+	);
+	const permissionQueueCount = useHookContextSelector(
+		value => value.permissionQueueCount,
+	);
+	const resolvePermission = useHookContextSelector(
+		value => value.resolvePermission,
+	);
+	const currentQuestionRequest = useHookContextSelector(
+		value => value.currentQuestionRequest,
+	);
+	const questionQueueCount = useHookContextSelector(
+		value => value.questionQueueCount,
+	);
+	const resolveQuestion = useHookContextSelector(
+		value => value.resolveQuestion,
+	);
+	const postByToolUseId = useHookContextSelector(
+		value => value.postByToolUseId,
+	);
+	const allocateSeq = useHookContextSelector(value => value.allocateSeq);
+	const clearEvents = useHookContextSelector(value => value.clearEvents);
+	const printTaskSnapshot = useHookContextSelector(
+		value => value.printTaskSnapshot,
+	);
+	const recordTokens = useHookContextSelector(value => value.recordTokens);
+	const restoredTokens = useHookContextSelector(value => value.restoredTokens);
+	const hookCommandFeed = useMemo(
+		() => ({printTaskSnapshot}),
+		[printTaskSnapshot],
+	);
 
 	const currentSessionId = session?.session_id ?? null;
-	const {recordTokens, restoredTokens} = hookServer;
 	const currentRunId = currentRun?.run_id ?? null;
 	const currentRunStartedAt = currentRun?.started_at ?? null;
 	const currentRunPromptPreview = currentRun?.trigger?.prompt_preview;
@@ -258,10 +278,10 @@ function AppContent({
 	);
 
 	const clearScreen = useCallback(() => {
-		hookServer.clearEvents();
+		clearEvents();
 		process.stdout.write('\x1B[2J\x1B[3J\x1B[H');
 		onClear();
-	}, [hookServer, onClear]);
+	}, [clearEvents, onClear]);
 
 	// ── Timeline + Todo + Layout ────────────────────────────
 
@@ -370,7 +390,7 @@ function AppContent({
 						elapsed,
 					},
 				},
-				hook: {args: result.args, feed: hookServer},
+				hook: {args: result.args, feed: hookCommandFeed},
 				prompt: {
 					spawn: spawnClaude,
 					currentSessionId: currentSessionId ?? undefined,
@@ -392,7 +412,7 @@ function AppContent({
 			metrics,
 			modelName,
 			tokenUsage,
-			hookServer,
+			hookCommandFeed,
 		],
 	);
 
