@@ -7,18 +7,19 @@ Built with [Ink](https://github.com/vadimdemedes/ink) (React for CLIs) + React 1
 ## Install
 
 ```bash
-npm install -g athena-flow
+npm install -g @lespaceman/athena-flow
 ```
 
-Requires Node.js >= 18.
+Requires Node.js >= 20.
 
 ## Usage
 
 ```bash
-athena-cli                              # Start in current project directory
-athena-cli --project-dir=/my/project    # Specify project directory
-athena-cli --continue                   # Resume most recent session
-athena-cli --sessions                   # Pick a session interactively
+athena-flow                             # Start in current project directory
+athena-flow --project-dir=/my/project   # Specify project directory
+athena-flow --continue                  # Resume most recent session
+athena-flow --sessions                  # Pick a session interactively
+athena-flow setup                       # Re-run setup wizard
 ```
 
 ### Options
@@ -72,11 +73,11 @@ See [`docs/performance-profiling.md`](./docs/performance-profiling.md) for profi
 
 Two entry points:
 
-- **`athena-cli`** — Main Ink terminal UI. Parses args, renders React app, creates UDS server to receive hook events.
+- **`athena-flow`** — Main Ink terminal UI. Parses args, renders React app, creates UDS server to receive hook events.
 - **`athena-hook-forwarder`** — Lightweight script invoked by Claude Code hooks. Reads JSON from stdin, forwards to the UI via Unix Domain Socket, returns results via stdout.
 
 ```
-Claude Code → hook-forwarder (stdin) → UDS → athena-cli → Dashboard UI
+Claude Code → hook-forwarder (stdin) → UDS → athena-flow → Dashboard UI
 ```
 
 ## License

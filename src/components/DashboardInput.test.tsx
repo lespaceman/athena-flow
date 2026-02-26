@@ -13,6 +13,22 @@ async function typeAndWait(
 	await new Promise(resolve => setTimeout(resolve, 0));
 }
 
+async function waitForFrameToContain(
+	lastFrame: () => string | undefined,
+	text: string,
+	timeoutMs = 500,
+) {
+	const startedAt = Date.now();
+	while (Date.now() - startedAt < timeoutMs) {
+		if ((lastFrame() ?? '').includes(text)) {
+			return;
+		}
+		await new Promise(resolve => setTimeout(resolve, 5));
+	}
+
+	expect(lastFrame() ?? '').toContain(text);
+}
+
 describe('DashboardInput', () => {
 	it('renders placeholder and run label', () => {
 		const {lastFrame} = render(
@@ -50,10 +66,10 @@ describe('DashboardInput', () => {
 
 		await typeAndWait(stdin, '\x10'); // Ctrl+P
 		expect(onHistoryBack).toHaveBeenCalled();
-		expect(lastFrame() ?? '').toContain('prev prompt');
+		await waitForFrameToContain(lastFrame, 'prev prompt');
 
 		await typeAndWait(stdin, '\x0e'); // Ctrl+N
 		expect(onHistoryForward).toHaveBeenCalled();
-		expect(lastFrame() ?? '').toContain('next prompt');
+		await waitForFrameToContain(lastFrame, 'next prompt');
 	});
 });
