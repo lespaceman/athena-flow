@@ -40,7 +40,7 @@ function cell(content: string, overrideColor?: string): string {
 	return chalk.hex(overrideColor)(stripAnsi(content));
 }
 
-export function FeedRow({
+function FeedRowImpl({
 	entry,
 	cols,
 	focused,
@@ -137,5 +137,7 @@ export function FeedRow({
 		</>
 	);
 }
+
+export const FeedRow = React.memo(FeedRowImpl);
 
 export type {FeedColumnWidths};

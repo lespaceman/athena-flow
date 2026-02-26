@@ -117,11 +117,15 @@ export function useLayout({
 		: 0;
 	const maxDetailScroll = Math.max(0, detailLines.length - detailContentRows);
 	const detailPageStep = Math.max(1, Math.floor(detailContentRows / 2));
+	const setDetailScroll = feedNav.setDetailScroll;
+	const setTodoScroll = todoPanel.setTodoScroll;
+	const todoCursor = todoPanel.todoCursor;
+	const visibleTodoItemsLength = todoPanel.visibleTodoItems.length;
 
 	// Clamp detail scroll
 	useEffect(() => {
-		feedNav.setDetailScroll(prev => Math.min(prev, maxDetailScroll));
-	}, [maxDetailScroll, feedNav]);
+		setDetailScroll(prev => Math.min(prev, maxDetailScroll));
+	}, [maxDetailScroll, setDetailScroll]);
 
 	// Todo scroll adjustment
 	// Subtract worst-case affordance lines (2) when items exceed raw slots,
@@ -133,26 +137,18 @@ export function useLayout({
 			: itemSlots;
 	useEffect(() => {
 		if (todoListHeight <= 0) {
-			todoPanel.setTodoScroll(0);
+			setTodoScroll(0);
 			return;
 		}
-		todoPanel.setTodoScroll(prev => {
-			if (todoPanel.todoCursor < prev) return todoPanel.todoCursor;
-			if (todoPanel.todoCursor >= prev + todoListHeight) {
-				return todoPanel.todoCursor - todoListHeight + 1;
+		setTodoScroll(prev => {
+			if (todoCursor < prev) return todoCursor;
+			if (todoCursor >= prev + todoListHeight) {
+				return todoCursor - todoListHeight + 1;
 			}
-			const maxScroll = Math.max(
-				0,
-				todoPanel.visibleTodoItems.length - todoListHeight,
-			);
+			const maxScroll = Math.max(0, visibleTodoItemsLength - todoListHeight);
 			return Math.min(prev, maxScroll);
 		});
-	}, [
-		todoPanel.todoCursor,
-		todoListHeight,
-		todoPanel.visibleTodoItems.length,
-		todoPanel,
-	]);
+	}, [todoCursor, todoListHeight, visibleTodoItemsLength, setTodoScroll]);
 
 	return {
 		frameWidth,

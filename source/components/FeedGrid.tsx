@@ -12,7 +12,6 @@ type Props = {
 	feedContentRows: number;
 	feedViewportStart: number;
 	filteredEntries: TimelineEntry[];
-	visibleFeedEntries: TimelineEntry[];
 	feedCursor: number;
 	expandedId: string | null;
 	focusMode: string;
@@ -23,12 +22,11 @@ type Props = {
 	cols: FeedColumnWidths;
 };
 
-export function FeedGrid({
+function FeedGridImpl({
 	feedHeaderRows,
 	feedContentRows,
 	feedViewportStart,
 	filteredEntries,
-	visibleFeedEntries,
 	feedCursor,
 	expandedId,
 	focusMode,
@@ -51,7 +49,7 @@ export function FeedGrid({
 
 	if (feedContentRows <= 0) return <>{rows}</>;
 
-	if (visibleFeedEntries.length === 0) {
+	if (filteredEntries.length === 0) {
 		rows.push(
 			<FrameRow key="feed-empty" innerWidth={innerWidth} ascii={ascii}>
 				<Text>{'(no feed events)'}</Text>
@@ -120,3 +118,5 @@ export function FeedGrid({
 
 	return <>{rows}</>;
 }
+
+export const FeedGrid = React.memo(FeedGridImpl);

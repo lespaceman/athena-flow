@@ -12,7 +12,6 @@ export type UseFeedNavigationResult = {
 	expandedId: string | null;
 	detailScroll: number;
 	feedViewportStart: number;
-	visibleFeedEntries: TimelineEntry[];
 	moveFeedCursor: (delta: number) => void;
 	jumpToTail: () => void;
 	jumpToTop: () => void;
@@ -119,18 +118,12 @@ export function useFeedNavigation({
 		return Math.max(0, Math.min(start, maxStart));
 	}, [filteredEntries, feedCursor, feedContentRows, tailFollow]);
 
-	const visibleFeedEntries = filteredEntries.slice(
-		feedViewportStart,
-		feedViewportStart + feedContentRows,
-	);
-
 	return {
 		feedCursor,
 		tailFollow,
 		expandedId,
 		detailScroll,
 		feedViewportStart,
-		visibleFeedEntries,
 		moveFeedCursor,
 		jumpToTail,
 		jumpToTop,

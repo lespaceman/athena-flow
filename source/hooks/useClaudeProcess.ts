@@ -66,6 +66,12 @@ const JQ_ASSISTANT_TEXT_FILTER =
 export type UseClaudeProcessOptions = {
 	initialTokens?: TokenUsage | null;
 	onExitTokens?: (tokens: TokenUsage) => void;
+	/** Keep raw stdout/stderr lines in React state (expensive for high-volume streams). */
+	trackOutput?: boolean;
+	/** Keep jq-filtered assistant text in React state (debug-only). */
+	trackStreamingText?: boolean;
+	/** Minimum interval for tokenUsage state updates. 0 = update on every chunk. */
+	tokenUpdateMs?: number;
 };
 
 export function useClaudeProcess(
@@ -93,11 +99,49 @@ export function useClaudeProcess(
 	const [streamingText, setStreamingText] = useState('');
 	const onExitTokensRef = useRef(options?.onExitTokens);
 	onExitTokensRef.current = options?.onExitTokens;
+	const trackOutputRef = useRef(options?.trackOutput ?? true);
+	trackOutputRef.current = options?.trackOutput ?? true;
+	const trackStreamingTextRef = useRef(options?.trackStreamingText ?? true);
+	trackStreamingTextRef.current = options?.trackStreamingText ?? true;
+	const tokenUpdateMsRef = useRef(Math.max(0, options?.tokenUpdateMs ?? 0));
+	tokenUpdateMsRef.current = Math.max(0, options?.tokenUpdateMs ?? 0);
 	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(
 		() => options?.initialTokens ?? NULL_TOKENS,
 	);
 	const tokenUsageRef = useRef(tokenUsage);
 	tokenUsageRef.current = tokenUsage;
+	const pendingTokenUsageRef = useRef<TokenUsage | null>(null);
+	const tokenUsageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const clearTokenUsageTimer = useCallback(() => {
+		if (!tokenUsageTimerRef.current) return;
+		clearTimeout(tokenUsageTimerRef.current);
+		tokenUsageTimerRef.current = null;
+	}, []);
+
+	const publishTokenUsage = useCallback(
+		(nextUsage: TokenUsage, forceImmediate = false) => {
+			const intervalMs = tokenUpdateMsRef.current;
+			if (!forceImmediate && intervalMs > 0) {
+				pendingTokenUsageRef.current = nextUsage;
+				if (tokenUsageTimerRef.current) return;
+				tokenUsageTimerRef.current = setTimeout(() => {
+					tokenUsageTimerRef.current = null;
+					const pending = pendingTokenUsageRef.current;
+					if (!pending || abortRef.current.signal.aborted) return;
+					setTokenUsage(pending);
+					pendingTokenUsageRef.current = null;
+				}, intervalMs);
+				return;
+			}
+
+			clearTokenUsageTimer();
+			pendingTokenUsageRef.current = null;
+			if (abortRef.current.signal.aborted) return;
+			setTokenUsage(nextUsage);
+		},
+		[clearTokenUsageTimer],
+	);
 
 	const sendInterrupt = useCallback((): void => {
 		if (!processRef.current) return;
@@ -149,10 +193,16 @@ export function useClaudeProcess(
 			// Kill existing process if running and wait for it to exit
 			await kill();
 
-			setOutput([]);
-			setStreamingText('');
+			if (trackOutputRef.current) {
+				setOutput([]);
+			}
+			if (trackStreamingTextRef.current) {
+				setStreamingText('');
+			}
 			setIsRunning(true);
 			tokenAccRef.current.reset();
+			clearTokenUsageTimer();
+			pendingTokenUsageRef.current = null;
 			// Capture cumulative base before this spawn (input/output/cache carry forward,
 			// contextSize resets per-process since the new process reports its own).
 			const current = tokenUsageRef.current;
@@ -189,10 +239,12 @@ export function useClaudeProcess(
 							jqFilter: JQ_ASSISTANT_TEXT_FILTER,
 							onFilteredStdout: (data: string) => {
 								if (abortRef.current.signal.aborted) return;
+								if (!trackStreamingTextRef.current) return;
 								setStreamingText(prev => prev + data);
 							},
 							onJqStderr: (data: string) => {
 								if (abortRef.current.signal.aborted) return;
+								if (!trackOutputRef.current) return;
 								setOutput(prev => [...prev, `[jq] ${data}`]);
 							},
 						}
@@ -203,7 +255,7 @@ export function useClaudeProcess(
 					tokenAccRef.current.feed(data);
 					const acc = tokenAccRef.current.getUsage();
 					const base = tokenBaseRef.current;
-					setTokenUsage({
+					publishTokenUsage({
 						input: (base.input || 0) + (acc.input ?? 0) || null,
 						output: (base.output || 0) + (acc.output ?? 0) || null,
 						cacheRead: (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null,
@@ -216,6 +268,7 @@ export function useClaudeProcess(
 						contextSize: acc.contextSize,
 					});
 
+					if (!trackOutputRef.current) return;
 					setOutput(prev => {
 						const updated = [...prev, data];
 						// Limit output size to prevent memory issues
@@ -227,6 +280,7 @@ export function useClaudeProcess(
 				},
 				onStderr: (data: string) => {
 					if (abortRef.current.signal.aborted) return;
+					if (!trackOutputRef.current) return;
 					setOutput(prev => {
 						const updated = [...prev, `[stderr] ${data}`];
 						if (updated.length > MAX_OUTPUT) {
@@ -241,20 +295,23 @@ export function useClaudeProcess(
 					const finalAcc = tokenAccRef.current.getUsage();
 					if (!abortRef.current.signal.aborted) {
 						const base = tokenBaseRef.current;
-						setTokenUsage({
-							input: (base.input || 0) + (finalAcc.input ?? 0) || null,
-							output: (base.output || 0) + (finalAcc.output ?? 0) || null,
-							cacheRead:
-								(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
-							cacheWrite:
-								(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
-							total:
-								(base.input || 0) +
-									(finalAcc.input ?? 0) +
-									(base.output || 0) +
-									(finalAcc.output ?? 0) || null,
-							contextSize: finalAcc.contextSize,
-						});
+						publishTokenUsage(
+							{
+								input: (base.input || 0) + (finalAcc.input ?? 0) || null,
+								output: (base.output || 0) + (finalAcc.output ?? 0) || null,
+								cacheRead:
+									(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
+								cacheWrite:
+									(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
+								total:
+									(base.input || 0) +
+										(finalAcc.input ?? 0) +
+										(base.output || 0) +
+										(finalAcc.output ?? 0) || null,
+								contextSize: finalAcc.contextSize,
+							},
+							true,
+						);
 					}
 					// Persist this process's own tokens (not cumulative)
 					onExitTokensRef.current?.(finalAcc);
@@ -267,7 +324,7 @@ export function useClaudeProcess(
 					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 					setIsRunning(false);
-					if (code !== 0 && code !== null) {
+					if (trackOutputRef.current && code !== 0 && code !== null) {
 						setOutput(prev => [...prev, `[exit code: ${code}]`]);
 					}
 				},
@@ -280,6 +337,7 @@ export function useClaudeProcess(
 					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 					setIsRunning(false);
+					if (!trackOutputRef.current) return;
 					setOutput(prev => [...prev, `[error] ${error.message}`]);
 				},
 			});
@@ -294,6 +352,8 @@ export function useClaudeProcess(
 			verbose,
 			workflow,
 			kill,
+			clearTokenUsageTimer,
+			publishTokenUsage,
 		],
 	);
 
@@ -303,12 +363,13 @@ export function useClaudeProcess(
 
 		return () => {
 			abortRef.current.abort();
+			clearTokenUsageTimer();
 			if (processRef.current) {
 				processRef.current.kill();
 				processRef.current = null;
 			}
 		};
-	}, []);
+	}, [clearTokenUsageTimer]);
 
 	return {
 		spawn,

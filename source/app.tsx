@@ -7,7 +7,6 @@ import ErrorBoundary from './components/ErrorBoundary.js';
 import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
-import {useDuration} from './hooks/useDuration.js';
 import {useAppMode} from './hooks/useAppMode.js';
 import {useTextInput} from './hooks/useTextInput.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
@@ -152,6 +151,20 @@ function AppContent({
 
 	const currentSessionId = session?.session_id ?? null;
 	const {recordTokens, restoredTokens} = hookServer;
+	const currentRunId = currentRun?.run_id ?? null;
+	const currentRunStartedAt = currentRun?.started_at ?? null;
+	const currentRunPromptPreview = currentRun?.trigger?.prompt_preview;
+	const timelineCurrentRun = useMemo(
+		() =>
+			currentRunId && currentRunStartedAt !== null
+				? {
+						run_id: currentRunId,
+						trigger: {prompt_preview: currentRunPromptPreview},
+						started_at: currentRunStartedAt,
+					}
+				: null,
+		[currentRunId, currentRunStartedAt, currentRunPromptPreview],
+	);
 
 	const onExitTokens = useCallback(
 		(tokens: import('./types/headerMetrics.js').TokenUsage) => {
@@ -175,7 +188,13 @@ function AppContent({
 		pluginMcpConfig,
 		verbose,
 		workflow,
-		{initialTokens: restoredTokens, onExitTokens},
+		{
+			initialTokens: restoredTokens,
+			onExitTokens,
+			trackOutput: false,
+			trackStreamingText: false,
+			tokenUpdateMs: 250,
+		},
 	);
 	// Sync loop manager into hook context so hookController can access it
 	useEffect(() => {
@@ -192,7 +211,6 @@ function AppContent({
 	const initialSessionRef = useRef(initialSessionId);
 
 	const metrics = useHeaderMetrics(feedEvents);
-	const elapsed = useDuration(metrics.sessionStartTime);
 	const appMode = useAppMode(
 		isClaudeRunning,
 		currentPermissionRequest,
@@ -228,13 +246,7 @@ function AppContent({
 	const timeline = useTimeline({
 		feedItems,
 		feedEvents,
-		currentRun: currentRun
-			? {
-					run_id: currentRun.run_id,
-					trigger: currentRun.trigger,
-					started_at: currentRun.started_at,
-				}
-			: null,
+		currentRun: timelineCurrentRun,
 		runFilter,
 		errorsOnly,
 		searchQuery,
@@ -309,6 +321,9 @@ function AppContent({
 			addMessage('user', value);
 			const addMessageObj = (msg: Omit<MessageType, 'seq'>) =>
 				setMessages(prev => [...prev, {...msg, seq: allocateSeq()}]);
+			const elapsed = metrics.sessionStartTime
+				? Math.floor((Date.now() - metrics.sessionStartTime.getTime()) / 1000)
+				: 0;
 			executeCommand(result.command, result.args, {
 				ui: {
 					args: result.args,
@@ -351,7 +366,6 @@ function AppContent({
 			metrics,
 			modelName,
 			tokenUsage,
-			elapsed,
 			hookServer,
 		],
 	);
@@ -672,13 +686,7 @@ function AppContent({
 	const now = Date.now();
 	const headerModel = buildHeaderModel({
 		session,
-		currentRun: currentRun
-			? {
-					run_id: currentRun.run_id,
-					trigger: currentRun.trigger,
-					started_at: currentRun.started_at,
-				}
-			: null,
+		currentRun: timelineCurrentRun,
 		runSummaries,
 		metrics: {
 			failures: metrics.failures,
@@ -745,7 +753,6 @@ function AppContent({
 					feedContentRows={feedContentRows}
 					feedViewportStart={feedNav.feedViewportStart}
 					filteredEntries={filteredEntries}
-					visibleFeedEntries={feedNav.visibleFeedEntries}
 					feedCursor={feedNav.feedCursor}
 					expandedId={feedNav.expandedId}
 					focusMode={focusMode}

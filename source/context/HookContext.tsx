@@ -10,6 +10,7 @@ import {
 } from '../types/context.js';
 
 const HookContext = createContext<HookContextValue | null>(null);
+const EMPTY_MESSAGES: never[] = [];
 
 export function HookProvider({
 	projectDir,
@@ -40,7 +41,12 @@ export function HookProvider({
 		};
 	}, [sessionStore]);
 
-	const hookServer = useFeed(runtime, [], allowedTools, sessionStore);
+	const hookServer = useFeed(
+		runtime,
+		EMPTY_MESSAGES,
+		allowedTools,
+		sessionStore,
+	);
 
 	return (
 		<HookContext.Provider value={hookServer}>{children}</HookContext.Provider>

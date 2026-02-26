@@ -10,7 +10,7 @@ type Props = {
 	theme: Theme;
 };
 
-export function FeedHeader({cols, theme}: Props) {
+function FeedHeaderImpl({cols, theme}: Props) {
 	const style = (s: string) => chalk.bold.hex(theme.textMuted)(s);
 	return (
 		<>
@@ -40,7 +40,9 @@ export function FeedHeader({cols, theme}: Props) {
 				<>
 					<Box width={cols.gapW} flexShrink={0} />
 					<Box width={cols.resultW} flexShrink={0}>
-						<Text wrap="truncate-end">{style(fit('RESULT', cols.resultW))}</Text>
+						<Text wrap="truncate-end">
+							{style(fit('RESULT', cols.resultW))}
+						</Text>
 					</Box>
 				</>
 			)}
@@ -52,3 +54,5 @@ export function FeedHeader({cols, theme}: Props) {
 		</>
 	);
 }
+
+export const FeedHeader = React.memo(FeedHeaderImpl);
