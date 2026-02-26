@@ -1,5 +1,6 @@
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
+import {useTheme} from '../../theme/index.js';
 
 export type SelectorOption = {
 	label: string;
@@ -11,21 +12,68 @@ type Props = {
 	options: SelectorOption[];
 	onSelect: (value: string) => void;
 	isActive?: boolean;
+	initialValue?: string;
+	onHighlight?: (value: string) => void;
 };
+
+function getInitialCursor(
+	options: SelectorOption[],
+	initialValue: string | undefined,
+): number {
+	if (initialValue) {
+		const initialIndex = options.findIndex(
+			option => option.value === initialValue && !option.disabled,
+		);
+		if (initialIndex >= 0) {
+			return initialIndex;
+		}
+	}
+	const firstEnabled = options.findIndex(option => !option.disabled);
+	return firstEnabled >= 0 ? firstEnabled : 0;
+}
 
 export default function StepSelector({
 	options,
 	onSelect,
 	isActive = true,
+	initialValue,
+	onHighlight,
 }: Props) {
-	const [cursor, setCursor] = useState(0);
+	const theme = useTheme();
+	const [cursor, setCursor] = useState(() =>
+		getInitialCursor(options, initialValue),
+	);
+	const highlightedRef = useRef<string | undefined>(undefined);
+
+	const moveCursor = (direction: -1 | 1) => {
+		setCursor(prev => {
+			if (options.length <= 1) {
+				return prev;
+			}
+			let next = prev;
+			for (let i = 0; i < options.length; i += 1) {
+				const candidate = Math.max(
+					0,
+					Math.min(next + direction, options.length - 1),
+				);
+				if (candidate === next) {
+					return prev;
+				}
+				next = candidate;
+				if (!options[next]?.disabled) {
+					return next;
+				}
+			}
+			return prev;
+		});
+	};
 
 	useInput(
 		(_input, key) => {
 			if (key.downArrow) {
-				setCursor(prev => Math.min(prev + 1, options.length - 1));
+				moveCursor(1);
 			} else if (key.upArrow) {
-				setCursor(prev => Math.max(prev - 1, 0));
+				moveCursor(-1);
 			} else if (key.return) {
 				const opt = options[cursor];
 				if (opt && !opt.disabled) {
@@ -36,16 +84,37 @@ export default function StepSelector({
 		{isActive},
 	);
 
+	useEffect(() => {
+		if (!onHighlight) {
+			return;
+		}
+		const option = options[cursor];
+		if (!option || option.disabled) {
+			return;
+		}
+		if (highlightedRef.current === option.value) {
+			return;
+		}
+		highlightedRef.current = option.value;
+		onHighlight(option.value);
+	}, [cursor, options, onHighlight]);
+
 	return (
 		<Box flexDirection="column">
 			{options.map((opt, i) => {
 				const isCursor = i === cursor;
-				const prefix = isCursor ? '❯' : ' ';
+				const prefix = isCursor ? '>' : ' ';
 				return (
 					<Text
 						key={opt.value}
-						dimColor={opt.disabled}
-						color={isCursor && !opt.disabled ? 'cyan' : undefined}
+						color={
+							opt.disabled
+								? theme.textMuted
+								: isCursor
+									? theme.accent
+									: theme.text
+						}
+						bold={isCursor && !opt.disabled}
 					>
 						{prefix} {opt.label}
 					</Text>

@@ -3,6 +3,7 @@ import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector.js';
 import StepStatus from '../components/StepStatus.js';
 import {installWorkflow, resolveWorkflow} from '../../workflows/index.js';
+import {useTheme} from '../../theme/index.js';
 
 // Marketplace ref for the e2e-test-builder workflow
 const E2E_WORKFLOW_REF =
@@ -15,6 +16,7 @@ type Props = {
 };
 
 export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
+	const theme = useTheme();
 	const [status, setStatus] = useState<
 		'selecting' | 'verifying' | 'success' | 'error'
 	>('selecting');
@@ -48,7 +50,15 @@ export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
 
 	return (
 		<Box flexDirection="column">
-			<Text bold>Select workflow to install:</Text>
+			<Text bold color={theme.accent}>
+				Install a starter workflow
+			</Text>
+			<Text color={theme.textMuted}>
+				You can skip this and install workflows later from the CLI.
+			</Text>
+			<Text color={theme.textMuted}>
+				Workflow defaults apply on the next CLI launch.
+			</Text>
 			{status === 'selecting' && (
 				<StepSelector
 					options={[
@@ -58,7 +68,7 @@ export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
 							value: 'bug-triage',
 							disabled: true,
 						},
-						{label: 'None — configure later', value: 'none'},
+						{label: 'None - configure later', value: 'none'},
 					]}
 					onSelect={handleSelect}
 				/>

@@ -1,9 +1,10 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
-import {describe, it, expect, vi} from 'vitest';
+import {describe, it, expect, vi, beforeEach} from 'vitest';
 import SetupWizard from '../SetupWizard.js';
 import {ThemeProvider} from '../../theme/index.js';
 import {darkTheme} from '../../theme/index.js';
+import {writeGlobalConfig} from '../../plugins/config.js';
 
 vi.mock('../../utils/detectClaudeVersion.js', () => ({
 	detectClaudeVersion: vi.fn(() => '2.5.0'),
@@ -16,7 +17,13 @@ vi.mock('../../plugins/config.js', () => ({
 	writeGlobalConfig: vi.fn(),
 }));
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 describe('SetupWizard', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
 	it('renders the first step (theme selection)', () => {
 		const {lastFrame} = render(
 			<ThemeProvider value={darkTheme}>
@@ -25,5 +32,72 @@ describe('SetupWizard', () => {
 		);
 		expect(lastFrame()!).toContain('Dark');
 		expect(lastFrame()!).toContain('Light');
+	});
+
+	it('completes setup and persists config', async () => {
+		const onComplete = vi.fn();
+		const {stdin} = render(
+			<ThemeProvider value={darkTheme}>
+				<SetupWizard onComplete={onComplete} />
+			</ThemeProvider>,
+		);
+
+		stdin.write('\r'); // Theme: Dark
+		await delay(650);
+		stdin.write('\u001B[B'); // Harness: Skip for now
+		await delay(30);
+		stdin.write('\r');
+		await delay(650);
+		stdin.write('\u001B[B'); // Workflow: None - configure later
+		await delay(30);
+		stdin.write('\r');
+
+		await vi.waitFor(() => {
+			expect(writeGlobalConfig).toHaveBeenCalledWith({
+				setupComplete: true,
+				theme: 'dark',
+				harness: undefined,
+				workflow: undefined,
+			});
+			expect(onComplete).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it('shows save error and retries when user presses r', async () => {
+		const writeMock = vi.mocked(writeGlobalConfig);
+		writeMock
+			.mockImplementationOnce(() => {
+				throw new Error('disk full');
+			})
+			.mockImplementationOnce(() => {});
+
+		const onComplete = vi.fn();
+		const {stdin, lastFrame} = render(
+			<ThemeProvider value={darkTheme}>
+				<SetupWizard onComplete={onComplete} />
+			</ThemeProvider>,
+		);
+
+		stdin.write('\r'); // Theme: Dark
+		await delay(650);
+		stdin.write('\u001B[B'); // Harness: Skip for now
+		await delay(30);
+		stdin.write('\r');
+		await delay(650);
+		stdin.write('\u001B[B'); // Workflow: None - configure later
+		await delay(30);
+		stdin.write('\r');
+
+		await vi.waitFor(() => {
+			expect(lastFrame()!).toContain('Failed to write setup config');
+		});
+		expect(onComplete).not.toHaveBeenCalled();
+
+		stdin.write('r');
+
+		await vi.waitFor(() => {
+			expect(onComplete).toHaveBeenCalledTimes(1);
+			expect(writeMock).toHaveBeenCalledTimes(2);
+		});
 	});
 });

@@ -6,8 +6,9 @@ import HarnessStep from './steps/HarnessStep.js';
 import WorkflowStep from './steps/WorkflowStep.js';
 import StepStatus from './components/StepStatus.js';
 import {writeGlobalConfig} from '../plugins/config.js';
+import {useTheme} from '../theme/index.js';
 
-type SetupResult = {
+export type SetupResult = {
 	theme: string;
 	harness?: 'claude-code' | 'codex';
 	workflow?: string;
@@ -15,9 +16,11 @@ type SetupResult = {
 
 type Props = {
 	onComplete: (result: SetupResult) => void;
+	onThemePreview?: (theme: string) => void;
 };
 
-export default function SetupWizard({onComplete}: Props) {
+export default function SetupWizard({onComplete, onThemePreview}: Props) {
+	const theme = useTheme();
 	const {
 		stepIndex,
 		stepState,
@@ -27,8 +30,10 @@ export default function SetupWizard({onComplete}: Props) {
 		retry,
 		advance,
 	} = useSetupState();
-	const [result, setResult] = useState<SetupResult>({theme: 'dark'});
+	const [result, setResult] = useState<SetupResult>({theme: theme.name});
 	const [retryCount, setRetryCount] = useState(0);
+	const [writeError, setWriteError] = useState<string | null>(null);
+	const [writeRetryCount, setWriteRetryCount] = useState(0);
 	const completedRef = useRef(false);
 
 	useInput(input => {
@@ -36,14 +41,26 @@ export default function SetupWizard({onComplete}: Props) {
 			retry();
 			setRetryCount(prev => prev + 1);
 		}
+		if (isComplete && writeError && input === 'r') {
+			setWriteError(null);
+			setWriteRetryCount(prev => prev + 1);
+		}
 	});
 
 	const handleThemeComplete = useCallback(
 		(theme: string) => {
 			setResult(prev => ({...prev, theme}));
+			onThemePreview?.(theme);
 			markSuccess();
 		},
-		[markSuccess],
+		[markSuccess, onThemePreview],
+	);
+
+	const handleThemePreview = useCallback(
+		(nextTheme: string) => {
+			onThemePreview?.(nextTheme);
+		},
+		[onThemePreview],
 	);
 
 	const handleHarnessComplete = useCallback(
@@ -57,6 +74,11 @@ export default function SetupWizard({onComplete}: Props) {
 		[markSuccess],
 	);
 
+	const handleHarnessSkip = useCallback(() => {
+		setResult(prev => ({...prev, harness: undefined}));
+		markSuccess();
+	}, [markSuccess]);
+
 	const handleWorkflowComplete = useCallback(
 		(workflow: string) => {
 			setResult(prev => ({...prev, workflow}));
@@ -66,6 +88,7 @@ export default function SetupWizard({onComplete}: Props) {
 	);
 
 	const handleWorkflowSkip = useCallback(() => {
+		setResult(prev => ({...prev, workflow: undefined}));
 		markSuccess();
 	}, [markSuccess]);
 
@@ -80,43 +103,63 @@ export default function SetupWizard({onComplete}: Props) {
 	// Write config and notify parent on completion
 	useEffect(() => {
 		if (isComplete && !completedRef.current) {
-			completedRef.current = true;
-			writeGlobalConfig({
-				setupComplete: true,
-				theme: result.theme,
-				harness: result.harness,
-				workflow: result.workflow,
-			});
-			onComplete(result);
+			try {
+				completedRef.current = true;
+				writeGlobalConfig({
+					setupComplete: true,
+					theme: result.theme,
+					harness: result.harness,
+					workflow: result.workflow,
+				});
+				onComplete(result);
+			} catch (error) {
+				completedRef.current = false;
+				setWriteError(
+					`Failed to write setup config: ${(error as Error).message}`,
+				);
+			}
 		}
-	}, [isComplete, result, onComplete]);
+	}, [isComplete, result, onComplete, writeRetryCount]);
 
 	const stepLabels = ['Theme', 'Harness', 'Workflow'];
 
 	return (
 		<Box flexDirection="column" paddingX={2} paddingY={1}>
-			<Text bold>athena-cli Setup</Text>
-			<Text dimColor>
+			<Text bold color={theme.accent}>
+				ATHENA SETUP
+			</Text>
+			<Text color={theme.textMuted}>
+				Configure your defaults in under a minute.
+			</Text>
+			<Text color={theme.textMuted}>
 				Step {Math.min(stepIndex + 1, 3)} of 3 —{' '}
 				{stepLabels[stepIndex] ?? 'Complete'}
 			</Text>
+			<Text color={theme.textMuted}>
+				{`[1] Theme  [2] Harness  [3] Workflow`}
+			</Text>
+
 			<Box marginTop={1} flexDirection="column">
-				{stepIndex === 0 && stepState !== 'success' && (
-					<ThemeStep onComplete={handleThemeComplete} />
+				{stepIndex === 0 && stepState !== 'success' && !isComplete && (
+					<ThemeStep
+						onComplete={handleThemeComplete}
+						onPreview={handleThemePreview}
+					/>
 				)}
 				{stepIndex === 0 && stepState === 'success' && (
 					<StepStatus status="success" message={`Theme: ${result.theme}`} />
 				)}
 
-				{stepIndex === 1 && (
+				{stepIndex === 1 && !isComplete && (
 					<HarnessStep
 						key={retryCount}
 						onComplete={handleHarnessComplete}
+						onSkip={handleHarnessSkip}
 						onError={() => markError()}
 					/>
 				)}
 
-				{stepIndex === 2 && (
+				{stepIndex === 2 && !isComplete && (
 					<WorkflowStep
 						key={retryCount}
 						onComplete={handleWorkflowComplete}
@@ -125,7 +168,22 @@ export default function SetupWizard({onComplete}: Props) {
 					/>
 				)}
 
-				{stepState === 'error' && <Text dimColor>Press r to retry</Text>}
+				{stepState === 'error' && (
+					<Text color={theme.textMuted}>Press r to retry this step.</Text>
+				)}
+				{stepState === 'selecting' && !isComplete && (
+					<Text color={theme.textMuted}>Use arrow keys and Enter.</Text>
+				)}
+
+				{isComplete && !writeError && (
+					<StepStatus status="verifying" message="Saving setup..." />
+				)}
+				{isComplete && writeError && (
+					<>
+						<StepStatus status="error" message={writeError} />
+						<Text color={theme.textMuted}>Press r to retry saving.</Text>
+					</>
+				)}
 			</Box>
 		</Box>
 	);

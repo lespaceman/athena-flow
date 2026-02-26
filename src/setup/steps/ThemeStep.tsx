@@ -1,21 +1,32 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector.js';
+import {useTheme} from '../../theme/index.js';
 
 type Props = {
 	onComplete: (theme: string) => void;
+	onPreview?: (theme: string) => void;
 };
 
-export default function ThemeStep({onComplete}: Props) {
+export default function ThemeStep({onComplete, onPreview}: Props) {
+	const theme = useTheme();
+
 	return (
 		<Box flexDirection="column">
-			<Text bold>Select theme:</Text>
+			<Text bold color={theme.accent}>
+				Choose your display theme
+			</Text>
+			<Text color={theme.textMuted}>
+				This applies immediately after setup completes.
+			</Text>
 			<StepSelector
 				options={[
 					{label: 'Dark', value: 'dark'},
 					{label: 'Light', value: 'light'},
 					{label: 'High Contrast', value: 'high-contrast'},
 				]}
+				initialValue={theme.name}
+				onHighlight={onPreview}
 				onSelect={onComplete}
 			/>
 		</Box>

@@ -32,7 +32,12 @@ import {
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
-import {ThemeProvider, useTheme, type Theme} from './theme/index.js';
+import {
+	ThemeProvider,
+	useTheme,
+	type Theme,
+	resolveTheme,
+} from './theme/index.js';
 import SessionPicker from './components/SessionPicker.js';
 import type {SessionEntry} from './utils/sessionIndex.js';
 import {listSessions, getSessionMeta} from './sessions/registry.js';
@@ -915,6 +920,7 @@ export default function App({
 	const [athenaSessionId, setAthenaSessionId] = useState(
 		initialAthenaSessionId,
 	);
+	const [activeTheme, setActiveTheme] = useState(theme);
 	const inputHistory = useInputHistory(projectDir);
 	const initialPhase: AppPhase = showSetup
 		? {type: 'setup'}
@@ -959,9 +965,13 @@ export default function App({
 
 	if (phase.type === 'setup') {
 		return (
-			<ThemeProvider value={theme}>
+			<ThemeProvider value={activeTheme}>
 				<SetupWizard
-					onComplete={() => {
+					onThemePreview={themeName => {
+						setActiveTheme(resolveTheme(themeName));
+					}}
+					onComplete={setupResult => {
+						setActiveTheme(resolveTheme(setupResult.theme));
 						setPhase({type: 'main'});
 					}}
 				/>
@@ -988,7 +998,7 @@ export default function App({
 	}
 
 	return (
-		<ThemeProvider value={theme}>
+		<ThemeProvider value={activeTheme}>
 			<HookProvider
 				projectDir={projectDir}
 				instanceId={instanceId}

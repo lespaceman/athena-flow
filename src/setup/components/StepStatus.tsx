@@ -1,5 +1,6 @@
 import React from 'react';
 import {Text, Box} from 'ink';
+import {useTheme} from '../../theme/index.js';
 
 type Props = {
 	status: 'verifying' | 'success' | 'error';
@@ -7,13 +8,20 @@ type Props = {
 };
 
 export default function StepStatus({status, message}: Props) {
+	const theme = useTheme();
 	const icon = status === 'success' ? '✓' : status === 'error' ? '✗' : '⠋';
 	const color =
-		status === 'success' ? 'green' : status === 'error' ? 'red' : 'yellow';
+		status === 'success'
+			? theme.status.success
+			: status === 'error'
+				? theme.status.error
+				: theme.status.working;
 
 	return (
-		<Box>
-			<Text color={color}>{icon} </Text>
+		<Box flexDirection="row" marginTop={1}>
+			<Text color={color} bold>
+				{icon}{' '}
+			</Text>
 			<Text color={color}>{message}</Text>
 		</Box>
 	);

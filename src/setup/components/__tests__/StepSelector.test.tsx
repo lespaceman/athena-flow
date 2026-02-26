@@ -38,25 +38,46 @@ describe('StepSelector', () => {
 		expect(selected).toBe('dark');
 	});
 
-	it('renders disabled options as grayed out and non-selectable', async () => {
+	it('supports initialValue and emits highlight changes', async () => {
+		const highlighted: string[] = [];
+		const {stdin} = render(
+			<StepSelector
+				options={[
+					{label: 'Dark', value: 'dark'},
+					{label: 'Light', value: 'light'},
+				]}
+				initialValue="light"
+				onHighlight={value => {
+					highlighted.push(value);
+				}}
+				onSelect={() => {}}
+			/>,
+		);
+		await delay(30);
+		stdin.write('\u001B[A');
+		await delay(30);
+		expect(highlighted).toContain('light');
+		expect(highlighted).toContain('dark');
+	});
+
+	it('skips disabled options while navigating', async () => {
 		let selected = '';
 		const {lastFrame, stdin} = render(
 			<StepSelector
 				options={[
 					{label: 'Claude Code', value: 'claude-code'},
 					{label: 'Codex (coming soon)', value: 'codex', disabled: true},
+					{label: 'Skip for now', value: 'skip'},
 				]}
 				onSelect={v => {
 					selected = v;
 				}}
 			/>,
 		);
-		// Move down to disabled item
 		stdin.write('\u001B[B');
 		await delay(50);
-		// Try to select — should not fire
 		stdin.write('\r');
-		expect(selected).toBe('');
+		expect(selected).toBe('skip');
 		expect(lastFrame()!).toContain('coming soon');
 	});
 });

@@ -21,6 +21,7 @@ import crypto from 'node:crypto';
 import {getSessionMeta, getMostRecentAthenaSession} from './sessions/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
+import {shouldShowSetup} from './setup/shouldShowSetup.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -124,11 +125,13 @@ const globalConfig = readGlobalConfig();
 const projectConfig = readConfig(cli.flags.projectDir);
 
 // Detect first run or 'setup' subcommand
-const isSetupCommand = cli.input[0] === 'setup';
-const isFirstRun =
-	!globalConfig.setupComplete &&
-	!fs.existsSync(path.join(os.homedir(), '.config', 'athena', 'config.json'));
-const showSetup = isSetupCommand || isFirstRun;
+const showSetup = shouldShowSetup({
+	cliInput: cli.input,
+	setupComplete: globalConfig.setupComplete,
+	globalConfigExists: fs.existsSync(
+		path.join(os.homedir(), '.config', 'athena', 'config.json'),
+	),
+});
 
 // Resolve workflow from standalone registry if configured
 const workflowName =
