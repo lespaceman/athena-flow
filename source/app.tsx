@@ -221,7 +221,6 @@ function AppContent({
 	);
 	const dialogActive =
 		appMode.type === 'permission' || appMode.type === 'question';
-	const spinnerFrame = useSpinner(appMode.type === 'working');
 
 	const addMessage = useCallback(
 		(role: 'user' | 'assistant', content: string) => {
@@ -474,7 +473,7 @@ function AppContent({
 	// ── Frame lines + Layout ────────────────────────────────
 
 	// Derive last run status for contextual input prompt (X2)
-	const lastRunStatus = (() => {
+	const lastRunStatus = useMemo(() => {
 		if (isClaudeRunning) return null;
 		const last = runSummaries[runSummaries.length - 1];
 		if (!last) return null;
@@ -482,28 +481,56 @@ function AppContent({
 		if (last.status === 'FAILED') return 'failed' as const;
 		if (last.status === 'CANCELLED') return 'aborted' as const;
 		return null;
-	})();
+	}, [isClaudeRunning, runSummaries]);
 
-	const frame = buildFrameLines({
-		innerWidth,
-		focusMode,
-		inputMode,
-		searchQuery,
-		searchMatches,
-		searchMatchPos,
-		expandedEntry: feedNav.expandedId
-			? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ?? null)
-			: null,
-		isClaudeRunning,
-		inputValue,
-		cursorOffset,
-		dialogActive,
-		dialogType: appMode.type,
-		accentColor: theme.inputPrompt,
-		hintsForced,
-		ascii: !!ascii,
-		lastRunStatus,
-	});
+	const frameExpandedEntry = useMemo(
+		() =>
+			feedNav.expandedId
+				? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ??
+					null)
+				: null,
+		[feedNav.expandedId, filteredEntries],
+	);
+
+	const frame = useMemo(
+		() =>
+			buildFrameLines({
+				innerWidth,
+				focusMode,
+				inputMode,
+				searchQuery,
+				searchMatches,
+				searchMatchPos,
+				expandedEntry: frameExpandedEntry,
+				isClaudeRunning,
+				inputValue,
+				cursorOffset,
+				dialogActive,
+				dialogType: appMode.type,
+				accentColor: theme.inputPrompt,
+				hintsForced,
+				ascii: !!ascii,
+				lastRunStatus,
+			}),
+		[
+			innerWidth,
+			focusMode,
+			inputMode,
+			searchQuery,
+			searchMatches,
+			searchMatchPos,
+			frameExpandedEntry,
+			isClaudeRunning,
+			inputValue,
+			cursorOffset,
+			dialogActive,
+			appMode.type,
+			theme.inputPrompt,
+			hintsForced,
+			ascii,
+			lastRunStatus,
+		],
+	);
 
 	const footerRows =
 		(frame.footerHelp !== null ? 1 : 0) + frame.inputLines.length;
@@ -533,12 +560,20 @@ function AppContent({
 		expandedEntry,
 	} = layout;
 
-	const fr = frameGlyphs(!!ascii);
-	const topBorder = `${fr.topLeft}${fr.horizontal.repeat(innerWidth)}${fr.topRight}`;
-	const bottomBorder = `${fr.bottomLeft}${fr.horizontal.repeat(innerWidth)}${fr.bottomRight}`;
-	const sectionBorder = `${fr.teeLeft}${fr.horizontal.repeat(innerWidth)}${fr.teeRight}`;
-	const frameLine = (content: string): string =>
-		`${fr.vertical}${fitAnsi(content, innerWidth)}${fr.vertical}`;
+	const fr = useMemo(() => frameGlyphs(!!ascii), [ascii]);
+	const {topBorder, bottomBorder, sectionBorder} = useMemo(
+		() => ({
+			topBorder: `${fr.topLeft}${fr.horizontal.repeat(innerWidth)}${fr.topRight}`,
+			bottomBorder: `${fr.bottomLeft}${fr.horizontal.repeat(innerWidth)}${fr.bottomRight}`,
+			sectionBorder: `${fr.teeLeft}${fr.horizontal.repeat(innerWidth)}${fr.teeRight}`,
+		}),
+		[fr, innerWidth],
+	);
+	const frameLine = useCallback(
+		(content: string): string =>
+			`${fr.vertical}${fitAnsi(content, innerWidth)}${fr.vertical}`,
+		[fr.vertical, innerWidth],
+	);
 
 	// ── Focus cycling ───────────────────────────────────────
 
@@ -672,6 +707,11 @@ function AppContent({
 
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
+	const spinnerFrame = useSpinner(
+		appMode.type === 'working' &&
+			todoPanel.todoVisible &&
+			feedNav.expandedId === null,
+	);
 
 	const todoColors = useMemo(
 		() => ({
@@ -686,56 +726,111 @@ function AppContent({
 		[theme],
 	);
 
-	const now = Date.now();
-	const headerModel = buildHeaderModel({
+	const sessionId = session?.session_id;
+	const sessionAgentType = session?.agent_type;
+	const headerLine1 = useMemo(() => {
+		const headerModel = buildHeaderModel({
+			session: session
+				? {
+						session_id: sessionId,
+						agent_type: sessionAgentType,
+					}
+				: null,
+			currentRun: timelineCurrentRun,
+			runSummaries,
+			metrics: {
+				failures: metrics.failures,
+				blocks: metrics.blocks,
+			},
+			todoPanel: {
+				doneCount: todoPanel.doneCount,
+				doingCount: todoPanel.doingCount,
+				todoItems: {length: todoPanel.todoItems.length},
+			},
+			tailFollow: feedNav.tailFollow,
+			now: 0,
+			workflowRef,
+			contextUsed: tokenUsage.contextSize,
+			contextMax: 200000,
+		});
+		return renderHeaderLines(headerModel, innerWidth, hasColor)[0];
+	}, [
 		session,
-		currentRun: timelineCurrentRun,
+		sessionId,
+		sessionAgentType,
+		timelineCurrentRun,
 		runSummaries,
-		metrics: {
-			failures: metrics.failures,
-			blocks: metrics.blocks,
-		},
-		todoPanel,
-		tailFollow: feedNav.tailFollow,
-		now,
+		metrics.failures,
+		metrics.blocks,
+		todoPanel.doneCount,
+		todoPanel.doingCount,
+		todoPanel.todoItems.length,
+		feedNav.tailFollow,
 		workflowRef,
-		contextUsed: tokenUsage.contextSize,
-		contextMax: 200000,
-	});
-	const [headerLine1] = renderHeaderLines(headerModel, innerWidth, hasColor);
+		tokenUsage.contextSize,
+		innerWidth,
+		hasColor,
+	]);
 
 	// ── Body lines ──────────────────────────────────────────
 
-	const prefixBodyLines = buildBodyLines({
-		innerWidth,
-		detail: expandedEntry
-			? {
-					expandedEntry,
-					detailScroll: feedNav.detailScroll,
-					maxDetailScroll,
-					detailLines,
-					detailContentRows,
-					showLineNumbers: detailShowLineNumbers,
-				}
-			: null,
-		todo: {
+	const prefixBodyLines = useMemo(
+		() =>
+			buildBodyLines({
+				innerWidth,
+				detail: expandedEntry
+					? {
+							expandedEntry,
+							detailScroll: feedNav.detailScroll,
+							maxDetailScroll,
+							detailLines,
+							detailContentRows,
+							showLineNumbers: detailShowLineNumbers,
+						}
+					: null,
+				todo: {
+					actualTodoRows,
+					todoPanel: {
+						todoScroll: todoPanel.todoScroll,
+						todoCursor: todoPanel.todoCursor,
+						visibleTodoItems: todoPanel.visibleTodoItems,
+					},
+					focusMode,
+					ascii: useAscii,
+					colors: todoColors,
+					appMode: appMode.type,
+					doneCount: todoPanel.doneCount,
+					totalCount: todoPanel.todoItems.length,
+					spinnerFrame,
+				},
+				runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
+				theme,
+			}),
+		[
+			innerWidth,
+			expandedEntry,
+			feedNav.detailScroll,
+			maxDetailScroll,
+			detailLines,
+			detailContentRows,
+			detailShowLineNumbers,
 			actualTodoRows,
-			todoPanel: {
-				todoScroll: todoPanel.todoScroll,
-				todoCursor: todoPanel.todoCursor,
-				visibleTodoItems: todoPanel.visibleTodoItems,
-			},
+			todoPanel.todoScroll,
+			todoPanel.todoCursor,
+			todoPanel.visibleTodoItems,
 			focusMode,
-			ascii: useAscii,
-			colors: todoColors,
-			appMode: appMode.type,
-			doneCount: todoPanel.doneCount,
-			totalCount: todoPanel.todoItems.length,
+			useAscii,
+			todoColors,
+			appMode.type,
+			todoPanel.doneCount,
+			todoPanel.todoItems.length,
 			spinnerFrame,
-		},
-		runOverlay: {actualRunOverlayRows, runSummaries, runFilter},
-		theme,
-	});
+			actualRunOverlayRows,
+			runSummaries,
+			runFilter,
+			theme,
+		],
+	);
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 	const showFeedGrid = !expandedEntry;
