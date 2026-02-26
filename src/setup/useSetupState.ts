@@ -18,6 +18,11 @@ export function useSetupState() {
 		setStepState('selecting');
 	}, []);
 
+	const retreat = useCallback(() => {
+		setStepIndex(prev => Math.max(0, prev - 1));
+		setStepState('selecting');
+	}, []);
+
 	return {
 		stepIndex,
 		stepState,
@@ -27,5 +32,6 @@ export function useSetupState() {
 		markError,
 		retry,
 		advance,
+		retreat,
 	};
 }

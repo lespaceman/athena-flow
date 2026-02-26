@@ -11,6 +11,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {isMarketplaceRef, resolveMarketplacePlugin} from './marketplace.js';
 
+export type AthenaHarness = 'claude-code' | 'openai-codex' | 'opencode';
+
 export type AthenaConfig = {
 	plugins: string[];
 	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
@@ -24,7 +26,7 @@ export type AthenaConfig = {
 	/** Whether the setup wizard has been completed */
 	setupComplete?: boolean;
 	/** Which AI coding harness is being used */
-	harness?: 'claude-code' | 'codex';
+	harness?: AthenaHarness;
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -94,9 +96,13 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		workflow: raw.workflow,
 		setupComplete: raw.setupComplete as boolean | undefined,
 		harness:
-			raw.harness === 'claude-code' || raw.harness === 'codex'
+			raw.harness === 'claude-code' ||
+			raw.harness === 'openai-codex' ||
+			raw.harness === 'opencode'
 				? raw.harness
-				: undefined,
+				: raw.harness === 'codex'
+					? 'openai-codex'
+					: undefined,
 	};
 }
 

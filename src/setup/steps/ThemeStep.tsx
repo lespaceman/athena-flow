@@ -19,16 +19,18 @@ export default function ThemeStep({onComplete, onPreview}: Props) {
 			<Text color={theme.textMuted}>
 				This applies immediately after setup completes.
 			</Text>
-			<StepSelector
-				options={[
-					{label: 'Dark', value: 'dark'},
-					{label: 'Light', value: 'light'},
-					{label: 'High Contrast', value: 'high-contrast'},
-				]}
-				initialValue={theme.name}
-				onHighlight={onPreview}
-				onSelect={onComplete}
-			/>
+			<Box marginTop={1}>
+				<StepSelector
+					options={[
+						{label: 'Dark', value: 'dark'},
+						{label: 'Light', value: 'light'},
+						{label: 'High Contrast', value: 'high-contrast'},
+					]}
+					initialValue={theme.name}
+					onHighlight={onPreview}
+					onSelect={onComplete}
+				/>
+			</Box>
 		</Box>
 	);
 }

@@ -5,12 +5,12 @@ import ThemeStep from './steps/ThemeStep.js';
 import HarnessStep from './steps/HarnessStep.js';
 import WorkflowStep from './steps/WorkflowStep.js';
 import StepStatus from './components/StepStatus.js';
-import {writeGlobalConfig} from '../plugins/config.js';
+import {writeGlobalConfig, type AthenaHarness} from '../plugins/config.js';
 import {useTheme} from '../theme/index.js';
 
 export type SetupResult = {
 	theme: string;
-	harness?: 'claude-code' | 'codex';
+	harness?: AthenaHarness;
 	workflow?: string;
 };
 
@@ -18,6 +18,21 @@ type Props = {
 	onComplete: (result: SetupResult) => void;
 	onThemePreview?: (theme: string) => void;
 };
+
+const STEP_LABELS = ['Theme', 'Harness', 'Workflow'];
+const PROGRESS_BAR_WIDTH = 18;
+
+function progressBar(step: number, total: number): {filled: string; empty: string} {
+	const ratio = total === 0 ? 0 : step / total;
+	const filledCount = Math.max(
+		0,
+		Math.min(PROGRESS_BAR_WIDTH, Math.round(ratio * PROGRESS_BAR_WIDTH)),
+	);
+	return {
+		filled: '='.repeat(filledCount),
+		empty: '-'.repeat(PROGRESS_BAR_WIDTH - filledCount),
+	};
+}
 
 export default function SetupWizard({onComplete, onThemePreview}: Props) {
 	const theme = useTheme();
@@ -29,26 +44,18 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		markError,
 		retry,
 		advance,
+		retreat,
 	} = useSetupState();
 	const [result, setResult] = useState<SetupResult>({theme: theme.name});
 	const [retryCount, setRetryCount] = useState(0);
 	const [writeError, setWriteError] = useState<string | null>(null);
 	const [writeRetryCount, setWriteRetryCount] = useState(0);
+	const themePreviewRef = useRef(result.theme);
 	const completedRef = useRef(false);
-
-	useInput(input => {
-		if (stepState === 'error' && input === 'r') {
-			retry();
-			setRetryCount(prev => prev + 1);
-		}
-		if (isComplete && writeError && input === 'r') {
-			setWriteError(null);
-			setWriteRetryCount(prev => prev + 1);
-		}
-	});
 
 	const handleThemeComplete = useCallback(
 		(theme: string) => {
+			themePreviewRef.current = theme;
 			setResult(prev => ({...prev, theme}));
 			onThemePreview?.(theme);
 			markSuccess();
@@ -58,17 +65,15 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 
 	const handleThemePreview = useCallback(
 		(nextTheme: string) => {
+			themePreviewRef.current = nextTheme;
 			onThemePreview?.(nextTheme);
 		},
 		[onThemePreview],
 	);
 
 	const handleHarnessComplete = useCallback(
-		(harness: string) => {
-			setResult(prev => ({
-				...prev,
-				harness: harness as 'claude-code' | 'codex',
-			}));
+		(harness: AthenaHarness) => {
+			setResult(prev => ({...prev, harness}));
 			markSuccess();
 		},
 		[markSuccess],
@@ -91,6 +96,61 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		setResult(prev => ({...prev, workflow: undefined}));
 		markSuccess();
 	}, [markSuccess]);
+
+	const handleSkipShortcut = useCallback(() => {
+		if (stepState !== 'selecting' || isComplete) {
+			return;
+		}
+		if (stepIndex === 0) {
+			const selectedTheme = themePreviewRef.current;
+			setResult(prev => ({...prev, theme: selectedTheme}));
+			onThemePreview?.(selectedTheme);
+			markSuccess();
+			return;
+		}
+		if (stepIndex === 1) {
+			handleHarnessSkip();
+			return;
+		}
+		if (stepIndex === 2) {
+			handleWorkflowSkip();
+		}
+	}, [
+		stepState,
+		isComplete,
+		stepIndex,
+		markSuccess,
+		onThemePreview,
+		handleHarnessSkip,
+		handleWorkflowSkip,
+	]);
+
+	useInput((input, key) => {
+		const normalizedInput = input.toLowerCase();
+
+		if (isComplete) {
+			if (writeError && normalizedInput === 'r') {
+				setWriteError(null);
+				setWriteRetryCount(prev => prev + 1);
+			}
+			return;
+		}
+
+		if (stepState === 'error' && normalizedInput === 'r') {
+			retry();
+			setRetryCount(prev => prev + 1);
+			return;
+		}
+
+		if (key.escape && stepIndex > 0 && stepState !== 'verifying') {
+			retreat();
+			return;
+		}
+
+		if (normalizedInput === 's') {
+			handleSkipShortcut();
+		}
+	});
 
 	// Auto-advance on success after short delay
 	useEffect(() => {
@@ -121,25 +181,35 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		}
 	}, [isComplete, result, onComplete, writeRetryCount]);
 
-	const stepLabels = ['Theme', 'Harness', 'Workflow'];
+	const totalSteps = STEP_LABELS.length;
+	const activeStep = isComplete
+		? totalSteps
+		: Math.min(stepIndex + 1, totalSteps);
+	const bar = progressBar(activeStep, totalSteps);
 
 	return (
-		<Box flexDirection="column" paddingX={2} paddingY={1}>
-			<Text bold color={theme.accent}>
-				ATHENA SETUP
-			</Text>
-			<Text color={theme.textMuted}>
-				Configure your defaults in under a minute.
-			</Text>
-			<Text color={theme.textMuted}>
-				Step {Math.min(stepIndex + 1, 3)} of 3 —{' '}
-				{stepLabels[stepIndex] ?? 'Complete'}
-			</Text>
-			<Text color={theme.textMuted}>
-				{`[1] Theme  [2] Harness  [3] Workflow`}
-			</Text>
+		<Box flexDirection="column" paddingX={3} paddingY={1}>
+			<Box flexDirection="column">
+				<Text bold color={theme.accent}>
+					ATHENA SETUP
+				</Text>
+				<Text color={theme.textMuted}>
+					Configure your defaults in under a minute.
+				</Text>
+			</Box>
 
 			<Box marginTop={1} flexDirection="column">
+				<Text color={theme.textMuted}>
+					Step {activeStep} of {totalSteps} -{' '}
+					{STEP_LABELS[stepIndex] ?? 'Complete'}
+				</Text>
+				<Box>
+					<Text color={theme.accent}>[{bar.filled}</Text>
+					<Text color={theme.textMuted}>{bar.empty}]</Text>
+				</Box>
+			</Box>
+
+			<Box marginTop={2} flexDirection="column">
 				{stepIndex === 0 && stepState !== 'success' && !isComplete && (
 					<ThemeStep
 						onComplete={handleThemeComplete}
@@ -154,7 +224,6 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 					<HarnessStep
 						key={retryCount}
 						onComplete={handleHarnessComplete}
-						onSkip={handleHarnessSkip}
 						onError={() => markError()}
 					/>
 				)}
@@ -171,10 +240,6 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 				{stepState === 'error' && (
 					<Text color={theme.textMuted}>Press r to retry this step.</Text>
 				)}
-				{stepState === 'selecting' && !isComplete && (
-					<Text color={theme.textMuted}>Use arrow keys and Enter.</Text>
-				)}
-
 				{isComplete && !writeError && (
 					<StepStatus status="verifying" message="Saving setup..." />
 				)}
@@ -184,6 +249,12 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 						<Text color={theme.textMuted}>Press r to retry saving.</Text>
 					</>
 				)}
+
+				<Box marginTop={2}>
+					<Text color={theme.textMuted}>
+						Up/Down move  Enter select  Esc back  S skip  R retry
+					</Text>
+				</Box>
 			</Box>
 		</Box>
 	);

@@ -4,14 +4,14 @@ import StepSelector from '../components/StepSelector.js';
 import StepStatus from '../components/StepStatus.js';
 import {detectClaudeVersion} from '../../utils/detectClaudeVersion.js';
 import {useTheme} from '../../theme/index.js';
+import type {AthenaHarness} from '../../plugins/config.js';
 
 type Props = {
-	onComplete: (harness: string) => void;
-	onSkip: () => void;
+	onComplete: (harness: AthenaHarness) => void;
 	onError: (message: string) => void;
 };
 
-export default function HarnessStep({onComplete, onSkip, onError}: Props) {
+export default function HarnessStep({onComplete, onError}: Props) {
 	const theme = useTheme();
 	const [status, setStatus] = useState<
 		'selecting' | 'verifying' | 'success' | 'error'
@@ -19,12 +19,15 @@ export default function HarnessStep({onComplete, onSkip, onError}: Props) {
 	const [message, setMessage] = useState('');
 
 	const handleSelect = useCallback(
-		(value: string) => {
-			if (value === 'skip') {
-				onSkip();
+		(value: AthenaHarness) => {
+			if (value !== 'claude-code') {
+				const label =
+					value === 'openai-codex' ? 'OpenAI Codex' : 'OpenCode';
+				setMessage(`${label} selected`);
+				setStatus('success');
+				onComplete(value);
 				return;
 			}
-			if (value !== 'claude-code') return;
 			setStatus('verifying');
 			// Run detection asynchronously to not block render
 			setTimeout(() => {
@@ -42,7 +45,7 @@ export default function HarnessStep({onComplete, onSkip, onError}: Props) {
 				}
 			}, 0);
 		},
-		[onComplete, onError, onSkip],
+		[onComplete, onError],
 	);
 
 	return (
@@ -51,17 +54,19 @@ export default function HarnessStep({onComplete, onSkip, onError}: Props) {
 				Select harness
 			</Text>
 			<Text color={theme.textMuted}>
-				Choose Claude Code now, or skip and configure it later.
+				Choose your coding harness. You can skip this step with S.
 			</Text>
 			{status === 'selecting' && (
-				<StepSelector
-					options={[
-						{label: 'Claude Code', value: 'claude-code'},
-						{label: 'Codex (coming soon)', value: 'codex', disabled: true},
-						{label: 'Skip for now', value: 'skip'},
-					]}
-					onSelect={handleSelect}
-				/>
+				<Box marginTop={1}>
+					<StepSelector
+						options={[
+							{label: '1. Claude Code', value: 'claude-code'},
+							{label: '2. OpenAI Codex', value: 'openai-codex'},
+							{label: '3. OpenCode', value: 'opencode'},
+						]}
+						onSelect={value => handleSelect(value as AthenaHarness)}
+					/>
+				</Box>
 			)}
 			{(status === 'verifying' ||
 				status === 'success' ||

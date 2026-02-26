@@ -295,10 +295,19 @@ describe('writeGlobalConfig', () => {
 	});
 
 	it('creates config when none exists', () => {
-		writeGlobalConfig({harness: 'codex'});
+		writeGlobalConfig({harness: 'openai-codex'});
 		const written = JSON.parse(
 			files['/home/testuser/.config/athena/config.json']!,
 		);
-		expect(written.harness).toBe('codex');
+		expect(written.harness).toBe('openai-codex');
+	});
+
+	it('normalizes legacy codex harness to openai-codex when reading config', () => {
+		files['/project/.athena/config.json'] = JSON.stringify({
+			plugins: [],
+			harness: 'codex',
+		});
+		const config = readConfig('/project');
+		expect(config.harness).toBe('openai-codex');
 	});
 });

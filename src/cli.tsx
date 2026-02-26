@@ -22,6 +22,7 @@ import {getSessionMeta, getMostRecentAthenaSession} from './sessions/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 import {shouldShowSetup} from './setup/shouldShowSetup.js';
+import {shouldResolveWorkflow} from './setup/shouldResolveWorkflow.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -139,9 +140,14 @@ const workflowName =
 let workflowPluginDirs: string[] = [];
 let resolvedWorkflow: WorkflowConfig | undefined;
 
-if (workflowName) {
+// Setup must remain recoverable even if existing workflow config is invalid.
+const workflowToResolve = shouldResolveWorkflow({showSetup, workflowName})
+	? workflowName
+	: undefined;
+
+if (workflowToResolve) {
 	try {
-		resolvedWorkflow = resolveWorkflow(workflowName);
+		resolvedWorkflow = resolveWorkflow(workflowToResolve);
 		workflowPluginDirs = installWorkflowPlugins(resolvedWorkflow);
 	} catch (error) {
 		console.error(`Error: ${(error as Error).message}`);

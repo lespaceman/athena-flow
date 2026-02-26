@@ -60,18 +60,20 @@ export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
 				Workflow defaults apply on the next CLI launch.
 			</Text>
 			{status === 'selecting' && (
-				<StepSelector
-					options={[
-						{label: 'e2e-test-builder', value: 'e2e-test-builder'},
-						{
-							label: 'bug-triage (coming soon)',
-							value: 'bug-triage',
-							disabled: true,
-						},
-						{label: 'None - configure later', value: 'none'},
-					]}
-					onSelect={handleSelect}
-				/>
+				<Box marginTop={1}>
+					<StepSelector
+						options={[
+							{label: 'e2e-test-builder', value: 'e2e-test-builder'},
+							{
+								label: 'bug-triage (coming soon)',
+								value: 'bug-triage',
+								disabled: true,
+							},
+							{label: 'None - configure later', value: 'none'},
+						]}
+						onSelect={handleSelect}
+					/>
+				</Box>
 			)}
 			{(status === 'verifying' ||
 				status === 'success' ||

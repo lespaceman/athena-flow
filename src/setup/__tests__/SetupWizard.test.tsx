@@ -32,6 +32,7 @@ describe('SetupWizard', () => {
 		);
 		expect(lastFrame()!).toContain('Dark');
 		expect(lastFrame()!).toContain('Light');
+		expect(lastFrame()!).toContain('Up/Down move');
 	});
 
 	it('completes setup and persists config', async () => {
@@ -44,9 +45,7 @@ describe('SetupWizard', () => {
 
 		stdin.write('\r'); // Theme: Dark
 		await delay(650);
-		stdin.write('\u001B[B'); // Harness: Skip for now
-		await delay(30);
-		stdin.write('\r');
+		stdin.write('s'); // Harness: Skip
 		await delay(650);
 		stdin.write('\u001B[B'); // Workflow: None - configure later
 		await delay(30);
@@ -80,9 +79,7 @@ describe('SetupWizard', () => {
 
 		stdin.write('\r'); // Theme: Dark
 		await delay(650);
-		stdin.write('\u001B[B'); // Harness: Skip for now
-		await delay(30);
-		stdin.write('\r');
+		stdin.write('s'); // Harness: Skip
 		await delay(650);
 		stdin.write('\u001B[B'); // Workflow: None - configure later
 		await delay(30);
@@ -99,5 +96,23 @@ describe('SetupWizard', () => {
 			expect(onComplete).toHaveBeenCalledTimes(1);
 			expect(writeMock).toHaveBeenCalledTimes(2);
 		});
+	});
+
+	it('supports skip and back keyboard shortcuts', async () => {
+		const {stdin, lastFrame} = render(
+			<ThemeProvider value={darkTheme}>
+				<SetupWizard onComplete={() => {}} />
+			</ThemeProvider>,
+		);
+
+		stdin.write('s'); // Skip theme step
+		await delay(650);
+		await vi.waitFor(() => {
+			expect(lastFrame()!).toContain('Select harness');
+		});
+
+		stdin.write('\u001B'); // Esc back
+		await delay(80);
+		expect(lastFrame()!).toContain('Choose your display theme');
 	});
 });

@@ -10,13 +10,12 @@ vi.mock('../../../utils/detectClaudeVersion.js', () => ({
 }));
 
 describe('HarnessStep', () => {
-	it('renders Claude Code option and Codex as disabled', () => {
-		const {lastFrame} = render(
-			<HarnessStep onComplete={() => {}} onSkip={() => {}} onError={() => {}} />,
-		);
+	it('renders numbered harness options', () => {
+		const {lastFrame} = render(<HarnessStep onComplete={() => {}} onError={() => {}} />);
 		const frame = lastFrame()!;
-		expect(frame).toContain('Claude Code');
-		expect(frame).toContain('Codex');
+		expect(frame).toContain('1. Claude Code');
+		expect(frame).toContain('2. OpenAI Codex');
+		expect(frame).toContain('3. OpenCode');
 	});
 
 	it('calls onComplete with harness and version after selection', async () => {
@@ -26,7 +25,6 @@ describe('HarnessStep', () => {
 				onComplete={v => {
 					result = v;
 				}}
-				onSkip={() => {}}
 				onError={() => {}}
 			/>,
 		);
@@ -37,20 +35,19 @@ describe('HarnessStep', () => {
 		});
 	});
 
-	it('allows users to skip harness setup', async () => {
-		let skipped = false;
+	it('selects OpenAI Codex from the numbered list', async () => {
+		let result = '';
 		const {stdin} = render(
 			<HarnessStep
-				onComplete={() => {}}
-				onSkip={() => {
-					skipped = true;
+				onComplete={v => {
+					result = v;
 				}}
 				onError={() => {}}
 			/>,
 		);
-		stdin.write('\u001B[B'); // Move to "Skip for now"
+		stdin.write('\u001B[B'); // Move to OpenAI Codex
 		await delay(30);
 		stdin.write('\r');
-		expect(skipped).toBe(true);
+		expect(result).toBe('openai-codex');
 	});
 });

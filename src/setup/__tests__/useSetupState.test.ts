@@ -27,6 +27,21 @@ describe('useSetupState', () => {
 		expect(result.current.stepState).toBe('selecting');
 	});
 
+	it('retreats to previous step and resets selecting state', () => {
+		const {result} = renderHook(() => useSetupState());
+		act(() => {
+			result.current.markSuccess();
+			result.current.advance();
+		});
+		expect(result.current.stepIndex).toBe(1);
+		act(() => {
+			result.current.markError();
+			result.current.retreat();
+		});
+		expect(result.current.stepIndex).toBe(0);
+		expect(result.current.stepState).toBe('selecting');
+	});
+
 	it('transitions to error and allows retry', () => {
 		const {result} = renderHook(() => useSetupState());
 		act(() => result.current.startVerifying());
