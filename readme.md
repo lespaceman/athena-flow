@@ -61,7 +61,12 @@ npm start           # Build & run
 npm test            # Run vitest tests
 npm run lint        # Prettier + ESLint
 npm run format      # Auto-format
+
+# Performance profiling (writes artifacts to .profiles/)
+npm run perf:tui -- -- --sessions
 ```
+
+See [`docs/performance-profiling.md`](./docs/performance-profiling.md) for profiling modes and artifact analysis.
 
 ## Architecture
 

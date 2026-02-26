@@ -2,10 +2,10 @@ import React from 'react';
 import {Text} from 'ink';
 import {type TimelineEntry} from '../feed/timeline.js';
 import {type Theme} from '../theme/types.js';
-import {type FeedColumnWidths} from './FeedRow.js';
-import {FrameRow} from './FrameRow.js';
-import {FeedRow} from './FeedRow.js';
-import {FeedHeader} from './FeedHeader.js';
+import {frameGlyphs} from '../glyphs/index.js';
+import {fitAnsi} from '../utils/format.js';
+import {type FeedColumnWidths, formatFeedRowLine} from './FeedRow.js';
+import {formatFeedHeaderLine} from './FeedHeader.js';
 
 type Props = {
 	feedHeaderRows: number;
@@ -37,13 +37,17 @@ function FeedGridImpl({
 	cols,
 }: Props) {
 	const rows: React.ReactNode[] = [];
+	const fr = frameGlyphs(ascii);
+	const blankLine = ' '.repeat(innerWidth);
+	const frameLine = (content: string): string =>
+		`${fr.vertical}${content}${fr.vertical}`;
 
 	// Header row
 	if (feedHeaderRows > 0) {
 		rows.push(
-			<FrameRow key="feed-header" innerWidth={innerWidth} ascii={ascii}>
-				<FeedHeader cols={cols} theme={theme} />
-			</FrameRow>,
+			<Text key="feed-header">
+				{frameLine(formatFeedHeaderLine(cols, theme, innerWidth))}
+			</Text>,
 		);
 	}
 
@@ -51,16 +55,12 @@ function FeedGridImpl({
 
 	if (filteredEntries.length === 0) {
 		rows.push(
-			<FrameRow key="feed-empty" innerWidth={innerWidth} ascii={ascii}>
-				<Text>{'(no feed events)'}</Text>
-			</FrameRow>,
+			<Text key="feed-empty">
+				{frameLine(fitAnsi('(no feed events)', innerWidth))}
+			</Text>,
 		);
 		for (let i = 1; i < feedContentRows; i++) {
-			rows.push(
-				<FrameRow key={`feed-pad-${i}`} innerWidth={innerWidth} ascii={ascii}>
-					<Text>{' '.repeat(innerWidth)}</Text>
-				</FrameRow>,
-			);
+			rows.push(<Text key={`feed-pad-${i}`}>{frameLine(blankLine)}</Text>);
 		}
 		return <>{rows}</>;
 	}
@@ -75,13 +75,9 @@ function FeedGridImpl({
 			// Pad remaining rows
 			while (feedLinesEmitted < feedContentRows) {
 				rows.push(
-					<FrameRow
-						key={`feed-pad-${feedLinesEmitted}`}
-						innerWidth={innerWidth}
-						ascii={ascii}
-					>
-						<Text>{' '.repeat(innerWidth)}</Text>
-					</FrameRow>,
+					<Text key={`feed-pad-${feedLinesEmitted}`}>
+						{frameLine(blankLine)}
+					</Text>,
 				);
 				feedLinesEmitted++;
 			}
@@ -95,22 +91,21 @@ function FeedGridImpl({
 		const isMatched = searchMatchSet.has(idx);
 
 		rows.push(
-			<FrameRow
-				key={`feed-row-${entry.id}`}
-				innerWidth={innerWidth}
-				ascii={ascii}
-			>
-				<FeedRow
-					entry={entry}
-					cols={cols}
-					focused={isFocused}
-					expanded={isExpanded}
-					matched={isMatched}
-					isDuplicateActor={isDuplicateActor}
-					ascii={ascii}
-					theme={theme}
-				/>
-			</FrameRow>,
+			<Text key={`feed-row-${entry.id}`}>
+				{frameLine(
+					formatFeedRowLine({
+						entry,
+						cols,
+						focused: isFocused,
+						expanded: isExpanded,
+						matched: isMatched,
+						isDuplicateActor,
+						ascii,
+						theme,
+						innerWidth,
+					}),
+				)}
+			</Text>,
 		);
 		feedLinesEmitted++;
 		entryOffset++;

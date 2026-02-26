@@ -1,5 +1,6 @@
 import {useInput} from 'ink';
 import {type TimelineEntry} from '../feed/timeline.js';
+import {startInputMeasure} from '../utils/perf.js';
 
 export type FeedKeyboardCallbacks = {
 	moveFeedCursor: (delta: number) => void;
@@ -45,120 +46,125 @@ export function useFeedKeyboard({
 }: FeedKeyboardOptions): void {
 	useInput(
 		(input, key) => {
-			// Ctrl+T: toggle todo panel (handled globally, not here)
+			const done = startInputMeasure('feed.keyboard', input, key);
+			try {
+				// Ctrl+T: toggle todo panel (handled globally, not here)
 
-			// Escape
-			if (key.escape) {
-				if (escapeHandledExternally) return;
-				if (expandedId) {
-					callbacks.setExpandedId(null);
+				// Escape
+				if (key.escape) {
+					if (escapeHandledExternally) return;
+					if (expandedId) {
+						callbacks.setExpandedId(null);
+						return;
+					}
+					callbacks.setShowRunOverlay(false);
 					return;
 				}
-				callbacks.setShowRunOverlay(false);
-				return;
-			}
 
-			// Detail view mode
-			if (expandedEntry) {
-				if (key.return || input === 'q' || input === 'Q') {
-					callbacks.setExpandedId(null);
+				// Detail view mode
+				if (expandedEntry) {
+					if (key.return || input === 'q' || input === 'Q') {
+						callbacks.setExpandedId(null);
+						return;
+					}
+					if (key.home) {
+						callbacks.setDetailScroll(0);
+						return;
+					}
+					if (key.end) {
+						callbacks.setDetailScroll(maxDetailScroll);
+						return;
+					}
+					if (key.pageUp) {
+						callbacks.scrollDetail(-detailPageStep, maxDetailScroll);
+						return;
+					}
+					if (key.pageDown) {
+						callbacks.scrollDetail(detailPageStep, maxDetailScroll);
+						return;
+					}
+					if (key.upArrow || input === 'k' || input === 'K') {
+						callbacks.scrollDetail(-1, maxDetailScroll);
+						return;
+					}
+					if (key.downArrow || input === 'j' || input === 'J') {
+						callbacks.scrollDetail(1, maxDetailScroll);
+						return;
+					}
 					return;
 				}
+
+				// Feed navigation mode
+				if (key.tab) {
+					callbacks.cycleFocus();
+					return;
+				}
+
+				if (input === ':') {
+					callbacks.setFocusMode('input');
+					callbacks.setInputMode('cmd');
+					callbacks.setInputValue(':');
+					return;
+				}
+
+				if (input === '/') {
+					callbacks.setFocusMode('input');
+					callbacks.setInputMode('search');
+					callbacks.setInputValue('/');
+					return;
+				}
+
 				if (key.home) {
-					callbacks.setDetailScroll(0);
+					callbacks.jumpToTop();
 					return;
 				}
 				if (key.end) {
-					callbacks.setDetailScroll(maxDetailScroll);
+					callbacks.jumpToTail();
 					return;
 				}
 				if (key.pageUp) {
-					callbacks.scrollDetail(-detailPageStep, maxDetailScroll);
+					callbacks.moveFeedCursor(-pageStep);
 					return;
 				}
 				if (key.pageDown) {
-					callbacks.scrollDetail(detailPageStep, maxDetailScroll);
+					callbacks.moveFeedCursor(pageStep);
 					return;
 				}
-				if (key.upArrow || input === 'k' || input === 'K') {
-					callbacks.scrollDetail(-1, maxDetailScroll);
+				if (key.upArrow) {
+					callbacks.moveFeedCursor(-1);
 					return;
 				}
-				if (key.downArrow || input === 'j' || input === 'J') {
-					callbacks.scrollDetail(1, maxDetailScroll);
+				if (key.downArrow) {
+					callbacks.moveFeedCursor(1);
 					return;
 				}
-				return;
-			}
 
-			// Feed navigation mode
-			if (key.tab) {
-				callbacks.cycleFocus();
-				return;
-			}
+				if (key.return || (key.ctrl && key.rightArrow)) {
+					callbacks.toggleExpandedAtCursor();
+					return;
+				}
 
-			if (input === ':') {
-				callbacks.setFocusMode('input');
-				callbacks.setInputMode('cmd');
-				callbacks.setInputValue(':');
-				return;
-			}
+				if ((input === 'n' || input === 'N') && searchMatches.length > 0) {
+					const direction = input === 'n' ? 1 : -1;
+					callbacks.setSearchMatchPos(prev => {
+						const count = searchMatches.length;
+						const next = (prev + direction + count) % count;
+						const target = searchMatches[next]!;
+						callbacks.setFeedCursor(target);
+						callbacks.setTailFollow(false);
+						return next;
+					});
+					return;
+				}
 
-			if (input === '/') {
-				callbacks.setFocusMode('input');
-				callbacks.setInputMode('search');
-				callbacks.setInputValue('/');
-				return;
-			}
-
-			if (key.home) {
-				callbacks.jumpToTop();
-				return;
-			}
-			if (key.end) {
-				callbacks.jumpToTail();
-				return;
-			}
-			if (key.pageUp) {
-				callbacks.moveFeedCursor(-pageStep);
-				return;
-			}
-			if (key.pageDown) {
-				callbacks.moveFeedCursor(pageStep);
-				return;
-			}
-			if (key.upArrow) {
-				callbacks.moveFeedCursor(-1);
-				return;
-			}
-			if (key.downArrow) {
-				callbacks.moveFeedCursor(1);
-				return;
-			}
-
-			if (key.return || (key.ctrl && key.rightArrow)) {
-				callbacks.toggleExpandedAtCursor();
-				return;
-			}
-
-			if ((input === 'n' || input === 'N') && searchMatches.length > 0) {
-				const direction = input === 'n' ? 1 : -1;
-				callbacks.setSearchMatchPos(prev => {
-					const count = searchMatches.length;
-					const next = (prev + direction + count) % count;
-					const target = searchMatches[next]!;
-					callbacks.setFeedCursor(target);
-					callbacks.setTailFollow(false);
-					return next;
-				});
-				return;
-			}
-
-			if (key.ctrl && input === 'l') {
-				callbacks.setSearchQuery('');
-				callbacks.setShowRunOverlay(false);
-				callbacks.jumpToTail();
-				return;
+				if (key.ctrl && input === 'l') {
+					callbacks.setSearchQuery('');
+					callbacks.setShowRunOverlay(false);
+					callbacks.jumpToTail();
+					return;
+				}
+			} finally {
+				done();
 			}
 		},
 		{isActive},

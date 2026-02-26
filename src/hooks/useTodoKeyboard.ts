@@ -2,6 +2,7 @@ import {useRef} from 'react';
 import {useInput} from 'ink';
 import {type TodoPanelItem} from '../feed/todoPanel.js';
 import {type TimelineEntry} from '../feed/timeline.js';
+import {startInputMeasure} from '../utils/perf.js';
 
 export type TodoKeyboardCallbacks = {
 	setFocusMode: (mode: 'feed' | 'input' | 'todo') => void;
@@ -38,50 +39,55 @@ export function useTodoKeyboard({
 
 	useInput(
 		(input, key) => {
-			if (key.escape) {
-				if (escapeHandledExternally) return;
-				callbacks.setFocusMode('feed');
-				return;
-			}
-			if (key.tab) {
-				callbacks.cycleFocus();
-				return;
-			}
-			if (key.upArrow) {
-				callbacks.setTodoCursor(prev => Math.max(0, prev - 1));
-				return;
-			}
-			if (key.downArrow) {
-				callbacks.setTodoCursor(prev =>
-					Math.min(
-						Math.max(0, visibleTodoItemsRef.current.length - 1),
-						prev + 1,
-					),
-				);
-				return;
-			}
-			if (input === ' ') {
-				callbacks.toggleTodoStatus(todoCursor);
-				return;
-			}
-			if (key.return) {
-				const selected = visibleTodoItemsRef.current[todoCursor];
-				if (!selected?.linkedEventId) return;
-				const idx = filteredEntriesRef.current.findIndex(
-					entry => entry.id === selected.linkedEventId,
-				);
-				if (idx >= 0) {
-					callbacks.setFeedCursor(idx);
-					callbacks.setTailFollow(false);
+			const done = startInputMeasure('todo.keyboard', input, key);
+			try {
+				if (key.escape) {
+					if (escapeHandledExternally) return;
 					callbacks.setFocusMode('feed');
+					return;
 				}
-				return;
-			}
-			if (input.toLowerCase() === 'a') {
-				callbacks.setFocusMode('input');
-				callbacks.setInputMode('cmd');
-				callbacks.setInputValue(':todo add ');
-				return;
+				if (key.tab) {
+					callbacks.cycleFocus();
+					return;
+				}
+				if (key.upArrow) {
+					callbacks.setTodoCursor(prev => Math.max(0, prev - 1));
+					return;
+				}
+				if (key.downArrow) {
+					callbacks.setTodoCursor(prev =>
+						Math.min(
+							Math.max(0, visibleTodoItemsRef.current.length - 1),
+							prev + 1,
+						),
+					);
+					return;
+				}
+				if (input === ' ') {
+					callbacks.toggleTodoStatus(todoCursor);
+					return;
+				}
+				if (key.return) {
+					const selected = visibleTodoItemsRef.current[todoCursor];
+					if (!selected?.linkedEventId) return;
+					const idx = filteredEntriesRef.current.findIndex(
+						entry => entry.id === selected.linkedEventId,
+					);
+					if (idx >= 0) {
+						callbacks.setFeedCursor(idx);
+						callbacks.setTailFollow(false);
+						callbacks.setFocusMode('feed');
+					}
+					return;
+				}
+				if (input.toLowerCase() === 'a') {
+					callbacks.setFocusMode('input');
+					callbacks.setInputMode('cmd');
+					callbacks.setInputValue(':todo add ');
+					return;
+				}
+			} finally {
+				done();
 			}
 		},
 		{isActive},

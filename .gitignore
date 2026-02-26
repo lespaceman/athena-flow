@@ -14,3 +14,6 @@ dist
 
 # Claude Code input history
 .claude/input-history.json
+
+# Performance profiling artifacts
+.profiles/

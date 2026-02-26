@@ -1,6 +1,14 @@
 import process from 'node:process';
-import React, {useState, useCallback, useRef, useEffect, useMemo} from 'react';
+import React, {
+	Profiler,
+	useState,
+	useCallback,
+	useRef,
+	useEffect,
+	useMemo,
+} from 'react';
 import {Box, Text, useApp, useInput, useStdout} from 'ink';
+import {TextInput} from '@inkjs/ui';
 import PermissionDialog from './components/PermissionDialog.js';
 import QuestionDialog from './components/QuestionDialog.js';
 import ErrorBoundary from './components/ErrorBoundary.js';
@@ -8,7 +16,6 @@ import {HookProvider, useHookContext} from './context/HookContext.js';
 import {useClaudeProcess} from './hooks/useClaudeProcess.js';
 import {useHeaderMetrics} from './hooks/useHeaderMetrics.js';
 import {useAppMode} from './hooks/useAppMode.js';
-import {useTextInput} from './hooks/useTextInput.js';
 import {type InputHistory, useInputHistory} from './hooks/useInputHistory.js';
 import {useFeedNavigation} from './hooks/useFeedNavigation.js';
 import {useTodoPanel} from './hooks/useTodoPanel.js';
@@ -20,6 +27,7 @@ import {useLayout} from './hooks/useLayout.js';
 import {useCommandDispatch} from './hooks/useCommandDispatch.js';
 import {buildBodyLines} from './utils/buildBodyLines.js';
 import {FeedGrid} from './components/FeedGrid.js';
+import {FrameRow} from './components/FrameRow.js';
 import {useFeedColumns} from './hooks/useFeedColumns.js';
 import {buildFrameLines} from './utils/buildFrameLines.js';
 import {buildHeaderModel} from './utils/headerModel.js';
@@ -45,6 +53,13 @@ import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import SetupWizard from './setup/SetupWizard.js';
+import {
+	isPerfEnabled,
+	logPerfEvent,
+	logReactCommit,
+	startEventLoopMonitor,
+	startInputMeasure,
+} from './utils/perf.js';
 
 type Props = {
 	projectDir: string;
@@ -71,6 +86,12 @@ type AppPhase =
 
 type FocusMode = 'feed' | 'input' | 'todo';
 type InputMode = 'normal' | 'cmd' | 'search';
+
+function deriveInputMode(value: string): InputMode {
+	if (value.startsWith(':')) return 'cmd';
+	if (value.startsWith('/')) return 'search';
+	return 'normal';
+}
 
 /** Fallback for crashed PermissionDialog -- lets user press Escape to deny. */
 
@@ -393,6 +414,28 @@ function AppContent({
 
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
 	const inputValueRef = useRef('');
+	const [inputSeed, setInputSeed] = useState<{value: string; rev: number}>({
+		value: '',
+		rev: 0,
+	});
+
+	const syncInputModeFromValue = useCallback((value: string) => {
+		const nextMode = deriveInputMode(value);
+		setInputMode(prev => (prev === nextMode ? prev : nextMode));
+		if (value.length === 0) {
+			setSearchQuery('');
+		}
+	}, []);
+
+	const setInputValueProgrammatically = useCallback(
+		(value: string) => {
+			inputValueRef.current = value;
+			syncInputModeFromValue(value);
+			setInputSeed(prev => ({value, rev: prev.rev + 1}));
+		},
+		[syncInputModeFromValue],
+	);
+	setInputValueRef.current = setInputValueProgrammatically;
 
 	const handleInputSubmit = useCallback(
 		(rawValue: string) => {
@@ -446,32 +489,24 @@ function AppContent({
 		],
 	);
 
-	const {
-		value: inputValue,
-		cursorOffset,
-		setValue: setInputValue,
-	} = useTextInput({
-		onChange: value => {
+	const handleMainInputChange = useCallback(
+		(value: string) => {
 			inputValueRef.current = value;
-			if (value.startsWith(':')) {
-				setInputMode('cmd');
-				return;
-			}
-			if (value.startsWith('/')) {
-				setInputMode('search');
-				setSearchQuery(value.replace(/^\//, '').trim());
-				return;
-			}
-			if (value.length === 0) {
-				setInputMode('normal');
-				setSearchQuery('');
-			}
+			syncInputModeFromValue(value);
 		},
-		onSubmit: handleInputSubmit,
-		isActive: focusMode === 'input' && !dialogActive,
-	});
-	setInputValueRef.current = setInputValue;
-	inputValueRef.current = inputValue;
+		[syncInputModeFromValue],
+	);
+
+	const handleMainInputSubmit = useCallback(
+		(value: string) => {
+			if (value.endsWith('\\')) {
+				setInputValueProgrammatically(value.slice(0, -1) + '\n');
+				return;
+			}
+			handleInputSubmit(value);
+		},
+		[handleInputSubmit, setInputValueProgrammatically],
+	);
 
 	// ── Frame lines + Layout ────────────────────────────────
 
@@ -506,14 +541,15 @@ function AppContent({
 				searchMatchPos,
 				expandedEntry: frameExpandedEntry,
 				isClaudeRunning,
-				inputValue,
-				cursorOffset,
+				inputValue: '',
+				cursorOffset: 0,
 				dialogActive,
 				dialogType: appMode.type,
 				accentColor: theme.inputPrompt,
 				hintsForced,
 				ascii: !!ascii,
 				lastRunStatus,
+				skipInputLines: true,
 			}),
 		[
 			innerWidth,
@@ -524,8 +560,6 @@ function AppContent({
 			searchMatchPos,
 			frameExpandedEntry,
 			isClaudeRunning,
-			inputValue,
-			cursorOffset,
 			dialogActive,
 			appMode.type,
 			theme.inputPrompt,
@@ -535,8 +569,7 @@ function AppContent({
 		],
 	);
 
-	const footerRows =
-		(frame.footerHelp !== null ? 1 : 0) + frame.inputLines.length;
+	const footerRows = (frame.footerHelp !== null ? 1 : 0) + 1;
 
 	const layout = useLayout({
 		terminalRows,
@@ -622,40 +655,45 @@ function AppContent({
 
 	useInput(
 		(input, key) => {
-			if (dialogActive) return;
-			if (key.escape && isClaudeRunning) {
-				sendInterrupt();
-				return;
-			}
-			if (key.ctrl && input === 't') {
-				todoPanel.setTodoVisible(v => !v);
-				if (focusMode === 'todo') setFocusMode('feed');
-				return;
-			}
-			if (key.ctrl && input === '/') {
-				setHintsForced(prev => (prev === null ? true : prev ? false : null));
-				return;
-			}
-			if (focusMode === 'input') {
-				if (key.escape) {
-					setFocusMode('feed');
-					setInputMode('normal');
+			const done = startInputMeasure('app.global', input, key);
+			try {
+				if (dialogActive) return;
+				if (key.escape && isClaudeRunning) {
+					sendInterrupt();
 					return;
 				}
-				if (key.tab) {
-					cycleFocus();
+				if (key.ctrl && input === 't') {
+					todoPanel.setTodoVisible(v => !v);
+					if (focusMode === 'todo') setFocusMode('feed');
 					return;
 				}
-				if (key.ctrl && input === 'p') {
-					const prev = inputHistory.back(inputValueRef.current);
-					if (prev !== undefined) setInputValueRef.current(prev);
+				if (key.ctrl && input === '/') {
+					setHintsForced(prev => (prev === null ? true : prev ? false : null));
 					return;
 				}
-				if (key.ctrl && input === 'n') {
-					const next = inputHistory.forward();
-					if (next !== undefined) setInputValueRef.current(next);
-					return;
+				if (focusMode === 'input') {
+					if (key.escape) {
+						setFocusMode('feed');
+						setInputMode('normal');
+						return;
+					}
+					if (key.tab) {
+						cycleFocus();
+						return;
+					}
+					if (key.ctrl && input === 'p') {
+						const prev = inputHistory.back(inputValueRef.current);
+						if (prev !== undefined) setInputValueRef.current(prev);
+						return;
+					}
+					if (key.ctrl && input === 'n') {
+						const next = inputHistory.forward();
+						if (next !== undefined) setInputValueRef.current(next);
+						return;
+					}
 				}
+			} finally {
+				done();
 			}
 		},
 		{isActive: !dialogActive},
@@ -837,6 +875,35 @@ function AppContent({
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 	const showFeedGrid = !expandedEntry;
+	const runBadge = isClaudeRunning ? '[RUN]' : '[IDLE]';
+	const modeBadges = [
+		runBadge,
+		...(inputMode === 'cmd' ? ['[CMD]'] : []),
+		...(inputMode === 'search' ? ['[SEARCH]'] : []),
+	];
+	const badgeText = modeBadges.join('');
+	const inputPrefix = 'input> ';
+	const inputContentWidth = Math.max(
+		1,
+		innerWidth - inputPrefix.length - badgeText.length,
+	);
+	const inputPlaceholder =
+		inputMode === 'cmd'
+			? ':command'
+			: inputMode === 'search'
+				? '/search'
+				: lastRunStatus === 'completed'
+					? 'Run complete - type a follow-up or :retry'
+					: lastRunStatus === 'failed' || lastRunStatus === 'aborted'
+						? 'Run failed - type a follow-up or :retry'
+						: 'Type a prompt or :command';
+	const dialogPlaceholder =
+		appMode.type === 'question'
+			? 'Answer question in dialog...'
+			: 'Respond to permission dialog...';
+	const textInputPlaceholder = dialogActive
+		? dialogPlaceholder
+		: inputPlaceholder;
 
 	// ── Render ──────────────────────────────────────────────
 
@@ -868,9 +935,24 @@ function AppContent({
 			{frame.footerHelp !== null && (
 				<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>
 			)}
-			{frame.inputLines.map((line, i) => (
-				<Text key={`input-${i}`}>{frameLine(line)}</Text>
-			))}
+			<FrameRow innerWidth={innerWidth} ascii={useAscii}>
+				<Box width={inputPrefix.length} flexShrink={0}>
+					<Text color={theme.inputPrompt}>{inputPrefix}</Text>
+				</Box>
+				<Box width={inputContentWidth} flexShrink={0}>
+					<TextInput
+						key={`app-main-input-${inputSeed.rev}`}
+						defaultValue={inputSeed.value}
+						placeholder={textInputPlaceholder}
+						isDisabled={focusMode !== 'input' || dialogActive}
+						onChange={handleMainInputChange}
+						onSubmit={handleMainInputSubmit}
+					/>
+				</Box>
+				<Box width={badgeText.length} flexShrink={0}>
+					<Text>{badgeText}</Text>
+				</Box>
+			</FrameRow>
 			<Text>{bottomBorder}</Text>
 			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
@@ -921,6 +1003,7 @@ export default function App({
 	athenaSessionId: initialAthenaSessionId,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
+	const perfEnabled = isPerfEnabled();
 	const [athenaSessionId, setAthenaSessionId] = useState(
 		initialAthenaSessionId,
 	);
@@ -932,6 +1015,50 @@ export default function App({
 			? {type: 'session-select'}
 			: {type: 'main', initialSessionId};
 	const [phase, setPhase] = useState<AppPhase>(initialPhase);
+
+	useEffect(() => {
+		if (!perfEnabled) return;
+		logPerfEvent('app.start', {
+			project_dir: projectDir,
+			instance_id: instanceId,
+		});
+		return startEventLoopMonitor('app');
+	}, [perfEnabled, projectDir, instanceId]);
+
+	useEffect(() => {
+		if (!perfEnabled) return;
+		logPerfEvent('app.phase', {phase: phase.type});
+	}, [perfEnabled, phase.type]);
+
+	const handleProfilerRender = useCallback(
+		(
+			id: string,
+			phaseName: string,
+			actualDuration: number,
+			baseDuration: number,
+			startTime: number,
+			commitTime: number,
+		) => {
+			logReactCommit(
+				id,
+				phaseName,
+				actualDuration,
+				baseDuration,
+				startTime,
+				commitTime,
+			);
+		},
+		[],
+	);
+
+	const withProfiler = (id: string, node: React.ReactElement) =>
+		perfEnabled ? (
+			<Profiler id={id} onRender={handleProfilerRender}>
+				{node}
+			</Profiler>
+		) : (
+			node
+		);
 
 	const handleSessionSelect = useCallback((sessionId: string) => {
 		// sessionId here is an athena session ID from the picker.
@@ -968,7 +1095,8 @@ export default function App({
 	}, [projectDir, phase]);
 
 	if (phase.type === 'setup') {
-		return (
+		return withProfiler(
+			'app.setup',
 			<ThemeProvider value={activeTheme}>
 				<SetupWizard
 					onThemePreview={themeName => {
@@ -979,12 +1107,13 @@ export default function App({
 						setPhase({type: 'main'});
 					}}
 				/>
-			</ThemeProvider>
+			</ThemeProvider>,
 		);
 	}
 
 	if (phase.type === 'session-select') {
-		return (
+		return withProfiler(
+			'app.session-select',
 			<ErrorBoundary
 				fallback={
 					<Text color="red">
@@ -997,11 +1126,12 @@ export default function App({
 					onSelect={handleSessionSelect}
 					onCancel={handleSessionCancel}
 				/>
-			</ErrorBoundary>
+			</ErrorBoundary>,
 		);
 	}
 
-	return (
+	return withProfiler(
+		'app.main',
 		<ThemeProvider value={activeTheme}>
 			<HookProvider
 				projectDir={projectDir}
@@ -1028,6 +1158,6 @@ export default function App({
 					ascii={ascii}
 				/>
 			</HookProvider>
-		</ThemeProvider>
+		</ThemeProvider>,
 	);
 }

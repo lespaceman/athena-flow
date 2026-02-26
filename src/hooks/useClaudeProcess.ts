@@ -361,16 +361,21 @@ export function useClaudeProcess(
 					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 
-					// Loop respawn: spawn next iteration if not terminal.
+					// Loop respawn: spawn next iteration if not terminal and the workflow
+					// actually started (tracker file exists). This prevents accidental
+					// "continue task" loops for non-workflow prompts.
 					// Never respawn on non-zero exit (process error) to avoid infinite loops.
-					if (
-						workflow?.loop &&
-						loopManagerRef.current &&
-						!loopManagerRef.current.isTerminal() &&
-						code === 0
-					) {
-						loopManagerRef.current.incrementIteration();
-						spawn(buildContinuePrompt(workflow.loop)).catch(() => {
+					const loopManager = loopManagerRef.current;
+					const loopConfig = workflow?.loop;
+					const canContinueLoop =
+						loopConfig &&
+						loopManager &&
+						code === 0 &&
+						fs.existsSync(loopManager.trackerPath) &&
+						!loopManager.isTerminal();
+					if (canContinueLoop) {
+						loopManager.incrementIteration();
+						spawn(buildContinuePrompt(loopConfig)).catch(() => {
 							loopManagerRef.current?.deactivate();
 							loopManagerRef.current = null;
 							if (!abortRef.current.signal.aborted) {

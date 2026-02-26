@@ -2,9 +2,31 @@ import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
 import {parseToolName} from './toolNameParser.js';
 
+const SIMPLE_ASCII_RE = /^[\x20-\x7E]*$/;
+
+function isSimpleAscii(text: string): boolean {
+	return SIMPLE_ASCII_RE.test(text);
+}
+
+function fitAscii(text: string, width: number): string {
+	if (width <= 0) return '';
+	const len = text.length;
+	if (len <= width) {
+		const pad = width - len;
+		return pad > 0 ? text + ' '.repeat(pad) : text;
+	}
+	if (width <= 3) return text.slice(0, width);
+	return text.slice(0, width - 3) + '...';
+}
+
 export function compactText(value: string, max: number): string {
 	const clean = value.replace(/\s+/g, ' ').trim();
 	if (max <= 0) return '';
+	if (isSimpleAscii(clean)) {
+		if (clean.length <= max) return clean;
+		if (max <= 3) return clean.slice(0, max);
+		return clean.slice(0, max - 3) + '...';
+	}
 	const w = stringWidth(clean);
 	if (w <= max) return clean;
 	if (max <= 3) return sliceAnsi(clean, 0, max);
@@ -12,6 +34,9 @@ export function compactText(value: string, max: number): string {
 }
 
 export function fit(text: string, width: number): string {
+	if (isSimpleAscii(text)) {
+		return fitAscii(text, width);
+	}
 	if (width <= 0) return '';
 	const w = stringWidth(text);
 	if (w <= width) {
@@ -32,6 +57,10 @@ export function fit(text: string, width: number): string {
  * misalignment for those characters, but preserves readable content.
  */
 export function fitAnsi(text: string, width: number): string {
+	// Fast path for plain ASCII text with no ANSI escape sequences.
+	if (isSimpleAscii(text)) {
+		return fitAscii(text, width);
+	}
 	if (width <= 0) return '';
 	const visualWidth = stringWidth(text);
 	if (visualWidth <= width) {

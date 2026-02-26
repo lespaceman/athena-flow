@@ -22,6 +22,7 @@ import {
 	resolveToolColumn,
 	resolveEventToolColumn,
 } from '../feed/toolDisplay.js';
+import {startPerfMeasure} from '../utils/perf.js';
 
 function subagentActorLabel(agentType?: string, agentId?: string): string {
 	if (agentType) {
@@ -111,115 +112,125 @@ export function useTimeline({
 	const [searchMatchPos, setSearchMatchPos] = useState(0);
 
 	const timelineEntries = useMemo((): TimelineEntry[] => {
-		const entries: TimelineEntry[] = [];
-		let activeRunId: string | undefined;
-		let messageCounter = 1;
-		const subagentTypes = buildSubagentTypeMap(feedEvents);
+		const done = startPerfMeasure('timeline.entries.compute', {
+			feed_items: feedItems.length,
+			feed_events: feedEvents.length,
+		});
+		try {
+			const entries: TimelineEntry[] = [];
+			let activeRunId: string | undefined;
+			let messageCounter = 1;
+			const subagentTypes = buildSubagentTypeMap(feedEvents);
 
-		for (const item of feedItems) {
-			if (item.type === 'message') {
-				const id = `M${String(messageCounter++).padStart(3, '0')}`;
-				const summary = compactText(item.data.content, 200);
-				const details = item.data.content;
+			for (const item of feedItems) {
+				if (item.type === 'message') {
+					const id = `M${String(messageCounter++).padStart(3, '0')}`;
+					const summary = compactText(item.data.content, 200);
+					const details = item.data.content;
+					entries.push({
+						id,
+						ts: item.data.timestamp.getTime(),
+						runId: activeRunId,
+						op: item.data.role === 'user' ? 'User Msg' : 'Agent Msg',
+						opTag: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
+						actor: item.data.role === 'user' ? 'USER' : 'AGENT',
+						actorId: item.data.role === 'user' ? 'user' : 'agent:root',
+						toolColumn: '',
+						summary,
+						summarySegments: [{text: summary, role: 'plain' as const}],
+						searchText: `${summary}\n${details}`,
+						error: false,
+						expandable: details.length > 120,
+						details,
+						duplicateActor: false,
+					});
+					continue;
+				}
+
+				const event = item.data;
+				if (event.kind === 'run.start') {
+					activeRunId = event.run_id;
+				}
+
+				// Verbose filtering: skip lifecycle events when not verbose
+				if (!verbose && VERBOSE_ONLY_KINDS.has(event.kind)) {
+					// Still track run boundaries for activeRunId
+					if (event.kind === 'run.end') {
+						activeRunId = undefined;
+					}
+					continue;
+				}
+
+				// Merge tool.post/tool.failure into their paired tool.pre
+				// If this post/failure event is in the map, it will be rendered
+				// by the paired tool.pre entry — skip it here.
+				if (
+					(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
+					event.data.tool_name !== 'Task' &&
+					postByToolUseId &&
+					event.data.tool_use_id &&
+					postByToolUseId.get(event.data.tool_use_id) === event
+				) {
+					continue;
+				}
+
+				// For tool.pre, look up paired post event
+				const pairedPost =
+					(event.kind === 'tool.pre' || event.kind === 'permission.request') &&
+					event.data.tool_name !== 'Task' &&
+					event.data.tool_use_id
+						? postByToolUseId?.get(event.data.tool_use_id)
+						: undefined;
+
+				const opTag = pairedPost
+					? mergedEventOperation(event, pairedPost)
+					: eventOperation(event);
+				const op = pairedPost
+					? mergedEventLabel(event, pairedPost)
+					: eventLabel(event);
+				const summaryResult = pairedPost
+					? mergedEventSummary(event, pairedPost)
+					: eventSummary(event);
+				const {text: summary, segments: summarySegments} = summaryResult;
+				const details = isEventExpandable(event)
+					? expansionForEvent(event)
+					: '';
+				const toolColumn =
+					event.kind === 'tool.pre' ||
+					event.kind === 'tool.post' ||
+					event.kind === 'tool.failure'
+						? resolveToolColumn(event.data.tool_name)
+						: resolveEventToolColumn(event);
 				entries.push({
-					id,
-					ts: item.data.timestamp.getTime(),
-					runId: activeRunId,
-					op: item.data.role === 'user' ? 'User Msg' : 'Agent Msg',
-					opTag: item.data.role === 'user' ? 'msg.user' : 'msg.agent',
-					actor: item.data.role === 'user' ? 'USER' : 'AGENT',
-					actorId: item.data.role === 'user' ? 'user' : 'agent:root',
-					toolColumn: '',
+					id: event.event_id,
+					ts: event.ts,
+					runId: event.run_id,
+					op,
+					opTag,
+					actor: resolveActorLabel(event, subagentTypes),
+					actorId: event.actor_id,
+					toolColumn,
 					summary,
-					summarySegments: [{text: summary, role: 'plain' as const}],
+					summarySegments,
+					summaryOutcome: summaryResult.outcome,
+					summaryOutcomeZero: summaryResult.outcomeZero,
 					searchText: `${summary}\n${details}`,
-					error: false,
-					expandable: details.length > 120,
+					error: isEventError(event) || pairedPost?.kind === 'tool.failure',
+					expandable: isEventExpandable(event),
 					details,
+					feedEvent: event,
+					pairedPostEvent: pairedPost,
 					duplicateActor: false,
 				});
-				continue;
-			}
-
-			const event = item.data;
-			if (event.kind === 'run.start') {
-				activeRunId = event.run_id;
-			}
-
-			// Verbose filtering: skip lifecycle events when not verbose
-			if (!verbose && VERBOSE_ONLY_KINDS.has(event.kind)) {
-				// Still track run boundaries for activeRunId
 				if (event.kind === 'run.end') {
 					activeRunId = undefined;
 				}
-				continue;
 			}
-
-			// Merge tool.post/tool.failure into their paired tool.pre
-			// If this post/failure event is in the map, it will be rendered
-			// by the paired tool.pre entry — skip it here.
-			if (
-				(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
-				event.data.tool_name !== 'Task' &&
-				postByToolUseId &&
-				event.data.tool_use_id &&
-				postByToolUseId.get(event.data.tool_use_id) === event
-			) {
-				continue;
-			}
-
-			// For tool.pre, look up paired post event
-			const pairedPost =
-				(event.kind === 'tool.pre' || event.kind === 'permission.request') &&
-				event.data.tool_name !== 'Task' &&
-				event.data.tool_use_id
-					? postByToolUseId?.get(event.data.tool_use_id)
-					: undefined;
-
-			const opTag = pairedPost
-				? mergedEventOperation(event, pairedPost)
-				: eventOperation(event);
-			const op = pairedPost
-				? mergedEventLabel(event, pairedPost)
-				: eventLabel(event);
-			const summaryResult = pairedPost
-				? mergedEventSummary(event, pairedPost)
-				: eventSummary(event);
-			const {text: summary, segments: summarySegments} = summaryResult;
-			const details = isEventExpandable(event) ? expansionForEvent(event) : '';
-			const toolColumn =
-				event.kind === 'tool.pre' ||
-				event.kind === 'tool.post' ||
-				event.kind === 'tool.failure'
-					? resolveToolColumn(event.data.tool_name)
-					: resolveEventToolColumn(event);
-			entries.push({
-				id: event.event_id,
-				ts: event.ts,
-				runId: event.run_id,
-				op,
-				opTag,
-				actor: resolveActorLabel(event, subagentTypes),
-				actorId: event.actor_id,
-				toolColumn,
-				summary,
-				summarySegments,
-				summaryOutcome: summaryResult.outcome,
-				summaryOutcomeZero: summaryResult.outcomeZero,
-				searchText: `${summary}\n${details}`,
-				error: isEventError(event) || pairedPost?.kind === 'tool.failure',
-				expandable: isEventExpandable(event),
-				details,
-				feedEvent: event,
-				pairedPostEvent: pairedPost,
-				duplicateActor: false,
-			});
-			if (event.kind === 'run.end') {
-				activeRunId = undefined;
-			}
+			computeDuplicateActors(entries);
+			return entries;
+		} finally {
+			done();
 		}
-		computeDuplicateActors(entries);
-		return entries;
 	}, [feedItems, feedEvents, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {

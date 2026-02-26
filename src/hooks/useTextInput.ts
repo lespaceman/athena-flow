@@ -1,5 +1,6 @@
 import {useReducer, useCallback, useEffect, useRef} from 'react';
 import {useInput, useStdin} from 'ink';
+import {startInputMeasure} from '../utils/perf.js';
 
 export type TextInputState = {
 	value: string;
@@ -190,64 +191,69 @@ export function useTextInput(
 
 	useInput(
 		(input, key) => {
-			// Leave navigation/control keys for parent handlers
-			if (key.upArrow || key.downArrow || key.tab || key.escape) return;
+			const done = startInputMeasure('text.input', input, key);
+			try {
+				// Leave navigation/control keys for parent handlers
+				if (key.upArrow || key.downArrow || key.tab || key.escape) return;
 
-			if (key.return) {
-				const {value: val, cursorOffset: cur} = stateRef.current;
-				if (cur > 0 && val[cur - 1] === '\\') {
-					dispatch({type: 'newline-escape'});
-				} else {
-					onSubmitRef.current?.(val);
+				if (key.return) {
+					const {value: val, cursorOffset: cur} = stateRef.current;
+					if (cur > 0 && val[cur - 1] === '\\') {
+						dispatch({type: 'newline-escape'});
+					} else {
+						onSubmitRef.current?.(val);
+					}
+					return;
 				}
-				return;
-			}
 
-			if (key.leftArrow) {
-				dispatch(key.ctrl ? {type: 'move-home'} : {type: 'move-left'});
-				return;
-			}
-			if (key.rightArrow) {
-				dispatch(key.ctrl ? {type: 'move-end'} : {type: 'move-right'});
-				return;
-			}
-
-			if (key.home) {
-				dispatch({type: 'move-home'});
-				return;
-			}
-			if (key.end) {
-				dispatch({type: 'move-end'});
-				return;
-			}
-
-			// Readline shortcuts (Ctrl+key)
-			if (key.ctrl) {
-				if (input === 'a') dispatch({type: 'move-home'});
-				else if (input === 'e') dispatch({type: 'move-end'});
-				else if (input === 'w') dispatch({type: 'delete-word-back'});
-				else if (input === 'u') dispatch({type: 'clear-line'});
-				else if (input === 'd') dispatch({type: 'delete-forward'});
-				return;
-			}
-
-			// Ink maps \x7f (Backspace on most terminals) to key.delete, not
-			// key.backspace.  The forward-Delete key (\x1b[3~) also fires as
-			// key.delete.  We use the isForwardDeleteRef flag (set by our
-			// raw stdin peek) to distinguish the two.
-			if (key.backspace || key.delete) {
-				if (isForwardDeleteRef.current) {
-					isForwardDeleteRef.current = false;
-					dispatch({type: 'delete-forward'});
-				} else {
-					dispatch({type: 'backspace'});
+				if (key.leftArrow) {
+					dispatch(key.ctrl ? {type: 'move-home'} : {type: 'move-left'});
+					return;
 				}
-				return;
-			}
+				if (key.rightArrow) {
+					dispatch(key.ctrl ? {type: 'move-end'} : {type: 'move-right'});
+					return;
+				}
 
-			// Printable characters
-			if (input && !key.meta) {
-				dispatch({type: 'insert', char: input});
+				if (key.home) {
+					dispatch({type: 'move-home'});
+					return;
+				}
+				if (key.end) {
+					dispatch({type: 'move-end'});
+					return;
+				}
+
+				// Readline shortcuts (Ctrl+key)
+				if (key.ctrl) {
+					if (input === 'a') dispatch({type: 'move-home'});
+					else if (input === 'e') dispatch({type: 'move-end'});
+					else if (input === 'w') dispatch({type: 'delete-word-back'});
+					else if (input === 'u') dispatch({type: 'clear-line'});
+					else if (input === 'd') dispatch({type: 'delete-forward'});
+					return;
+				}
+
+				// Ink maps \x7f (Backspace on most terminals) to key.delete, not
+				// key.backspace.  The forward-Delete key (\x1b[3~) also fires as
+				// key.delete.  We use the isForwardDeleteRef flag (set by our
+				// raw stdin peek) to distinguish the two.
+				if (key.backspace || key.delete) {
+					if (isForwardDeleteRef.current) {
+						isForwardDeleteRef.current = false;
+						dispatch({type: 'delete-forward'});
+					} else {
+						dispatch({type: 'backspace'});
+					}
+					return;
+				}
+
+				// Printable characters
+				if (input && !key.meta) {
+					dispatch({type: 'insert', char: input});
+				}
+			} finally {
+				done();
 			}
 		},
 		{isActive},

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import chalk from 'chalk';
-import {fit} from '../utils/format.js';
+import {fit, fitAnsi} from '../utils/format.js';
 import {type Theme} from '../theme/types.js';
 import {type FeedColumnWidths} from './FeedRow.js';
 
@@ -9,6 +9,31 @@ type Props = {
 	cols: FeedColumnWidths;
 	theme: Theme;
 };
+
+export function formatFeedHeaderLine(
+	cols: FeedColumnWidths,
+	theme: Theme,
+	innerWidth: number,
+): string {
+	const style = (s: string) => chalk.bold.hex(theme.textMuted)(s);
+	let line = ' ';
+	line += style(fit('TIME', 5));
+	line += ' '.repeat(cols.timeEventGapW);
+	line += style(fit('EVENT', 12));
+	line += ' '.repeat(cols.gapW);
+	line += style(fit('ACTOR', 10));
+	line += ' '.repeat(cols.gapW);
+	line += style(fit('TOOL', cols.toolW));
+	line += ' '.repeat(cols.gapW);
+	line += style(fit('DETAILS', cols.detailsW));
+	if (cols.resultW > 0) {
+		line += ' '.repeat(cols.detailsResultGapW);
+		line += style(fit('RESULT', cols.resultW));
+	}
+	line += ' '.repeat(cols.gapW);
+	line += '   ';
+	return fitAnsi(line, innerWidth);
+}
 
 function FeedHeaderImpl({cols, theme}: Props) {
 	const style = (s: string) => chalk.bold.hex(theme.textMuted)(s);

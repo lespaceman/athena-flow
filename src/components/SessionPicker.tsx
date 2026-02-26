@@ -3,6 +3,7 @@ import {Box, Text, useInput} from 'ink';
 import {type SessionEntry} from '../utils/sessionIndex.js';
 import {formatRelativeTime} from '../utils/formatters.js';
 import {useTheme} from '../theme/index.js';
+import {startInputMeasure} from '../utils/perf.js';
 
 type Props = {
 	sessions: SessionEntry[];
@@ -16,18 +17,23 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 	const theme = useTheme();
 	const [focusIndex, setFocusIndex] = useState(0);
 
-	useInput((_input, key) => {
-		if (key.downArrow) {
-			setFocusIndex(i => Math.min(i + 1, sessions.length - 1));
-		} else if (key.upArrow) {
-			setFocusIndex(i => Math.max(i - 1, 0));
-		} else if (key.return) {
-			const session = sessions[focusIndex];
-			if (session) {
-				onSelect(session.sessionId);
+	useInput((input, key) => {
+		const done = startInputMeasure('session.picker', input, key);
+		try {
+			if (key.downArrow) {
+				setFocusIndex(i => Math.min(i + 1, sessions.length - 1));
+			} else if (key.upArrow) {
+				setFocusIndex(i => Math.max(i - 1, 0));
+			} else if (key.return) {
+				const session = sessions[focusIndex];
+				if (session) {
+					onSelect(session.sessionId);
+				}
+			} else if (key.escape) {
+				onCancel();
 			}
-		} else if (key.escape) {
-			onCancel();
+		} finally {
+			done();
 		}
 	});
 

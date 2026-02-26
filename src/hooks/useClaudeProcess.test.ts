@@ -6,6 +6,7 @@ import {renderHook, act} from '@testing-library/react';
 import {useClaudeProcess} from './useClaudeProcess.js';
 import * as spawnModule from '../utils/spawnClaude.js';
 import * as workflowModule from '../workflows/index.js';
+import fs from 'node:fs';
 import {EventEmitter} from 'node:events';
 import type {ChildProcess} from 'node:child_process';
 import type {WorkflowConfig} from '../workflows/types.js';
@@ -779,6 +780,9 @@ describe('useClaudeProcess', () => {
 		});
 
 		it('should respawn loop on exit code 0 when not terminal', async () => {
+			const existsSpy = vi
+				.spyOn(fs, 'existsSync')
+				.mockImplementation(p => p === '/tmp/tracker.md');
 			const mockLoopManager = {
 				isTerminal: vi.fn().mockReturnValue(false),
 				getState: vi.fn().mockReturnValue({
@@ -792,6 +796,59 @@ describe('useClaudeProcess', () => {
 				incrementIteration: vi.fn(),
 				deactivate: vi.fn(),
 				trackerPath: '/tmp/tracker.md',
+			};
+			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
+				mockLoopManager,
+			);
+
+			try {
+				const {result} = renderHook(() =>
+					useClaudeProcess(
+						'/test',
+						TEST_INSTANCE_ID,
+						undefined,
+						undefined,
+						false,
+						loopWorkflow,
+					),
+				);
+
+				await act(async () => {
+					await result.current.spawn('test prompt');
+				});
+
+				const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
+					.length;
+
+				// Simulate successful exit
+				await act(async () => {
+					capturedCallbacks.onExit?.(0);
+				});
+
+				// Should have respawned (one more call)
+				expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
+					spawnCountBefore + 1,
+				);
+				expect(mockLoopManager.incrementIteration).toHaveBeenCalledTimes(1);
+			} finally {
+				existsSpy.mockRestore();
+			}
+		});
+
+		it('should not respawn loop on exit code 0 when tracker does not exist', async () => {
+			const mockLoopManager = {
+				isTerminal: vi.fn().mockReturnValue(false),
+				getState: vi.fn().mockReturnValue({
+					active: true,
+					iteration: 0,
+					maxIterations: 5,
+					completed: false,
+					blocked: false,
+					reachedLimit: false,
+				}),
+				incrementIteration: vi.fn(),
+				deactivate: vi.fn(),
+				trackerPath: '/tmp/missing-tracker.md',
 			};
 			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
 				mockLoopManager,
@@ -815,15 +872,14 @@ describe('useClaudeProcess', () => {
 			const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
 				.length;
 
-			// Simulate successful exit
 			await act(async () => {
 				capturedCallbacks.onExit?.(0);
 			});
 
-			// Should have respawned (one more call)
 			expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
-				spawnCountBefore + 1,
+				spawnCountBefore,
 			);
+			expect(mockLoopManager.incrementIteration).not.toHaveBeenCalled();
 		});
 	});
 });

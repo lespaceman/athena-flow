@@ -21,6 +21,8 @@ export type FrameContext = {
 	ascii?: boolean;
 	/** Status of the most recent completed run, or null if no run has finished yet. */
 	lastRunStatus?: 'completed' | 'failed' | 'aborted' | null;
+	/** When true, compute footer only and skip expensive input line rendering. */
+	skipInputLines?: boolean;
 };
 
 export type FrameLines = {
@@ -140,6 +142,9 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 				ctx.focusMode === 'input',
 				inputPlaceholder,
 			);
+	if (ctx.skipInputLines) {
+		return {footerHelp, inputLines: []};
+	}
 
 	// First line gets prefix + badge, subsequent lines get padding
 	const inputLines = contentLines.map((content, i) => {
