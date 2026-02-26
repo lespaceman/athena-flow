@@ -76,3 +76,61 @@ describe('buildBodyLines — Bug #6: todo hasScrollDown with scroll-up affordanc
 		expect(allText).toMatch(/\+\d+ more/);
 	});
 });
+
+describe('buildBodyLines — detail header', () => {
+	it('uses tool name as detail header label with compact metadata', () => {
+		const result = buildBodyLines({
+			innerWidth: 90,
+			detail: {
+				expandedEntry: {
+					id: '73610707-05fa-4730-9f06-e18fa2773f41',
+					ts: Date.now(),
+					op: 'Tool OK',
+					opTag: 'tool.ok',
+					actor: 'AGENT',
+					actorId: 'agent:root',
+					toolColumn: 'Read',
+					summary: 'Read /tmp/sample.ts',
+					summarySegments: [],
+					searchText: '',
+					error: false,
+					expandable: true,
+					details: '',
+					duplicateActor: false,
+				},
+				detailScroll: 0,
+				maxDetailScroll: 0,
+				detailLines: ['line-1'],
+				detailContentRows: 1,
+				showLineNumbers: false,
+			},
+			todo: {
+				actualTodoRows: 0,
+				todoPanel: {
+					todoScroll: 0,
+					todoCursor: 0,
+					visibleTodoItems: [],
+				},
+				focusMode: 'feed',
+				ascii: true,
+				appMode: 'idle',
+				doneCount: 0,
+				totalCount: 0,
+				spinnerFrame: '*',
+			},
+			runOverlay: {
+				actualRunOverlayRows: 0,
+				runSummaries: [],
+				runFilter: 'all',
+			},
+			theme: defaultTheme,
+		});
+
+		const header = stripAnsi(result[0] ?? '');
+		expect(header).toContain('Read');
+		expect(header).not.toContain('DETAILS |');
+		expect(header).toContain('Tool OK');
+		expect(header).toContain('Esc back');
+		expect(header).not.toContain('@agent:root');
+	});
+});

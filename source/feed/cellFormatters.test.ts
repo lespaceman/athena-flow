@@ -192,12 +192,12 @@ describe('formatTool', () => {
 });
 
 describe('formatSuffix', () => {
-	test('expandable collapsed shows ▸ ', () => {
-		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe(' ▸');
+	test('expandable collapsed shows safe ascii glyph', () => {
+		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe(' >');
 	});
 
-	test('expandable expanded shows  ▾', () => {
-		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe(' ▾');
+	test('expandable expanded shows safe ascii glyph', () => {
+		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe(' v');
 	});
 
 	test('not expandable shows two spaces', () => {

@@ -3,10 +3,7 @@ import {extractToolOutput} from './toolExtractors.js';
 import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
 import {highlight} from 'cli-highlight';
 import chalk from 'chalk';
-import {getGlyphs} from '../glyphs/index.js';
 import {createMarkedInstance} from './markedFactory.js';
-
-const g = getGlyphs();
 
 export type DetailRenderResult = {
 	lines: string[];
@@ -65,7 +62,7 @@ function renderList(items: {primary: string; secondary?: string}[]): string[] {
 function buildToolHeader(toolName: string): string[] {
 	const parsed = parseToolName(toolName);
 	if (!parsed.isMcp || !parsed.mcpServer || !parsed.mcpAction) {
-		return [chalk.bold.cyan(`${g['tool.bullet']} ${toolName}`)];
+		return [];
 	}
 	const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
 	const divider = '─'.repeat(40);
@@ -78,18 +75,31 @@ function buildToolHeader(toolName: string): string[] {
 	];
 }
 
-function renderToolPost(
+type ToolSection = {
+	lines: string[];
+	showLineNumbers: boolean;
+};
+
+function sectionDivider(width: number): string {
+	return chalk.dim('─'.repeat(Math.min(40, Math.max(8, width - 2))));
+}
+
+function renderToolRequestSection(toolInput: unknown): ToolSection {
+	const json = JSON.stringify(toolInput, null, 2);
+	return {lines: highlightCode(json, 'json'), showLineNumbers: true};
+}
+
+function renderToolResponseSection(
 	event: Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}>,
 	width: number,
-): DetailRenderResult {
+): ToolSection {
 	const {tool_name, tool_input} = event.data;
 
 	// tool.failure has error string instead of tool_response
 	if (event.kind === 'tool.failure') {
-		const headerLines = buildToolHeader(tool_name);
 		const errorLines = event.data.error.split('\n');
 		return {
-			lines: [...headerLines, '', chalk.red('FAILED'), '', ...errorLines],
+			lines: [chalk.red('FAILED'), '', ...errorLines],
 			showLineNumbers: false,
 		};
 	}
@@ -100,54 +110,75 @@ function renderToolPost(
 		event.data.tool_response,
 	);
 
-	const headerLines = buildToolHeader(tool_name);
-
 	switch (output.type) {
 		case 'code':
 			return {
-				lines: [
-					...headerLines,
-					'',
-					...highlightCode(output.content, output.language),
-				],
+				lines: highlightCode(output.content, output.language),
 				showLineNumbers: true,
 			};
 		case 'diff':
 			return {
-				lines: [
-					...headerLines,
-					'',
-					...renderDiff(output.oldText, output.newText),
-				],
+				lines: renderDiff(output.oldText, output.newText),
 				showLineNumbers: true,
 			};
 		case 'list':
 			return {
-				lines: [...headerLines, '', ...renderList(output.items)],
+				lines: renderList(output.items),
 				showLineNumbers: false,
 			};
 		case 'text':
 			return {
-				lines: [
-					...headerLines,
-					'',
-					...renderMarkdownToLines(output.content, width - 2),
-				],
+				lines: renderMarkdownToLines(output.content, width - 2),
 				showLineNumbers: false,
 			};
 	}
 }
 
+function composeToolDetailView(
+	toolName: string,
+	width: number,
+	sections: {
+		request?: ToolSection;
+		response?: ToolSection;
+	},
+): DetailRenderResult {
+	const lines: string[] = [...buildToolHeader(toolName)];
+	const {request, response} = sections;
+	const hasHeader = lines.length > 0;
+
+	if (request) {
+		if (hasHeader) lines.push('');
+		lines.push(...request.lines);
+	}
+	if (response) {
+		if (lines.length > 0) lines.push('');
+		if (request) lines.push(sectionDivider(width), '');
+		lines.push(...response.lines);
+	}
+
+	return {
+		lines,
+		// Tool detail views mix metadata + payload + result; fixed line numbers
+		// across the whole block are visually noisy.
+		showLineNumbers: false,
+	};
+}
+
+function renderToolPost(
+	event: Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}>,
+	width: number,
+): DetailRenderResult {
+	const request = renderToolRequestSection(event.data.tool_input);
+	const response = renderToolResponseSection(event, width);
+	return composeToolDetailView(event.data.tool_name, width, {request, response});
+}
+
 function renderToolPre(
 	event: Extract<FeedEvent, {kind: 'tool.pre'} | {kind: 'permission.request'}>,
+	width: number,
 ): DetailRenderResult {
-	const {tool_name, tool_input} = event.data;
-	const headerLines = buildToolHeader(tool_name);
-	const json = JSON.stringify(tool_input, null, 2);
-	return {
-		lines: [...headerLines, '', ...highlightCode(json, 'json')],
-		showLineNumbers: true,
-	};
+	const request = renderToolRequestSection(event.data.tool_input);
+	return composeToolDetailView(event.data.tool_name, width, {request});
 }
 
 export function renderDetailLines(
@@ -184,23 +215,17 @@ export function renderDetailLines(
 
 		case 'tool.pre':
 		case 'permission.request': {
-			const preResult = renderToolPre(event);
+			const preResult = renderToolPre(event, width);
 			if (
 				pairedPostEvent &&
 				(pairedPostEvent.kind === 'tool.post' ||
 					pairedPostEvent.kind === 'tool.failure')
 			) {
-				const postResult = renderToolPost(pairedPostEvent, width);
-				return {
-					lines: [
-						...preResult.lines,
-						'',
-						chalk.dim('─'.repeat(Math.min(40, width - 2))),
-						'',
-						...postResult.lines,
-					],
-					showLineNumbers: postResult.showLineNumbers,
-				};
+				const response = renderToolResponseSection(pairedPostEvent, width);
+				return composeToolDetailView(event.data.tool_name, width, {
+					request: renderToolRequestSection(event.data.tool_input),
+					response,
+				});
 			}
 			return preResult;
 		}

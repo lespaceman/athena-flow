@@ -67,7 +67,7 @@ describe('renderDetailLines', () => {
 			},
 		});
 		const result = renderDetailLines(event, 80);
-		expect(result.showLineNumbers).toBe(true);
+		expect(result.showLineNumbers).toBe(false);
 		expect(result.lines.some(l => l.includes('const'))).toBe(true);
 	});
 
@@ -99,7 +99,7 @@ describe('renderDetailLines', () => {
 			},
 		});
 		const result = renderDetailLines(event, 80);
-		expect(result.showLineNumbers).toBe(true);
+		expect(result.showLineNumbers).toBe(false);
 		const joined = result.lines.join('\n');
 		expect(joined).toContain('foo');
 		expect(joined).toContain('bar');
@@ -114,7 +114,7 @@ describe('renderDetailLines', () => {
 			},
 		});
 		const result = renderDetailLines(event, 80);
-		expect(result.showLineNumbers).toBe(true);
+		expect(result.showLineNumbers).toBe(false);
 		expect(result.lines.some(l => l.includes('echo hello'))).toBe(true);
 	});
 
@@ -144,7 +144,7 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(event, 80);
 		const text = result.lines.join('\n');
-		expect(text).toContain('● Read');
+		expect(text).not.toContain('Tool: Read');
 		expect(text).not.toContain('Namespace:');
 	});
 
@@ -162,6 +162,32 @@ describe('renderDetailLines', () => {
 		const text = result.lines.join('\n');
 		expect(text).toContain('Server:    agent-web-interface');
 		expect(text).toContain('Action:    navigate');
+	});
+
+	it('renders merged tool detail with no repeated labels and a divider', () => {
+		const pre = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/tmp/sample.ts'},
+				tool_use_id: 'tu-1',
+			},
+		});
+		const post = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/tmp/sample.ts'},
+				tool_response: [{type: 'text', file: {content: 'const x = 1;'}}],
+				tool_use_id: 'tu-1',
+			},
+		});
+		const result = renderDetailLines(pre, 80, post);
+		const text = result.lines.join('\n');
+		expect(text).not.toContain('Request');
+		expect(text).not.toContain('Response');
+		expect(text).not.toContain('Tool: Read');
+		expect(text).toContain('────────');
 	});
 
 	it('splits multiline tool.failure error into individual lines', () => {

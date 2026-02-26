@@ -12,21 +12,21 @@
 
 ## Reference: Existing Code Locations
 
-| What | Where |
-|------|-------|
-| `TimelineEntry` type | `source/feed/timeline.ts:28-47` |
-| `SummarySegment` / `SummarySegmentRole` | `source/feed/timeline.ts:20-26` |
-| `formatFeedLine()` | `source/feed/timeline.ts:666-742` |
-| `styleFeedLine()` | `source/feed/feedLineStyle.ts:65-240` |
-| `opCategoryColor()` | `source/feed/feedLineStyle.ts:44-57` |
-| `actorStyle()` | `source/feed/feedLineStyle.ts:59-63` |
-| `fit()` / `fitAnsi()` / `formatClock()` / `actorLabel()` | `source/utils/format.ts` |
-| `getGlyphs()` / `GLYPH_REGISTRY` | `source/glyphs/index.ts` |
-| Column constants (`FEED_*`) | `source/feed/timeline.ts:642-652` |
-| `darkTheme` (for tests) | `source/theme/themes.ts` |
-| `Theme` type | `source/theme/types.ts` |
-| `useTimeline()` | `source/hooks/useTimeline.ts` |
-| `buildBodyLines()` (consumer) | `source/utils/buildBodyLines.ts` |
+| What                                                     | Where                                 |
+| -------------------------------------------------------- | ------------------------------------- |
+| `TimelineEntry` type                                     | `source/feed/timeline.ts:28-47`       |
+| `SummarySegment` / `SummarySegmentRole`                  | `source/feed/timeline.ts:20-26`       |
+| `formatFeedLine()`                                       | `source/feed/timeline.ts:666-742`     |
+| `styleFeedLine()`                                        | `source/feed/feedLineStyle.ts:65-240` |
+| `opCategoryColor()`                                      | `source/feed/feedLineStyle.ts:44-57`  |
+| `actorStyle()`                                           | `source/feed/feedLineStyle.ts:59-63`  |
+| `fit()` / `fitAnsi()` / `formatClock()` / `actorLabel()` | `source/utils/format.ts`              |
+| `getGlyphs()` / `GLYPH_REGISTRY`                         | `source/glyphs/index.ts`              |
+| Column constants (`FEED_*`)                              | `source/feed/timeline.ts:642-652`     |
+| `darkTheme` (for tests)                                  | `source/theme/themes.ts`              |
+| `Theme` type                                             | `source/theme/types.ts`               |
+| `useTimeline()`                                          | `source/hooks/useTimeline.ts`         |
+| `buildBodyLines()` (consumer)                            | `source/utils/buildBodyLines.ts`      |
 
 ---
 
@@ -35,6 +35,7 @@
 Start with the foundation: re-export `fit` from `format.ts`, extract `opCategoryColor` from `feedLineStyle.ts`, and implement `formatGutter`.
 
 **Files:**
+
 - Create: `source/feed/cellFormatters.ts`
 - Create: `source/feed/cellFormatters.test.ts`
 - Reference: `source/feed/feedLineStyle.ts:44-57` (opCategoryColor), `source/feed/feedLineStyle.ts:110-132` (gutter logic), `source/glyphs/index.ts`
@@ -82,42 +83,106 @@ describe('opCategoryColor', () => {
 
 describe('formatGutter', () => {
 	test('focused returns ▎', () => {
-		const r = formatGutter({focused: true, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: true,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▎');
 	});
 
 	test('matched returns ▌', () => {
-		const r = formatGutter({focused: false, matched: true, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: true,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▌');
 	});
 
 	test('user border returns ▎', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: true, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: true,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▎');
 	});
 
 	test('minute break (no category) returns ─', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: true, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: true,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('─');
 	});
 
 	test('category break returns ·', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: true, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: true,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('·');
 	});
 
 	test('default returns space', () => {
-		const r = formatGutter({focused: false, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe(' ');
 	});
 
 	test('ascii mode: focused returns |', () => {
-		const r = formatGutter({focused: true, matched: false, categoryBreak: false, minuteBreak: false, isUserBorder: false, ascii: true, theme});
+		const r = formatGutter({
+			focused: true,
+			matched: false,
+			categoryBreak: false,
+			minuteBreak: false,
+			isUserBorder: false,
+			ascii: true,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('|');
 	});
 
 	test('priority: matched > userBorder > minuteBreak > categoryBreak', () => {
-		const r = formatGutter({focused: false, matched: true, categoryBreak: true, minuteBreak: true, isUserBorder: true, ascii: false, theme});
+		const r = formatGutter({
+			focused: false,
+			matched: true,
+			categoryBreak: true,
+			minuteBreak: true,
+			isUserBorder: true,
+			ascii: false,
+			theme,
+		});
 		expect(stripAnsi(r)).toBe('▌'); // matched wins
 	});
 });
@@ -140,10 +205,7 @@ import {getGlyphs} from '../glyphs/index.js';
 // Re-export fit so all formatter consumers import from one place
 export {fit} from '../utils/format.js';
 
-export function opCategoryColor(
-	op: string,
-	theme: Theme,
-): string | undefined {
+export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
 	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
@@ -169,7 +231,15 @@ export type FormatGutterOpts = {
 };
 
 export function formatGutter(opts: FormatGutterOpts): string {
-	const {focused, matched, categoryBreak, minuteBreak, isUserBorder, ascii, theme} = opts;
+	const {
+		focused,
+		matched,
+		categoryBreak,
+		minuteBreak,
+		isUserBorder,
+		ascii,
+		theme,
+	} = opts;
 	const g = getGlyphs(ascii);
 
 	if (focused) {
@@ -211,6 +281,7 @@ git commit -m "feat(feed): add cellFormatters with fit, opCategoryColor, formatG
 The five simple cell formatters. Each takes `(data, contentWidth, theme) → string`.
 
 **Files:**
+
 - Modify: `source/feed/cellFormatters.ts`
 - Modify: `source/feed/cellFormatters.test.ts`
 - Reference: `source/feed/timeline.ts:682-685` (time/event/actor in formatFeedLine), `source/feed/feedLineStyle.ts:59-63` (actorStyle), `source/feed/feedLineStyle.ts:212-232` (glyph styling)
@@ -220,7 +291,13 @@ The five simple cell formatters. Each takes `(data, contentWidth, theme) → str
 Add to `source/feed/cellFormatters.test.ts`:
 
 ```ts
-import {formatTime, formatEvent, formatActor, formatTool, formatSuffix} from './cellFormatters.js';
+import {
+	formatTime,
+	formatEvent,
+	formatActor,
+	formatTool,
+	formatSuffix,
+} from './cellFormatters.js';
 
 describe('formatTime', () => {
 	test('formats timestamp as HH:MM padded to contentWidth', () => {
@@ -414,6 +491,7 @@ git commit -m "feat(feed): add formatTime, formatEvent, formatActor, formatTool,
 Two self-contained helpers that `formatDetails` will compose.
 
 **Files:**
+
 - Modify: `source/feed/cellFormatters.ts`
 - Modify: `source/feed/cellFormatters.test.ts`
 
@@ -557,6 +635,7 @@ git commit -m "feat(feed): add buildDetailsPrefix and layoutTargetAndOutcome"
 The main details formatter that composes the helpers from Task 3.
 
 **Files:**
+
 - Modify: `source/feed/cellFormatters.ts`
 - Modify: `source/feed/cellFormatters.test.ts`
 - Reference: `source/feed/feedLineStyle.ts:170-210` (roleStyle + segment painting), `source/feed/timeline.ts:689-707` (outcome layout)
@@ -707,9 +786,7 @@ function renderSegments(
 		if (usedWidth >= width) break;
 		const remaining = width - usedWidth;
 		const text =
-			seg.text.length > remaining
-				? seg.text.slice(0, remaining)
-				: seg.text;
+			seg.text.length > remaining ? seg.text.slice(0, remaining) : seg.text;
 		result += chalk.hex(roleColor(seg.role))(text);
 		usedWidth += text.length;
 	}
@@ -770,7 +847,14 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 	const outcomeClean = outcomeStr ? stripAnsi(outcomeStr) : undefined;
 
 	// Step 3: render target segments (budget = innerWidth minus outcome)
-	const target = renderSegments(segments, summary, innerWidth, theme, opTag, isError);
+	const target = renderSegments(
+		segments,
+		summary,
+		innerWidth,
+		theme,
+		opTag,
+		isError,
+	);
 	const targetClean = stripAnsi(target).trimEnd();
 
 	// Step 4: lay out target + outcome
@@ -780,23 +864,43 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 	// For simplicity in Phase 2, render segments into the target budget,
 	// then overlay outcome styling.
 	if (!outcomeStr || innerWidth <= 0) {
-		return prefix.text + renderSegments(segments, summary, innerWidth, theme, opTag, isError);
+		return (
+			prefix.text +
+			renderSegments(segments, summary, innerWidth, theme, opTag, isError)
+		);
 	}
 
 	const outcomeLen = outcomeClean!.length;
 	const targetBudget = innerWidth - outcomeLen - 2;
 	if (targetBudget < 10) {
 		// Inline: segments + gap + outcome, all truncated
-		const segStr = renderSegments(segments, summary, innerWidth - outcomeLen - 2, theme, opTag, isError);
+		const segStr = renderSegments(
+			segments,
+			summary,
+			innerWidth - outcomeLen - 2,
+			theme,
+			opTag,
+			isError,
+		);
 		const segClean = stripAnsi(segStr).trimEnd();
 		const padNeeded = innerWidth - segClean.length - outcomeLen;
 		const pad = padNeeded >= 2 ? ' '.repeat(padNeeded) : '  ';
-		const truncated = fitImpl(segClean + pad + stripAnsi(outcomeStr), innerWidth);
+		const truncated = fitImpl(
+			segClean + pad + stripAnsi(outcomeStr),
+			innerWidth,
+		);
 		// Re-style: best effort plain fit
 		return prefix.text + truncated;
 	}
 
-	const segStr = renderSegments(segments, summary, targetBudget, theme, opTag, isError);
+	const segStr = renderSegments(
+		segments,
+		summary,
+		targetBudget,
+		theme,
+		opTag,
+		isError,
+	);
 	const segClean = stripAnsi(segStr);
 	const padNeeded = innerWidth - segClean.length - outcomeLen;
 	const pad = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';
@@ -825,6 +929,7 @@ git commit -m "feat(feed): add renderSegments, renderOutcome, and formatDetails"
 Add `duplicateActor: boolean` to `TimelineEntry` and compute it in `useTimeline()`.
 
 **Files:**
+
 - Modify: `source/feed/timeline.ts:28-47` (add field to type)
 - Modify: `source/hooks/useTimeline.ts` (compute after building entries)
 - Modify: `source/hooks/useTodoPanel.test.ts` (add field to any test fixtures)
@@ -920,6 +1025,7 @@ computeDuplicateActors(entries);
 ```
 
 **Update all test fixtures** that create `TimelineEntry` objects — add `duplicateActor: false` to each. Files to check:
+
 - `source/feed/timeline.test.ts`
 - `source/utils/buildBodyLines.test.ts`
 - `source/hooks/useTodoPanel.test.ts`
@@ -950,6 +1056,7 @@ git commit -m "feat(feed): pre-compute duplicateActor on TimelineEntry"
 Prove that the new formatters produce byte-identical stripped output compared to the old `formatFeedLine` + `styleFeedLine` path.
 
 **Files:**
+
 - Create: `source/feed/cellFormatters.verify.test.ts` (temporary — deleted after Phase 2 sign-off)
 - Reference: `source/feed/timeline.ts:666-742`, `source/feed/feedLineStyle.ts:65-240`
 
@@ -999,7 +1106,13 @@ function assembleNewLine(
 	});
 	const time = formatTime(entry.ts, 5, theme);
 	const event = formatEvent(entry.op, 12, theme, entry.opTag);
-	const actor = formatActor(entry.actor, duplicateActor, 10, theme, entry.actorId);
+	const actor = formatActor(
+		entry.actor,
+		duplicateActor,
+		10,
+		theme,
+		entry.actorId,
+	);
 	const bodyWidth = Math.max(0, width - 3);
 	const summaryWidth = Math.max(0, bodyWidth - 30);
 	const details = formatDetails({
@@ -1015,7 +1128,17 @@ function assembleNewLine(
 	});
 	const suffix = formatSuffix(entry.expandable, expanded, ascii, theme);
 	// Assemble: gutter + time + ' ' + event + ' ' + actor + ' ' + details + suffix
-	return gutter + time + ' ' + event + ' ' + actor + ' ' + stripAnsi(details) + suffix;
+	return (
+		gutter +
+		time +
+		' ' +
+		event +
+		' ' +
+		actor +
+		' ' +
+		stripAnsi(details) +
+		suffix
+	);
 }
 
 // Create snapshot entries covering all branches
@@ -1050,15 +1173,44 @@ describe('side-by-side: new formatters match old output', () => {
 		categoryBreak?: boolean;
 	}> = [
 		{name: 'tool.ok basic', entry: makeEntry({})},
-		{name: 'tool.fail error', entry: makeEntry({opTag: 'tool.fail', op: 'Tool Fail', error: true})},
-		{name: 'agent message', entry: makeEntry({opTag: 'agent.msg', op: 'Agent Msg', toolColumn: '', summary: 'Hello user'})},
+		{
+			name: 'tool.fail error',
+			entry: makeEntry({opTag: 'tool.fail', op: 'Tool Fail', error: true}),
+		},
+		{
+			name: 'agent message',
+			entry: makeEntry({
+				opTag: 'agent.msg',
+				op: 'Agent Msg',
+				toolColumn: '',
+				summary: 'Hello user',
+			}),
+		},
 		{name: 'with outcome', entry: makeEntry({summaryOutcome: '120 lines'})},
-		{name: 'outcome zero', entry: makeEntry({summaryOutcome: '0 files', summaryOutcomeZero: true})},
+		{
+			name: 'outcome zero',
+			entry: makeEntry({summaryOutcome: '0 files', summaryOutcomeZero: true}),
+		},
 		{name: 'duplicate actor', entry: makeEntry({}), duplicateActor: true},
 		{name: 'expandable collapsed', entry: makeEntry({expandable: true})},
-		{name: 'expandable expanded', entry: makeEntry({expandable: true}), expanded: true},
+		{
+			name: 'expandable expanded',
+			entry: makeEntry({expandable: true}),
+			expanded: true,
+		},
 		{name: 'category break', entry: makeEntry({}), categoryBreak: true},
-		{name: 'long path truncation', entry: makeEntry({summary: 'src/very/deeply/nested/path/to/component.tsx', summarySegments: [{text: 'src/very/deeply/nested/path/to/component.tsx', role: 'target'}]})},
+		{
+			name: 'long path truncation',
+			entry: makeEntry({
+				summary: 'src/very/deeply/nested/path/to/component.tsx',
+				summarySegments: [
+					{
+						text: 'src/very/deeply/nested/path/to/component.tsx',
+						role: 'target',
+					},
+				],
+			}),
+		},
 	];
 
 	for (const tc of cases) {
@@ -1070,7 +1222,13 @@ describe('side-by-side: new formatters match old output', () => {
 
 			// Old path
 			const {line, summarySegments} = formatFeedLine(
-				tc.entry, WIDTH, focused, expanded, matched, false, dup,
+				tc.entry,
+				WIDTH,
+				focused,
+				expanded,
+				matched,
+				false,
+				dup,
 			);
 			const oldStyled = styleFeedLine(line, {
 				focused,
@@ -1088,8 +1246,15 @@ describe('side-by-side: new formatters match old output', () => {
 
 			// New path
 			const newLine = assembleNewLine(
-				tc.entry, WIDTH, focused, expanded, matched, false, dup,
-				tc.categoryBreak ?? false, false,
+				tc.entry,
+				WIDTH,
+				focused,
+				expanded,
+				matched,
+				false,
+				dup,
+				tc.categoryBreak ?? false,
+				false,
 			);
 
 			expect(newLine).toBe(oldStripped);

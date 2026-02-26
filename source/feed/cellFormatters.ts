@@ -115,7 +115,9 @@ export function formatSuffix(
 	theme: Theme,
 ): string {
 	if (!expandable) return '  ';
-	const g = getGlyphs(ascii);
+	// Use ASCII glyphs in the far-right suffix column to avoid
+	// font-dependent width anomalies that can corrupt the frame border.
+	const g = getGlyphs(true);
 	if (expanded) {
 		return ' ' + chalk.hex(theme.status.success)(g['feed.expandExpanded']);
 	}

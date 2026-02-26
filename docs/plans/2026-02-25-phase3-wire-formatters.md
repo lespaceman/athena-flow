@@ -17,6 +17,7 @@
 ### Task 1: Replace feed line rendering in buildBodyLines
 
 **Files:**
+
 - Modify: `source/utils/buildBodyLines.ts:254-320` (feed rendering loop)
 
 **Step 1: Write a failing test that verifies new formatter integration**
@@ -30,7 +31,11 @@ it('renders feed lines with styled cell formatters (no styleFeedLine)', () => {
 	try {
 		const entries: TimelineEntry[] = [
 			{
-				...makeEntry('x1', new Date('2026-01-15T10:30:00').getTime(), 'tool.ok'),
+				...makeEntry(
+					'x1',
+					new Date('2026-01-15T10:30:00').getTime(),
+					'tool.ok',
+				),
 				op: 'Tool OK',
 				actor: 'AGENT',
 				actorId: 'agent:root',
@@ -49,7 +54,7 @@ it('renders feed lines with styled cell formatters (no styleFeedLine)', () => {
 		expect(plain).toContain('10:30');
 		expect(plain).toContain('Tool OK');
 		expect(plain).toContain('AGENT');
-		expect(plain).toContain('Read');       // TOOL column
+		expect(plain).toContain('Read'); // TOOL column
 		expect(plain).toContain('Read file.ts');
 
 		// Verify ANSI styling is applied (not plain text)
@@ -72,12 +77,14 @@ Expected: PASS (old path also produces styled output — this test validates the
 In `buildBodyLines.ts`, replace the import block and feed rendering loop (lines ~297-320):
 
 **Old imports to remove:**
+
 ```typescript
-import { formatFeedLine, formatFeedHeaderLine } from '../feed/timeline.js';
-import { styleFeedLine } from '../feed/feedLineStyle.js';
+import {formatFeedLine, formatFeedHeaderLine} from '../feed/timeline.js';
+import {styleFeedLine} from '../feed/feedLineStyle.js';
 ```
 
 **New imports to add:**
+
 ```typescript
 import {
 	formatTime,
@@ -94,9 +101,10 @@ import {
 ```typescript
 // Column-aligned: all rows share the same tool column width per render
 const FIXED = 33; // 1 gutter + 5 time + 1 + 12 event + 1 + 10 actor + 1 + 2 suffix
-const toolWidth = Math.min(16, Math.max(10,
-	...visibleEntries.map(e => (e.toolColumn ?? '').length)
-));
+const toolWidth = Math.min(
+	16,
+	Math.max(10, ...visibleEntries.map(e => (e.toolColumn ?? '').length)),
+);
 const detailsWidth = Math.max(0, innerWidth - FIXED - toolWidth - 1);
 
 // Track minute boundaries for blank separator lines
@@ -118,9 +126,7 @@ if (prevMinute !== -1 && entryMinute !== prevMinute) {
 prevMinute = entryMinute;
 
 // Gutter: | when focused, space otherwise
-const gutter = isFocused
-	? chalk.hex(theme.accent)('|')
-	: ' ';
+const gutter = isFocused ? chalk.hex(theme.accent)('|') : ' ';
 
 const time = formatTime(entry.ts, 5, theme);
 const event = formatEvent(entry.op, 12, theme, entry.opTag);
@@ -143,12 +149,7 @@ const detail = formatDetails({
 	opTag: entry.opTag,
 	isError: entry.error,
 });
-const suffix = formatSuffix(
-	entry.expandable,
-	isExpanded,
-	todo.ascii,
-	theme,
-);
+const suffix = formatSuffix(entry.expandable, isExpanded, todo.ascii, theme);
 
 let line = `${gutter}${time} ${event} ${actor} ${tool} ${detail}${suffix}`;
 
@@ -172,7 +173,9 @@ if (feedHeaderRows > 0) {
 		` ${fitImpl('TIME', 5)} ${fitImpl('EVENT', 12)} ${fitImpl('ACTOR', 10)} ${fitImpl('TOOL', toolWidth)} ${fitImpl('DETAILS', Math.max(0, detailsWidth))}  `,
 		innerWidth,
 	);
-	bodyLines.push(fitAnsi(chalk.bold.hex(theme.textMuted)(headerText), innerWidth));
+	bodyLines.push(
+		fitAnsi(chalk.bold.hex(theme.textMuted)(headerText), innerWidth),
+	);
 }
 ```
 
@@ -213,6 +216,7 @@ git commit -m "feat(feed): wire cell formatters into buildBodyLines, replacing t
 ### Task 2: Delete old-path code
 
 **Files:**
+
 - Delete: `source/feed/feedLineStyle.ts`
 - Delete: `source/feed/feedLineStyle.test.ts`
 - Delete: `source/feed/cellFormatters.verify.test.ts`
@@ -233,6 +237,7 @@ rm source/feed/cellFormatters.verify.test.ts
 **Step 3: Remove old functions and constants from timeline.ts**
 
 Delete from `source/feed/timeline.ts`:
+
 - `formatFeedLine()` function (lines ~674-750)
 - `formatFeedHeaderLine()` function (lines ~752-759)
 - Column position constants: `FEED_GUTTER_WIDTH`, `FEED_EVENT_COL_START`, `FEED_EVENT_COL_END`, `FEED_ACTOR_COL_START`, `FEED_ACTOR_COL_END`, `FEED_SUMMARY_COL_START`, `FEED_OP_COL_START`, `FEED_OP_COL_END` (lines ~650-660)
@@ -243,6 +248,7 @@ Delete from `source/feed/timeline.ts`:
 **Step 4: Remove old tests from timeline.test.ts**
 
 Delete from `source/feed/timeline.test.ts`:
+
 - `describe('formatFeedLine', ...)` block (lines ~1069-1141)
 - `describe('formatFeedHeaderLine', ...)` block (lines ~1143-1157)
 - Remove `formatFeedLine` and `formatFeedHeaderLine` from the import statement
@@ -250,6 +256,7 @@ Delete from `source/feed/timeline.test.ts`:
 **Step 5: Fix any remaining imports**
 
 Search for any other files importing deleted symbols:
+
 - `feedLineStyle.js` / `styleFeedLine`
 - `formatFeedLine` / `formatFeedHeaderLine` from `timeline.js`
 - `FEED_EVENT_COL_START` / `FEED_OP_COL_START` etc.
@@ -291,9 +298,11 @@ Expected: Clean build, no errors
 **Step 3: Verify no dead exports remain**
 
 Search for any remaining references to deleted symbols:
+
 ```bash
 grep -r 'formatFeedLine\|styleFeedLine\|FEED_EVENT_COL\|FEED_OP_COL\|ResolvedSegment\|feedLineStyle' source/
 ```
+
 Expected: No matches (only cellFormatters.ts and its tests should remain)
 
 **Step 4: Commit if any cleanup was needed**
@@ -307,15 +316,15 @@ git commit -m "chore: clean up stale references after Phase 3 wiring"
 
 ## Summary of Changes
 
-| File | Action |
-|------|--------|
-| `source/utils/buildBodyLines.ts` | Replace formatFeedLine+styleFeedLine with cell formatter calls; add TOOL column with `formatTool()` |
-| `source/utils/buildBodyLines.test.ts` | Add regression test for styled cell output |
-| `source/feed/feedLineStyle.ts` | DELETE |
-| `source/feed/feedLineStyle.test.ts` | DELETE |
-| `source/feed/cellFormatters.verify.test.ts` | DELETE |
-| `source/feed/timeline.ts` | Remove formatFeedLine, formatFeedHeaderLine, column constants |
-| `source/feed/timeline.test.ts` | Remove tests for deleted functions |
+| File                                        | Action                                                                                              |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `source/utils/buildBodyLines.ts`            | Replace formatFeedLine+styleFeedLine with cell formatter calls; add TOOL column with `formatTool()` |
+| `source/utils/buildBodyLines.test.ts`       | Add regression test for styled cell output                                                          |
+| `source/feed/feedLineStyle.ts`              | DELETE                                                                                              |
+| `source/feed/feedLineStyle.test.ts`         | DELETE                                                                                              |
+| `source/feed/cellFormatters.verify.test.ts` | DELETE                                                                                              |
+| `source/feed/timeline.ts`                   | Remove formatFeedLine, formatFeedHeaderLine, column constants                                       |
+| `source/feed/timeline.test.ts`              | Remove tests for deleted functions                                                                  |
 
 ## Key Design Decisions
 

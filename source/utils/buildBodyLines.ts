@@ -79,9 +79,24 @@ export function buildBodyLines({
 			detailLines.length === 0
 				? '0/0'
 				: `${start + 1}-${end}/${detailLines.length}`;
+		const sep = chalk.hex(theme.textMuted)('|');
+		const detailNameSource =
+			expandedEntry.toolColumn.trim().length > 0
+				? expandedEntry.toolColumn
+				: expandedEntry.op;
+		const detailLabel = chalk.bold.hex(theme.accent)(
+			compactText(detailNameSource, 18),
+		);
+		const eventId = chalk.hex(theme.textMuted)(
+			`E:${compactText(expandedEntry.id, 14)}`,
+		);
+		const opLabel = chalk.hex(theme.text)(expandedEntry.op);
+		const actorLabel = chalk.hex(theme.textMuted)(expandedEntry.actor);
+		const rangeText = chalk.hex(theme.textMuted)(rangeLabel);
+		const escHint = chalk.hex(theme.textMuted)('Esc back');
 		bodyLines.push(
 			fitAnsi(
-				`[DETAILS] ${expandedEntry.id} (${expandedEntry.op} @${expandedEntry.actorId}) ${rangeLabel} [Esc back]`,
+				`${detailLabel} ${sep} ${eventId} ${sep} ${opLabel} ${sep} ${actorLabel} ${sep} ${rangeText} ${sep} ${escHint}`,
 				innerWidth,
 			),
 		);
