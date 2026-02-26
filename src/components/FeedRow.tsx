@@ -20,6 +20,7 @@ type FeedColumnWidths = {
 	detailsW: number;
 	resultW: number;
 	gapW: number;
+	detailsResultGapW: number;
 	timeEventGapW: number;
 };
 
@@ -123,7 +124,7 @@ function FeedRowImpl({
 			</Box>
 			{cols.resultW > 0 && (
 				<>
-					<Box width={cols.gapW} flexShrink={0} />
+					<Box width={cols.detailsResultGapW} flexShrink={0} />
 					<Box width={cols.resultW} flexShrink={0}>
 						<Text wrap="truncate-end">{cell(result, overrideColor)}</Text>
 					</Box>

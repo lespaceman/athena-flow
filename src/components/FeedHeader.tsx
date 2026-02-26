@@ -38,7 +38,7 @@ function FeedHeaderImpl({cols, theme}: Props) {
 			</Box>
 			{cols.resultW > 0 && (
 				<>
-					<Box width={cols.gapW} flexShrink={0} />
+					<Box width={cols.detailsResultGapW} flexShrink={0} />
 					<Box width={cols.resultW} flexShrink={0}>
 						<Text wrap="truncate-end">
 							{style(fit('RESULT', cols.resultW))}

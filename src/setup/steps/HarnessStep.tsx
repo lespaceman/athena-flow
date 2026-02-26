@@ -20,14 +20,7 @@ export default function HarnessStep({onComplete, onError}: Props) {
 
 	const handleSelect = useCallback(
 		(value: AthenaHarness) => {
-			if (value !== 'claude-code') {
-				const label =
-					value === 'openai-codex' ? 'OpenAI Codex' : 'OpenCode';
-				setMessage(`${label} selected`);
-				setStatus('success');
-				onComplete(value);
-				return;
-			}
+			if (value !== 'claude-code') return;
 			setStatus('verifying');
 			// Run detection asynchronously to not block render
 			setTimeout(() => {
@@ -61,8 +54,16 @@ export default function HarnessStep({onComplete, onError}: Props) {
 					<StepSelector
 						options={[
 							{label: '1. Claude Code', value: 'claude-code'},
-							{label: '2. OpenAI Codex', value: 'openai-codex'},
-							{label: '3. OpenCode', value: 'opencode'},
+							{
+								label: '2. OpenAI Codex (coming soon)',
+								value: 'openai-codex',
+								disabled: true,
+							},
+							{
+								label: '3. OpenCode (coming soon)',
+								value: 'opencode',
+								disabled: true,
+							},
 						]}
 						onSelect={value => handleSelect(value as AthenaHarness)}
 					/>

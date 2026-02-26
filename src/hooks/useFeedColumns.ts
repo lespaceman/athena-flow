@@ -6,6 +6,7 @@ export type FeedColumns = {
 	detailsW: number;
 	resultW: number;
 	gapW: number;
+	detailsResultGapW: number;
 	timeEventGapW: number;
 };
 
@@ -48,18 +49,27 @@ export function useFeedColumns(
 							: 18;
 		const resultW =
 			maxResultLen > 0 ? Math.min(resultMaxW, Math.max(8, maxResultLen)) : 0;
+		const detailsResultGapW = resultW > 0 ? Math.max(2, gapW) : 0;
 
-		// gapW count excludes the dedicated timeEventGapW.
-		const gapCount = resultW > 0 ? 5 : 4;
+		// gapW count excludes the dedicated timeEventGapW and detailsResultGapW.
+		const gapCount = 4;
 		const fixedWithoutDetails =
 			BASE_FIXED +
 			toolW +
 			(resultW > 0 ? resultW : 0) +
 			timeEventGapW +
-			gapCount * gapW;
+			gapCount * gapW +
+			detailsResultGapW;
 		const availableForDetails = Math.max(0, innerWidth - fixedWithoutDetails);
 		// Use all available width for details to minimize truncation on wide terminals.
 		const detailsW = availableForDetails;
-		return {toolW, detailsW, resultW, gapW, timeEventGapW};
+		return {
+			toolW,
+			detailsW,
+			resultW,
+			gapW,
+			detailsResultGapW,
+			timeEventGapW,
+		};
 	}, [entries, innerWidth]);
 }
