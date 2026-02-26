@@ -5,8 +5,10 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
 import {useClaudeProcess} from './useClaudeProcess.js';
 import * as spawnModule from '../utils/spawnClaude.js';
+import * as workflowModule from '../workflows/index.js';
 import {EventEmitter} from 'node:events';
 import type {ChildProcess} from 'node:child_process';
+import type {WorkflowConfig} from '../workflows/types.js';
 
 // Create mock child process
 function createMockChildProcess(): ChildProcess {
@@ -17,6 +19,12 @@ function createMockChildProcess(): ChildProcess {
 
 vi.mock('../utils/spawnClaude.js', () => ({
 	spawnClaude: vi.fn(),
+}));
+
+vi.mock('../workflows/index.js', () => ({
+	applyPromptTemplate: vi.fn((_tpl: string, prompt: string) => prompt),
+	createLoopManager: vi.fn(),
+	buildContinuePrompt: vi.fn(() => 'Continue the task.'),
 }));
 
 describe('useClaudeProcess', () => {
@@ -667,5 +675,155 @@ describe('useClaudeProcess', () => {
 				}),
 			}),
 		);
+	});
+
+	it('should skip missing workflow systemPromptFile instead of passing invalid appendSystemPromptFile', async () => {
+		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const workflow: WorkflowConfig = {
+				name: 'wf',
+				plugins: [],
+				promptTemplate: '{input}',
+				systemPromptFile: 'missing-prompt.md',
+			};
+
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+					workflow,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test prompt');
+			});
+
+			expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+				expect.objectContaining({
+					prompt: 'test prompt',
+				}),
+			);
+			expect(capturedOptions['isolation']).toBeUndefined();
+			expect(errorSpy).toHaveBeenCalledWith(
+				expect.stringContaining('system prompt file not found'),
+			);
+		} finally {
+			errorSpy.mockRestore();
+		}
+	});
+
+	describe('workflow loop respawn', () => {
+		const loopWorkflow: WorkflowConfig = {
+			name: 'test-loop',
+			plugins: [],
+			promptTemplate: '{prompt}',
+			loop: {
+				enabled: true,
+				completionMarker: '<!-- DONE -->',
+				maxIterations: 5,
+				trackerPath: 'tracker.md',
+			},
+		};
+
+		it('should not respawn loop on non-zero exit code', async () => {
+			const mockLoopManager = {
+				isTerminal: vi.fn().mockReturnValue(false),
+				getState: vi.fn().mockReturnValue({
+					active: true,
+					iteration: 0,
+					maxIterations: 5,
+					completed: false,
+					blocked: false,
+					reachedLimit: false,
+				}),
+				incrementIteration: vi.fn(),
+				deactivate: vi.fn(),
+				trackerPath: '/tmp/tracker.md',
+			};
+			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
+				mockLoopManager,
+			);
+
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+					loopWorkflow,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test prompt');
+			});
+
+			const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
+				.length;
+
+			// Simulate non-zero exit (error)
+			act(() => {
+				capturedCallbacks.onExit?.(1);
+			});
+
+			// Should NOT have respawned
+			expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
+				spawnCountBefore,
+			);
+			expect(result.current.isRunning).toBe(false);
+		});
+
+		it('should respawn loop on exit code 0 when not terminal', async () => {
+			const mockLoopManager = {
+				isTerminal: vi.fn().mockReturnValue(false),
+				getState: vi.fn().mockReturnValue({
+					active: true,
+					iteration: 0,
+					maxIterations: 5,
+					completed: false,
+					blocked: false,
+					reachedLimit: false,
+				}),
+				incrementIteration: vi.fn(),
+				deactivate: vi.fn(),
+				trackerPath: '/tmp/tracker.md',
+			};
+			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
+				mockLoopManager,
+			);
+
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+					loopWorkflow,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test prompt');
+			});
+
+			const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
+				.length;
+
+			// Simulate successful exit
+			await act(async () => {
+				capturedCallbacks.onExit?.(0);
+			});
+
+			// Should have respawned (one more call)
+			expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
+				spawnCountBefore + 1,
+			);
+		});
 	});
 });

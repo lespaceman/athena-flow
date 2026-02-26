@@ -47,7 +47,7 @@ function makeContext(
 			hookServer: {} as ExecuteCommandContext['hook']['hookServer'],
 		},
 		prompt: {
-			spawn: vi.fn(),
+			spawn: vi.fn().mockResolvedValue(undefined),
 			currentSessionId: 'session-123',
 		},
 		...overrides,
@@ -55,7 +55,7 @@ function makeContext(
 }
 
 describe('executeCommand', () => {
-	it('calls execute with UICommandContext for ui commands', () => {
+	it('calls execute with UICommandContext for ui commands', async () => {
 		const execute = vi.fn();
 		const cmd: UICommand = {
 			name: 'clear',
@@ -65,12 +65,12 @@ describe('executeCommand', () => {
 		};
 		const ctx = makeContext();
 
-		executeCommand(cmd, {}, ctx);
+		await executeCommand(cmd, {}, ctx);
 
 		expect(execute).toHaveBeenCalledWith({...ctx.ui, args: {}});
 	});
 
-	it('builds prompt and spawns new session for prompt commands with session "new"', () => {
+	it('builds prompt and spawns new session for prompt commands with session "new"', async () => {
 		const cmd: PromptCommand = {
 			name: 'commit',
 			description: 'Commit changes',
@@ -80,7 +80,7 @@ describe('executeCommand', () => {
 		};
 		const ctx = makeContext();
 
-		executeCommand(cmd, {message: 'fix bug'}, ctx);
+		await executeCommand(cmd, {message: 'fix bug'}, ctx);
 
 		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
 			'commit: fix bug',
@@ -89,7 +89,7 @@ describe('executeCommand', () => {
 		);
 	});
 
-	it('builds prompt and resumes session for prompt commands with session "resume"', () => {
+	it('builds prompt and resumes session for prompt commands with session "resume"', async () => {
 		const cmd: PromptCommand = {
 			name: 'fix',
 			description: 'Fix issue',
@@ -99,7 +99,7 @@ describe('executeCommand', () => {
 		};
 		const ctx = makeContext();
 
-		executeCommand(cmd, {description: 'null ref'}, ctx);
+		await executeCommand(cmd, {description: 'null ref'}, ctx);
 
 		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
 			'fix: null ref',
@@ -108,7 +108,7 @@ describe('executeCommand', () => {
 		);
 	});
 
-	it('passes command isolation to spawn for prompt commands', () => {
+	it('passes command isolation to spawn for prompt commands', async () => {
 		const cmd: PromptCommand = {
 			name: 'explore',
 			description: 'Explore a site',
@@ -119,7 +119,7 @@ describe('executeCommand', () => {
 		};
 		const ctx = makeContext();
 
-		executeCommand(cmd, {args: 'https://example.com'}, ctx);
+		await executeCommand(cmd, {args: 'https://example.com'}, ctx);
 
 		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
 			'explore: https://example.com',
@@ -128,7 +128,7 @@ describe('executeCommand', () => {
 		);
 	});
 
-	it('passes undefined isolation when command has no isolation', () => {
+	it('passes undefined isolation when command has no isolation', async () => {
 		const cmd: PromptCommand = {
 			name: 'commit',
 			description: 'Commit changes',
@@ -138,7 +138,7 @@ describe('executeCommand', () => {
 		};
 		const ctx = makeContext();
 
-		executeCommand(cmd, {message: 'fix'}, ctx);
+		await executeCommand(cmd, {message: 'fix'}, ctx);
 
 		expect(ctx.prompt.spawn).toHaveBeenCalledWith(
 			'commit: fix',
@@ -147,7 +147,26 @@ describe('executeCommand', () => {
 		);
 	});
 
-	it('calls execute with HookCommandContext for hook commands', () => {
+	it('propagates prompt spawn errors to caller', async () => {
+		const cmd: PromptCommand = {
+			name: 'commit',
+			description: 'Commit changes',
+			category: 'prompt',
+			session: 'new',
+			buildPrompt: () => 'commit: fix',
+		};
+		const spawnError = new Error('spawn failed');
+		const ctx = makeContext({
+			prompt: {
+				spawn: vi.fn().mockRejectedValue(spawnError),
+				currentSessionId: 'session-123',
+			},
+		});
+
+		await expect(executeCommand(cmd, {}, ctx)).rejects.toThrow('spawn failed');
+	});
+
+	it('calls execute with HookCommandContext for hook commands', async () => {
 		const execute = vi.fn();
 		const cmd: HookCommand = {
 			name: 'block',
@@ -158,7 +177,7 @@ describe('executeCommand', () => {
 		const ctx = makeContext();
 		const toolArgs = {tool: 'Bash'};
 
-		executeCommand(cmd, toolArgs, ctx);
+		await executeCommand(cmd, toolArgs, ctx);
 
 		expect(execute).toHaveBeenCalledWith({...ctx.hook, args: toolArgs});
 	});

@@ -16,6 +16,10 @@ vi.mock('node:fs', () => ({
 		writeFileSync: (p: string, content: string) => {
 			files[p] = content;
 		},
+		copyFileSync: (from: string, to: string) => {
+			if (!(from in files)) throw new Error(`ENOENT: ${from}`);
+			files[to] = files[from]!;
+		},
 		rmSync: (p: string) => {
 			delete files[p];
 			dirs.delete(p);
@@ -160,6 +164,43 @@ describe('resolveWorkflow', () => {
 			/promptTemplate.*must be a string/,
 		);
 	});
+
+	it('resolves relative systemPromptFile to an absolute path when file exists', () => {
+		files['/home/testuser/.config/athena/workflows/sys/workflow.json'] =
+			JSON.stringify({
+				name: 'sys',
+				plugins: [],
+				promptTemplate: '{input}',
+				systemPromptFile: 'prompt.md',
+			});
+		files['/home/testuser/.config/athena/workflows/sys/prompt.md'] = '# Prompt';
+
+		const result = resolveWorkflow('sys');
+
+		expect(result.systemPromptFile).toBe(
+			'/home/testuser/.config/athena/workflows/sys/prompt.md',
+		);
+	});
+
+	it('maps legacy loop fields completionMarkers/trackerFile', () => {
+		files['/home/testuser/.config/athena/workflows/legacy/workflow.json'] =
+			JSON.stringify({
+				name: 'legacy',
+				plugins: [],
+				promptTemplate: '{input}',
+				loop: {
+					enabled: true,
+					completionMarkers: ['DONE', 'BLOCKED'],
+					trackerFile: 'legacy.md',
+					maxIterations: 3,
+				},
+			});
+
+		const result = resolveWorkflow('legacy');
+		expect(result.loop!.completionMarker).toBe('DONE');
+		expect(result.loop!.blockedMarker).toBe('BLOCKED');
+		expect(result.loop!.trackerPath).toBe('legacy.md');
+	});
 });
 
 describe('installWorkflow', () => {
@@ -203,6 +244,23 @@ describe('installWorkflow', () => {
 		const name = installWorkflow('/tmp/workflow.json', 'custom-name');
 
 		expect(name).toBe('custom-name');
+	});
+
+	it('copies relative systemPromptFile asset next to installed workflow.json', () => {
+		files['/tmp/workflow.json'] = JSON.stringify({
+			name: 'asset-workflow',
+			plugins: [],
+			promptTemplate: '{input}',
+			systemPromptFile: 'prompt.md',
+		});
+		files['/tmp/prompt.md'] = '# Prompt';
+
+		const name = installWorkflow('/tmp/workflow.json');
+
+		expect(name).toBe('asset-workflow');
+		expect(
+			files['/home/testuser/.config/athena/workflows/asset-workflow/prompt.md'],
+		).toBe('# Prompt');
 	});
 });
 

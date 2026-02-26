@@ -35,6 +35,7 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 		string,
 		unknown
 	>;
+	const workflowDir = path.dirname(workflowPath);
 
 	if (!Array.isArray(raw['plugins'])) {
 		throw new Error(
@@ -48,9 +49,43 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 
 	// Resolve trackerTemplate file reference if it ends with .md
 	const loop = raw['loop'] as Record<string, unknown> | undefined;
+	// Backward compatibility: older marketplace workflows used trackerFile.
+	if (
+		loop &&
+		typeof loop['trackerPath'] !== 'string' &&
+		typeof loop['trackerFile'] === 'string'
+	) {
+		loop['trackerPath'] = loop['trackerFile'];
+	}
+	// Backward compatibility: older workflows used completionMarkers: [done, blocked?].
+	if (
+		loop &&
+		typeof loop['completionMarker'] !== 'string' &&
+		Array.isArray(loop['completionMarkers'])
+	) {
+		const markers = loop['completionMarkers'].filter(
+			(v): v is string => typeof v === 'string' && v.length > 0,
+		);
+		if (markers[0]) loop['completionMarker'] = markers[0];
+		if (markers[1] && typeof loop['blockedMarker'] !== 'string') {
+			loop['blockedMarker'] = markers[1];
+		}
+	}
+
+	// Resolve systemPromptFile relative to workflow directory when present.
+	const systemPromptFile = raw['systemPromptFile'];
+	if (
+		typeof systemPromptFile === 'string' &&
+		!path.isAbsolute(systemPromptFile)
+	) {
+		const systemPromptPath = path.resolve(workflowDir, systemPromptFile);
+		if (fs.existsSync(systemPromptPath)) {
+			raw['systemPromptFile'] = systemPromptPath;
+		}
+	}
+
 	const tmpl = loop?.['trackerTemplate'];
 	if (typeof tmpl === 'string' && tmpl.endsWith('.md')) {
-		const workflowDir = path.dirname(workflowPath);
 		const tmplPath = path.resolve(workflowDir, tmpl);
 		if (!fs.existsSync(tmplPath)) {
 			throw new Error(
@@ -86,6 +121,24 @@ export function installWorkflow(source: string, name?: string): string {
 	const destDir = path.join(registryDir(), workflowName);
 	fs.mkdirSync(destDir, {recursive: true});
 	fs.writeFileSync(path.join(destDir, 'workflow.json'), content, 'utf-8');
+
+	// Copy referenced local assets next to workflow.json when available.
+	const sourceDir = path.dirname(sourcePath);
+	const copyRelativeAsset = (assetPath: string | undefined) => {
+		if (!assetPath || path.isAbsolute(assetPath)) return;
+		const sourceAssetPath = path.resolve(sourceDir, assetPath);
+		if (!fs.existsSync(sourceAssetPath)) return;
+		const destAssetPath = path.join(destDir, assetPath);
+		fs.mkdirSync(path.dirname(destAssetPath), {recursive: true});
+		fs.copyFileSync(sourceAssetPath, destAssetPath);
+	};
+	copyRelativeAsset(workflow.systemPromptFile);
+	const trackerTemplate = (
+		workflow.loop as {trackerTemplate?: unknown} | undefined
+	)?.trackerTemplate;
+	if (typeof trackerTemplate === 'string' && trackerTemplate.endsWith('.md')) {
+		copyRelativeAsset(trackerTemplate);
+	}
 
 	return workflowName;
 }

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {type ChildProcess} from 'node:child_process';
+import fs from 'node:fs';
 import {spawnClaude} from '../utils/spawnClaude.js';
 import {type UseClaudeProcessResult} from '../types/process.js';
 import {
@@ -224,10 +225,7 @@ export function useClaudeProcess(
 					// Iteration 2+: use continue prompt instead of original template
 					effectivePrompt = buildContinuePrompt(workflow.loop);
 				} else {
-					effectivePrompt = applyPromptTemplate(
-						workflow.promptTemplate,
-						prompt,
-					);
+					effectivePrompt = applyPromptTemplate(workflow.promptTemplate, prompt);
 				}
 
 				if (workflow.loop?.enabled && !loopManagerRef.current) {
@@ -235,23 +233,29 @@ export function useClaudeProcess(
 						projectDir,
 						workflow.loop.trackerPath ?? 'tracker.md',
 					);
-					loopManagerRef.current = createLoopManager(
-						trackerPath,
-						workflow.loop,
-					);
+					loopManagerRef.current = createLoopManager(trackerPath, workflow.loop);
 				}
 			}
 
 			// Thread workflow's systemPromptFile into isolation config
+			const resolvedSystemPromptFile = workflow?.systemPromptFile
+				? path.resolve(projectDir, workflow.systemPromptFile)
+				: undefined;
+			const appendSystemPromptFile =
+				resolvedSystemPromptFile && fs.existsSync(resolvedSystemPromptFile)
+					? resolvedSystemPromptFile
+					: undefined;
+			if (workflow?.systemPromptFile && !appendSystemPromptFile) {
+				console.error(
+					`[athena] Workflow "${workflow.name}" system prompt file not found: ${workflow.systemPromptFile}. Continuing without --append-system-prompt-file.`,
+				);
+			}
 			const effectivePerCallIsolation: Partial<IsolationConfig> | undefined =
-				perCallIsolation || workflow?.systemPromptFile
+				perCallIsolation || appendSystemPromptFile
 					? {
 							...perCallIsolation,
-							...(workflow?.systemPromptFile && {
-								appendSystemPromptFile: path.resolve(
-									projectDir,
-									workflow.systemPromptFile,
-								),
+							...(appendSystemPromptFile && {
+								appendSystemPromptFile,
 							}),
 						}
 					: undefined;
@@ -357,11 +361,13 @@ export function useClaudeProcess(
 					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
 
-					// Loop respawn: spawn next iteration if not terminal
+					// Loop respawn: spawn next iteration if not terminal.
+					// Never respawn on non-zero exit (process error) to avoid infinite loops.
 					if (
 						workflow?.loop &&
 						loopManagerRef.current &&
-						!loopManagerRef.current.isTerminal()
+						!loopManagerRef.current.isTerminal() &&
+						code === 0
 					) {
 						loopManagerRef.current.incrementIteration();
 						spawn(buildContinuePrompt(workflow.loop)).catch(() => {

@@ -76,7 +76,7 @@ export type PromptCommandContext = {
 		prompt: string,
 		sessionId?: string,
 		isolation?: Partial<IsolationConfig>,
-	) => void;
+	) => Promise<void>;
 	currentSessionId: string | undefined;
 };
 

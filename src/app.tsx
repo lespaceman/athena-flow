@@ -312,7 +312,9 @@ function AppContent({
 			if (result.type === 'prompt') {
 				addMessage('user', result.text);
 				const sessionToResume = currentSessionId ?? initialSessionRef.current;
-				spawnClaude(result.text, sessionToResume ?? undefined);
+				spawnClaude(result.text, sessionToResume ?? undefined).catch(
+					(err: unknown) => console.error('[athena] spawn failed:', err),
+				);
 				// Clear intent after first use — subsequent prompts use currentSessionId from mapper
 				if (initialSessionRef.current) {
 					initialSessionRef.current = undefined;
@@ -352,6 +354,8 @@ function AppContent({
 					spawn: spawnClaude,
 					currentSessionId: currentSessionId ?? undefined,
 				},
+			}).catch((err: unknown) => {
+				console.error('[athena] command execution failed:', err);
 			});
 		},
 		[

@@ -13,20 +13,19 @@ export function executeCommand(
 	command: Command,
 	args: Record<string, string>,
 	ctx: ExecuteCommandContext,
-): void {
+): Promise<void> {
 	switch (command.category) {
 		case 'ui':
 			command.execute({...ctx.ui, args});
-			break;
+			return Promise.resolve();
 		case 'prompt': {
 			const prompt = command.buildPrompt(args);
 			const sessionId =
 				command.session === 'resume' ? ctx.prompt.currentSessionId : undefined;
-			ctx.prompt.spawn(prompt, sessionId, command.isolation);
-			break;
+			return ctx.prompt.spawn(prompt, sessionId, command.isolation);
 		}
 		case 'hook':
 			command.execute({...ctx.hook, args});
-			break;
+			return Promise.resolve();
 	}
 }
