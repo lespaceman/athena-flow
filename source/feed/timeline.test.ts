@@ -526,7 +526,7 @@ describe('eventSummary', () => {
 		expect(eventSummary(ev).text).toBe('Fix the login bug');
 	});
 
-	it('returns empty segments for subagent.start and subagent.stop', () => {
+	it('surfaces subagent descriptions for subagent.start and subagent.stop', () => {
 		const start = {
 			...base({kind: 'subagent.start'}),
 			kind: 'subagent.start' as const,
@@ -537,8 +537,10 @@ describe('eventSummary', () => {
 			},
 		};
 		const startResult = eventSummary(start);
-		expect(startResult.segments).toEqual([]);
-		expect(startResult.text).toBe('');
+		expect(startResult.segments).toEqual([
+			{text: 'Write Playwright tests', role: 'target'},
+		]);
+		expect(startResult.text).toBe('Write Playwright tests');
 
 		const stop = {
 			...base({kind: 'subagent.stop'}),
@@ -551,8 +553,25 @@ describe('eventSummary', () => {
 			},
 		};
 		const stopResult = eventSummary(stop);
-		expect(stopResult.segments).toEqual([]);
-		expect(stopResult.text).toBe('');
+		expect(stopResult.segments).toEqual([
+			{text: 'Find test patterns', role: 'target'},
+		]);
+		expect(stopResult.text).toBe('Find test patterns');
+	});
+
+	it('falls back to agent id when no subagent description is present', () => {
+		const stop = {
+			...base({kind: 'subagent.stop'}),
+			kind: 'subagent.stop' as const,
+			data: {
+				agent_id: 'agent-123',
+				agent_type: 'Explore',
+				stop_hook_active: false,
+			},
+		};
+		const result = eventSummary(stop);
+		expect(result.text).toBe('id:agent-123');
+		expect(result.segments).toEqual([{text: 'id:agent-123', role: 'target'}]);
 	});
 
 	it('formats session.start as natural text with model', () => {
@@ -710,7 +729,7 @@ describe('eventSummary — agent.message', () => {
 });
 
 describe('eventSummary MCP clean verb formatting', () => {
-	it('strips MCP bracket prefix and uses clean verb', () => {
+	it('includes MCP server context and uses clean verb', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -720,11 +739,10 @@ describe('eventSummary MCP clean verb formatting', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.text).toMatch(/^Navigate /);
-		expect(result.text).not.toContain('[agent-web-interface]');
+		expect(result.text).toBe('Navigate [agent-web-interface] google.com');
 	});
 
-	it('uses fallback capitalized verb for unknown MCP actions', () => {
+	it('uses fallback capitalized verb and keeps server context for unknown MCP actions', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -734,8 +752,7 @@ describe('eventSummary MCP clean verb formatting', () => {
 			},
 		};
 		const result = eventSummary(ev);
-		expect(result.text).toBe('Do fancy thing');
-		expect(result.text).not.toContain('[');
+		expect(result.text).toBe('Do fancy thing [my-server]');
 	});
 
 	it('uses clean verb in mergedEventSummary', () => {
@@ -760,12 +777,12 @@ describe('eventSummary MCP clean verb formatting', () => {
 		};
 		const result = mergedEventSummary(pre, post);
 		expect(result.text).toMatch(/^Navigate/);
-		expect(result.text).not.toContain('[agent-web-interface]');
+		expect(result.text).toContain('[agent-web-interface]');
 	});
 });
 
 describe('eventSummary MCP formatting (clean verb)', () => {
-	it('formats MCP tool.pre with clean verb', () => {
+	it('formats MCP tool.pre with clean verb and server context', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -775,7 +792,9 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 				tool_input: {url: 'https://example.com'},
 			},
 		};
-		expect(eventSummary(ev).text).toMatch(/^Navigate /);
+		expect(eventSummary(ev).text).toBe(
+			'Navigate [agent-web-interface] example.com',
+		);
 	});
 
 	it('formats built-in tool.pre without brackets', () => {
@@ -792,7 +811,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 		expect(text).not.toContain('[');
 	});
 
-	it('formats MCP permission.request with clean verb', () => {
+	it('formats MCP permission.request with clean verb and server context', () => {
 		const ev = {
 			...base(),
 			kind: 'permission.request' as const,
@@ -802,10 +821,12 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 				permission_suggestions: [],
 			},
 		};
-		expect(eventSummary(ev).text).toMatch(/^Click /);
+		expect(eventSummary(ev).text).toBe(
+			'Click [agent-web-interface] eid:btn-1…',
+		);
 	});
 
-	it('formats MCP tool.post with clean verb', () => {
+	it('formats MCP tool.post with clean verb and server context', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.post' as const,
@@ -816,10 +837,10 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 				tool_response: {},
 			},
 		};
-		expect(eventSummary(ev).text).toBe('Navigate');
+		expect(eventSummary(ev).text).toBe('Navigate [agent-web-interface]');
 	});
 
-	it('formats MCP tool.failure with clean verb and error', () => {
+	it('formats MCP tool.failure with clean verb, server context, and error', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.failure' as const,
@@ -833,10 +854,11 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 		};
 		const {text} = eventSummary(ev);
 		expect(text).toMatch(/^Navigate /);
+		expect(text).toContain('[agent-web-interface]');
 		expect(text).toContain('timeout');
 	});
 
-	it('formats non-plugin MCP tool with fallback capitalized verb', () => {
+	it('formats non-plugin MCP tool with fallback capitalized verb and server context', () => {
 		const ev = {
 			...base(),
 			kind: 'tool.pre' as const,
@@ -845,7 +867,7 @@ describe('eventSummary MCP formatting (clean verb)', () => {
 				tool_input: {},
 			},
 		};
-		expect(eventSummary(ev).text).toBe('Do thing');
+		expect(eventSummary(ev).text).toBe('Do thing [my-server]');
 	});
 
 	it('returns verb+target segments for tool.pre with args', () => {
@@ -1157,7 +1179,6 @@ describe('VERBOSE_ONLY_KINDS', () => {
 		expect(VERBOSE_ONLY_KINDS.has('session.end')).toBe(true);
 		expect(VERBOSE_ONLY_KINDS.has('run.start')).toBe(true);
 		expect(VERBOSE_ONLY_KINDS.has('run.end')).toBe(true);
-		expect(VERBOSE_ONLY_KINDS.has('user.prompt')).toBe(true);
 		expect(VERBOSE_ONLY_KINDS.has('notification')).toBe(true);
 		expect(VERBOSE_ONLY_KINDS.has('config.change')).toBe(true);
 	});
@@ -1166,6 +1187,7 @@ describe('VERBOSE_ONLY_KINDS', () => {
 		expect(VERBOSE_ONLY_KINDS.has('tool.pre')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('tool.post')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('tool.failure')).toBe(false);
+		expect(VERBOSE_ONLY_KINDS.has('user.prompt')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('permission.request')).toBe(false);
 		expect(VERBOSE_ONLY_KINDS.has('subagent.start')).toBe(false);
 	});

@@ -10,6 +10,7 @@ import {
 	formatEvent,
 	formatActor,
 	formatTool,
+	formatResult,
 	formatDetails,
 	formatSuffix,
 } from '../feed/cellFormatters.js';
@@ -17,6 +18,9 @@ import {
 type FeedColumnWidths = {
 	toolW: number;
 	detailsW: number;
+	resultW: number;
+	gapW: number;
+	timeEventGapW: number;
 };
 
 type Props = {
@@ -79,14 +83,18 @@ export function FeedRow({
 	const detail = formatDetails({
 		segments: detailSegments,
 		summary: detailSummary,
-		outcome: entry.summaryOutcome,
-		outcomeZero: entry.summaryOutcomeZero,
 		mode: 'full',
 		contentWidth: cols.detailsW,
 		theme,
 		opTag: entry.opTag,
 		isError: entry.error,
 	});
+	const result = formatResult(
+		entry.summaryOutcome,
+		entry.summaryOutcomeZero,
+		cols.resultW,
+		theme,
+	);
 	const suffix = formatSuffix(entry.expandable, expanded, ascii, theme);
 
 	return (
@@ -97,22 +105,32 @@ export function FeedRow({
 			<Box width={5} flexShrink={0}>
 				<Text>{cell(time, overrideColor)}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.timeEventGapW} flexShrink={0} />
 			<Box width={12} flexShrink={0}>
 				<Text>{cell(event, overrideColor)}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>
 				<Text>{cell(actor, overrideColor)}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.toolW} flexShrink={0}>
 				<Text>{cell(tool, overrideColor)}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
-			<Box flexGrow={1} flexShrink={0}>
+			<Box width={cols.gapW} flexShrink={0} />
+			<Box width={cols.detailsW} flexShrink={0}>
 				<Text>{cell(detail, overrideColor)}</Text>
 			</Box>
+			{cols.resultW > 0 && (
+				<>
+					<Box width={cols.gapW} flexShrink={0} />
+					<Box width={cols.resultW} flexShrink={0}>
+						<Text>{cell(result, overrideColor)}</Text>
+					</Box>
+				</>
+			)}
+			<Box flexGrow={1} flexShrink={1} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={2} flexShrink={0}>
 				<Text>{cell(suffix, overrideColor)}</Text>
 			</Box>

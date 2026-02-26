@@ -23,6 +23,56 @@ import {
 	resolveEventToolColumn,
 } from '../feed/toolDisplay.js';
 
+function subagentActorLabel(agentType?: string, agentId?: string): string {
+	if (agentType) {
+		const tail = agentType.includes(':')
+			? (agentType.split(':').at(-1) ?? agentType)
+			: agentType;
+		const normalized =
+			tail
+				.replace(/[^a-zA-Z0-9]+/g, '-')
+				.replace(/^-+|-+$/g, '')
+				.toLowerCase() || tail.toLowerCase();
+		return `SA:${compactText(normalized, 7)}`;
+	}
+	if (agentId) {
+		return `SA#${compactText(agentId, 6)}`;
+	}
+	return 'SUB-AGENT';
+}
+
+function buildSubagentTypeMap(feedEvents: FeedEvent[]): Map<string, string> {
+	const map = new Map<string, string>();
+	for (const event of feedEvents) {
+		if (event.kind !== 'subagent.start' && event.kind !== 'subagent.stop') {
+			continue;
+		}
+		const agentId = event.data.agent_id;
+		const agentType = event.data.agent_type;
+		if (!agentId || !agentType || map.has(agentId)) continue;
+		map.set(agentId, agentType);
+	}
+	return map;
+}
+
+function resolveActorLabel(
+	event: FeedEvent,
+	subagentTypes: Map<string, string>,
+) {
+	if (!event.actor_id.startsWith('subagent:')) {
+		return actorLabel(event.actor_id);
+	}
+	const agentId = event.actor_id.slice('subagent:'.length);
+	const eventAgentType =
+		event.kind === 'subagent.start' || event.kind === 'subagent.stop'
+			? event.data.agent_type
+			: undefined;
+	return subagentActorLabel(
+		eventAgentType || subagentTypes.get(agentId),
+		agentId,
+	);
+}
+
 export type UseTimelineOptions = {
 	feedItems: FeedItem[];
 	feedEvents: FeedEvent[];
@@ -64,6 +114,7 @@ export function useTimeline({
 		const entries: TimelineEntry[] = [];
 		let activeRunId: string | undefined;
 		let messageCounter = 1;
+		const subagentTypes = buildSubagentTypeMap(feedEvents);
 
 		for (const item of feedItems) {
 			if (item.type === 'message') {
@@ -148,7 +199,7 @@ export function useTimeline({
 				runId: event.run_id,
 				op,
 				opTag,
-				actor: actorLabel(event.actor_id),
+				actor: resolveActorLabel(event, subagentTypes),
 				actorId: event.actor_id,
 				toolColumn,
 				summary,
@@ -169,7 +220,7 @@ export function useTimeline({
 		}
 		computeDuplicateActors(entries);
 		return entries;
-	}, [feedItems, postByToolUseId, verbose]);
+	}, [feedItems, feedEvents, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
 		const map = new Map<string, RunSummary>();

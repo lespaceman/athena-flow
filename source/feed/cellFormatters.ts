@@ -11,7 +11,7 @@ export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
 	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
-	if (op === 'agent.msg') return theme.textMuted;
+	if (op === 'agent.msg') return theme.status.info;
 	if (
 		op.startsWith('run.') ||
 		op.startsWith('sess.') ||
@@ -93,6 +93,19 @@ export function formatTool(
 ): string {
 	if (contentWidth <= 0) return '';
 	return chalk.hex(theme.text)(fitImpl(toolColumn, contentWidth));
+}
+
+export function formatResult(
+	outcome: string | undefined,
+	outcomeZero: boolean | undefined,
+	contentWidth: number,
+	theme: Theme,
+): string {
+	if (contentWidth <= 0) return '';
+	if (!outcome) return fitImpl('', contentWidth);
+	const fitted = fitImpl(outcome, contentWidth);
+	if (outcomeZero) return chalk.hex(theme.status.warning)(fitted);
+	return chalk.hex(theme.textMuted)(fitted);
 }
 
 export function formatSuffix(
@@ -177,6 +190,7 @@ function renderSegments(
 
 	const isAgentMsg = opTag === 'agent.msg';
 	const baseColor = isAgentMsg ? theme.status.info : theme.text;
+	const hasFilename = segments.some(seg => seg.role === 'filename');
 
 	const roleColor = (role: SummarySegmentRole): string => {
 		if (isError) return theme.status.error;
@@ -184,7 +198,7 @@ function renderSegments(
 			case 'verb':
 				return baseColor;
 			case 'target':
-				return theme.textMuted;
+				return hasFilename ? theme.textMuted : baseColor;
 			case 'filename':
 				return theme.text;
 			case 'outcome':

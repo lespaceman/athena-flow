@@ -6,7 +6,6 @@ import {type FeedColumnWidths} from './FeedRow.js';
 import {FrameRow} from './FrameRow.js';
 import {FeedRow} from './FeedRow.js';
 import {FeedHeader} from './FeedHeader.js';
-import {opCategory} from '../feed/timeline.js';
 
 type Props = {
 	feedHeaderRows: number;
@@ -68,8 +67,6 @@ export function FeedGrid({
 		return <>{rows}</>;
 	}
 
-	let prevCat: string | undefined;
-	let prevMinute: number | undefined;
 	let feedLinesEmitted = 0;
 	let entryOffset = 0;
 
@@ -91,32 +88,6 @@ export function FeedGrid({
 				feedLinesEmitted++;
 			}
 			break;
-		}
-
-		const cat = opCategory(entry.opTag);
-		const isBreak = prevCat !== undefined && cat !== prevCat;
-		prevCat = cat;
-
-		const entryMinute = Math.floor(entry.ts / 60000);
-		const isMinuteBreak =
-			entryOffset > 0 &&
-			prevMinute !== undefined &&
-			entryMinute !== prevMinute &&
-			!isBreak;
-		prevMinute = entryMinute;
-
-		// Minute separator — blank line gap
-		if (isMinuteBreak && feedLinesEmitted < feedContentRows - 1) {
-			rows.push(
-				<FrameRow
-					key={`feed-sep-${feedLinesEmitted}`}
-					innerWidth={innerWidth}
-					ascii={ascii}
-				>
-					<Text>{' '.repeat(innerWidth)}</Text>
-				</FrameRow>,
-			);
-			feedLinesEmitted++;
 		}
 
 		const isDuplicateActor = entry.duplicateActor;

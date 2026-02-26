@@ -96,80 +96,32 @@ export function useFeedNavigation({
 		if (feedContentRows <= 0) return 0;
 		if (total <= feedContentRows) return 0;
 
-		// Count how many entries fit in `rows` display lines starting from
-		// `from`, accounting for minute-separator blank lines that consume
-		// a display row without advancing the entry index.
-		const entriesThatFit = (from: number, rows: number): number => {
-			let lines = 0;
-			let count = 0;
-			let prevMinute: number | undefined;
-			for (let i = from; i < total && lines < rows; i++) {
-				const entryMinute = Math.floor(filteredEntries[i]!.ts / 60000);
-				if (
-					count > 0 &&
-					prevMinute !== undefined &&
-					entryMinute !== prevMinute
-				) {
-					lines++; // minute separator blank line
-					if (lines >= rows) break;
-				}
-				prevMinute = entryMinute;
-				lines++;
-				count++;
-			}
-			return count;
-		};
-
-		// Walk backwards from the end to find the start index that fills
-		// exactly feedContentRows display lines (for tail-follow).
-		const tailStart = (): number => {
-			let lines = 0;
-			let start = total;
-			let prevMinute: number | undefined;
-			for (let i = total - 1; i >= 0 && lines < feedContentRows; i--) {
-				const entryMinute = Math.floor(filteredEntries[i]!.ts / 60000);
-				// Check if a minute separator would appear between this
-				// entry and the one after it (which we already counted).
-				if (prevMinute !== undefined && entryMinute !== prevMinute) {
-					lines++; // minute separator blank line
-					if (lines >= feedContentRows) break;
-				}
-				prevMinute = entryMinute;
-				lines++;
-				start = i;
-			}
-			return start;
-		};
+		const maxStart = Math.max(0, total - feedContentRows);
 
 		let start: number;
 		if (tailFollow) {
-			start = tailStart();
+			start = maxStart;
 		} else {
 			// Center cursor in viewport, then clamp
-			const fit = entriesThatFit(0, feedContentRows);
-			if (total <= fit) return 0;
 			start = Math.max(
 				0,
-				Math.min(feedCursor - Math.floor(fit / 2), total - fit),
+				Math.min(feedCursor - Math.floor(feedContentRows / 2), maxStart),
 			);
 		}
 
 		// Ensure cursor is visible
 		if (feedCursor < start) start = feedCursor;
-		const visible = entriesThatFit(start, feedContentRows);
-		if (feedCursor >= start + visible) {
-			start = feedCursor - visible + 1;
+		const end = start + feedContentRows - 1;
+		if (feedCursor > end) {
+			start = feedCursor - feedContentRows + 1;
 		}
 
-		return Math.max(0, start);
+		return Math.max(0, Math.min(start, maxStart));
 	}, [filteredEntries, feedCursor, feedContentRows, tailFollow]);
 
-	// Slice extra entries beyond feedContentRows to account for minute
-	// separators that consume display lines without advancing the entry index.
-	// A 2x buffer is sufficient since at most every other line is a separator.
 	const visibleFeedEntries = filteredEntries.slice(
 		feedViewportStart,
-		feedViewportStart + feedContentRows * 2,
+		feedViewportStart + feedContentRows,
 	);
 
 	return {

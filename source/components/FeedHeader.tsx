@@ -20,22 +20,32 @@ export function FeedHeader({cols, theme}: Props) {
 			<Box width={5} flexShrink={0}>
 				<Text>{style(fit('TIME', 5))}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.timeEventGapW} flexShrink={0} />
 			<Box width={12} flexShrink={0}>
 				<Text>{style(fit('EVENT', 12))}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>
 				<Text>{style(fit('ACTOR', 10))}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.toolW} flexShrink={0}>
 				<Text>{style(fit('TOOL', cols.toolW))}</Text>
 			</Box>
-			<Box width={2} flexShrink={0} />
-			<Box flexGrow={1} flexShrink={0}>
+			<Box width={cols.gapW} flexShrink={0} />
+			<Box width={cols.detailsW} flexShrink={0}>
 				<Text>{style(fit('DETAILS', cols.detailsW))}</Text>
 			</Box>
+			{cols.resultW > 0 && (
+				<>
+					<Box width={cols.gapW} flexShrink={0} />
+					<Box width={cols.resultW} flexShrink={0}>
+						<Text>{style(fit('RESULT', cols.resultW))}</Text>
+					</Box>
+				</>
+			)}
+			<Box flexGrow={1} flexShrink={1} />
+			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={2} flexShrink={0}>
 				<Text>{'  '}</Text>
 			</Box>

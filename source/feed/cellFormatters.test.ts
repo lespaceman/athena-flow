@@ -41,8 +41,8 @@ describe('opCategoryColor', () => {
 	test('perm.* returns accentSecondary', () => {
 		expect(opCategoryColor('perm.req', theme)).toBe(theme.accentSecondary);
 	});
-	test('agent.msg returns textMuted', () => {
-		expect(opCategoryColor('agent.msg', theme)).toBe(theme.textMuted);
+	test('agent.msg returns info color', () => {
+		expect(opCategoryColor('agent.msg', theme)).toBe(theme.status.info);
 	});
 	test('unknown returns undefined', () => {
 		expect(opCategoryColor('unknown', theme)).toBeUndefined();

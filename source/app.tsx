@@ -719,7 +719,7 @@ function AppContent({
 		theme,
 	});
 
-	const feedCols = useFeedColumns(feedNav.visibleFeedEntries, innerWidth);
+	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 	const showFeedGrid = !expandedEntry;
 
 	// ── Render ──────────────────────────────────────────────

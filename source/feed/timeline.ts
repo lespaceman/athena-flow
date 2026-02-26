@@ -248,6 +248,16 @@ type ToolSummaryResult = {text: string; segments: SummarySegment[]};
 
 const PATH_TOOLS = new Set(['Read', 'Write', 'Edit', 'Glob', 'Grep']);
 
+function withMcpServerContext(
+	parsed: ReturnType<typeof parseToolName>,
+	primaryInput: string,
+): string {
+	if (!parsed.isMcp || !parsed.mcpServer) return primaryInput;
+	const server = extractFriendlyServerName(parsed.mcpServer);
+	if (!server) return primaryInput;
+	return primaryInput ? `[${server}] ${primaryInput}` : `[${server}]`;
+}
+
 function formatToolSummary(
 	toolName: string,
 	toolInput: Record<string, unknown>,
@@ -255,7 +265,10 @@ function formatToolSummary(
 ): ToolSummaryResult {
 	const parsed = parseToolName(toolName);
 	const verb = resolveVerb(toolName, parsed);
-	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
+	const primaryInput = withMcpServerContext(
+		parsed,
+		summarizeToolPrimaryInput(toolName, toolInput),
+	);
 	const secondary = [primaryInput, errorSuffix].filter(Boolean).join(' ');
 	if (!secondary) {
 		const text = compactText(verb, 200);
@@ -321,8 +334,13 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 				event.data.error,
 			);
 		case 'subagent.start':
-		case 'subagent.stop':
-			return {text: '', segments: []};
+		case 'subagent.stop': {
+			const text = compactText(
+				event.data.description?.trim() || `id:${event.data.agent_id}`,
+				200,
+			);
+			return {text, segments: [{text, role: 'target'}]};
+		}
 		case 'agent.message': {
 			const text = eventSummaryText(event);
 			return {text, segments: [{text, role: 'plain'}]};
@@ -551,7 +569,6 @@ export const VERBOSE_ONLY_KINDS: ReadonlySet<FeedEventKind> = new Set([
 	'session.end',
 	'run.start',
 	'run.end',
-	'user.prompt',
 	'notification',
 	'unknown.hook',
 	'compact.pre',
@@ -605,7 +622,10 @@ export function mergedEventSummary(
 	const toolInput = event.data.tool_input ?? {};
 	const parsed = parseToolName(toolName);
 	const name = resolveVerb(toolName, parsed);
-	const primaryInput = summarizeToolPrimaryInput(toolName, toolInput);
+	const primaryInput = withMcpServerContext(
+		parsed,
+		summarizeToolPrimaryInput(toolName, toolInput),
+	);
 
 	let resultText: string;
 	if (postEvent.kind === 'tool.failure') {
