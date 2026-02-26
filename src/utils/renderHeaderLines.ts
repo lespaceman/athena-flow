@@ -36,14 +36,18 @@ export function renderHeaderLines(
 	// Truncated session ID
 	const sid = truncateSessionId(model.session_id, 8);
 	const sidLabel = hasColor ? chalk.dim('S: ') : 'S: ';
-	const sidText = `${sidLabel}${sid}`;
+	const sidScope =
+		model.session_total > 0
+			? ` (${model.session_index ?? model.session_total}/${model.session_total})`
+			: '';
+	const sidText = `${sidLabel}${sid}${sidScope}`;
 
 	type Token = {text: string; priority: number};
 	const tokens: Token[] = [
 		{text: athena, priority: 100},
+		{text: sidText, priority: 90},
 		{text: `${wfLabel}${model.workflow}`, priority: 70},
 		{text: `${hLabel}${model.harness}`, priority: 60},
-		{text: sidText, priority: 30},
 		{text: ctxText, priority: 50},
 	];
 

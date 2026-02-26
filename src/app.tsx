@@ -127,6 +127,7 @@ function AppContent({
 	verbose,
 	pluginMcpConfig,
 	modelName,
+	athenaSessionId,
 	initialSessionId,
 	onClear,
 	onShowSessions,
@@ -137,7 +138,7 @@ function AppContent({
 	ascii,
 }: Omit<
 	Props,
-	'showSessionPicker' | 'showSetup' | 'theme' | 'athenaSessionId'
+	'showSessionPicker' | 'showSetup' | 'theme'
 > & {
 	initialSessionId?: string;
 	onClear: () => void;
@@ -197,6 +198,20 @@ function AppContent({
 	);
 
 	const currentSessionId = session?.session_id ?? null;
+	const sessionScope = useMemo(() => {
+		const persisted = getSessionMeta(athenaSessionId)?.adapterSessionIds ?? [];
+		const ids = [...persisted];
+		if (currentSessionId && !ids.includes(currentSessionId)) {
+			ids.push(currentSessionId);
+		}
+		const total = ids.length;
+		const index =
+			currentSessionId !== null ? ids.indexOf(currentSessionId) + 1 : null;
+		return {
+			current: index !== null && index > 0 ? index : null,
+			total,
+		};
+	}, [athenaSessionId, currentSessionId]);
 	const currentRunId = currentRun?.run_id ?? null;
 	const currentRunStartedAt = currentRun?.started_at ?? null;
 	const currentRunPromptPreview = currentRun?.trigger?.prompt_preview;
@@ -813,6 +828,8 @@ function AppContent({
 			workflowRef,
 			contextUsed: tokenUsage.contextSize,
 			contextMax: 200000,
+			sessionIndex: sessionScope.current,
+			sessionTotal: sessionScope.total,
 		});
 		return renderHeaderLines(headerModel, innerWidth, hasColor)[0];
 	}, [
@@ -829,6 +846,8 @@ function AppContent({
 		feedNav.tailFollow,
 		workflowRef,
 		tokenUsage.contextSize,
+		sessionScope.current,
+		sessionScope.total,
 		innerWidth,
 		hasColor,
 	]);
@@ -1168,6 +1187,7 @@ export default function App({
 					version={version}
 					pluginMcpConfig={pluginMcpConfig}
 					modelName={modelName}
+					athenaSessionId={athenaSessionId}
 					initialSessionId={phase.initialSessionId}
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}

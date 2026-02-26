@@ -5,6 +5,8 @@ import type {HeaderModel} from './headerModel.js';
 
 const model: HeaderModel = {
 	session_id: 'abc123',
+	session_index: 2,
+	session_total: 5,
 	workflow: 'test-wf',
 	harness: 'Claude Code',
 	context: {used: 50000, max: 200000},
@@ -20,6 +22,7 @@ describe('renderHeaderLines', () => {
 		expect(plain).toContain('Context');
 		expect(plain).toContain('50k/200k');
 		expect(plain).not.toContain('Ctx:');
+		expect(plain).toContain('S: abc123 (2/5)');
 	});
 
 	it('renders context bar without color when hasColor is false', () => {

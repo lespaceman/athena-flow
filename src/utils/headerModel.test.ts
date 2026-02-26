@@ -24,6 +24,18 @@ describe('buildHeaderModel', () => {
 		const model = buildHeaderModel(baseInput);
 		expect(model.status).toBe('idle');
 		expect(model.session_id).toBe('abc123');
+		expect(model.session_index).toBe(1);
+		expect(model.session_total).toBe(1);
+	});
+
+	it('uses provided session scope values', () => {
+		const model = buildHeaderModel({
+			...baseInput,
+			sessionIndex: 2,
+			sessionTotal: 5,
+		});
+		expect(model.session_index).toBe(2);
+		expect(model.session_total).toBe(5);
 	});
 
 	it('returns active status with active run', () => {
@@ -138,6 +150,8 @@ describe('buildHeaderModel', () => {
 	it('handles null session gracefully', () => {
 		const model = buildHeaderModel({...baseInput, session: null});
 		expect(model.session_id).toBe('–');
+		expect(model.session_index).toBeNull();
+		expect(model.session_total).toBe(0);
 		expect(model.engine).toBeUndefined();
 	});
 });

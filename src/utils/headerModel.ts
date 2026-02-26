@@ -5,6 +5,8 @@ export type {HeaderStatus} from './statusBadge.js';
 
 export interface HeaderModel {
 	session_id: string;
+	session_index: number | null;
+	session_total: number;
 	workflow: string;
 	harness: string;
 	context: {used: number | null; max: number};
@@ -35,6 +37,8 @@ export interface HeaderModelInput {
 	harness?: string;
 	contextUsed?: number | null;
 	contextMax?: number;
+	sessionIndex?: number | null;
+	sessionTotal?: number;
 	errorReason?: string;
 }
 
@@ -62,9 +66,25 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 	} = input;
 
 	const status = deriveStatus(currentRun, runSummaries);
+	const sessionTotal = Math.max(
+		0,
+		Math.trunc(input.sessionTotal ?? (session?.session_id ? 1 : 0)),
+	);
+	const sessionIndex =
+		sessionTotal > 0 && session?.session_id
+			? Math.min(
+					Math.max(
+						1,
+						Math.trunc(input.sessionIndex ?? sessionTotal),
+					),
+					sessionTotal,
+				)
+			: null;
 
 	return {
 		session_id: session?.session_id ?? '–',
+		session_index: sessionIndex,
+		session_total: sessionTotal,
 		workflow: workflowRef ?? 'default',
 		harness: input.harness ?? detectHarness(),
 		context: {used: input.contextUsed ?? null, max: input.contextMax ?? 200000},
