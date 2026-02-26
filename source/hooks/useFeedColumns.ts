@@ -36,7 +36,15 @@ export function useFeedColumns(
 		const gapW = innerWidth >= 200 ? 2 : 1;
 		const toolW = Math.min(16, Math.max(8, maxToolLen));
 		const resultMaxW =
-			innerWidth >= 220 ? 28 : innerWidth >= 180 ? 24 : innerWidth >= 140 ? 20 : 16;
+			innerWidth >= 240
+				? 48
+				: innerWidth >= 220
+					? 42
+					: innerWidth >= 180
+						? 34
+						: innerWidth >= 140
+							? 26
+							: 18;
 		const resultW =
 			maxResultLen > 0 ? Math.min(resultMaxW, Math.max(8, maxResultLen)) : 0;
 

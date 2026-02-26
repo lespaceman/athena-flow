@@ -136,20 +136,20 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 	Write: filePathExtractor,
 	Edit: filePathExtractor,
 	Bash: input =>
-		compactText(compactCommandPaths(String(input.command ?? '')), 40),
+		compactText(compactCommandPaths(String(input.command ?? '')), 96),
 	Glob: input => String(input.pattern ?? ''),
 	Grep: input => {
 		const p = `"${String(input.pattern ?? '')}"`;
 		const g = input.glob ? ` ${String(input.glob)}` : '';
 		return p + g;
 	},
-	Task: input => compactText(String(input.description ?? ''), 60),
+	Task: input => compactText(String(input.description ?? ''), 96),
 	WebSearch: input => `"${String(input.query ?? '')}"`,
-	WebFetch: input => compactText(String(input.url ?? ''), 60),
+	WebFetch: input => compactText(String(input.url ?? ''), 96),
 	Skill: input => {
 		const name = String(input.skill ?? '');
 		const colonIdx = name.indexOf(':');
-		return compactText(colonIdx >= 0 ? name.slice(colonIdx + 1) : name, 40);
+		return compactText(colonIdx >= 0 ? name.slice(colonIdx + 1) : name, 80);
 	},
 	NotebookEdit: input => {
 		const path = String(input.notebook_path ?? '');
@@ -178,7 +178,7 @@ const MCP_INPUT_EXTRACTORS: Record<
 			const u = new URL(url);
 			return u.hostname.replace(/^www\./, '');
 		} catch {
-			return compactText(url, 40);
+			return compactText(url, 96);
 		}
 	},
 	find_elements: input => {
@@ -193,13 +193,13 @@ const MCP_INPUT_EXTRACTORS: Record<
 	type: input => {
 		const text = String(input.text ?? '');
 		const eid = input.eid ? String(input.eid).slice(0, 5) + '…' : '';
-		const quoted = `"${compactText(text, 30)}"`;
+		const quoted = `"${compactText(text, 72)}"`;
 		return eid ? `${quoted} → ${eid}` : quoted;
 	},
 	hover: eidExtractor,
 	select: input => {
 		const value = String(input.value ?? '');
-		return value ? `"${compactText(value, 30)}"` : '';
+		return value ? `"${compactText(value, 72)}"` : '';
 	},
 	press: input => String(input.key ?? ''),
 	scroll_page: input => String(input.direction ?? ''),

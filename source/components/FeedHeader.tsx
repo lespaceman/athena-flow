@@ -18,29 +18,29 @@ export function FeedHeader({cols, theme}: Props) {
 				<Text> </Text>
 			</Box>
 			<Box width={5} flexShrink={0}>
-				<Text>{style(fit('TIME', 5))}</Text>
+				<Text wrap="truncate-end">{style(fit('TIME', 5))}</Text>
 			</Box>
 			<Box width={cols.timeEventGapW} flexShrink={0} />
 			<Box width={12} flexShrink={0}>
-				<Text>{style(fit('EVENT', 12))}</Text>
+				<Text wrap="truncate-end">{style(fit('EVENT', 12))}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>
-				<Text>{style(fit('ACTOR', 10))}</Text>
+				<Text wrap="truncate-end">{style(fit('ACTOR', 10))}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.toolW} flexShrink={0}>
-				<Text>{style(fit('TOOL', cols.toolW))}</Text>
+				<Text wrap="truncate-end">{style(fit('TOOL', cols.toolW))}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.detailsW} flexShrink={0}>
-				<Text>{style(fit('DETAILS', cols.detailsW))}</Text>
+				<Text wrap="truncate-end">{style(fit('DETAILS', cols.detailsW))}</Text>
 			</Box>
 			{cols.resultW > 0 && (
 				<>
 					<Box width={cols.gapW} flexShrink={0} />
 					<Box width={cols.resultW} flexShrink={0}>
-						<Text>{style(fit('RESULT', cols.resultW))}</Text>
+						<Text wrap="truncate-end">{style(fit('RESULT', cols.resultW))}</Text>
 					</Box>
 				</>
 			)}

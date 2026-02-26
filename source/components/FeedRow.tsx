@@ -100,39 +100,39 @@ export function FeedRow({
 	return (
 		<>
 			<Box width={1} flexShrink={0}>
-				<Text>{gutter}</Text>
+				<Text wrap="truncate-end">{gutter}</Text>
 			</Box>
 			<Box width={5} flexShrink={0}>
-				<Text>{cell(time, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(time, overrideColor)}</Text>
 			</Box>
 			<Box width={cols.timeEventGapW} flexShrink={0} />
 			<Box width={12} flexShrink={0}>
-				<Text>{cell(event, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(event, overrideColor)}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>
-				<Text>{cell(actor, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(actor, overrideColor)}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.toolW} flexShrink={0}>
-				<Text>{cell(tool, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(tool, overrideColor)}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.detailsW} flexShrink={0}>
-				<Text>{cell(detail, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(detail, overrideColor)}</Text>
 			</Box>
 			{cols.resultW > 0 && (
 				<>
 					<Box width={cols.gapW} flexShrink={0} />
 					<Box width={cols.resultW} flexShrink={0}>
-						<Text>{cell(result, overrideColor)}</Text>
+						<Text wrap="truncate-end">{cell(result, overrideColor)}</Text>
 					</Box>
 				</>
 			)}
 			<Box flexGrow={1} flexShrink={1} />
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={2} flexShrink={0}>
-				<Text>{cell(suffix, overrideColor)}</Text>
+				<Text wrap="truncate-end">{cell(suffix, overrideColor)}</Text>
 			</Box>
 		</>
 	);

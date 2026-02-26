@@ -248,10 +248,10 @@ describe('summarizeToolPrimaryInput', () => {
 		expect(result).not.toContain('/home/nadeemm');
 	});
 
-	it('truncates long Bash commands to 40 chars', () => {
-		const longCmd = 'a'.repeat(50);
+	it('truncates long Bash commands to configured width', () => {
+		const longCmd = 'a'.repeat(140);
 		const result = summarizeToolPrimaryInput('Bash', {command: longCmd});
-		expect(result.length).toBeLessThanOrEqual(43);
+		expect(result.length).toBeLessThanOrEqual(99);
 	});
 
 	it('extracts Glob pattern', () => {

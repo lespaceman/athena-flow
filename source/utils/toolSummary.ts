@@ -2,6 +2,7 @@
 
 import {isBashToolResponse} from '../components/hookEventUtils.js';
 import {parseToolName} from './toolNameParser.js';
+import {compactText} from './format.js';
 
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {
@@ -168,7 +169,7 @@ export function summarizeToolResult(
 ): string {
 	if (error) {
 		const firstLine = error.split('\n')[0] ?? error;
-		return firstLine.length > 80 ? firstLine.slice(0, 77) + '...' : firstLine;
+		return compactText(firstLine, 160);
 	}
 
 	const summarizer = SUMMARIZERS[toolName];
