@@ -31,7 +31,7 @@ processRegistry.registerCleanupHandlers();
 const cli = meow(
 	`
 	Usage
-	  $ athena-cli
+	  $ athena-flow
 
 	Options
 		--project-dir   Project directory for hook socket (default: cwd)
@@ -47,7 +47,7 @@ const cli = meow(
 		--workflow       Workflow reference displayed in header (e.g. name@rev)
 
 	Note: All isolation modes use --setting-sources "" to completely isolate
-	      from Claude Code's settings. athena-cli is fully self-contained.
+	      from Claude Code's settings. athena-flow is fully self-contained.
 
 	Config Files
 		Global:  ~/.config/athena/config.json
@@ -59,13 +59,13 @@ const cli = meow(
 		Merge order: global → project → --plugin flags
 
 	Examples
-	  $ athena-cli --project-dir=/my/project
-	  $ athena-cli --plugin=/path/to/my-plugin
-	  $ athena-cli --isolation=minimal
-	  $ athena-cli --verbose
-	  $ athena-cli --continue
-	  $ athena-cli --continue=<sessionId>
-	  $ athena-cli --sessions
+	  $ athena-flow --project-dir=/my/project
+	  $ athena-flow --plugin=/path/to/my-plugin
+	  $ athena-flow --isolation=minimal
+	  $ athena-flow --verbose
+	  $ athena-flow --continue
+	  $ athena-flow --continue=<sessionId>
+	  $ athena-flow --sessions
 `,
 	{
 		importMeta: import.meta,
@@ -231,7 +231,7 @@ if (cli.flags.continue) {
 	} else {
 		console.error(
 			`Unknown session ID: ${cli.flags.continue}\n` +
-				`Use 'athena-cli --list' to see available sessions.`,
+				`Use 'athena-flow --list' to see available sessions.`,
 		);
 		process.exit(1);
 	}

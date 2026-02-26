@@ -20,7 +20,7 @@
 	"version": "0.1.0",
 	"license": "MIT",
 	"bin": {
-		"athena-cli": "dist/cli.js",
+		"athena-flow": "dist/cli.js",
 		"athena-hook-forwarder": "dist/hook-forwarder.js"
 	},
 	"type": "module",
