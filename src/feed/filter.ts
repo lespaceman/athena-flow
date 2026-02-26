@@ -1,4 +1,4 @@
-// source/feed/filter.ts
+// src/feed/filter.ts
 import type {FeedEvent} from './types.js';
 
 const TASK_TOOL_NAMES = new Set([

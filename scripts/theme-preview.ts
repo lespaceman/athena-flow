@@ -85,7 +85,7 @@ function renderTheme(name: string, t: typeof dark) {
 	);
 
 	// Tool events
-	console.log(`\n  ${t.success('● Read')} ${t.textMuted('source/app.tsx')}`);
+	console.log(`\n  ${t.success('● Read')} ${t.textMuted('src/app.tsx')}`);
 	console.log(`  ${t.warning('○ Bash')} ${t.textMuted('npm test')}`);
 	console.log(`  ${t.error('✗ Write')} ${t.textMuted('(blocked)')}`);
 	console.log(`  ${t.info('→ Task')} ${t.textMuted('(json_output)')}`);

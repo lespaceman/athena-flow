@@ -1,4 +1,4 @@
-// source/hooks/useFeed.ts
+// src/hooks/useFeed.ts
 
 import {useEffect, useRef, useState, useCallback, useMemo} from 'react';
 import type {Runtime, RuntimeEvent, RuntimeDecision} from '../runtime/types.js';

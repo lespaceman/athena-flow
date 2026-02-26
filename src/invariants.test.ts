@@ -7,7 +7,7 @@ describe('architectural invariants', () => {
 		// (the signature of a FeedEvent literal) outside mapper.ts
 		const result = execSync(
 			[
-				'grep -rn "seq:" source/feed/ source/hooks/ --include="*.ts"',
+				'grep -rn "seq:" src/feed/ src/hooks/ --include="*.ts"',
 				'grep -v "mapper.ts"',
 				'grep -v ".test.ts"',
 				'grep -v "types.ts"',
@@ -28,7 +28,7 @@ describe('architectural invariants', () => {
 		// Verify no sort comparator in hooks uses .ts for feed events
 		const result = execSync(
 			[
-				'grep -rn "sort" source/hooks/ --include="*.ts"',
+				'grep -rn "sort" src/hooks/ --include="*.ts"',
 				'grep -v ".test.ts"',
 				'grep "\\.data\\.ts" || true',
 			].join(' | '),

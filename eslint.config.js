@@ -32,12 +32,12 @@ export default tseslint.config(
 	},
 	{
 		files: [
-			'source/components/**/*.{ts,tsx}',
-			'source/context/**/*.{ts,tsx}',
-			'source/hooks/**/*.{ts,tsx}',
-			'source/feed/**/*.{ts,tsx}',
+			'src/components/**/*.{ts,tsx}',
+			'src/context/**/*.{ts,tsx}',
+			'src/hooks/**/*.{ts,tsx}',
+			'src/feed/**/*.{ts,tsx}',
 		],
-		ignores: ['source/context/HookContext.tsx', 'source/hooks/useFeed.ts'],
+		ignores: ['src/context/HookContext.tsx', 'src/hooks/useFeed.ts'],
 		rules: {
 			'no-restricted-imports': [
 				'error',

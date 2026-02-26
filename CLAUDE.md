@@ -23,7 +23,7 @@ npm run lint           # Run prettier + eslint
 npm run format         # Auto-format with prettier
 
 # Run single test
-npx vitest run source/types/hooks.test.ts
+npx vitest run src/types/hooks.test.ts
 
 # Debug hook events
 tail -f .claude/logs/hooks.jsonl     # Real-time NDJSON hook event log
@@ -34,14 +34,14 @@ tail -f .claude/logs/hooks.jsonl     # Real-time NDJSON hook event log
 ### Two Entry Points
 
 1. **dist/cli.js** (`athena-cli`) - Main Ink terminal UI
-   - Parses CLI args with meow (`source/cli.tsx`)
-   - Renders React app with Ink (`source/app.tsx`)
+   - Parses CLI args with meow (`src/cli.tsx`)
+   - Renders React app with Ink (`src/app.tsx`)
    - Creates runtime adapter (UDS server) to receive hook events
 
 2. **dist/hook-forwarder.js** (`athena-hook-forwarder`) - Standalone script invoked by Claude Code hooks
    - Reads hook input JSON from stdin
    - Connects to Ink CLI via Unix Domain Socket at `{projectDir}/.claude/run/ink-{instanceId}.sock`
-   - Forwards events using NDJSON protocol (`source/types/hooks/`)
+   - Forwards events using NDJSON protocol (`src/types/hooks/`)
    - Returns results via stdout/exit code
    - **Fail-safe**: always exits 0 on error to never block Claude Code
 
@@ -53,16 +53,16 @@ Claude Code → hook-forwarder (stdin JSON) → UDS → Runtime adapter → Runt
                                              └── hook-forwarder (stdout/exit code) ← RuntimeDecision ← hookController ←┘
 ```
 
-### Runtime Layer (`source/runtime/`)
+### Runtime Layer (`src/runtime/`)
 
 The runtime layer abstracts how hook events are received and exposes a uniform `Runtime` interface:
 
-- **source/runtime/types.ts**: `Runtime`, `RuntimeEvent`, `RuntimeDecision` types
-- **source/runtime/adapters/claudeHooks/server.ts**: UDS server lifecycle, socket handling, NDJSON protocol
-- **source/runtime/adapters/claudeHooks/mapper.ts**: Maps raw hook payloads → `RuntimeEvent`
-- **source/runtime/adapters/claudeHooks/decisionMapper.ts**: Maps `RuntimeDecision` → hook result payloads
-- **source/runtime/adapters/mock/**: Scripted replay + injectable adapters for testing
-- **source/hooks/hookController.ts**: Event dispatch chain (first-match-wins) — replaces old `eventHandlers.ts`
+- **src/runtime/types.ts**: `Runtime`, `RuntimeEvent`, `RuntimeDecision` types
+- **src/runtime/adapters/claudeHooks/server.ts**: UDS server lifecycle, socket handling, NDJSON protocol
+- **src/runtime/adapters/claudeHooks/mapper.ts**: Maps raw hook payloads → `RuntimeEvent`
+- **src/runtime/adapters/claudeHooks/decisionMapper.ts**: Maps `RuntimeDecision` → hook result payloads
+- **src/runtime/adapters/mock/**: Scripted replay + injectable adapters for testing
+- **src/hooks/hookController.ts**: Event dispatch chain (first-match-wins) — replaces old `eventHandlers.ts`
 - Auto-passthrough timeout: 4000ms (before forwarder's 5000ms timeout)
 
 ### Plugin & Workflow Loading Flow
@@ -86,42 +86,42 @@ plugins not covered by a workflow (e.g., `site-knowledge`). Both coexist — wor
 
 ### Key Files
 
-- **source/hooks/hookController.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
-- **source/context/HookContext.tsx**: React context providing `UseFeedResult` (feed events, queues, tasks) to components
-- **source/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
-- **source/components/DashboardInput.tsx**: Dashboard input row (`input>` + run badge), built on `useTextInput`
-- **source/components/HookEvent.tsx**: Renders individual hook events in the terminal
-- **source/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
-- **source/components/Header/Header.tsx**: Legacy compact header component (kept for compatibility/tests; dashboard shell is primary UI)
-- **source/components/Header/StatsPanel.tsx**: Expandable metrics panel toggled with `Ctrl+E`
-- **source/types/isolation.ts**: IsolationConfig type, presets (strict/minimal/permissive), and resolver
+- **src/hooks/hookController.ts**: Event dispatch chain — handlers are pure functions taking `(ctx, callbacks)`
+- **src/context/HookContext.tsx**: React context providing `UseFeedResult` (feed events, queues, tasks) to components
+- **src/types/hooks/**: Protocol types, envelope validation, event types, result helpers (directory, not single file)
+- **src/components/DashboardInput.tsx**: Dashboard input row (`input>` + run badge), built on `useTextInput`
+- **src/components/HookEvent.tsx**: Renders individual hook events in the terminal
+- **src/components/ErrorBoundary.tsx**: Class component wrapping hook events and dialogs
+- **src/components/Header/Header.tsx**: Legacy compact header component (kept for compatibility/tests; dashboard shell is primary UI)
+- **src/components/Header/StatsPanel.tsx**: Expandable metrics panel toggled with `Ctrl+E`
+- **src/types/isolation.ts**: IsolationConfig type, presets (strict/minimal/permissive), and resolver
   - `strict`: core tools only (Read, Edit, Write, Glob, Grep, Bash), no MCP
   - `minimal`: adds WebSearch, WebFetch, Task, Skill; allows project MCP
   - `permissive`: adds NotebookEdit, `mcp__*` wildcard; allows project MCP
-- **source/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
-- **source/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
-- **source/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
-- **source/hooks/useFeed.ts**: Main feed hook providing `FeedEvent[]` + queues + tasks
-- **source/hooks/useFocusableList.ts**: Hook for arrow-key navigation state (cursor, expand/collapse)
-- **source/components/PostToolResult.tsx**: Renders standalone PostToolUse/PostToolUseFailure as `⎿ result`
-- **source/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
-- **source/workflows/types.ts**: `WorkflowConfig` (name, plugins, promptTemplate, loop?, isolation?, model?, env?), `LoopConfig` types
-- **source/workflows/registry.ts**: `resolveWorkflow`, `installWorkflow`, `listWorkflows`, `removeWorkflow` — manages `~/.config/athena/workflows/`
-- **source/workflows/installer.ts**: `installWorkflowPlugins(workflow)` — resolves marketplace plugin refs to dirs
-- **source/workflows/applyWorkflow.ts**: `applyPromptTemplate` utility
-- **source/workflows/loopManager.ts**: `createLoopManager` factory — tracker file lifecycle (initialize, getState, incrementIteration, deactivate, cleanup)
-- **source/workflows/index.ts**: Barrel re-export for workflow module
-- **source/setup/**: Setup wizard — `SetupWizard.tsx` orchestrator, `useSetupState.ts` state machine, step components (ThemeStep, HarnessStep, WorkflowStep), reusable `StepSelector`/`StepStatus`. Triggered by first-run, `athena-cli setup`, or `/setup` command. Renders as `{type: 'setup'}` AppPhase.
+- **src/utils/spawnClaude.ts**: Spawns headless Claude process using flag registry
+- **src/utils/flagRegistry.ts**: Declarative `FLAG_REGISTRY` mapping IsolationConfig fields → CLI flags
+- **src/hooks/useAppMode.ts**: Pure hook returning `AppMode` discriminated union (idle/working/permission/question)
+- **src/hooks/useFeed.ts**: Main feed hook providing `FeedEvent[]` + queues + tasks
+- **src/hooks/useFocusableList.ts**: Hook for arrow-key navigation state (cursor, expand/collapse)
+- **src/components/PostToolResult.tsx**: Renders standalone PostToolUse/PostToolUseFailure as `⎿ result`
+- **src/utils/detectClaudeVersion.ts**: Runs `claude --version` at startup
+- **src/workflows/types.ts**: `WorkflowConfig` (name, plugins, promptTemplate, loop?, isolation?, model?, env?), `LoopConfig` types
+- **src/workflows/registry.ts**: `resolveWorkflow`, `installWorkflow`, `listWorkflows`, `removeWorkflow` — manages `~/.config/athena/workflows/`
+- **src/workflows/installer.ts**: `installWorkflowPlugins(workflow)` — resolves marketplace plugin refs to dirs
+- **src/workflows/applyWorkflow.ts**: `applyPromptTemplate` utility
+- **src/workflows/loopManager.ts**: `createLoopManager` factory — tracker file lifecycle (initialize, getState, incrementIteration, deactivate, cleanup)
+- **src/workflows/index.ts**: Barrel re-export for workflow module
+- **src/setup/**: Setup wizard — `SetupWizard.tsx` orchestrator, `useSetupState.ts` state machine, step components (ThemeStep, HarnessStep, WorkflowStep), reusable `StepSelector`/`StepStatus`. Triggered by first-run, `athena-cli setup`, or `/setup` command. Renders as `{type: 'setup'}` AppPhase.
 
-### Feed Model (`source/feed/`)
+### Feed Model (`src/feed/`)
 
 The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `FeedEvent` objects. Components never access raw hook payloads directly.
 
-- **source/feed/types.ts**: `FeedEvent` discriminated union (21 kinds), all kind-specific data types, `FeedEventCause` for causality
-- **source/feed/mapper.ts**: Stateful `createFeedMapper()` factory — tracks sessions, runs, actors, correlation indexes, and active subagent stack. Produces `FeedEvent[]` from `RuntimeEvent`. Tool events are attributed to the innermost active subagent (if any) via a LIFO stack maintained across SubagentStart/SubagentStop events.
-- **source/feed/entities.ts**: `Session`, `Run`, `Actor` types and `ActorRegistry`
-- **source/feed/titleGen.ts**: Pure `generateTitle(event)` — kind-based titles, max 80 chars
-- **source/feed/filter.ts**: `shouldExcludeFromFeed()` — hides subagent.stop and task tool events
+- **src/feed/types.ts**: `FeedEvent` discriminated union (21 kinds), all kind-specific data types, `FeedEventCause` for causality
+- **src/feed/mapper.ts**: Stateful `createFeedMapper()` factory — tracks sessions, runs, actors, correlation indexes, and active subagent stack. Produces `FeedEvent[]` from `RuntimeEvent`. Tool events are attributed to the innermost active subagent (if any) via a LIFO stack maintained across SubagentStart/SubagentStop events.
+- **src/feed/entities.ts**: `Session`, `Run`, `Actor` types and `ActorRegistry`
+- **src/feed/titleGen.ts**: Pure `generateTitle(event)` — kind-based titles, max 80 chars
+- **src/feed/filter.ts**: `shouldExcludeFromFeed()` — hides subagent.stop and task tool events
 
 **Boundary rule**: Components may import `feed/types.ts` only. Never import `feed/mapper.ts`, `feed/entities.ts`, or other stateful feed internals from components/hooks — ESLint enforces protocol-level boundaries, and feed internals should stay behind `useFeed`.
 
@@ -151,7 +151,7 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - Event handlers extracted as pure functions taking `(ctx, callbacks)` — not closures inside hooks
 - New CLI flag mappings go in `FLAG_REGISTRY` array in `flagRegistry.ts`, not procedural code in `spawnClaude.ts`
 - Feature branches use git worktrees in `.worktrees/` (gitignored)
-- **Glyph tables**: Use `GLYPH_TABLE` pattern with `satisfies Record<Keys, string>` + `as const` for unicode/ascii glyph pairs. Color application is separate via `chalk.hex()`. See `source/feed/todoPanel.ts` as reference.
+- **Glyph tables**: Use `GLYPH_TABLE` pattern with `satisfies Record<Keys, string>` + `as const` for unicode/ascii glyph pairs. Color application is separate via `chalk.hex()`. See `src/feed/todoPanel.ts` as reference.
 
 ## Testing Patterns
 
@@ -162,14 +162,14 @@ The feed model transforms raw `RuntimeEvent` payloads into typed, append-only `F
 - Event handler tests: test each handler in isolation with mock `HandlerCallbacks`
 - Flag registry tests: test `buildIsolationArgs()` and `validateConflicts()` declaratively
 - AbortController tests: verify that aborted signals produce graceful early returns (e.g., `error: 'Aborted'`)
-- **Vitest + worktrees**: Vitest globs `**/*.test.ts` and picks up tests in `.worktrees/`. When running tests on main with active worktrees, expect inflated test counts and failures from other branches. Run `npx vitest run source/` to scope to project source only.
+- **Vitest + worktrees**: Vitest globs `**/*.test.ts` and picks up tests in `.worktrees/`. When running tests on main with active worktrees, expect inflated test counts and failures from other branches. Run `npx vitest run src/` to scope to project source only.
 - **Ink stdin in tests**: Arrow key writes (`stdin.write('\u001B[B')`) need `await delay(50)` between them for React state to flush before the next input is processed.
 
 ## Rendering Paths
 
 - **Tool output rendering**: `UnifiedToolCallEvent` renders tool call headers (`● Tool(params)`); `PostToolResult` renders tool results (`⎿ output`). Each is an independent static line — no pairing between Pre and PostToolUse events.
 - **ToolResultContainer**: Wraps all tool results with a `⎿` gutter + content layout. Computes `availableWidth` from terminal width minus overhead (LEFT_MARGIN + GUTTER_WIDTH + RIGHT_PAD). When nested inside bordered boxes (e.g. SubagentEvent), pass `parentWidth` prop to avoid width overflow — border chars consume extra width not accounted for by default.
-- **Tool output extractors**: `source/utils/toolExtractors.ts` maps each tool's response to a `RenderableOutput` discriminated union (code/diff/list/text) with `maxLines`/`maxItems` truncation. Add new tool extractors to the `EXTRACTORS` registry.
+- **Tool output extractors**: `src/utils/toolExtractors.ts` maps each tool's response to a `RenderableOutput` discriminated union (code/diff/list/text) with `maxLines`/`maxItems` truncation. Add new tool extractors to the `EXTRACTORS` registry.
 - **Markdown rendering**: `MarkdownText` uses `marked` + `marked-terminal` with custom renderers for compact headings, lists, HR, and tables. `m.parser(tokens)` renders token arrays (not `m.parser.parseInline` — `parser` is a function, not the Parser class).
 - **PostToolUse `tool_response` shapes**: Structured objects per tool — Bash: `{stdout, stderr, ...}`, Glob: `{filenames[], durationMs, numFiles, truncated}`, Read: content-block array `[{type, file: {content, ...}}]`, WebFetch: `{result, bytes, code, url, ...}`, WebSearch: `{query, results: [{tool_use_id, content: [{title, url}]}], ...}`, Write: `{filePath, success}`, Edit: `{filePath, oldString, newString, originalFile, structuredPatch, ...}`
 

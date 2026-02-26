@@ -82,7 +82,7 @@ export type GeneratedHookSettings = {
  * When running from development, resolves to dist/hook-forwarder.js.
  */
 function getHookForwarderPath(): string {
-	// In development, __dirname is source/utils, need to go up to find dist
+	// In development, __dirname is src/utils, need to go up to find dist
 	// In production, the bin is in PATH as athena-hook-forwarder
 	// For now, we'll use the direct path to the dist file
 	const distPath = path.resolve(

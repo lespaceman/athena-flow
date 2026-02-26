@@ -1,4 +1,4 @@
-// source/feed/titleGen.ts
+// src/feed/titleGen.ts
 import type {FeedEvent} from './types.js';
 import {getGlyphs} from '../glyphs/index.js';
 

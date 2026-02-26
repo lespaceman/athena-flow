@@ -1,4 +1,4 @@
-// source/feed/__tests__/filter.test.ts
+// src/feed/__tests__/filter.test.ts
 import {describe, it, expect} from 'vitest';
 import {shouldExcludeFromFeed} from '../filter.js';
 import type {FeedEvent, FeedEventKind} from '../types.js';

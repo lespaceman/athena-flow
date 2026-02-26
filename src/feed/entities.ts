@@ -1,4 +1,4 @@
-// source/feed/entities.ts
+// src/feed/entities.ts
 
 export type Session = {
 	session_id: string;

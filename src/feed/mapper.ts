@@ -1,4 +1,4 @@
-// source/feed/mapper.ts
+// src/feed/mapper.ts
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
 import type {

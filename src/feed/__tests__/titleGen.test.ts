@@ -1,4 +1,4 @@
-// source/feed/__tests__/titleGen.test.ts
+// src/feed/__tests__/titleGen.test.ts
 import {describe, it, expect} from 'vitest';
 import {generateTitle} from '../titleGen.js';
 import type {FeedEvent} from '../types.js';

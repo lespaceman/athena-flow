@@ -1,4 +1,4 @@
-// source/feed/__tests__/mapper.test.ts
+// src/feed/__tests__/mapper.test.ts
 import {describe, it, expect} from 'vitest';
 import {createFeedMapper} from '../mapper.js';
 import type {RuntimeEvent} from '../../runtime/types.js';

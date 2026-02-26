@@ -1,4 +1,4 @@
-// source/utils/toolSummary.ts
+// src/utils/toolSummary.ts
 
 import {isBashToolResponse} from '../components/hookEventUtils.js';
 import {parseToolName} from './toolNameParser.js';

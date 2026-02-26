@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import Message from './source/components/Message.js';
-import type {Message as MessageType} from './source/types/index.js';
+import Message from './src/components/Message.js';
+import type {Message as MessageType} from './src/types/index.js';
 
 describe('Message', () => {
 	it('renders user message correctly', () => {

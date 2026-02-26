@@ -1,4 +1,4 @@
-// source/feed/types.ts
+// src/feed/types.ts
 
 // ── Base ──────────────────────────────────────────────────
 
