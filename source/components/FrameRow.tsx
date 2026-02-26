@@ -14,12 +14,15 @@ export function FrameRow({children, innerWidth, ascii}: Props) {
 		<Box
 			flexDirection="row"
 			width={innerWidth + 2}
+			flexShrink={0}
 			height={1}
 			flexWrap="nowrap"
 			overflow="hidden"
 			overflowY="hidden"
 		>
-			<Text wrap="truncate-end">{fr.vertical}</Text>
+			<Box width={1} flexShrink={0}>
+				<Text wrap="truncate-end">{fr.vertical}</Text>
+			</Box>
 			<Box
 				width={innerWidth}
 				height={1}
@@ -31,7 +34,9 @@ export function FrameRow({children, innerWidth, ascii}: Props) {
 			>
 				{children}
 			</Box>
-			<Text wrap="truncate-end">{fr.vertical}</Text>
+			<Box width={1} flexShrink={0}>
+				<Text wrap="truncate-end">{fr.vertical}</Text>
+			</Box>
 		</Box>
 	);
 }
