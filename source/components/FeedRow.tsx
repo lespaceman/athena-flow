@@ -131,7 +131,7 @@ export function FeedRow({
 			)}
 			<Box flexGrow={1} flexShrink={1} />
 			<Box width={cols.gapW} flexShrink={0} />
-			<Box width={2} flexShrink={0}>
+			<Box width={3} flexShrink={0}>
 				<Text wrap="truncate-end">{cell(suffix, overrideColor)}</Text>
 			</Box>
 		</>

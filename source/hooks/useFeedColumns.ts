@@ -13,7 +13,8 @@ const GUTTER_W = 1;
 const TIME_W = 5;
 const EVENT_W = 12;
 const ACTOR_W = 10;
-const SUFFIX_W = 2;
+// Reserve 3 cells for suffix: leading space + potentially wide expand glyph.
+const SUFFIX_W = 3;
 /** Fixed non-gap overhead: gutter + time + event + actor + suffix. */
 const BASE_FIXED = GUTTER_W + TIME_W + EVENT_W + ACTOR_W + SUFFIX_W;
 
