@@ -6,7 +6,6 @@
 
 import {type IsolationConfig, type IsolationPreset} from './isolation.js';
 import type {TokenUsage} from './headerMetrics.js';
-import type {LoopManager} from '../workflows/loopManager.js';
 
 /**
  * Options for spawning a Claude Code headless process.
@@ -62,6 +61,4 @@ export type UseClaudeProcessResult = {
 	streamingText: string;
 	/** Live token usage parsed from stream-json stdout */
 	tokenUsage: TokenUsage;
-	/** Active loop manager for the current session, if any */
-	loopManager: LoopManager | null;
 };

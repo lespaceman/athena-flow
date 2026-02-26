@@ -9,8 +9,12 @@ export type LoopConfig = {
 	enabled: boolean;
 	completionMarker: string;
 	maxIterations: number;
-	continueMessage?: string;
-	trackerTemplate?: string;
+	/** Optional prefix to detect blocked state (e.g. "<!-- E2E_BLOCKED") */
+	blockedMarker?: string;
+	/** Relative path to tracker file in project root (e.g. "e2e-tracker.md") */
+	trackerPath?: string;
+	/** Prompt template for iterations 2+; supports {trackerPath} placeholder */
+	continuePrompt?: string;
 };
 
 export type WorkflowConfig = {
@@ -23,4 +27,6 @@ export type WorkflowConfig = {
 	isolation?: string;
 	model?: string;
 	env?: Record<string, string>;
+	/** Path to system prompt file, passed as --append-system-prompt-file */
+	systemPromptFile?: string;
 };

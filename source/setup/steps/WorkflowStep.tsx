@@ -6,7 +6,7 @@ import {installWorkflow, resolveWorkflow} from '../../workflows/index.js';
 
 // Marketplace ref for the e2e-test-builder workflow
 const E2E_WORKFLOW_REF =
-	'e2e-test-builder@lespaceman/athena-plugin-marketplace';
+	'e2e-test-builder@lespaceman/athena-workflow-marketplace';
 
 type Props = {
 	onComplete: (workflowName: string) => void;

@@ -180,7 +180,6 @@ function AppContent({
 		isRunning: isClaudeRunning,
 		sendInterrupt,
 		tokenUsage,
-		loopManager,
 	} = useClaudeProcess(
 		projectDir,
 		instanceId,
@@ -196,11 +195,6 @@ function AppContent({
 			tokenUpdateMs: 250,
 		},
 	);
-	// Sync loop manager into hook context so hookController can access it
-	useEffect(() => {
-		hookServer.setLoopManager(loopManager);
-	}, [loopManager, hookServer]);
-
 	const {exit} = useApp();
 	const {stdout} = useStdout();
 	const terminalWidth = stdout?.columns ?? 80;

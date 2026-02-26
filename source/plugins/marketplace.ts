@@ -1,7 +1,7 @@
 /**
  * Marketplace plugin resolver.
  *
- * Handles config entries like `"web-testing-toolkit@lespaceman/athena-plugin-marketplace"`
+ * Handles config entries like `"web-testing-toolkit@lespaceman/athena-workflow-marketplace"`
  * by cloning the marketplace repo, reading its manifest, and returning the
  * absolute path to the requested plugin directory.
  *
@@ -40,7 +40,7 @@ const MARKETPLACE_REF_RE = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 
 /**
  * Test whether a config entry is a marketplace reference
- * (e.g. `"web-testing-toolkit@lespaceman/athena-plugin-marketplace"`).
+ * (e.g. `"web-testing-toolkit@lespaceman/athena-workflow-marketplace"`).
  */
 export function isMarketplaceRef(entry: string): boolean {
 	return MARKETPLACE_REF_RE.test(entry);

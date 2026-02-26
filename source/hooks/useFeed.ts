@@ -13,7 +13,6 @@ import type {TodoItem, TodoWriteInput} from '../types/todo.js';
 import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
 import {shouldExcludeFromFeed} from '../feed/filter.js';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
-import type {LoopManager} from '../workflows/loopManager.js';
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -102,7 +101,6 @@ export type UseFeedResult = {
 	allocateSeq: () => number;
 	recordTokens: (adapterSessionId: string, tokens: TokenUsage) => void;
 	restoredTokens: TokenUsage | null;
-	setLoopManager: (mgr: LoopManager | null) => void;
 };
 
 /** Build a lookup index: tool_use_id → post/failure FeedEvent */
@@ -162,7 +160,6 @@ export function useFeed(
 	const sessionStoreRef = useRef<SessionStore | undefined>(sessionStore);
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
-	const loopManagerRef = useRef<LoopManager | null>(null);
 	const feedEventsRef = useRef<FeedEvent[]>([]);
 
 	rulesRef.current = rules;
@@ -333,12 +330,6 @@ export function useFeed(
 			getRules: () => rulesRef.current,
 			enqueuePermission,
 			enqueueQuestion,
-			getLoopState: () => loopManagerRef.current?.getState() ?? null,
-			updateLoopState: update => {
-				if (update.active === false) loopManagerRef.current?.deactivate();
-				if (update.iteration !== undefined)
-					loopManagerRef.current?.incrementIteration();
-			},
 			signal: abortRef.current.signal,
 		};
 
@@ -475,8 +466,5 @@ export function useFeed(
 		allocateSeq: () => mapperRef.current.allocateSeq(),
 		recordTokens,
 		restoredTokens,
-		setLoopManager: (mgr: LoopManager | null) => {
-			loopManagerRef.current = mgr;
-		},
 	};
 }

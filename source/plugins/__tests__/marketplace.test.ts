@@ -41,7 +41,7 @@ describe('isMarketplaceRef', () => {
 	it('returns true for valid marketplace references', () => {
 		expect(
 			isMarketplaceRef(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toBe(true);
 		expect(isMarketplaceRef('my-plugin@owner/repo')).toBe(true);
@@ -68,11 +68,11 @@ describe('isMarketplaceRef', () => {
 
 describe('resolveMarketplacePlugin', () => {
 	const cacheBase =
-		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-plugin-marketplace';
+		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-workflow-marketplace';
 	const manifestPath = `${cacheBase}/.claude-plugin/marketplace.json`;
 
 	const validManifest = JSON.stringify({
-		name: 'athena-plugin-marketplace',
+		name: 'athena-workflow-marketplace',
 		owner: {name: 'Test Team'},
 		plugins: [
 			{
@@ -104,7 +104,7 @@ describe('resolveMarketplacePlugin', () => {
 		});
 
 		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 		);
 
 		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
@@ -116,7 +116,7 @@ describe('resolveMarketplacePlugin', () => {
 				'clone',
 				'--depth',
 				'1',
-				'https://github.com/lespaceman/athena-plugin-marketplace.git',
+				'https://github.com/lespaceman/athena-workflow-marketplace.git',
 				cacheBase,
 			],
 			{stdio: 'ignore'},
@@ -132,7 +132,7 @@ describe('resolveMarketplacePlugin', () => {
 		execFileSyncMock.mockImplementation(() => {});
 
 		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 		);
 
 		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
@@ -161,7 +161,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		// Should still resolve from cached version
 		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 		);
 
 		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
@@ -174,7 +174,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('git is not installed');
 	});
@@ -187,10 +187,10 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow(
-			'Failed to clone marketplace repo lespaceman/athena-plugin-marketplace',
+			'Failed to clone marketplace repo lespaceman/athena-workflow-marketplace',
 		);
 	});
 
@@ -202,7 +202,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('Marketplace manifest not found');
 	});
@@ -226,10 +226,10 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow(
-			'Plugin "web-testing-toolkit" not found in marketplace lespaceman/athena-plugin-marketplace. Available plugins: other-plugin',
+			'Plugin "web-testing-toolkit" not found in marketplace lespaceman/athena-workflow-marketplace. Available plugins: other-plugin',
 		);
 	});
 
@@ -242,7 +242,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('Plugin source directory not found');
 	});
@@ -264,7 +264,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('remote source type which is not supported');
 	});
@@ -287,7 +287,7 @@ describe('resolveMarketplacePlugin', () => {
 		execFileSyncMock.mockImplementation(() => {});
 
 		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 		);
 
 		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
@@ -311,7 +311,7 @@ describe('resolveMarketplacePlugin', () => {
 		execFileSyncMock.mockImplementation(() => {});
 
 		const result = resolveMarketplacePlugin(
-			'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 		);
 
 		// Should NOT double-prefix to plugins/plugins/...
@@ -335,7 +335,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('resolves outside the marketplace repo');
 	});
@@ -352,7 +352,7 @@ describe('resolveMarketplacePlugin', () => {
 
 		expect(() =>
 			resolveMarketplacePlugin(
-				'web-testing-toolkit@lespaceman/athena-plugin-marketplace',
+				'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('"plugins" must be an array');
 	});
@@ -360,11 +360,11 @@ describe('resolveMarketplacePlugin', () => {
 
 describe('resolveMarketplaceWorkflow', () => {
 	const cacheBase =
-		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-plugin-marketplace';
+		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-workflow-marketplace';
 	const manifestPath = `${cacheBase}/.claude-plugin/marketplace.json`;
 
 	const manifestWithWorkflows = JSON.stringify({
-		name: 'athena-plugin-marketplace',
+		name: 'athena-workflow-marketplace',
 		owner: {name: 'Test Team'},
 		plugins: [],
 		workflows: [
@@ -384,7 +384,7 @@ describe('resolveMarketplaceWorkflow', () => {
 		execFileSyncMock.mockImplementation(() => {});
 
 		const result = resolveMarketplaceWorkflow(
-			'e2e-test-builder@lespaceman/athena-plugin-marketplace',
+			'e2e-test-builder@lespaceman/athena-workflow-marketplace',
 		);
 
 		expect(result).toBe(
@@ -400,10 +400,10 @@ describe('resolveMarketplaceWorkflow', () => {
 
 		expect(() =>
 			resolveMarketplaceWorkflow(
-				'nonexistent@lespaceman/athena-plugin-marketplace',
+				'nonexistent@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow(
-			'Workflow "nonexistent" not found in marketplace lespaceman/athena-plugin-marketplace. Available workflows: e2e-test-builder',
+			'Workflow "nonexistent" not found in marketplace lespaceman/athena-workflow-marketplace. Available workflows: e2e-test-builder',
 		);
 	});
 
@@ -419,7 +419,7 @@ describe('resolveMarketplaceWorkflow', () => {
 
 		expect(() =>
 			resolveMarketplaceWorkflow(
-				'some-workflow@lespaceman/athena-plugin-marketplace',
+				'some-workflow@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('Available workflows: (none)');
 	});

@@ -2,7 +2,6 @@ import {describe, it, expect, vi} from 'vitest';
 import {handleEvent, type ControllerCallbacks} from './hookController.js';
 import type {RuntimeEvent} from '../runtime/types.js';
 import type {HookRule} from '../types/rules.js';
-import type {LoopState} from '../workflows/loopManager.js';
 
 function makeEvent(
 	hookName: string,
@@ -28,24 +27,16 @@ function makeEvent(
 	};
 }
 
-function makeCallbacks(loopState?: LoopState | null): ControllerCallbacks & {
+function makeCallbacks(): ControllerCallbacks & {
 	_rules: HookRule[];
-	_loopUpdates: Partial<LoopState>[];
 } {
 	return {
 		_rules: [],
-		_loopUpdates: [],
 		getRules() {
 			return this._rules;
 		},
 		enqueuePermission: vi.fn(),
 		enqueueQuestion: vi.fn(),
-		getLoopState() {
-			return loopState ?? null;
-		},
-		updateLoopState(update: Partial<LoopState>) {
-			this._loopUpdates.push(update);
-		},
 	};
 }
 
@@ -137,80 +128,9 @@ describe('hookController handleEvent', () => {
 		expect(result.handled).toBe(false);
 	});
 
-	describe('Stop event handling', () => {
-		it('returns handled:false when no loop state (no getLoopState)', () => {
-			const cb = makeCallbacks();
-			cb.getLoopState = undefined;
-			const result = handleEvent(makeEvent('Stop'), cb);
-			expect(result.handled).toBe(false);
-		});
-
-		it('returns handled:false when getLoopState returns null', () => {
-			const cb = makeCallbacks(null);
-			const result = handleEvent(makeEvent('Stop'), cb);
-			expect(result.handled).toBe(false);
-		});
-
-		it('returns handled:false when loop is inactive', () => {
-			const cb = makeCallbacks({
-				active: false,
-				iteration: 3,
-				maxIterations: 5,
-				completionMarker: 'DONE',
-				continueMessage: 'Keep going',
-				trackerContent: '# Progress',
-			});
-			const result = handleEvent(makeEvent('Stop'), cb);
-			expect(result.handled).toBe(false);
-		});
-
-		it('deactivates and returns handled:false when maxIterations reached', () => {
-			const cb = makeCallbacks({
-				active: true,
-				iteration: 5,
-				maxIterations: 5,
-				completionMarker: 'DONE',
-				continueMessage: 'Keep going',
-				trackerContent: '# Progress',
-			});
-			const result = handleEvent(makeEvent('Stop'), cb);
-			expect(result.handled).toBe(false);
-			expect(cb._loopUpdates).toEqual([{active: false}]);
-		});
-
-		it('deactivates and returns handled:false when completion marker found', () => {
-			const cb = makeCallbacks({
-				active: true,
-				iteration: 2,
-				maxIterations: 5,
-				completionMarker: 'DONE',
-				continueMessage: 'Keep going',
-				trackerContent: '# Progress\n\nDONE',
-			});
-			const result = handleEvent(makeEvent('Stop'), cb);
-			expect(result.handled).toBe(false);
-			expect(cb._loopUpdates).toEqual([{active: false}]);
-		});
-
-		it('blocks stop and increments iteration when loop should continue', () => {
-			const cb = makeCallbacks({
-				active: true,
-				iteration: 2,
-				maxIterations: 5,
-				completionMarker: 'DONE',
-				continueMessage: 'Keep going',
-				trackerContent: '# Progress\n\nStill working...',
-			});
-			const result = handleEvent(makeEvent('Stop'), cb);
-
-			expect(result.handled).toBe(true);
-			expect(result.decision).toBeDefined();
-			expect(result.decision!.type).toBe('json');
-			expect(result.decision!.intent).toEqual({
-				kind: 'stop_block',
-				reason: 'Keep going',
-			});
-			expect(cb._loopUpdates).toEqual([{iteration: 3}]);
-		});
+	it('passes through Stop events without handling', () => {
+		const cb = makeCallbacks();
+		const result = handleEvent(makeEvent('Stop'), cb);
+		expect(result.handled).toBe(false);
 	});
 });

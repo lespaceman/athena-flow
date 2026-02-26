@@ -13,10 +13,11 @@ import type {WorkflowConfig} from '../workflows/types.js';
 import {
 	applyPromptTemplate,
 	createLoopManager,
+	buildContinuePrompt,
 	type LoopManager,
 } from '../workflows/index.js';
+import path from 'node:path';
 
-// Re-export type for backwards compatibility
 export type {UseClaudeProcessResult};
 
 /**
@@ -166,8 +167,7 @@ export function useClaudeProcess(
 
 		processRef.current.kill();
 
-		// Clean up loop tracker to prevent zombie loops
-		loopManagerRef.current?.cleanup();
+		loopManagerRef.current?.deactivate();
 		loopManagerRef.current = null;
 
 		// Wait for exit or timeout
@@ -216,23 +216,56 @@ export function useClaudeProcess(
 			// Apply workflow: transform prompt and arm loop
 			let effectivePrompt = prompt;
 			if (workflow) {
-				effectivePrompt = applyPromptTemplate(workflow.promptTemplate, prompt);
-				if (workflow.loop?.enabled) {
-					// Clean up previous loop manager
-					loopManagerRef.current?.cleanup();
-					const trackerPath = `${projectDir}/.athena/sessions/${sessionId ?? 'default'}/loop-tracker.md`;
-					const mgr = createLoopManager(trackerPath, workflow.loop);
-					mgr.initialize();
-					loopManagerRef.current = mgr;
+				if (
+					workflow.loop &&
+					loopManagerRef.current &&
+					loopManagerRef.current.getState().iteration > 0
+				) {
+					// Iteration 2+: use continue prompt instead of original template
+					effectivePrompt = buildContinuePrompt(workflow.loop);
+				} else {
+					effectivePrompt = applyPromptTemplate(
+						workflow.promptTemplate,
+						prompt,
+					);
+				}
+
+				if (workflow.loop?.enabled && !loopManagerRef.current) {
+					const trackerPath = path.resolve(
+						projectDir,
+						workflow.loop.trackerPath ?? 'tracker.md',
+					);
+					loopManagerRef.current = createLoopManager(
+						trackerPath,
+						workflow.loop,
+					);
 				}
 			}
+
+			// Thread workflow's systemPromptFile into isolation config
+			const effectivePerCallIsolation: Partial<IsolationConfig> | undefined =
+				perCallIsolation || workflow?.systemPromptFile
+					? {
+							...perCallIsolation,
+							...(workflow?.systemPromptFile && {
+								appendSystemPromptFile: path.resolve(
+									projectDir,
+									workflow.systemPromptFile,
+								),
+							}),
+						}
+					: undefined;
 
 			const child = spawnClaude({
 				prompt: effectivePrompt,
 				projectDir,
 				instanceId,
 				sessionId,
-				isolation: mergeIsolation(isolation, pluginMcpConfig, perCallIsolation),
+				isolation: mergeIsolation(
+					isolation,
+					pluginMcpConfig,
+					effectivePerCallIsolation,
+				),
 				env: workflow?.env,
 				...(verbose
 					? {
@@ -323,6 +356,30 @@ export function useClaudeProcess(
 					}
 					if (abortRef.current.signal.aborted) return;
 					processRef.current = null;
+
+					// Loop respawn: spawn next iteration if not terminal
+					if (
+						workflow?.loop &&
+						loopManagerRef.current &&
+						!loopManagerRef.current.isTerminal()
+					) {
+						loopManagerRef.current.incrementIteration();
+						spawn(buildContinuePrompt(workflow.loop)).catch(() => {
+							loopManagerRef.current?.deactivate();
+							loopManagerRef.current = null;
+							if (!abortRef.current.signal.aborted) {
+								setIsRunning(false);
+							}
+						});
+						return;
+					}
+
+					// Loop reached terminal state — deactivate
+					if (loopManagerRef.current) {
+						loopManagerRef.current.deactivate();
+						loopManagerRef.current = null;
+					}
+
 					setIsRunning(false);
 					if (trackOutputRef.current && code !== 0 && code !== null) {
 						setOutput(prev => [...prev, `[exit code: ${code}]`]);
@@ -379,6 +436,5 @@ export function useClaudeProcess(
 		sendInterrupt,
 		streamingText,
 		tokenUsage,
-		loopManager: loopManagerRef.current,
 	};
 }

@@ -9,6 +9,7 @@ export {
 export {installWorkflowPlugins} from './installer.js';
 export {
 	createLoopManager,
+	buildContinuePrompt,
 	type LoopState,
 	type LoopManager,
 } from './loopManager.js';

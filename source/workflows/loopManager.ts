@@ -1,181 +1,118 @@
 /**
- * Loop manager — manages tracker markdown lifecycle for native loop control.
+ * Loop manager — read-only tracker checker for fresh-session workflow loops.
  *
- * Pure utility (not a React hook). Reads/writes a tracker file with YAML
- * frontmatter for iteration state and a markdown body for progress tracking.
+ * Athena spawns fresh `claude -p` sessions in a loop. Claude owns the tracker
+ * file (creates/updates it). Athena only reads the tracker between sessions to
+ * check for completion or blocked markers.
+ *
+ * Iteration count is tracked in-memory (not persisted in the tracker file).
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
 import type {LoopConfig} from './types.js';
 
-const DEFAULT_TEMPLATE = '# Loop Progress\n\n_In progress_';
-const DEFAULT_CONTINUE_MESSAGE =
-	'Continue working on the task. Check the tracker for remaining items.';
+const DEFAULT_CONTINUE_PROMPT =
+	'Continue the task. Read the tracker at {trackerPath} for current progress.';
 
 export type LoopState = {
 	active: boolean;
 	iteration: number;
 	maxIterations: number;
 	completionMarker: string;
-	continueMessage: string;
-	trackerContent: string;
+	blockedMarker?: string;
+	completed: boolean;
+	blocked: boolean;
+	blockedReason?: string;
+	reachedLimit: boolean;
 };
 
 export type LoopManager = {
-	initialize(): void;
-	isActive(): boolean;
-	getState(): LoopState | null;
+	/** Read tracker file and return current loop state. */
+	getState(): LoopState;
+	/** Increment in-memory iteration counter. */
 	incrementIteration(): void;
+	/** Mark loop as inactive (in memory). */
 	deactivate(): void;
-	cleanup(): void;
+	/** Check if loop has reached a terminal condition. */
+	isTerminal(): boolean;
+	/** Absolute path to the tracker file. */
+	readonly trackerPath: string;
 };
-
-/**
- * Parse YAML frontmatter from a markdown string.
- * Returns {frontmatter, body} or null if no valid frontmatter found.
- */
-function parseFrontmatter(
-	content: string,
-): {frontmatter: Record<string, string>; body: string} | null {
-	if (!content.startsWith('---')) return null;
-	const endIdx = content.indexOf('\n---', 3);
-	if (endIdx === -1) return null;
-
-	const yamlBlock = content.slice(4, endIdx);
-	const body = content.slice(endIdx + 4).trimStart();
-	const frontmatter: Record<string, string> = {};
-
-	for (const line of yamlBlock.split('\n')) {
-		const colonIdx = line.indexOf(':');
-		if (colonIdx === -1) continue;
-		const key = line.slice(0, colonIdx).trim();
-		let value = line.slice(colonIdx + 1).trim();
-		// Strip surrounding quotes
-		if (
-			(value.startsWith('"') && value.endsWith('"')) ||
-			(value.startsWith("'") && value.endsWith("'"))
-		) {
-			value = value.slice(1, -1);
-		}
-		frontmatter[key] = value;
-	}
-
-	return {frontmatter, body};
-}
-
-/**
- * Serialize frontmatter + body back to a markdown string.
- */
-function serializeFrontmatter(
-	frontmatter: Record<string, string>,
-	body: string,
-): string {
-	const lines = Object.entries(frontmatter).map(([k, v]) => {
-		// Quote string values that aren't plain numbers/booleans
-		if (v === 'true' || v === 'false' || /^\d+$/.test(v)) {
-			return `${k}: ${v}`;
-		}
-		return `${k}: "${v}"`;
-	});
-	return `---\n${lines.join('\n')}\n---\n${body}`;
-}
 
 export function createLoopManager(
 	trackerPath: string,
 	config: LoopConfig,
 ): LoopManager {
-	const template = config.trackerTemplate ?? DEFAULT_TEMPLATE;
-	const continueMessage = config.continueMessage ?? DEFAULT_CONTINUE_MESSAGE;
+	let iteration = 0;
+	let active = true;
 
-	function initialize(): void {
-		const dir = path.dirname(trackerPath);
-		fs.mkdirSync(dir, {recursive: true});
+	function readTracker(): string {
+		try {
+			if (!fs.existsSync(trackerPath)) return '';
+			return fs.readFileSync(trackerPath, 'utf-8');
+		} catch {
+			return '';
+		}
+	}
 
-		const frontmatter: Record<string, string> = {
-			iteration: '0',
-			max_iterations: String(config.maxIterations),
-			completion_marker: config.completionMarker,
-			active: 'true',
-			started_at: new Date().toISOString(),
+	function extractBlockedReason(content: string): string | undefined {
+		if (!config.blockedMarker) return undefined;
+		const idx = content.indexOf(config.blockedMarker);
+		if (idx === -1) return undefined;
+		// Extract reason from "<!-- E2E_BLOCKED: reason -->" pattern
+		const afterMarker = content.slice(idx + config.blockedMarker.length);
+		const match = afterMarker.match(/^:\s*(.+?)(?:\s*-->|$)/);
+		return match?.[1]?.trim();
+	}
+
+	function getState(): LoopState {
+		const content = readTracker();
+		const completed = content.includes(config.completionMarker);
+		const blocked = config.blockedMarker
+			? content.includes(config.blockedMarker)
+			: false;
+		const blockedReason = blocked ? extractBlockedReason(content) : undefined;
+		const reachedLimit = iteration >= config.maxIterations;
+
+		return {
+			active,
+			iteration,
+			maxIterations: config.maxIterations,
+			completionMarker: config.completionMarker,
+			blockedMarker: config.blockedMarker,
+			completed,
+			blocked,
+			blockedReason,
+			reachedLimit,
 		};
-
-		fs.writeFileSync(
-			trackerPath,
-			serializeFrontmatter(frontmatter, template),
-			'utf-8',
-		);
 	}
 
-	function getState(): LoopState | null {
-		try {
-			if (!fs.existsSync(trackerPath)) return null;
-			const content = fs.readFileSync(trackerPath, 'utf-8');
-			const parsed = parseFrontmatter(content);
-			if (!parsed) return null;
-
-			const {frontmatter, body} = parsed;
-			return {
-				active: frontmatter['active'] === 'true',
-				iteration: parseInt(frontmatter['iteration'] ?? '0', 10),
-				maxIterations: parseInt(
-					frontmatter['max_iterations'] ?? String(config.maxIterations),
-					10,
-				),
-				completionMarker:
-					frontmatter['completion_marker'] ?? config.completionMarker,
-				continueMessage,
-				trackerContent: body,
-			};
-		} catch {
-			// Fail open — if we can't read, return null so Claude stops
-			return null;
-		}
-	}
-
-	function isActive(): boolean {
-		return getState()?.active ?? false;
-	}
-
-	function updateFrontmatter(updates: Record<string, string>): void {
-		try {
-			const content = fs.readFileSync(trackerPath, 'utf-8');
-			const parsed = parseFrontmatter(content);
-			if (!parsed) return;
-
-			const newFrontmatter = {...parsed.frontmatter, ...updates};
-			fs.writeFileSync(
-				trackerPath,
-				serializeFrontmatter(newFrontmatter, parsed.body),
-				'utf-8',
-			);
-		} catch {
-			// Fail open — if tracker is gone or unwritable, let Claude stop naturally
-		}
+	function isTerminal(): boolean {
+		const state = getState();
+		return state.completed || state.blocked || state.reachedLimit;
 	}
 
 	function incrementIteration(): void {
-		const state = getState();
-		if (!state) return;
-		updateFrontmatter({iteration: String(state.iteration + 1)});
+		iteration++;
 	}
 
 	function deactivate(): void {
-		updateFrontmatter({active: 'false'});
-	}
-
-	function cleanup(): void {
-		if (fs.existsSync(trackerPath)) {
-			fs.unlinkSync(trackerPath);
-		}
+		active = false;
 	}
 
 	return {
-		initialize,
-		isActive,
 		getState,
 		incrementIteration,
 		deactivate,
-		cleanup,
+		isTerminal,
+		trackerPath,
 	};
+}
+
+/**
+ * Build the continuation prompt for loop iterations 2+.
+ */
+export function buildContinuePrompt(loop: LoopConfig): string {
+	const template = loop.continuePrompt ?? DEFAULT_CONTINUE_PROMPT;
+	return template.replace('{trackerPath}', loop.trackerPath ?? 'tracker.md');
 }
