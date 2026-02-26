@@ -1,6 +1,8 @@
 import {describe, it, expect} from 'vitest';
 import {renderDetailLines} from './renderDetailLines.js';
 import type {FeedEvent} from '../feed/types.js';
+import stripAnsi from 'strip-ansi';
+import stringWidth from 'string-width';
 
 function makeEvent(
 	overrides: Partial<FeedEvent> & Pick<FeedEvent, 'kind' | 'data'>,
@@ -55,6 +57,41 @@ describe('renderDetailLines', () => {
 		expect(result.showLineNumbers).toBe(false);
 		const joined = result.lines.join('\n');
 		expect(joined).toContain('world');
+	});
+
+	it('wraps long markdown lines to detail width', () => {
+		const longWord = 'x'.repeat(140);
+		const event = makeEvent({
+			kind: 'agent.message',
+			data: {message: longWord, source: 'hook', scope: 'root'},
+		});
+		const width = 40;
+		const result = renderDetailLines(event, width);
+		const maxLineWidth = Math.max(
+			...result.lines.map(line => stringWidth(stripAnsi(line))),
+		);
+		expect(maxLineWidth).toBeLessThanOrEqual(width);
+	});
+
+	it('wraps markdown table output to detail width', () => {
+		const event = makeEvent({
+			kind: 'agent.message',
+			data: {
+				source: 'hook',
+				scope: 'root',
+				message: [
+					'| Col A | Col B | Col C |',
+					'| --- | --- | --- |',
+					"| one | very-long-token-without-spaces-abcdefghijklmnopqrstuvwxyz0123456789 | three |",
+				].join('\n'),
+			},
+		});
+		const width = 52;
+		const result = renderDetailLines(event, width);
+		const maxLineWidth = Math.max(
+			...result.lines.map(line => stringWidth(stripAnsi(line))),
+		);
+		expect(maxLineWidth).toBeLessThanOrEqual(width);
 	});
 
 	it('renders tool.post Read with syntax highlighting', () => {
@@ -118,6 +155,24 @@ describe('renderDetailLines', () => {
 		expect(result.lines.some(l => l.includes('echo hello'))).toBe(true);
 	});
 
+	it('wraps long tool request lines to detail width', () => {
+		const event = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {
+					command: 'npx playwright test tests/google-search.spec.ts --project=chromium --workers=1 --reporter=line --timeout=30000',
+				},
+			},
+		});
+		const width = 56;
+		const result = renderDetailLines(event, width);
+		const maxLineWidth = Math.max(
+			...result.lines.map(line => stringWidth(stripAnsi(line))),
+		);
+		expect(maxLineWidth).toBeLessThanOrEqual(width);
+	});
+
 	it('shows structured header for MCP tool.pre', () => {
 		const event = makeEvent({
 			kind: 'tool.pre',
@@ -164,7 +219,7 @@ describe('renderDetailLines', () => {
 		expect(text).toContain('Action:    navigate');
 	});
 
-	it('renders merged tool detail with no repeated labels and a divider', () => {
+	it('hides request payload for merged built-in tool details', () => {
 		const pre = makeEvent({
 			kind: 'tool.pre',
 			data: {
@@ -187,7 +242,60 @@ describe('renderDetailLines', () => {
 		expect(text).not.toContain('Request');
 		expect(text).not.toContain('Response');
 		expect(text).not.toContain('Tool: Read');
+		expect(text).not.toContain('file_path');
+		expect(text).not.toContain('────────');
+	});
+
+	it('keeps request payload for merged MCP tool details', () => {
+		const pre = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__find_elements',
+				tool_input: {kind: 'button', label: 'Search'},
+				tool_use_id: 'mcp-1',
+			},
+		});
+		const post = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name:
+					'mcp__plugin_web-testing-toolkit_agent-web-interface__find_elements',
+				tool_input: {kind: 'button', label: 'Search'},
+				tool_response: {result: 'ok'},
+				tool_use_id: 'mcp-1',
+			},
+		});
+		const result = renderDetailLines(pre, 80, post);
+		const text = result.lines.join('\n');
+		expect(text).toContain('Namespace: mcp');
+		expect(text).toContain('"kind"');
+		expect(text).toContain('"button"');
 		expect(text).toContain('────────');
+	});
+
+	it('hides request payload for merged built-in Bash tool details', () => {
+		const pre = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'echo "hello world"'},
+				tool_use_id: 'bash-1',
+			},
+		});
+		const post = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'echo "hello world"'},
+				tool_response: {stdout: 'hello world', stderr: '', interrupted: false},
+				tool_use_id: 'bash-1',
+			},
+		});
+		const result = renderDetailLines(pre, 80, post);
+		const text = result.lines.join('\n');
+		expect(text).not.toContain('"command"');
+		expect(text).toContain('hello world');
 	});
 
 	it('splits multiline tool.failure error into individual lines', () => {
@@ -214,6 +322,29 @@ describe('renderDetailLines', () => {
 		expect(joined).toContain('Signup');
 		// Should have significantly more than 5 lines
 		expect(result.lines.length).toBeGreaterThan(5);
+	});
+
+	it('wraps long tool.failure lines to detail width', () => {
+		const event = makeEvent({
+			kind: 'tool.failure',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {
+					command:
+						'npx playwright test tests/google-search.spec.ts --project=chromium --workers=1 --reporter=line',
+				},
+				error:
+					'Exit code 1\n' +
+					'Running 16 tests using 1 worker and this line is intentionally very very very very very long to test wrapping behavior',
+				is_interrupt: false,
+			},
+		});
+		const width = 58;
+		const result = renderDetailLines(event, width);
+		const maxLineWidth = Math.max(
+			...result.lines.map(line => stringWidth(stripAnsi(line))),
+		);
+		expect(maxLineWidth).toBeLessThanOrEqual(width);
 	});
 
 	it('falls back to JSON for unknown event kinds', () => {

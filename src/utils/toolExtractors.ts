@@ -362,6 +362,65 @@ function extractTask(
 	return {type: 'text', content: desc || 'Task completed', maxLines: 10};
 }
 
+function extractSkill(
+	input: Record<string, unknown>,
+	response: unknown,
+): RawOutput {
+	const skill = typeof input['skill'] === 'string' ? input['skill'] : '';
+	if (typeof response === 'string') {
+		return {type: 'text', content: response, maxLines: 20};
+	}
+
+	if (typeof response === 'object' && response !== null) {
+		const items: ListItem[] = [];
+		const success = prop(response, 'success');
+		const commandName = prop(response, 'commandName');
+		const message = prop(response, 'message');
+		const allowedTools = prop(response, 'allowedTools');
+
+		if (skill) items.push({secondary: 'skill', primary: skill});
+		if (typeof commandName === 'string' && commandName.trim()) {
+			items.push({secondary: 'command', primary: commandName.trim()});
+		}
+		if (typeof success === 'boolean') {
+			items.push({
+				secondary: 'status',
+				primary: success ? 'success' : 'failed',
+			});
+		}
+		if (Array.isArray(allowedTools)) {
+			const tools = allowedTools.filter(
+				(t): t is string => typeof t === 'string' && t.trim().length > 0,
+			);
+			const maxTools = 24;
+			for (const tool of tools.slice(0, maxTools)) {
+				items.push({secondary: 'allowed', primary: tool});
+			}
+			if (tools.length > maxTools) {
+				items.push({
+					secondary: 'allowed',
+					primary: `+${tools.length - maxTools} more`,
+				});
+			}
+		}
+		if (typeof message === 'string' && message.trim()) {
+			items.push({secondary: 'message', primary: message.trim()});
+		}
+
+		if (items.length > 0) {
+			return {type: 'list', items, maxItems: 30, groupBy: 'secondary'};
+		}
+	}
+
+	const text = extractTextContent(response);
+	if (text) return {type: 'text', content: text, maxLines: 20};
+	return {
+		type: 'text',
+		content: skill ? `Skill: ${skill}` : 'Skill executed',
+		maxLines: 20,
+	};
+}
+
 const EXTRACTORS: Record<string, Extractor> = {
 	Bash: extractBash,
 	Read: extractRead,
@@ -373,6 +432,7 @@ const EXTRACTORS: Record<string, Extractor> = {
 	WebSearch: extractWebSearch,
 	NotebookEdit: extractNotebookEdit,
 	Task: extractTask,
+	Skill: extractSkill,
 };
 
 export function extractToolOutput(

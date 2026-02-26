@@ -73,7 +73,11 @@ export function buildBodyLines({
 			detailContentRows,
 		} = detail;
 		const start = Math.min(detailScroll, maxDetailScroll);
-		const end = Math.min(detailLines.length, start + detailContentRows);
+		const hasDetailSpacer = detailContentRows > 1;
+		const visibleDetailRows = hasDetailSpacer
+			? detailContentRows - 1
+			: detailContentRows;
+		const end = Math.min(detailLines.length, start + visibleDetailRows);
 		const lineNumberWidth = String(Math.max(1, detailLines.length)).length;
 		const rangeLabel =
 			detailLines.length === 0
@@ -100,7 +104,10 @@ export function buildBodyLines({
 				innerWidth,
 			),
 		);
-		for (let i = 0; i < detailContentRows; i++) {
+		if (hasDetailSpacer) {
+			bodyLines.push(fitAnsi('', innerWidth));
+		}
+		for (let i = 0; i < visibleDetailRows; i++) {
 			const line = detailLines[start + i];
 			if (line === undefined) {
 				bodyLines.push(fitAnsi('', innerWidth));

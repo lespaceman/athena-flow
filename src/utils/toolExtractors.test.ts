@@ -562,6 +562,48 @@ describe('extractToolOutput', () => {
 		});
 	});
 
+	describe('Skill', () => {
+		it('renders structured Skill response as grouped list', () => {
+			const result = extractToolOutput(
+				'Skill',
+				{skill: 'e2e-test-builder:add-e2e-tests'},
+				{
+					success: true,
+					commandName: 'e2e-test-builder:add-e2e-tests',
+					allowedTools: ['Read', 'Write', 'Edit'],
+				},
+			);
+			expect(result.type).toBe('list');
+			if (result.type === 'list') {
+				expect(result.groupBy).toBe('secondary');
+				expect(result.items.some(i => i.secondary === 'skill')).toBe(true);
+				expect(result.items.some(i => i.secondary === 'command')).toBe(true);
+				expect(result.items.some(i => i.secondary === 'allowed')).toBe(true);
+			}
+		});
+
+		it('truncates long allowedTools list with +N more', () => {
+			const allowedTools = Array.from({length: 30}, (_, i) => `Tool${i}`);
+			const result = extractToolOutput(
+				'Skill',
+				{skill: 'demo:skill'},
+				{
+					success: true,
+					commandName: 'demo:skill',
+					allowedTools,
+				},
+			);
+			expect(result.type).toBe('list');
+			if (result.type === 'list') {
+				expect(
+					result.items.some(
+						i => i.secondary === 'allowed' && i.primary === '+6 more',
+					),
+				).toBe(true);
+			}
+		});
+	});
+
 	describe('unknown tool', () => {
 		it('falls back to text', () => {
 			const result = extractToolOutput('SomeMCPTool', {}, 'response text');

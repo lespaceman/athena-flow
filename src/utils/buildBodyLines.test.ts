@@ -133,4 +133,56 @@ describe('buildBodyLines — detail header', () => {
 		expect(header).toContain('Esc back');
 		expect(header).not.toContain('@agent:root');
 	});
+
+	it('adds one spacer line after detail header when there is room', () => {
+		const result = buildBodyLines({
+			innerWidth: 60,
+			detail: {
+				expandedEntry: {
+					id: 'E1',
+					ts: Date.now(),
+					op: 'Tool OK',
+					opTag: 'tool.ok',
+					actor: 'AGENT',
+					actorId: 'agent:root',
+					toolColumn: 'Edit',
+					summary: 'summary',
+					summarySegments: [],
+					searchText: '',
+					error: false,
+					expandable: true,
+					details: '',
+					duplicateActor: false,
+				},
+				detailScroll: 0,
+				maxDetailScroll: 0,
+				detailLines: ['line-a', 'line-b'],
+				detailContentRows: 3,
+				showLineNumbers: false,
+			},
+			todo: {
+				actualTodoRows: 0,
+				todoPanel: {
+					todoScroll: 0,
+					todoCursor: 0,
+					visibleTodoItems: [],
+				},
+				focusMode: 'feed',
+				ascii: true,
+				appMode: 'idle',
+				doneCount: 0,
+				totalCount: 0,
+				spinnerFrame: '*',
+			},
+			runOverlay: {
+				actualRunOverlayRows: 0,
+				runSummaries: [],
+				runFilter: 'all',
+			},
+			theme: defaultTheme,
+		});
+
+		expect(stripAnsi(result[1] ?? '').trim()).toBe('');
+		expect(stripAnsi(result[2] ?? '')).toContain('line-a');
+	});
 });

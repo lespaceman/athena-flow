@@ -115,8 +115,10 @@ export function useLayout({
 	const detailContentRows = expandedEntry
 		? Math.max(1, bodyHeight - detailHeaderRows)
 		: 0;
-	const maxDetailScroll = Math.max(0, detailLines.length - detailContentRows);
-	const detailPageStep = Math.max(1, Math.floor(detailContentRows / 2));
+	const detailVisibleRows =
+		expandedEntry && detailContentRows > 1 ? detailContentRows - 1 : detailContentRows;
+	const maxDetailScroll = Math.max(0, detailLines.length - detailVisibleRows);
+	const detailPageStep = Math.max(1, Math.floor(detailVisibleRows / 2));
 	const setDetailScroll = feedNav.setDetailScroll;
 	const setTodoScroll = todoPanel.setTodoScroll;
 	const todoCursor = todoPanel.todoCursor;
