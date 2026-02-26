@@ -16,6 +16,7 @@ export type TodoKeyboardCallbacks = {
 
 export type TodoKeyboardOptions = {
 	isActive: boolean;
+	escapeHandledExternally?: boolean;
 	todoCursor: number;
 	visibleTodoItems: TodoPanelItem[];
 	filteredEntries: TimelineEntry[];
@@ -24,6 +25,7 @@ export type TodoKeyboardOptions = {
 
 export function useTodoKeyboard({
 	isActive,
+	escapeHandledExternally = false,
 	todoCursor,
 	visibleTodoItems,
 	filteredEntries,
@@ -37,6 +39,7 @@ export function useTodoKeyboard({
 	useInput(
 		(input, key) => {
 			if (key.escape) {
+				if (escapeHandledExternally) return;
 				callbacks.setFocusMode('feed');
 				return;
 			}

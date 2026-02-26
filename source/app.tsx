@@ -165,6 +165,7 @@ function AppContent({
 	const {
 		spawn: spawnClaude,
 		isRunning: isClaudeRunning,
+		sendInterrupt,
 		tokenUsage,
 		loopManager,
 	} = useClaudeProcess(
@@ -567,6 +568,10 @@ function AppContent({
 	useInput(
 		(input, key) => {
 			if (dialogActive) return;
+			if (key.escape && isClaudeRunning) {
+				sendInterrupt();
+				return;
+			}
 			if (key.ctrl && input === 't') {
 				todoPanel.setTodoVisible(v => !v);
 				if (focusMode === 'todo') setFocusMode('feed');
@@ -603,6 +608,7 @@ function AppContent({
 
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive,
+		escapeHandledExternally: isClaudeRunning,
 		expandedEntry,
 		expandedId: feedNav.expandedId,
 		pageStep,
@@ -631,6 +637,7 @@ function AppContent({
 
 	useTodoKeyboard({
 		isActive: focusMode === 'todo' && !dialogActive,
+		escapeHandledExternally: isClaudeRunning,
 		todoCursor: todoPanel.todoCursor,
 		visibleTodoItems: todoPanel.visibleTodoItems,
 		filteredEntries,

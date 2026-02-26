@@ -58,7 +58,7 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		if (ctx.focusMode === 'input') {
 			return buildHintPairs([
 				[h.enter, 'Send'],
-				[h.escape, 'Back'],
+				[h.escape, ctx.isClaudeRunning ? 'Interrupt' : 'Back'],
 				[h.tab, 'Focus'],
 				['⌃P/N', 'History'],
 				[h.toggle, 'Hints'],

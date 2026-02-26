@@ -38,4 +38,16 @@ describe('buildFrameLines contextual prompt', () => {
 		const line = inputLines.join('');
 		expect(line).toContain('Run failed');
 	});
+
+	it('shows Esc Back hint in input mode when idle', () => {
+		const {footerHelp} = buildFrameLines(baseCtx);
+		expect(footerHelp).toContain('Back');
+		expect(footerHelp).not.toContain('Interrupt');
+	});
+
+	it('shows Esc Interrupt hint in input mode while running', () => {
+		const {footerHelp} = buildFrameLines({...baseCtx, isClaudeRunning: true});
+		expect(footerHelp).toContain('Interrupt');
+		expect(footerHelp).not.toContain('Back');
+	});
 });
