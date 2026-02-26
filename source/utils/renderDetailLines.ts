@@ -170,7 +170,10 @@ function renderToolPost(
 ): DetailRenderResult {
 	const request = renderToolRequestSection(event.data.tool_input);
 	const response = renderToolResponseSection(event, width);
-	return composeToolDetailView(event.data.tool_name, width, {request, response});
+	return composeToolDetailView(event.data.tool_name, width, {
+		request,
+		response,
+	});
 }
 
 function renderToolPre(

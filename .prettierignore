@@ -1,3 +1,4 @@
 dist
 .claude
+.athena
 node_modules
