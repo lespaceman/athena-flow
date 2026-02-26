@@ -3,11 +3,11 @@
 	"description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/lespaceman/athena-cli.git"
+		"url": "git+https://github.com/lespaceman/athena-flow.git"
 	},
-	"homepage": "https://github.com/lespaceman/athena-cli#readme",
+	"homepage": "https://github.com/lespaceman/athena-flow#readme",
 	"bugs": {
-		"url": "https://github.com/lespaceman/athena-cli/issues"
+		"url": "https://github.com/lespaceman/athena-flow/issues"
 	},
 	"keywords": [
 		"cli",
@@ -25,7 +25,7 @@
 	},
 	"type": "module",
 	"engines": {
-		"node": ">=18"
+		"node": ">=20"
 	},
 	"scripts": {
 		"build": "tsup",
