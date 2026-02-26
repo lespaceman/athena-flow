@@ -205,6 +205,9 @@ function AppContent({
 	const {stdout} = useStdout();
 	const terminalWidth = stdout?.columns ?? 80;
 	const terminalRows = stdout?.rows ?? 24;
+	// Avoid writing into the terminal's last column, which can trigger
+	// auto-wrap artifacts on some terminals/fonts and break right borders.
+	const safeTerminalWidth = Math.max(4, terminalWidth - 1);
 
 	// Hold initialSessionId as intent — consumed on first user prompt submission.
 	// Deferred spawn: no Claude process runs until user provides real input.
@@ -291,7 +294,7 @@ function AppContent({
 	});
 
 	// Compute frame dimensions early (only depends on terminalWidth)
-	const frameWidth = Math.max(4, terminalWidth);
+	const frameWidth = safeTerminalWidth;
 	const innerWidth = frameWidth - 2;
 
 	// ── Refs for callbacks ──────────────────────────────────
@@ -507,7 +510,7 @@ function AppContent({
 
 	const layout = useLayout({
 		terminalRows,
-		terminalWidth,
+		terminalWidth: safeTerminalWidth,
 		showRunOverlay,
 		runSummaries,
 		filteredEntries,
