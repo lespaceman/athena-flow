@@ -50,7 +50,11 @@ export function renderMarkdownToLines(
 	}
 }
 
-function highlightCode(content: string, width: number, language?: string): string[] {
+function highlightCode(
+	content: string,
+	width: number,
+	language?: string,
+): string[] {
 	if (!content.trim()) return ['(empty)'];
 	try {
 		const highlighted =
@@ -109,7 +113,10 @@ type ToolSection = {
 	showLineNumbers: boolean;
 };
 
-function shouldShowRequestPayload(toolName: string, hasResponse: boolean): boolean {
+function shouldShowRequestPayload(
+	toolName: string,
+	hasResponse: boolean,
+): boolean {
 	const parsed = parseToolName(toolName);
 	if (parsed.isMcp) return true;
 	if (!hasResponse) return true;
@@ -120,7 +127,10 @@ function sectionDivider(width: number): string {
 	return chalk.dim('─'.repeat(Math.min(40, Math.max(8, width - 2))));
 }
 
-function renderToolRequestSection(toolInput: unknown, width: number): ToolSection {
+function renderToolRequestSection(
+	toolInput: unknown,
+	width: number,
+): ToolSection {
 	const json = JSON.stringify(toolInput, null, 2);
 	return {lines: highlightCode(json, width, 'json'), showLineNumbers: true};
 }

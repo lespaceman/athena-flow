@@ -22,7 +22,10 @@ type Props = {
 const STEP_LABELS = ['Theme', 'Harness', 'Workflow'];
 const PROGRESS_BAR_WIDTH = 18;
 
-function progressBar(step: number, total: number): {filled: string; empty: string} {
+function progressBar(
+	step: number,
+	total: number,
+): {filled: string; empty: string} {
 	const ratio = total === 0 ? 0 : step / total;
 	const filledCount = Math.max(
 		0,
@@ -252,7 +255,7 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 
 				<Box marginTop={2}>
 					<Text color={theme.textMuted}>
-						Up/Down move  Enter select  Esc back  S skip  R retry
+						Up/Down move Enter select Esc back S skip R retry
 					</Text>
 				</Box>
 			</Box>

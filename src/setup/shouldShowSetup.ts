@@ -17,4 +17,3 @@ export function shouldShowSetup({
 	const isFirstRun = !globalConfigExists || setupComplete !== true;
 	return isSetupCommand || isFirstRun;
 }
-

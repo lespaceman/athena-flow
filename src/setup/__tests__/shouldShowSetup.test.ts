@@ -52,4 +52,3 @@ describe('shouldShowSetup', () => {
 		).toBe(false);
 	});
 });
-

@@ -82,7 +82,7 @@ describe('renderDetailLines', () => {
 				message: [
 					'| Col A | Col B | Col C |',
 					'| --- | --- | --- |',
-					"| one | very-long-token-without-spaces-abcdefghijklmnopqrstuvwxyz0123456789 | three |",
+					'| one | very-long-token-without-spaces-abcdefghijklmnopqrstuvwxyz0123456789 | three |',
 				].join('\n'),
 			},
 		});
@@ -161,7 +161,8 @@ describe('renderDetailLines', () => {
 			data: {
 				tool_name: 'Bash',
 				tool_input: {
-					command: 'npx playwright test tests/google-search.spec.ts --project=chromium --workers=1 --reporter=line --timeout=30000',
+					command:
+						'npx playwright test tests/google-search.spec.ts --project=chromium --workers=1 --reporter=line --timeout=30000',
 				},
 			},
 		});

@@ -12,4 +12,3 @@ export function shouldResolveWorkflow({
 }: ShouldResolveWorkflowInputs): boolean {
 	return Boolean(workflowName) && !showSetup;
 }
-

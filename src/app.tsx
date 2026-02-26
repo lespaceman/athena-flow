@@ -136,10 +136,7 @@ function AppContent({
 	workflowRef,
 	workflow,
 	ascii,
-}: Omit<
-	Props,
-	'showSessionPicker' | 'showSetup' | 'theme'
-> & {
+}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme'> & {
 	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;

@@ -29,4 +29,3 @@ describe('shouldResolveWorkflow', () => {
 		).toBe(false);
 	});
 });
-

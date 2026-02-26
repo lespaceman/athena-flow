@@ -225,7 +225,10 @@ export function useClaudeProcess(
 					// Iteration 2+: use continue prompt instead of original template
 					effectivePrompt = buildContinuePrompt(workflow.loop);
 				} else {
-					effectivePrompt = applyPromptTemplate(workflow.promptTemplate, prompt);
+					effectivePrompt = applyPromptTemplate(
+						workflow.promptTemplate,
+						prompt,
+					);
 				}
 
 				if (workflow.loop?.enabled && !loopManagerRef.current) {
@@ -233,7 +236,10 @@ export function useClaudeProcess(
 						projectDir,
 						workflow.loop.trackerPath ?? 'tracker.md',
 					);
-					loopManagerRef.current = createLoopManager(trackerPath, workflow.loop);
+					loopManagerRef.current = createLoopManager(
+						trackerPath,
+						workflow.loop,
+					);
 				}
 			}
 

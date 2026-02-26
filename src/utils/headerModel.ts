@@ -73,10 +73,7 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 	const sessionIndex =
 		sessionTotal > 0 && session?.session_id
 			? Math.min(
-					Math.max(
-						1,
-						Math.trunc(input.sessionIndex ?? sessionTotal),
-					),
+					Math.max(1, Math.trunc(input.sessionIndex ?? sessionTotal)),
 					sessionTotal,
 				)
 			: null;
