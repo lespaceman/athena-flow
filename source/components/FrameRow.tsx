@@ -11,12 +11,23 @@ type Props = {
 export function FrameRow({children, innerWidth, ascii}: Props) {
 	const fr = frameGlyphs(ascii);
 	return (
-		<Box flexDirection="row" width={innerWidth + 2}>
-			<Text>{fr.vertical}</Text>
-			<Box width={innerWidth} flexShrink={0} flexDirection="row">
+		<Box
+			flexDirection="row"
+			width={innerWidth + 2}
+			flexWrap="nowrap"
+			overflow="hidden"
+		>
+			<Text wrap="truncate-end">{fr.vertical}</Text>
+			<Box
+				width={innerWidth}
+				flexShrink={0}
+				flexDirection="row"
+				flexWrap="nowrap"
+				overflow="hidden"
+			>
 				{children}
 			</Box>
-			<Text>{fr.vertical}</Text>
+			<Text wrap="truncate-end">{fr.vertical}</Text>
 		</Box>
 	);
 }
