@@ -19,11 +19,16 @@ Today, these layers are connected by Claude hook names (`PermissionRequest`, `Pr
 
 Make core domain logic operate on canonical runtime semantics, not Claude hook protocol names.
 
+## Pathing Note
+
+Canonical implementation paths in this plan follow the new structure (`src/core`, `src/harnesses`, `src/infra`, `src/app`).
+Some tests still run from legacy shim locations (`src/feed`, `src/hooks`, `src/sessions`, `src/runtime/adapters/claudeHooks`) until shim removal.
+
 ## Target Architecture
 
 1. `RuntimeEvent` carries canonical event kind and normalized data.
 2. Adapter-specific metadata (`hook name`, raw payload) is retained only for debugging and unknown-event fallback.
-3. `hookController` and `feed/mapper` switch on canonical kinds.
+3. `runtimeController` and `core/feed/mapper` switch on canonical kinds.
 4. Decision intents remain semantic and adapter mappers translate to wire protocol.
 
 ---
@@ -32,8 +37,8 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Create: `src/runtime/events.ts`
-- Modify: `src/runtime/types.ts`
+- Create: `src/core/runtime/events.ts`
+- Modify: `src/core/runtime/types.ts`
 
 ### Work
 
@@ -45,7 +50,7 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 ### Validation
 
 - `npm run typecheck`
-- Add/adjust unit tests under `src/runtime/` for type-level and mapper-level compatibility.
+- Add/adjust unit tests under `src/core/runtime/` for type-level and mapper-level compatibility.
 
 ### Exit Criteria
 
@@ -57,9 +62,9 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Create: `src/runtime/adapters/claudeHooks/eventTranslator.ts`
-- Modify: `src/runtime/adapters/claudeHooks/mapper.ts`
-- Modify tests in `src/runtime/adapters/claudeHooks/__tests__/mapper.test.ts`
+- Create: `src/harnesses/claude/runtime/eventTranslator.ts`
+- Modify: `src/harnesses/claude/runtime/mapper.ts`
+- Modify tests in `src/runtime/adapters/claudeHooks/__tests__/mapper.test.ts` (legacy shim test path)
 
 ### Work
 
@@ -83,7 +88,7 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Modify: `src/runtime/adapters/claudeHooks/interactionRules.ts`
+- Modify: `src/harnesses/claude/runtime/interactionRules.ts`
 - Update related tests
 
 ### Work
@@ -106,8 +111,8 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Modify: `src/hooks/hookController.ts`
-- Modify: `src/hooks/hookController.test.ts`
+- Modify: `src/core/controller/runtimeController.ts`
+- Modify: `src/hooks/hookController.test.ts` (legacy shim test path)
 
 ### Work
 
@@ -130,10 +135,10 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Modify: `src/feed/mapper.ts`
+- Modify: `src/core/feed/mapper.ts`
 - Modify tests:
-  - `src/feed/__tests__/mapper.test.ts`
-  - `src/feed/mapper.global-seq.test.ts`
+  - `src/feed/__tests__/mapper.test.ts` (legacy shim test path)
+  - `src/feed/mapper.global-seq.test.ts` (legacy shim test path)
   - any mapper-dependent timeline tests
 
 ### Work
@@ -157,8 +162,8 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Modify: `src/runtime/adapters/claudeHooks/decisionMapper.ts`
-- Optionally create shared semantic decision helpers under `src/runtime/`
+- Modify: `src/harnesses/claude/runtime/decisionMapper.ts`
+- Optionally create shared semantic decision helpers under `src/core/runtime/`
 
 ### Work
 
@@ -180,8 +185,8 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ### Files
 
-- Modify: `src/sessions/schema.ts`
-- Modify: `src/sessions/store.ts`
+- Modify: `src/infra/sessions/schema.ts`
+- Modify: `src/infra/sessions/store.ts`
 - Modify/add schema migration tests
 
 ### Work
@@ -232,6 +237,6 @@ Make core domain logic operate on canonical runtime semantics, not Claude hook p
 
 ## Definition Of Done
 
-1. Core modules (`feed`, `hooks`, `sessions`, `app`) do not branch on Claude hook names.
+1. Core modules (`core/feed`, `core/controller`, `infra/sessions`, `app`) do not branch on Claude hook names.
 2. Claude adapter remains functional with no user-visible regressions.
 3. Remaining work to add a new harness is localized to harness modules plus runtime factory wiring.

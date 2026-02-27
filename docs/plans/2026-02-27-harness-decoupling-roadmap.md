@@ -12,15 +12,20 @@ Remove Claude-specific coupling from athena-cli so adding a new harness (for exa
 - Do not add Codex integration in this phase.
 - Do not redesign feed UI behavior or current user workflows unless required for decoupling.
 
+## Pathing Note
+
+Canonical implementation paths in this roadmap follow the new folder structure (`src/app`, `src/core`, `src/harnesses`, `src/infra`, `src/ui`).
+Some validation commands still reference legacy shim test paths (for example `src/feed`, `src/hooks`, `src/sessions`, `src/runtime/adapters/claudeHooks`) until shim cleanup is complete.
+
 ## Coupling Inventory
 
 | ID | Coupling Point | Primary Files | Difficulty |
 | --- | --- | --- | --- |
-| A | Runtime/feed semantics tied to Claude hook names and payload shapes | `src/feed/mapper.ts`, `src/hooks/hookController.ts`, `src/runtime/adapters/claudeHooks/interactionRules.ts`, `src/runtime/adapters/claudeHooks/decisionMapper.ts` | Very High |
-| B | Process lifecycle tied to `claude -p` and Claude stream-json output | `src/hooks/useClaudeProcess.ts`, `src/utils/spawnClaude.ts`, `src/utils/parseStreamJson.ts` | High |
-| C | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/hook-forwarder.ts`, `src/runtime/adapters/claudeHooks/server.ts`, `src/utils/generateHookSettings.ts` | High |
-| D | Isolation/model bootstrapping tied to Claude flags/env/settings | `src/types/isolation.ts`, `src/utils/flagRegistry.ts`, `src/runtime/bootstrapConfig.ts`, `src/utils/resolveModel.ts` | Medium-High |
-| E | Runtime selection hardcoded to Claude adapter | `src/context/HookContext.tsx`, `src/app.tsx`, `src/cli.tsx` | Medium |
+| A | Runtime/feed semantics tied to Claude hook names and payload shapes | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts` | Very High |
+| B | Process lifecycle tied to `claude -p` and Claude stream-json output | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts` | High |
+| C | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts` | High |
+| D | Isolation/model bootstrapping tied to Claude flags/env/settings | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/runtime/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
+| E | Runtime selection hardcoded to Claude adapter | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx` | Medium |
 | F | Setup/header/harness UX still Claude-specific | `src/setup/steps/HarnessStep.tsx`, `src/utils/detectHarness.ts`, `README.md`, `CLAUDE.md` | Low-Medium |
 
 ## Execution Order
@@ -45,15 +50,15 @@ Replace Claude-specific process hook APIs with a harness-agnostic process interf
 ### Tasks
 
 1. Introduce `HarnessProcess` interface and generic hook `useHarnessProcess` with neutral state names (`isRunning`, `spawn`, `interrupt`, `kill`, `usage`).
-2. Move current Claude implementation behind `src/harnesses/claude/process.ts`.
-3. Replace direct `spawnClaude` references in `src/app.tsx` and command executor contexts with injected harness process functions.
-4. Split token parsing into provider parsers (`src/harnesses/claude/tokenParser.ts`) and make the hook consume parser strategy.
+2. Keep Claude process implementation behind `src/harnesses/claude/process/useProcess.ts`.
+3. Replace direct `spawnClaude` references in `src/app/shell/AppShell.tsx` and `src/app/commands/executor.ts` contexts with injected harness process functions.
+4. Split token parsing into provider parsers (`src/harnesses/claude/process/tokenAccumulator.ts`) and make the hook consume parser strategy.
 5. Keep workflow loop orchestration in the generic hook; move Claude-specific assumptions out of loop comments/messages.
 
 ### Validation
 
 - `npm run typecheck`
-- `npx vitest run src/hooks/useClaudeProcess.test.ts src/__sentinels__/resume-discipline.sentinel.test.ts`
+- `npx vitest run src/hooks/useClaudeProcess.test.ts src/__sentinels__/resume-discipline.sentinel.test.ts` (legacy shim tests)
 - Add new tests for `useHarnessProcess` neutral contract.
 
 ### Exit Criteria
@@ -72,14 +77,14 @@ Decouple runtime transport so UDS hook forwarding is one adapter, not the defaul
 ### Tasks
 
 1. Define transport-neutral runtime connector interface (`start`, `stop`, `sendDecision`, event stream subscription).
-2. Wrap current UDS hook server into a Claude transport module (`src/harnesses/claude/transport/udsHooks.ts`).
+2. Wrap current UDS hook server (`src/harnesses/claude/runtime/server.ts`) behind a Claude transport boundary (optionally extracting to `src/harnesses/claude/transport/udsHooks.ts` later).
 3. Move hook forwarder specifics behind Claude transport boundary.
 4. Isolate `.claude/run` path logic and generated hook settings under Claude harness module.
 5. Add transport contract tests independent of Claude event shapes.
 
 ### Validation
 
-- `npx vitest run src/runtime/adapters/claudeHooks/__tests__/server.test.ts`
+- `npx vitest run src/runtime/adapters/claudeHooks/__tests__/server.test.ts` (legacy shim test path)
 - Add new transport interface tests with mock/injectable runtime.
 
 ### Exit Criteria
@@ -105,7 +110,7 @@ Replace Claude-centric isolation/model bootstrapping with provider profile resol
 
 ### Validation
 
-- `npx vitest run src/runtime/__tests__/bootstrapConfig.test.ts src/types/isolation.test.ts src/utils/flagRegistry.test.ts`
+- `npx vitest run src/runtime/__tests__/bootstrapConfig.test.ts src/types/isolation.test.ts src/utils/flagRegistry.test.ts` (legacy shim tests for moved config modules)
 
 ### Exit Criteria
 
@@ -122,19 +127,20 @@ Enable runtime creation by selected harness instead of hardcoding Claude in cont
 ### Tasks
 
 1. Add runtime factory: `createRuntime({harness, projectDir, instanceId, ...})`.
-2. Update `HookProvider` to accept either runtime instance or runtime factory input.
+2. Update `RuntimeProvider` to accept either runtime instance or runtime factory input.
 3. Thread harness selection from CLI/config into app root state.
 4. Keep current behavior defaulting to `claude-code` for backward compatibility.
 5. Add integration tests for runtime selection and fallback behavior.
 
 ### Validation
 
-- `npx vitest run src/runtime/__tests__/boundary.test.ts src/context/HookContext.tsx` (type/lint + tests)
+- `npx vitest run src/runtime/__tests__/boundary.test.ts`
+- `npm run typecheck` (ensures provider wiring at `src/app/providers/RuntimeProvider.tsx`)
 - Add tests covering factory selection path.
 
 ### Exit Criteria
 
-- `HookContext.tsx` no longer imports `createClaudeHookRuntime` directly.
+- `RuntimeProvider.tsx` no longer imports `createClaudeHookRuntime` directly.
 
 ---
 
