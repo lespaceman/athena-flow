@@ -2,9 +2,9 @@ import {useState, useCallback} from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
 import StepStatus from '../components/StepStatus';
-import {detectClaudeVersion} from '../../harnesses/claude/system/detectVersion';
 import {useTheme} from '../../ui/theme/index';
 import type {AthenaHarness} from '../../infra/plugins/config';
+import {listHarnessCapabilities} from '../../harnesses/registry';
 
 type Props = {
 	onComplete: (harness: AthenaHarness) => void;
@@ -13,6 +13,7 @@ type Props = {
 
 export default function HarnessStep({onComplete, onError}: Props) {
 	const theme = useTheme();
+	const capabilities = listHarnessCapabilities();
 	const [status, setStatus] = useState<
 		'selecting' | 'verifying' | 'success' | 'error'
 	>('selecting');
@@ -20,25 +21,26 @@ export default function HarnessStep({onComplete, onError}: Props) {
 
 	const handleSelect = useCallback(
 		(value: AthenaHarness) => {
-			if (value !== 'claude-code') return;
+			const capability = capabilities.find(c => c.id === value);
+			if (!capability || !capability.enabled) return;
 			setStatus('verifying');
-			// Run detection asynchronously to not block render
+			// Run verification asynchronously to not block render
 			setTimeout(() => {
-				const version = detectClaudeVersion();
-				if (version) {
-					setMessage(`Claude Code v${version} detected`);
+				const verifyResult = capability.verify?.() ?? {
+					ok: true,
+					message: `${capability.label} ready`,
+				};
+				setMessage(verifyResult.message);
+				if (verifyResult.ok) {
 					setStatus('success');
-					onComplete('claude-code');
+					onComplete(value);
 				} else {
-					setMessage(
-						'Claude Code not found. Install it, then press r to retry.',
-					);
 					setStatus('error');
-					onError('Claude Code not found');
+					onError(verifyResult.message);
 				}
 			}, 0);
 		},
-		[onComplete, onError],
+		[capabilities, onComplete, onError],
 	);
 
 	return (
@@ -52,19 +54,11 @@ export default function HarnessStep({onComplete, onError}: Props) {
 			{status === 'selecting' && (
 				<Box marginTop={1}>
 					<StepSelector
-						options={[
-							{label: '1. Claude Code', value: 'claude-code'},
-							{
-								label: '2. OpenAI Codex (coming soon)',
-								value: 'openai-codex',
-								disabled: true,
-							},
-							{
-								label: '3. OpenCode (coming soon)',
-								value: 'opencode',
-								disabled: true,
-							},
-						]}
+						options={capabilities.map((capability, index) => ({
+							label: `${index + 1}. ${capability.label}`,
+							value: capability.id,
+							disabled: !capability.enabled,
+						}))}
 						onSelect={value => handleSelect(value as AthenaHarness)}
 					/>
 				</Box>
@@ -74,7 +68,7 @@ export default function HarnessStep({onComplete, onError}: Props) {
 				status === 'error') && (
 				<StepStatus
 					status={status}
-					message={message || 'Verifying Claude Code...'}
+					message={message || 'Verifying harness...'}
 				/>
 			)}
 		</Box>

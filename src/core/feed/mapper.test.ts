@@ -3,6 +3,7 @@ import {createFeedMapper} from './mapper';
 import type {MapperBootstrap} from './bootstrap';
 import type {FeedEvent} from './types';
 import type {RuntimeEvent} from '../runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 
 function makeFeedEvent(overrides: Partial<FeedEvent> = {}): FeedEvent {
 	return {
@@ -21,10 +22,13 @@ function makeFeedEvent(overrides: Partial<FeedEvent> = {}): FeedEvent {
 }
 
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
+	const hookName = overrides.hookName ?? 'PreToolUse';
 	return {
 		id: 'rt-1',
 		timestamp: Date.now(),
-		hookName: 'PreToolUse',
+		kind: mapLegacyHookNameToRuntimeKind(hookName),
+		data: {},
+		hookName,
 		sessionId: 'cs-1',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: false},

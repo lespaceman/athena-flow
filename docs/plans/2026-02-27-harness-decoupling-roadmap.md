@@ -18,25 +18,25 @@ Canonical implementation paths in this roadmap follow the new folder structure (
 
 ## Coupling Inventory
 
-| ID  | Coupling Point                                                            | Primary Files                                                                                                                                                                   | Difficulty  |
-| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| A   | Runtime/feed semantics tied to Claude hook names and payload shapes       | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts`     | Very High   |
-| B   | Process lifecycle tied to `claude -p` and Claude stream-json output       | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts`                                       | High        |
-| C   | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts`                                        | High        |
+| ID  | Coupling Point                                                            | Primary Files                                                                                                                                                                         | Difficulty  |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| A   | Runtime/feed semantics tied to Claude hook names and payload shapes       | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts`           | Very High   |
+| B   | Process lifecycle tied to `claude -p` and Claude stream-json output       | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts`                                             | High        |
+| C   | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts`                                              | High        |
 | D   | Isolation/model bootstrapping tied to Claude flags/env/settings           | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/app/bootstrap/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
-| E   | Runtime selection hardcoded to Claude adapter                             | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx`                                                                                  | Medium      |
-| F   | Setup/header/harness UX still Claude-specific                             | `src/setup/steps/HarnessStep.tsx`, `src/shared/utils/detectHarness.ts`, `README.md`, `CLAUDE.md`                                                                                | Low-Medium  |
+| E   | Runtime selection hardcoded to Claude adapter                             | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx`                                                                                        | Medium      |
+| F   | Setup/header/harness UX still Claude-specific                             | `src/setup/steps/HarnessStep.tsx`, `src/shared/utils/detectHarness.ts`, `README.md`, `CLAUDE.md`                                                                                      | Low-Medium  |
 
 ## Current Track Status (2026-02-27)
 
-| Track | Status | Current Reality |
-| --- | --- | --- |
-| A | Not started | Core runtime/controller/feed still branch on Claude hook names and raw payload shape (`event.hookName`, `event.payload`). |
-| B | Partial | Claude process code moved under `src/harnesses/claude/process/*`, but app shell still depends directly on Claude process API. |
-| C | Partial | Claude transport/server is isolated under `src/harnesses/claude/runtime/server.ts`, but no app-level transport-neutral connector boundary yet. |
-| D | Partial | Claude config files are isolated, but bootstrap path still reads Claude settings directly. |
-| E | Not started | `RuntimeProvider` still constructs Claude runtime directly (no harness runtime factory). |
-| F | Not started | Setup/header/docs still default to Claude labels/verification flows. |
+| Track | Status      | Current Reality                                                                                                                                |
+| ----- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | Not started | Core runtime/controller/feed still branch on Claude hook names and raw payload shape (`event.hookName`, `event.payload`).                      |
+| B     | Partial     | Claude process code moved under `src/harnesses/claude/process/*`, but app shell still depends directly on Claude process API.                  |
+| C     | Partial     | Claude transport/server is isolated under `src/harnesses/claude/runtime/server.ts`, but no app-level transport-neutral connector boundary yet. |
+| D     | Partial     | Claude config files are isolated, but bootstrap path still reads Claude settings directly.                                                     |
+| E     | Not started | `RuntimeProvider` still constructs Claude runtime directly (no harness runtime factory).                                                       |
+| F     | Not started | Setup/header/docs still default to Claude labels/verification flows.                                                                           |
 
 ## Execution Order
 

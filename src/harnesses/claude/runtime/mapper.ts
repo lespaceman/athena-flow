@@ -6,67 +6,44 @@
  */
 
 import type {HookEventEnvelope} from '../protocol/envelope';
-import {
-	isToolEvent,
-	isSubagentStartEvent,
-	isSubagentStopEvent,
-} from '../protocol/events';
 import type {RuntimeEvent} from '../../../core/runtime/types';
 import {getInteractionHints} from './interactionRules';
+import {translateClaudeEnvelope} from './eventTranslator';
 
 export function mapEnvelopeToRuntimeEvent(
 	envelope: HookEventEnvelope,
 ): RuntimeEvent {
-	const payload = envelope.payload;
+	const payload = envelope.payload as unknown;
 
 	// Ensure payload is always an object
 	const safePayload =
 		typeof payload === 'object' && payload !== null
 			? payload
 			: {value: payload};
+	const safePayloadRecord = safePayload as Record<string, unknown>;
+	const translated = translateClaudeEnvelope(envelope);
 
-	// Extract tool-related derived fields
-	let toolName: string | undefined;
-	let toolUseId: string | undefined;
-	if (isToolEvent(payload)) {
-		toolName = payload.tool_name;
-		toolUseId = payload.tool_use_id;
-	}
-
-	// Extract subagent derived fields
-	let agentId: string | undefined;
-	let agentType: string | undefined;
-	if (isSubagentStartEvent(payload)) {
-		agentId = payload.agent_id;
-		agentType = payload.agent_type;
-	} else if (isSubagentStopEvent(payload)) {
-		agentId = payload.agent_id;
-		agentType = payload.agent_type;
-	}
-
-	// Build context from base fields (always present on all hook events)
+	// Build context from base fields (always present on all hook events when known).
 	const context: RuntimeEvent['context'] = {
-		cwd: ((payload as Record<string, unknown>).cwd as string | undefined) ?? '',
+		cwd: (safePayloadRecord['cwd'] as string | undefined) ?? '',
 		transcriptPath:
-			((payload as Record<string, unknown>).transcript_path as
-				| string
-				| undefined) ?? '',
-		permissionMode: (payload as Record<string, unknown>).permission_mode as
-			| string
-			| undefined,
+			(safePayloadRecord['transcript_path'] as string | undefined) ?? '',
+		permissionMode: safePayloadRecord['permission_mode'] as string | undefined,
 	};
 
 	return {
 		id: envelope.request_id,
 		timestamp: envelope.ts,
+		kind: translated.kind,
+		data: translated.data,
 		hookName: envelope.hook_event_name,
 		sessionId: envelope.session_id,
-		toolName,
-		toolUseId,
-		agentId,
-		agentType,
+		toolName: translated.toolName,
+		toolUseId: translated.toolUseId,
+		agentId: translated.agentId,
+		agentType: translated.agentType,
 		context,
-		interaction: getInteractionHints(envelope.hook_event_name),
+		interaction: getInteractionHints(translated.kind),
 		payload: safePayload,
 	};
 }

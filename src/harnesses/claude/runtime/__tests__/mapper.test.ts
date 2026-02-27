@@ -34,6 +34,7 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 
 		expect(event.id).toBe('req-1');
 		expect(event.timestamp).toBe(1000);
+		expect(event.kind).toBe('tool.pre');
 		expect(event.hookName).toBe('PreToolUse');
 		expect(event.sessionId).toBe('sess-1');
 	});
@@ -44,6 +45,11 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 
 		expect(event.toolName).toBe('Bash');
 		expect(event.toolUseId).toBe('tu-1');
+		expect(event.data).toEqual({
+			tool_name: 'Bash',
+			tool_input: {command: 'ls'},
+			tool_use_id: 'tu-1',
+		});
 	});
 
 	it('extracts subagent derived fields', () => {
@@ -102,6 +108,11 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 		const event = mapEnvelopeToRuntimeEvent(envelope);
 
 		expect(event.hookName).toBe('FutureEvent');
+		expect(event.kind).toBe('unknown');
+		expect(event.data).toEqual({
+			source_event_name: 'FutureEvent',
+			payload: envelope.payload,
+		});
 		expect(event.interaction.expectsDecision).toBe(false);
 		expect(event.interaction.canBlock).toBe(false);
 	});

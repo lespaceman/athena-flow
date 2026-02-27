@@ -6,10 +6,10 @@ import {
 } from 'use-context-selector';
 import path from 'node:path';
 import {useFeed} from './useFeed';
-import {createClaudeHookRuntime} from '../../harnesses/claude/runtime/index';
 import {createSessionStore} from '../../infra/sessions/store';
 import {sessionsDir} from '../../infra/sessions/registry';
 import {type HookContextValue, type HookProviderProps} from './types';
+import {createRuntime} from '../runtime/createRuntime';
 
 const HookContext = createContext<HookContextValue | null>(null);
 const EMPTY_MESSAGES: never[] = [];
@@ -18,14 +18,17 @@ const MISSING_CONTEXT = Symbol('missing-hook-context');
 export function HookProvider({
 	projectDir,
 	instanceId,
+	harness,
+	runtime: providedRuntime,
+	runtimeFactory = createRuntime,
 	allowedTools,
 	athenaSessionId,
 	children,
 }: HookProviderProps) {
 	// Runtime must be stable (memoized) — useFeed assumes it doesn't change
 	const runtime = useMemo(
-		() => createClaudeHookRuntime({projectDir, instanceId}),
-		[projectDir, instanceId],
+		() => providedRuntime ?? runtimeFactory({harness, projectDir, instanceId}),
+		[providedRuntime, runtimeFactory, harness, projectDir, instanceId],
 	);
 
 	const sessionStore = useMemo(

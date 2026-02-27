@@ -6,6 +6,8 @@
  * or protocol modules.
  */
 
+import type {RuntimeEventData, RuntimeEventKind} from './events';
+
 // ── Runtime Event (adapter → UI) ─────────────────────────
 
 export type RuntimeEvent = {
@@ -17,6 +19,10 @@ export type RuntimeEvent = {
 	id: string;
 	/** Unix ms timestamp */
 	timestamp: number;
+	/** Canonical semantic kind (harness-neutral). */
+	kind?: RuntimeEventKind;
+	/** Canonical normalized event data (harness-neutral). */
+	data?: RuntimeEventData;
 	/** Hook event name as open string (forward compatible with unknown events) */
 	hookName: string;
 	/** Session ID from the hook event */

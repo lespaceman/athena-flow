@@ -2,6 +2,7 @@ import {describe, it, expect, vi} from 'vitest';
 import {handleEvent, type ControllerCallbacks} from './runtimeController';
 import type {RuntimeEvent} from '../runtime/types';
 import type {HookRule} from './rules';
+import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 
 function makeEvent(
 	hookName: string,
@@ -10,6 +11,11 @@ function makeEvent(
 	return {
 		id: 'req-1',
 		timestamp: Date.now(),
+		kind: mapLegacyHookNameToRuntimeKind(hookName),
+		data: {
+			tool_name: 'Bash',
+			tool_input: {},
+		},
 		hookName,
 		sessionId: 'sess-1',
 		context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},

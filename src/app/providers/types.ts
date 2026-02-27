@@ -6,6 +6,9 @@
 
 import {type ReactNode} from 'react';
 import {type UseFeedResult} from './useFeed';
+import type {Runtime} from '../../core/runtime/types';
+import type {AthenaHarness} from '../../infra/plugins/config';
+import type {RuntimeFactory} from '../runtime/createRuntime';
 
 /**
  * Value provided by the HookContext.
@@ -18,6 +21,9 @@ export type HookContextValue = UseFeedResult;
 export type HookProviderProps = {
 	projectDir: string;
 	instanceId: number;
+	harness: AthenaHarness;
+	runtime?: Runtime;
+	runtimeFactory?: RuntimeFactory;
 	allowedTools?: string[];
 	athenaSessionId: string;
 	children: ReactNode;

@@ -1,13 +1,18 @@
 import {describe, it, expect} from 'vitest';
 import {createFeedMapper} from './mapper';
 import type {RuntimeEvent} from '../runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 
 function makeRuntimeEvent(
 	overrides: Partial<RuntimeEvent> & {hookName: string},
 ): RuntimeEvent {
+	const kind =
+		overrides.kind ?? mapLegacyHookNameToRuntimeKind(overrides.hookName);
 	return {
 		id: `evt-${Math.random().toString(36).slice(2)}`,
 		timestamp: Date.now(),
+		kind,
+		data: {},
 		sessionId: 'test-session',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/transcript.json'},
 		interaction: {expectsDecision: false},

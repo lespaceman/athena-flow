@@ -194,6 +194,7 @@ render(
 	<App
 		projectDir={cli.flags.projectDir}
 		instanceId={instanceId}
+		harness={runtimeConfig.harness}
 		isolation={runtimeConfig.isolationConfig}
 		verbose={cli.flags.verbose}
 		version={version}

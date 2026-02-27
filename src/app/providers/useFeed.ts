@@ -208,7 +208,8 @@ export function useFeed(
 			}
 
 			// Use PreToolUse intents for PreToolUse events, PermissionRequest intents otherwise
-			const isPreToolUse = queueItem?.hookName === 'PreToolUse';
+			const isPreToolUse =
+				queueItem?.kind === 'tool.pre' || queueItem?.hookName === 'PreToolUse';
 			const runtimeDecision: RuntimeDecision = {
 				type: 'json',
 				source: 'user',
@@ -253,6 +254,10 @@ export function useFeed(
 		const syntheticRuntime: RuntimeEvent = {
 			id: `task-snapshot-${Date.now()}`,
 			timestamp: Date.now(),
+			kind: 'notification',
+			data: {
+				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
+			},
 			hookName: 'Notification',
 			sessionId: mapper.getSession()?.session_id ?? 'unknown',
 			context: {cwd: '', transcriptPath: ''},

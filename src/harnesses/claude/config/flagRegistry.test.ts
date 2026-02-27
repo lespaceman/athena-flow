@@ -5,10 +5,7 @@ import {
 	FLAG_REGISTRY,
 	type FlagDef,
 } from './flagRegistry';
-import {
-	type IsolationConfig,
-	resolveIsolationConfig,
-} from './isolation';
+import {type IsolationConfig, resolveIsolationConfig} from './isolation';
 
 describe('FLAG_REGISTRY', () => {
 	it('should contain exactly 28 flag definitions', () => {

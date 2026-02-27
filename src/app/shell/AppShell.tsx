@@ -16,7 +16,7 @@ import {
 	HookProvider,
 	useHookContextSelector,
 } from '../providers/RuntimeProvider';
-import {useClaudeProcess} from '../../harnesses/claude/process/useProcess';
+import {useHarnessProcess} from '../process/useHarnessProcess';
 import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
 import {useAppMode} from '../../ui/hooks/useAppMode';
 import {
@@ -55,6 +55,7 @@ import {
 } from '../../ui/theme/index';
 import SessionPicker from '../../ui/components/SessionPicker';
 import type {SessionEntry} from '../../shared/types/session';
+import type {AthenaHarness} from '../../infra/plugins/config';
 import {listSessions, getSessionMeta} from '../../infra/sessions/registry';
 import {fit, fitAnsi} from '../../shared/utils/format';
 import {frameGlyphs} from '../../ui/glyphs/index';
@@ -72,6 +73,7 @@ import {
 type Props = {
 	projectDir: string;
 	instanceId: number;
+	harness: AthenaHarness;
 	isolation?: IsolationConfig;
 	verbose?: boolean;
 	version: string;
@@ -134,6 +136,7 @@ function QuestionErrorFallback({onSkip}: {onSkip: () => void}) {
 function AppContent({
 	projectDir,
 	instanceId,
+	harness,
 	isolation,
 	verbose,
 	pluginMcpConfig,
@@ -230,7 +233,7 @@ function AppContent({
 	}, [athenaSessionId, currentSessionId]);
 	const currentRunId = currentRun?.run_id ?? null;
 	const currentRunStartedAt = currentRun?.started_at ?? null;
-	const currentRunPromptPreview = currentRun?.trigger?.prompt_preview;
+	const currentRunPromptPreview = currentRun?.trigger.prompt_preview;
 	const timelineCurrentRun = useMemo(
 		() =>
 			currentRunId && currentRunStartedAt !== null
@@ -253,29 +256,30 @@ function AppContent({
 	);
 
 	const {
-		spawn: spawnClaude,
-		isRunning: isClaudeRunning,
-		sendInterrupt,
+		spawn: spawnHarness,
+		isRunning: isHarnessRunning,
+		interrupt,
 		tokenUsage,
-	} = useClaudeProcess(
+	} = useHarnessProcess({
+		harness,
 		projectDir,
 		instanceId,
 		isolation,
 		pluginMcpConfig,
 		verbose,
 		workflow,
-		{
+		options: {
 			initialTokens: restoredTokens,
 			onExitTokens,
 			trackOutput: false,
 			trackStreamingText: false,
 			tokenUpdateMs: 250,
 		},
-	);
+	});
 	const {exit} = useApp();
 	const {stdout} = useStdout();
-	const terminalWidth = stdout?.columns ?? 80;
-	const terminalRows = stdout?.rows ?? 24;
+	const terminalWidth = stdout.columns;
+	const terminalRows = stdout.rows;
 	// Avoid writing into the terminal's last column, which can trigger
 	// auto-wrap artifacts on some terminals/fonts and break right borders.
 	const safeTerminalWidth = Math.max(4, terminalWidth - 1);
@@ -286,7 +290,7 @@ function AppContent({
 
 	const metrics = useHeaderMetrics(feedEvents);
 	const appMode = useAppMode(
-		isClaudeRunning,
+		isHarnessRunning,
 		currentPermissionRequest,
 		currentQuestionRequest,
 	);
@@ -384,7 +388,7 @@ function AppContent({
 			if (result.type === 'prompt') {
 				addMessage('user', result.text);
 				const sessionToResume = currentSessionId ?? initialSessionRef.current;
-				spawnClaude(result.text, sessionToResume ?? undefined).catch(
+				spawnHarness(result.text, sessionToResume ?? undefined).catch(
 					(err: unknown) => console.error('[athena] spawn failed:', err),
 				);
 				// Clear intent after first use — subsequent prompts use currentSessionId from mapper
@@ -423,7 +427,7 @@ function AppContent({
 				},
 				hook: {args: result.args, feed: hookCommandFeed},
 				prompt: {
-					spawn: spawnClaude,
+					spawn: spawnHarness,
 					currentSessionId: currentSessionId ?? undefined,
 				},
 			}).catch((err: unknown) => {
@@ -434,7 +438,7 @@ function AppContent({
 			inputHistory,
 			addMessage,
 			allocateSeq,
-			spawnClaude,
+			spawnHarness,
 			currentSessionId,
 			exit,
 			clearScreen,
@@ -563,14 +567,14 @@ function AppContent({
 
 	// Derive last run status for contextual input prompt (X2)
 	const lastRunStatus = useMemo(() => {
-		if (isClaudeRunning) return null;
-		const last = runSummaries[runSummaries.length - 1];
+		if (isHarnessRunning) return null;
+		const last = runSummaries.at(-1);
 		if (!last) return null;
 		if (last.status === 'SUCCEEDED') return 'completed' as const;
 		if (last.status === 'FAILED') return 'failed' as const;
 		if (last.status === 'CANCELLED') return 'aborted' as const;
 		return null;
-	}, [isClaudeRunning, runSummaries]);
+	}, [isHarnessRunning, runSummaries]);
 
 	const frameExpandedEntry = useMemo(
 		() =>
@@ -591,7 +595,7 @@ function AppContent({
 				searchMatches,
 				searchMatchPos,
 				expandedEntry: frameExpandedEntry,
-				isClaudeRunning,
+				isClaudeRunning: isHarnessRunning,
 				inputValue: '',
 				cursorOffset: 0,
 				dialogActive,
@@ -610,7 +614,7 @@ function AppContent({
 			searchMatches,
 			searchMatchPos,
 			frameExpandedEntry,
-			isClaudeRunning,
+			isHarnessRunning,
 			dialogActive,
 			appMode.type,
 			theme.inputPrompt,
@@ -709,8 +713,8 @@ function AppContent({
 			const done = startInputMeasure('app.global', input, key);
 			try {
 				if (dialogActive) return;
-				if (key.escape && isClaudeRunning) {
-					sendInterrupt();
+				if (key.escape && isHarnessRunning) {
+					interrupt();
 					return;
 				}
 				if (key.ctrl && input === 't') {
@@ -752,7 +756,7 @@ function AppContent({
 
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive,
-		escapeHandledExternally: isClaudeRunning,
+		escapeHandledExternally: isHarnessRunning,
 		expandedEntry,
 		expandedId: feedNav.expandedId,
 		pageStep,
@@ -781,7 +785,7 @@ function AppContent({
 
 	useTodoKeyboard({
 		isActive: focusMode === 'todo' && !dialogActive,
-		escapeHandledExternally: isClaudeRunning,
+		escapeHandledExternally: isHarnessRunning,
 		todoCursor: todoPanel.todoCursor,
 		visibleTodoItems: todoPanel.visibleTodoItems,
 		filteredEntries,
@@ -846,6 +850,7 @@ function AppContent({
 			contextMax: 200000,
 			sessionIndex: sessionScope.current,
 			sessionTotal: sessionScope.total,
+			harness,
 		});
 		return renderHeaderLines(headerModel, innerWidth, hasColor)[0];
 	}, [
@@ -862,8 +867,8 @@ function AppContent({
 		feedNav.tailFollow,
 		workflowRef,
 		tokenUsage.contextSize,
-		sessionScope.current,
-		sessionScope.total,
+		sessionScope,
+		harness,
 		innerWidth,
 		hasColor,
 	]);
@@ -930,7 +935,7 @@ function AppContent({
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 	const showFeedGrid = !expandedEntry;
-	const runBadge = isClaudeRunning ? '[RUN]' : '[IDLE]';
+	const runBadge = isHarnessRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
 		runBadge,
 		...(inputMode === 'cmd' ? ['[CMD]'] : []),
@@ -1043,6 +1048,7 @@ function AppContent({
 export default function App({
 	projectDir,
 	instanceId,
+	harness,
 	isolation,
 	verbose,
 	version,
@@ -1067,12 +1073,14 @@ export default function App({
 	);
 	const [activeTheme, setActiveTheme] = useState(theme);
 	const [runtimeState, setRuntimeState] = useState<{
+		harness: AthenaHarness;
 		isolation?: IsolationConfig;
 		pluginMcpConfig?: string;
 		modelName: string | null;
 		workflowRef?: string;
 		workflow?: WorkflowConfig;
 	}>({
+		harness,
 		isolation,
 		pluginMcpConfig,
 		modelName,
@@ -1133,7 +1141,7 @@ export default function App({
 
 	const handleSessionSelect = useCallback((sessionId: string) => {
 		// sessionId here is an athena session ID from the picker.
-		// Look up the most recent adapter (Claude) session ID for spawnClaude.
+		// Look up the most recent adapter session ID for prompt resume.
 		const meta = getSessionMeta(sessionId);
 		const adapterIds = meta?.adapterSessionIds ?? [];
 		const lastAdapterId = adapterIds[adapterIds.length - 1];
@@ -1188,6 +1196,7 @@ export default function App({
 								console.error(warning);
 							}
 							setRuntimeState({
+								harness: refreshed.harness,
 								isolation: refreshed.isolationConfig,
 								pluginMcpConfig: refreshed.pluginMcpConfig,
 								modelName: refreshed.modelName,
@@ -1229,6 +1238,7 @@ export default function App({
 			<HookProvider
 				projectDir={projectDir}
 				instanceId={instanceId}
+				harness={runtimeState.harness}
 				allowedTools={runtimeState.isolation?.allowedTools}
 				athenaSessionId={athenaSessionId}
 			>
@@ -1236,6 +1246,7 @@ export default function App({
 					key={clearCount}
 					projectDir={projectDir}
 					instanceId={instanceId}
+					harness={runtimeState.harness}
 					isolation={runtimeState.isolation}
 					verbose={verbose}
 					version={version}

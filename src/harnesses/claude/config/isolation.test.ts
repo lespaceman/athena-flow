@@ -1,8 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {
-	ISOLATION_PRESETS,
-	resolveIsolationConfig,
-} from './isolation';
+import {ISOLATION_PRESETS, resolveIsolationConfig} from './isolation';
 
 describe('ISOLATION_PRESETS', () => {
 	it('strict preset should allow core read/edit/search tools', () => {

@@ -1,9 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {
-	parseToolName,
-	formatInlineParams,
-	formatArgs,
-} from './toolNameParser';
+import {parseToolName, formatInlineParams, formatArgs} from './toolNameParser';
 
 describe('parseToolName', () => {
 	it('parses MCP tool name into server and action', () => {

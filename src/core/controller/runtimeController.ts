@@ -9,6 +9,7 @@
  */
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 import {type HookRule, matchRule} from './rules';
 
 export type ControllerCallbacks = {
@@ -26,9 +27,18 @@ export function handleEvent(
 	event: RuntimeEvent,
 	cb: ControllerCallbacks,
 ): ControllerResult {
+	const eventKind =
+		event.kind ?? mapLegacyHookNameToRuntimeKind(event.hookName);
+	const eventData = (event.data ?? event.payload) as Record<string, unknown>;
+	const toolName =
+		event.toolName ??
+		(typeof eventData['tool_name'] === 'string'
+			? eventData['tool_name']
+			: undefined);
+
 	// ── PermissionRequest: check rules, enqueue if no match ──
-	if (event.hookName === 'PermissionRequest' && event.toolName) {
-		const rule = matchRule(cb.getRules(), event.toolName);
+	if (eventKind === 'permission.request' && toolName) {
+		const rule = matchRule(cb.getRules(), toolName);
 
 		if (rule?.action === 'deny') {
 			return {
@@ -60,7 +70,7 @@ export function handleEvent(
 	}
 
 	// ── AskUserQuestion hijack ──
-	if (event.hookName === 'PreToolUse' && event.toolName === 'AskUserQuestion') {
+	if (eventKind === 'tool.pre' && toolName === 'AskUserQuestion') {
 		cb.enqueueQuestion(event.id);
 		return {handled: true};
 	}
@@ -69,8 +79,8 @@ export function handleEvent(
 	// In headless mode (claude -p) with --setting-sources "", a passthrough
 	// leaves Claude with no permission config, so tools silently fail.
 	// We must explicitly allow all non-denied tools.
-	if (event.hookName === 'PreToolUse' && event.toolName) {
-		const rule = matchRule(cb.getRules(), event.toolName);
+	if (eventKind === 'tool.pre' && toolName) {
+		const rule = matchRule(cb.getRules(), toolName);
 
 		if (rule?.action === 'deny') {
 			return {

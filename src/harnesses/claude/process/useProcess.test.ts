@@ -18,11 +18,11 @@ function createMockChildProcess(): ChildProcess {
 	return mockProcess;
 }
 
-vi.mock('../harnesses/claude/process/spawn', () => ({
+vi.mock('./spawn', () => ({
 	spawnClaude: vi.fn(),
 }));
 
-vi.mock('../core/workflows/index', () => ({
+vi.mock('../../../core/workflows', () => ({
 	applyPromptTemplate: vi.fn((_tpl: string, prompt: string) => prompt),
 	createLoopManager: vi.fn(),
 	buildContinuePrompt: vi.fn(() => 'Continue the task.'),

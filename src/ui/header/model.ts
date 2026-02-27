@@ -47,7 +47,7 @@ function deriveStatus(
 	runSummaries: HeaderModelInput['runSummaries'],
 ): HeaderStatus {
 	if (currentRun) return 'active';
-	const last = runSummaries[runSummaries.length - 1];
+	const last = runSummaries.at(-1);
 	if (!last) return 'idle';
 	if (last.status === 'FAILED') return 'error';
 	if (last.status === 'CANCELLED') return 'stopped';
@@ -83,7 +83,7 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		session_index: sessionIndex,
 		session_total: sessionTotal,
 		workflow: workflowRef ?? 'default',
-		harness: input.harness ?? detectHarness(),
+		harness: detectHarness(input.harness),
 		context: {used: input.contextUsed ?? null, max: input.contextMax ?? 200000},
 		engine: session?.agent_type,
 		progress:

@@ -3,6 +3,7 @@ import {
 	readConfig,
 	readGlobalConfig,
 	type AthenaConfig,
+	type AthenaHarness,
 } from '../../infra/plugins/index';
 import {shouldResolveWorkflow} from '../../setup/shouldResolveWorkflow';
 import type {
@@ -15,6 +16,7 @@ import {
 	resolveWorkflow,
 } from '../../core/workflows/index';
 import type {WorkflowConfig} from '../../core/workflows/types';
+import {DEFAULT_HARNESS} from '../runtime/createRuntime';
 
 export type RuntimeBootstrapInput = {
 	projectDir: string;
@@ -30,6 +32,7 @@ export type RuntimeBootstrapInput = {
 export type RuntimeBootstrapOutput = {
 	globalConfig: AthenaConfig;
 	projectConfig: AthenaConfig;
+	harness: AthenaHarness;
 	isolationConfig: IsolationConfig;
 	pluginMcpConfig?: string;
 	workflowRef?: string;
@@ -72,6 +75,8 @@ export function bootstrapRuntimeConfig({
 	const globalConfig = providedGlobalConfig ?? readGlobalConfig();
 	const projectConfig = providedProjectConfig ?? readConfig(projectDir);
 	const warnings: string[] = [];
+	const harness =
+		projectConfig.harness ?? globalConfig.harness ?? DEFAULT_HARNESS;
 	const workflowName =
 		workflowFlag ?? projectConfig.workflow ?? globalConfig.workflow;
 
@@ -140,13 +145,15 @@ export function bootstrapRuntimeConfig({
 
 	const modelName =
 		isolationConfig.model ||
-		process.env['ANTHROPIC_MODEL'] ||
-		readClaudeSettingsModel(projectDir) ||
+		(harness === 'claude-code'
+			? process.env['ANTHROPIC_MODEL'] || readClaudeSettingsModel(projectDir)
+			: null) ||
 		null;
 
 	return {
 		globalConfig,
 		projectConfig,
+		harness,
 		isolationConfig,
 		pluginMcpConfig,
 		workflowRef: workflowFlag ?? activeWorkflow?.name,

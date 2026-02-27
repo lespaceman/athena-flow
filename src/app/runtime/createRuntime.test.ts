@@ -1,0 +1,49 @@
+import {describe, it, expect, vi} from 'vitest';
+
+const createClaudeHookRuntimeMock = vi.fn(() => ({
+	start: vi.fn(),
+	stop: vi.fn(),
+	getStatus: () => 'stopped' as const,
+	onEvent: () => () => {},
+	onDecision: () => () => {},
+	sendDecision: vi.fn(),
+}));
+
+vi.mock('../../harnesses/claude/runtime', () => ({
+	createClaudeHookRuntime: (opts: {projectDir: string; instanceId: number}) =>
+		createClaudeHookRuntimeMock(opts),
+}));
+
+const {createRuntime, DEFAULT_HARNESS} = await import('./createRuntime');
+
+describe('createRuntime', () => {
+	it('uses claude runtime for claude-code harness', () => {
+		createRuntime({
+			harness: 'claude-code',
+			projectDir: '/tmp/project',
+			instanceId: 42,
+		});
+
+		expect(createClaudeHookRuntimeMock).toHaveBeenCalledWith({
+			projectDir: '/tmp/project',
+			instanceId: 42,
+		});
+	});
+
+	it('falls back to claude runtime for unsupported harnesses', () => {
+		createRuntime({
+			harness: 'openai-codex',
+			projectDir: '/tmp/project',
+			instanceId: 7,
+		});
+
+		expect(createClaudeHookRuntimeMock).toHaveBeenCalledWith({
+			projectDir: '/tmp/project',
+			instanceId: 7,
+		});
+	});
+
+	it('defines claude-code as default harness', () => {
+		expect(DEFAULT_HARNESS).toBe('claude-code');
+	});
+});

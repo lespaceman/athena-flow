@@ -24,8 +24,7 @@ vi.mock('../../harnesses/claude/config/readSettingsModel', () => ({
 		readClaudeSettingsModelMock(projectDir),
 }));
 
-const {bootstrapRuntimeConfig} =
-	await import('./bootstrapConfig');
+const {bootstrapRuntimeConfig} = await import('./bootstrapConfig');
 
 const emptyConfig = {plugins: [], additionalDirectories: []};
 const initialAnthropicModel = process.env['ANTHROPIC_MODEL'];
@@ -92,6 +91,7 @@ describe('bootstrapRuntimeConfig', () => {
 		]);
 		expect(result.workflow?.name).toBe('e2e-test-builder');
 		expect(result.workflowRef).toBe('e2e-test-builder');
+		expect(result.harness).toBe('claude-code');
 		expect(result.isolationConfig.preset).toBe('minimal');
 		expect(result.isolationConfig.additionalDirectories).toEqual([
 			'/global-dir',
@@ -132,6 +132,31 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(resolveWorkflowMock).not.toHaveBeenCalled();
 		expect(result.workflow?.name).toBe('plugin-workflow');
 		expect(result.workflowRef).toBe('plugin-workflow');
+		expect(result.harness).toBe('claude-code');
 		expect(result.modelName).toBe('claude-settings-model');
+	});
+
+	it('does not probe Claude-specific model sources for non-claude harnesses', () => {
+		process.env['ANTHROPIC_MODEL'] = 'anthropic-env-model';
+		readGlobalConfigMock.mockReturnValue({
+			...emptyConfig,
+			harness: 'openai-codex',
+		});
+		readConfigMock.mockReturnValue(emptyConfig);
+		registerPluginsMock.mockReturnValue({
+			mcpConfig: undefined,
+			workflows: [],
+		});
+		readClaudeSettingsModelMock.mockReturnValue('claude-settings-model');
+
+		const result = bootstrapRuntimeConfig({
+			projectDir: '/project',
+			showSetup: false,
+			isolationPreset: 'strict',
+		});
+
+		expect(result.harness).toBe('openai-codex');
+		expect(result.modelName).toBeNull();
+		expect(readClaudeSettingsModelMock).not.toHaveBeenCalled();
 	});
 });

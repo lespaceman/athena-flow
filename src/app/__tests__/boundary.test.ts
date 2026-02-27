@@ -84,4 +84,28 @@ describe('runtime boundary enforcement', () => {
 			});
 		}
 	}
+
+	it('RuntimeProvider does not import Claude runtime directly', () => {
+		const runtimeProviderPath = path.join(
+			SOURCE_DIR,
+			'app/providers/RuntimeProvider.tsx',
+		);
+		const content = fs.readFileSync(runtimeProviderPath, 'utf-8');
+		expect(content).not.toContain('createClaudeHookRuntime');
+	});
+
+	it('core controller does not branch directly on Claude hook names', () => {
+		const filePath = path.join(
+			SOURCE_DIR,
+			'core/controller/runtimeController.ts',
+		);
+		const content = fs.readFileSync(filePath, 'utf-8');
+		expect(content).not.toContain("event.hookName === '");
+	});
+
+	it('feed mapper does not switch directly on Claude hook names', () => {
+		const filePath = path.join(SOURCE_DIR, 'core/feed/mapper.ts');
+		const content = fs.readFileSync(filePath, 'utf-8');
+		expect(content).not.toContain('switch (event.hookName)');
+	});
 });

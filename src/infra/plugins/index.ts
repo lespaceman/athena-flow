@@ -1,7 +1,7 @@
 export {registerPlugins} from './register';
 export type {PluginRegistrationResult} from './register';
 export {readConfig, readGlobalConfig} from './config';
-export type {AthenaConfig} from './config';
+export type {AthenaConfig, AthenaHarness} from './config';
 export {
 	isMarketplaceRef,
 	resolveMarketplacePlugin,

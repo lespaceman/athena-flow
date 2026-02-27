@@ -1,92 +1,10 @@
 import type {RuntimeEvent} from '../../../core/runtime/types';
+import type {RuntimeEventKind} from '../../../core/runtime/events';
 
 type InteractionHints = RuntimeEvent['interaction'];
 
 const DEFAULT_TIMEOUT_MS = 4000;
 const PERMISSION_TIMEOUT_MS = 300_000;
-
-const RULES: Record<string, InteractionHints> = {
-	PermissionRequest: {
-		expectsDecision: true,
-		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
-		canBlock: true,
-	},
-	PreToolUse: {
-		expectsDecision: true,
-		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
-		canBlock: true,
-	},
-	PostToolUse: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	PostToolUseFailure: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	Stop: {
-		expectsDecision: true,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-	SubagentStop: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-	SubagentStart: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	Notification: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	SessionStart: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	SessionEnd: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	PreCompact: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	UserPromptSubmit: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-	Setup: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: false,
-	},
-	TeammateIdle: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-	TaskCompleted: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-	ConfigChange: {
-		expectsDecision: false,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		canBlock: true,
-	},
-};
 
 const DEFAULT_HINTS: InteractionHints = {
 	expectsDecision: false,
@@ -94,6 +12,91 @@ const DEFAULT_HINTS: InteractionHints = {
 	canBlock: false,
 };
 
-export function getInteractionHints(hookName: string): InteractionHints {
-	return RULES[hookName] ?? DEFAULT_HINTS;
+const RULES: Record<RuntimeEventKind, InteractionHints> = {
+	'permission.request': {
+		expectsDecision: true,
+		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'tool.pre': {
+		expectsDecision: true,
+		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'tool.post': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'tool.failure': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'stop.request': {
+		expectsDecision: true,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'subagent.stop': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'subagent.start': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	notification: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'session.start': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'session.end': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'compact.pre': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'user.prompt': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	setup: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'teammate.idle': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'task.completed': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'config.change': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	unknown: DEFAULT_HINTS,
+};
+
+export function getInteractionHints(kind: string): InteractionHints {
+	const maybeRule = (RULES as Partial<Record<string, InteractionHints>>)[kind];
+	return maybeRule ?? DEFAULT_HINTS;
 }

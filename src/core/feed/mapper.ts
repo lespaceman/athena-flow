@@ -1,6 +1,7 @@
 // src/feed/mapper.ts
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 import type {
 	FeedEvent,
 	FeedEventKind,
@@ -235,9 +236,15 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 	function resolveToolUseId(
 		event: RuntimeEvent,
-		p: Record<string, unknown>,
+		record: Record<string, unknown>,
 	): string | undefined {
-		return event.toolUseId ?? (p.tool_use_id as string | undefined);
+		return (
+			event.toolUseId ??
+			(record['tool_use_id'] as string | undefined) ??
+			((event.payload as Record<string, unknown>)['tool_use_id'] as
+				| string
+				| undefined)
+		);
 	}
 
 	function toolUseCause(
@@ -252,18 +259,51 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 	function mapEvent(event: RuntimeEvent): FeedEvent[] {
 		const p = event.payload as Record<string, unknown>;
+		const d = (event.data ?? {}) as Record<string, unknown>;
+		const readString = (...values: unknown[]): string | undefined => {
+			for (const value of values) {
+				if (typeof value === 'string') return value;
+			}
+			return undefined;
+		};
+		const readBoolean = (...values: unknown[]): boolean | undefined => {
+			for (const value of values) {
+				if (typeof value === 'boolean') return value;
+			}
+			return undefined;
+		};
+		const readObject = (...values: unknown[]): Record<string, unknown> => {
+			for (const value of values) {
+				if (typeof value === 'object' && value !== null) {
+					return value as Record<string, unknown>;
+				}
+			}
+			return {};
+		};
+		const readSuggestionArray = (
+			...values: unknown[]
+		): Array<{type: string; tool: string}> | undefined => {
+			for (const value of values) {
+				if (Array.isArray(value)) {
+					return value as Array<{type: string; tool: string}>;
+				}
+			}
+			return undefined;
+		};
+		const eventKind =
+			event.kind ?? mapLegacyHookNameToRuntimeKind(event.hookName);
 		const results: FeedEvent[] = [];
 
-		switch (event.hookName) {
-			case 'SessionStart': {
+		switch (eventKind) {
+			case 'session.start': {
+				const source = readString(d['source'], p['source']) ?? 'startup';
 				currentSession = {
 					session_id: event.sessionId,
 					started_at: event.timestamp,
-					source: (p.source as string) ?? 'startup',
-					model: p.model as string | undefined,
-					agent_type: p.agent_type as string | undefined,
+					source,
+					model: readString(d['model'], p['model']),
+					agent_type: readString(d['agent_type'], p['agent_type']),
 				};
-				const source = (p.source as string) ?? 'startup';
 				if (source === 'resume' || source === 'clear' || source === 'compact') {
 					results.push(
 						...ensureRunArray(event, source as 'resume' | 'clear' | 'compact'),
@@ -275,9 +315,9 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						'info',
 						'system',
 						{
-							source: (p.source as string) ?? 'startup',
-							model: p.model as string | undefined,
-							agent_type: p.agent_type as string | undefined,
+							source,
+							model: readString(d['model'], p['model']),
+							agent_type: readString(d['agent_type'], p['agent_type']),
 						} satisfies import('./types').SessionStartData,
 						event,
 					),
@@ -285,7 +325,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'SessionEnd': {
+			case 'session.end': {
 				if (currentRun) {
 					const closeEvt = closeRun(event, 'completed');
 					if (closeEvt) results.push(closeEvt);
@@ -296,7 +336,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						'info',
 						'system',
 						{
-							reason: (p.reason as string) ?? 'unknown',
+							reason: readString(d['reason'], p['reason']) ?? 'unknown',
 						} satisfies import('./types').SessionEndData,
 						event,
 					),
@@ -307,8 +347,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'UserPromptSubmit': {
-				const prompt = (p.prompt as string) ?? '';
+			case 'user.prompt': {
+				const prompt = readString(d['prompt'], p['prompt']) ?? '';
 				results.push(
 					...ensureRunArray(event, 'user_prompt_submit', prompt.slice(0, 80)),
 				);
@@ -321,7 +361,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 							prompt,
 							cwd: event.context.cwd,
 							permission_mode:
-								event.context.permissionMode ?? (p.permission_mode as string),
+								event.context.permissionMode ??
+								readString(d['permission_mode'], p['permission_mode']),
 						} satisfies import('./types').UserPromptData,
 						event,
 					),
@@ -329,17 +370,21 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'PreToolUse': {
+			case 'tool.pre': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_uses++;
-				const toolUseId = resolveToolUseId(event, p);
+				const toolUseId = resolveToolUseId(event, d);
+				const toolName =
+					event.toolName ??
+					readString(d['tool_name'], p['tool_name']) ??
+					'Unknown';
 				const fe = makeEvent(
 					'tool.pre',
 					'info',
 					resolveToolActor(),
 					{
-						tool_name: event.toolName ?? (p.tool_name as string),
-						tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+						tool_name: toolName,
+						tool_input: readObject(d['tool_input'], p['tool_input']),
 						tool_use_id: toolUseId,
 					} satisfies import('./types').ToolPreData,
 					event,
@@ -351,9 +396,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				results.push(fe);
 
 				// Track Task description for subagent enrichment
-				const toolNameStr = event.toolName ?? (p.tool_name as string);
-				if (toolNameStr === 'Task') {
-					const input = (p.tool_input as Record<string, unknown>) ?? {};
+				if (toolName === 'Task') {
+					const input = readObject(d['tool_input'], p['tool_input']);
 					lastTaskDescription =
 						typeof input['description'] === 'string'
 							? input['description']
@@ -362,20 +406,24 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'PostToolUse': {
+			case 'tool.post': {
 				results.push(...ensureRunArray(event));
-				const toolUseId = resolveToolUseId(event, p);
+				const toolUseId = resolveToolUseId(event, d);
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
+				const toolName =
+					event.toolName ??
+					readString(d['tool_name'], p['tool_name']) ??
+					'Unknown';
 				results.push(
 					makeEvent(
 						'tool.post',
 						'info',
 						resolveToolActor(),
 						{
-							tool_name: event.toolName ?? (p.tool_name as string),
-							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+							tool_name: toolName,
+							tool_input: readObject(d['tool_input'], p['tool_input']),
 							tool_use_id: toolUseId,
-							tool_response: p.tool_response,
+							tool_response: d.tool_response ?? p.tool_response,
 						} satisfies import('./types').ToolPostData,
 						event,
 						toolUseCause(toolUseId, parentId),
@@ -384,22 +432,26 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'PostToolUseFailure': {
+			case 'tool.failure': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_failures++;
-				const toolUseId = resolveToolUseId(event, p);
+				const toolUseId = resolveToolUseId(event, d);
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
+				const toolName =
+					event.toolName ??
+					readString(d['tool_name'], p['tool_name']) ??
+					'Unknown';
 				results.push(
 					makeEvent(
 						'tool.failure',
 						'error',
 						resolveToolActor(),
 						{
-							tool_name: event.toolName ?? (p.tool_name as string),
-							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
+							tool_name: toolName,
+							tool_input: readObject(d['tool_input'], p['tool_input']),
 							tool_use_id: toolUseId,
-							error: (p.error as string) ?? 'Unknown error',
-							is_interrupt: p.is_interrupt as boolean | undefined,
+							error: readString(d['error'], p['error']) ?? 'Unknown error',
+							is_interrupt: readBoolean(d['is_interrupt'], p['is_interrupt']),
 						} satisfies import('./types').ToolFailureData,
 						event,
 						toolUseCause(toolUseId, parentId),
@@ -408,21 +460,26 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'PermissionRequest': {
+			case 'permission.request': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.permission_requests++;
+				const toolName =
+					event.toolName ??
+					readString(d['tool_name'], p['tool_name']) ??
+					'Unknown';
 				results.push(
 					makeEvent(
 						'permission.request',
 						'info',
 						'system',
 						{
-							tool_name: event.toolName ?? (p.tool_name as string),
-							tool_input: (p.tool_input as Record<string, unknown>) ?? {},
-							tool_use_id: resolveToolUseId(event, p),
-							permission_suggestions: p.permission_suggestions as
-								| Array<{type: string; tool: string}>
-								| undefined,
+							tool_name: toolName,
+							tool_input: readObject(d['tool_input'], p['tool_input']),
+							tool_use_id: resolveToolUseId(event, d),
+							permission_suggestions: readSuggestionArray(
+								d['permission_suggestions'],
+								p['permission_suggestions'],
+							),
 						} satisfies import('./types').PermissionRequestData,
 						event,
 					),
@@ -430,24 +487,30 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'Stop': {
+			case 'stop.request': {
 				results.push(...ensureRunArray(event));
 				const stopEvt = makeEvent(
 					'stop.request',
 					'info',
 					'agent:root',
 					{
-						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-						last_assistant_message: p.last_assistant_message as
-							| string
-							| undefined,
+						stop_hook_active:
+							readBoolean(d['stop_hook_active'], p['stop_hook_active']) ??
+							false,
+						last_assistant_message: readString(
+							d['last_assistant_message'],
+							p['last_assistant_message'],
+						),
 					} satisfies import('./types').StopRequestData,
 					event,
 				);
 				results.push(stopEvt);
 
 				// Enrich: synthesize agent.message from last_assistant_message
-				const stopMsg = p.last_assistant_message as string | undefined;
+				const stopMsg = readString(
+					d['last_assistant_message'],
+					p['last_assistant_message'],
+				);
 				if (stopMsg) {
 					results.push(
 						makeEvent(
@@ -467,11 +530,12 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'SubagentStart': {
+			case 'subagent.start': {
 				results.push(...ensureRunArray(event));
-				const agentId = event.agentId ?? (p.agent_id as string | undefined);
+				const agentId =
+					event.agentId ?? readString(d['agent_id'], p['agent_id']);
 				const agentType =
-					event.agentType ?? (p.agent_type as string | undefined);
+					event.agentType ?? readString(d['agent_type'], p['agent_type']);
 				if (agentId) {
 					actors.ensureSubagent(agentId, agentType ?? 'unknown');
 					if (currentRun) currentRun.actors.subagent_ids.push(agentId);
@@ -497,9 +561,10 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'SubagentStop': {
+			case 'subagent.stop': {
 				results.push(...ensureRunArray(event));
-				const agentId = event.agentId ?? (p.agent_id as string | undefined);
+				const agentId =
+					event.agentId ?? readString(d['agent_id'], p['agent_id']);
 				if (agentId) {
 					const actorId = `subagent:${agentId}`;
 					const idx = activeSubagentStack.lastIndexOf(actorId);
@@ -512,14 +577,21 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 					subStopActorId,
 					{
 						agent_id: agentId ?? '',
-						agent_type: event.agentType ?? (p.agent_type as string) ?? '',
-						stop_hook_active: (p.stop_hook_active as boolean) ?? false,
-						agent_transcript_path: p.agent_transcript_path as
-							| string
-							| undefined,
-						last_assistant_message: p.last_assistant_message as
-							| string
-							| undefined,
+						agent_type:
+							event.agentType ??
+							readString(d['agent_type'], p['agent_type']) ??
+							'',
+						stop_hook_active:
+							readBoolean(d['stop_hook_active'], p['stop_hook_active']) ??
+							false,
+						agent_transcript_path: readString(
+							d['agent_transcript_path'],
+							p['agent_transcript_path'],
+						),
+						last_assistant_message: readString(
+							d['last_assistant_message'],
+							p['last_assistant_message'],
+						),
 						description: subagentDescriptions.get(agentId ?? ''),
 					} satisfies import('./types').SubagentStopData,
 					event,
@@ -527,7 +599,10 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				results.push(subStopEvt);
 
 				// Enrich: synthesize agent.message from last_assistant_message
-				const subMsg = p.last_assistant_message as string | undefined;
+				const subMsg = readString(
+					d['last_assistant_message'],
+					p['last_assistant_message'],
+				);
 				if (subMsg) {
 					results.push(
 						makeEvent(
@@ -547,7 +622,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'Notification': {
+			case 'notification': {
 				results.push(...ensureRunArray(event));
 				results.push(
 					makeEvent(
@@ -555,9 +630,12 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						'info',
 						'system',
 						{
-							message: (p.message as string) ?? '',
-							title: p.title as string | undefined,
-							notification_type: p.notification_type as string | undefined,
+							message: readString(d['message'], p['message']) ?? '',
+							title: readString(d['title'], p['title']),
+							notification_type: readString(
+								d['notification_type'],
+								p['notification_type'],
+							),
 						} satisfies import('./types').NotificationData,
 						event,
 					),
@@ -565,15 +643,22 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'PreCompact': {
+			case 'compact.pre': {
 				results.push(...ensureRunArray(event));
 				const compactEvt = makeEvent(
 					'compact.pre',
 					'info',
 					'system',
 					{
-						trigger: (p.trigger as 'manual' | 'auto') ?? 'auto',
-						custom_instructions: p.custom_instructions as string | undefined,
+						trigger:
+							(readString(d['trigger'], p['trigger']) as
+								| 'manual'
+								| 'auto'
+								| undefined) ?? 'auto',
+						custom_instructions: readString(
+							d['custom_instructions'],
+							p['custom_instructions'],
+						),
 					} satisfies import('./types').PreCompactData,
 					event,
 				);
@@ -582,14 +667,18 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'Setup': {
+			case 'setup': {
 				results.push(...ensureRunArray(event));
 				const setupEvt = makeEvent(
 					'setup',
 					'info',
 					'system',
 					{
-						trigger: (p.trigger as 'init' | 'maintenance') ?? 'init',
+						trigger:
+							(readString(d['trigger'], p['trigger']) as
+								| 'init'
+								| 'maintenance'
+								| undefined) ?? 'init',
 					} satisfies import('./types').SetupData,
 					event,
 				);
@@ -598,15 +687,16 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'TeammateIdle': {
+			case 'teammate.idle': {
 				results.push(...ensureRunArray(event));
 				const idleEvt = makeEvent(
 					'teammate.idle',
 					'info',
 					'system',
 					{
-						teammate_name: (p.teammate_name as string) ?? '',
-						team_name: (p.team_name as string) ?? '',
+						teammate_name:
+							readString(d['teammate_name'], p['teammate_name']) ?? '',
+						team_name: readString(d['team_name'], p['team_name']) ?? '',
 					} satisfies import('./types').TeammateIdleData,
 					event,
 				);
@@ -615,7 +705,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'TaskCompleted': {
+			case 'task.completed': {
 				results.push(...ensureRunArray(event));
 				results.push(
 					makeEvent(
@@ -623,11 +713,15 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						'info',
 						'system',
 						{
-							task_id: (p.task_id as string) ?? '',
-							task_subject: (p.task_subject as string) ?? '',
-							task_description: p.task_description as string | undefined,
-							teammate_name: p.teammate_name as string | undefined,
-							team_name: p.team_name as string | undefined,
+							task_id: readString(d['task_id'], p['task_id']) ?? '',
+							task_subject:
+								readString(d['task_subject'], p['task_subject']) ?? '',
+							task_description: readString(
+								d['task_description'],
+								p['task_description'],
+							),
+							teammate_name: readString(d['teammate_name'], p['teammate_name']),
+							team_name: readString(d['team_name'], p['team_name']),
 						} satisfies import('./types').TaskCompletedData,
 						event,
 					),
@@ -635,7 +729,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'ConfigChange': {
+			case 'config.change': {
 				results.push(...ensureRunArray(event));
 				results.push(
 					makeEvent(
@@ -643,8 +737,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						'info',
 						'system',
 						{
-							source: (p.source as string) ?? 'unknown',
-							file_path: p.file_path as string | undefined,
+							source: readString(d['source'], p['source']) ?? 'unknown',
+							file_path: readString(d['file_path'], p['file_path']),
 						} satisfies import('./types').ConfigChangeData,
 						event,
 					),
@@ -652,15 +746,16 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			default: {
+			case 'unknown': {
 				results.push(...ensureRunArray(event));
 				const unknownEvt = makeEvent(
 					'unknown.hook',
 					'debug',
 					'system',
 					{
-						hook_event_name: event.hookName,
-						payload: event.payload,
+						hook_event_name:
+							readString(d['source_event_name'], event.hookName) ?? 'unknown',
+						payload: d.payload ?? event.payload,
 					} satisfies import('./types').UnknownHookData,
 					event,
 				);
@@ -720,7 +815,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			} else if (decision.intent?.kind === 'permission_deny') {
 				data = {
 					decision_type: 'deny',
-					message: decision.intent.reason ?? 'Denied',
+					message: decision.intent.reason,
 				};
 			} else {
 				data = {decision_type: 'no_opinion', reason: 'unknown'};
@@ -732,6 +827,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		if (originalKind === 'stop.request') {
 			let data: import('./types').StopDecisionData;
 			const d = decision.data as Record<string, unknown> | undefined;
+			const decisionReason =
+				typeof d?.reason === 'string' ? d.reason : undefined;
 
 			if (decision.source === 'timeout') {
 				data = {decision_type: 'no_opinion', reason: 'timeout'};
@@ -741,13 +838,13 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				// Command hook schema: { decision: "block", reason: "..." }
 				data = {
 					decision_type: 'block',
-					reason: (d.reason as string) ?? decision.reason ?? 'Blocked',
+					reason: decisionReason ?? decision.reason ?? 'Blocked',
 				};
 			} else if (d?.ok === false) {
 				// Prompt/agent hook schema: { ok: false, reason: "..." }
 				data = {
 					decision_type: 'block',
-					reason: (d.reason as string) ?? 'Blocked by hook',
+					reason: decisionReason ?? 'Blocked by hook',
 				};
 			} else {
 				// No blocking signal — treat as allow
