@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useSpinner} from '../hooks/useSpinner';
-import {type TodoItem} from '../../types/todo';
+import {type TodoItem} from '../../core/feed/todo';
 import {useTheme} from '../theme/index';
 import {getGlyphs} from '../glyphs/index';
 

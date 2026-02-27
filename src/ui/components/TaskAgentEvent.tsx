@@ -1,9 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {FeedEvent} from '../../feed/types';
+import type {FeedEvent} from '../../core/feed/types';
 import {useTheme} from '../theme/index';
 import {getStatusColors} from './hookEventUtils';
-import {truncateLine} from '../../utils/truncate';
+import {truncateLine} from '../../shared/utils/truncate';
 import {ToolResultContainer} from './ToolOutput/index';
 import MarkdownText from './ToolOutput/MarkdownText';
 import {getGlyphs} from '../glyphs/index';

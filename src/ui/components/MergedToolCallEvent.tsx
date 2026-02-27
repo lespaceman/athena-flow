@@ -1,13 +1,13 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {FeedEvent} from '../../feed/types';
-import {parseToolName, formatInlineParams} from '../../utils/toolNameParser';
-import {truncateLine} from '../../utils/truncate';
-import {summarizeToolResult} from '../../utils/toolSummary';
+import type {FeedEvent} from '../../core/feed/types';
+import {parseToolName, formatInlineParams} from '../../shared/utils/toolNameParser';
+import {truncateLine} from '../../shared/utils/truncate';
+import {summarizeToolResult} from '../../core/feed/toolSummary';
 import {useTheme} from '../theme/index';
 import {getGlyphs} from '../glyphs/index';
 import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index';
-import {extractToolOutput} from '../../utils/toolExtractors';
+import {extractToolOutput} from '../tooling/toolExtractors';
 
 type Props = {
 	event: FeedEvent;

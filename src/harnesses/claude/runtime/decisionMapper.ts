@@ -6,7 +6,7 @@
  */
 
 import type {HookResultPayload} from '../protocol/result';
-import type {RuntimeEvent, RuntimeDecision} from '../../../runtime/types';
+import type {RuntimeEvent, RuntimeDecision} from '../../../core/runtime/types';
 
 export function mapDecisionToResult(
 	_event: RuntimeEvent,

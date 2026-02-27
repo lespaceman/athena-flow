@@ -1,8 +1,8 @@
 import React from 'react';
-import type {FeedEvent} from '../../feed/types';
+import type {FeedEvent} from '../../core/feed/types';
 import SessionEndEvent from './SessionEndEvent';
 import AskUserQuestionEvent from './AskUserQuestionEvent';
-import {TASK_TOOL_NAMES} from '../../types/todo';
+import {TASK_TOOL_NAMES} from '../../core/feed/todo';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent';
 import TaskAgentEvent from './TaskAgentEvent';
 import SubagentStartEvent from './SubagentStartEvent';

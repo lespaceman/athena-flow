@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {createMarkedInstance} from './markedFactory';
+import {createMarkedInstance} from '../shared/utils/markedFactory';
 
 describe('createMarkedInstance', () => {
 	it('does not leak colon placeholders in list items with code spans', () => {

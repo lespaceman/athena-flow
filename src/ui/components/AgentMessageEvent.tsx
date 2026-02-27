@@ -1,10 +1,10 @@
 import process from 'node:process';
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {FeedEvent} from '../../feed/types';
+import type {FeedEvent} from '../../core/feed/types';
 import {getGlyphs} from '../glyphs/index';
 import {useTheme} from '../theme/index';
-import {truncateLine} from '../../utils/truncate';
+import {truncateLine} from '../../shared/utils/truncate';
 import MarkdownText from './ToolOutput/MarkdownText';
 
 type Props = {

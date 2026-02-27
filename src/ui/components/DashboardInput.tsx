@@ -1,7 +1,7 @@
 import React, {useCallback, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useTextInput} from '../hooks/useTextInput';
-import {fit} from '../../utils/format';
+import {fit} from '../../shared/utils/format';
 
 const DEFAULT_PLACEHOLDER = 'Type a message or /command...';
 

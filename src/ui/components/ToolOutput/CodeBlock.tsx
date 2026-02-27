@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {highlight} from 'cli-highlight';
-import {supportsHyperlinks, hyperlink} from '../../../utils/hyperlink';
+import {supportsHyperlinks, hyperlink} from '../../../shared/utils/hyperlink';
 
 type Props = {
 	content: string;

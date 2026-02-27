@@ -1,6 +1,6 @@
 // src/feed/titleGen.ts
 import type {FeedEvent} from './types';
-import {getGlyphs} from '../../glyphs/index';
+import {getGlyphs} from '../../ui/glyphs/index';
 
 const MAX_TITLE_LEN = 80;
 

@@ -12,13 +12,13 @@
  * - outcome: right-aligned result text (optional)
  */
 
-import {parseToolName} from '../../utils/toolNameParser';
+import {parseToolName} from '../../shared/utils/toolNameParser';
 import {
 	shortenPathStructured,
 	compactText,
 	compactCommandPaths,
-} from '../../utils/format';
-import {isBashToolResponse} from '../../components/hookEventUtils';
+} from '../../shared/utils/format';
+import {isBashToolResponse} from '../../shared/utils/toolResponse';
 import {
 	type SummarySegment,
 	stripMarkdownInline,

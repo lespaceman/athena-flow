@@ -1,5 +1,5 @@
 import {type UICommand} from '../types';
-import {generateId} from '../../../types/hooks/index';
+import {generateId} from '../../../harnesses/claude/protocol/index';
 import * as registry from '../registry';
 
 export const helpCommand: UICommand = {

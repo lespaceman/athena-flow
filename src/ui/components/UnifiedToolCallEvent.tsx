@@ -1,8 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {FeedEvent} from '../../feed/types';
-import {parseToolName, formatInlineParams} from '../../utils/toolNameParser';
-import {truncateLine} from '../../utils/truncate';
+import type {FeedEvent} from '../../core/feed/types';
+import {parseToolName, formatInlineParams} from '../../shared/utils/toolNameParser';
+import {truncateLine} from '../../shared/utils/truncate';
 import {getStatusColors} from './hookEventUtils';
 import {useTheme} from '../theme/index';
 import {getGlyphs} from '../glyphs/index';

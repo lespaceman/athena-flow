@@ -2,21 +2,21 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import {type ChildProcess} from 'node:child_process';
 import fs from 'node:fs';
 import {spawnClaude} from './spawn';
-import {type UseClaudeProcessResult} from '../../../types/process';
+import {type UseClaudeProcessResult} from './types';
 import {
 	type IsolationConfig,
 	type IsolationPreset,
 	resolveIsolationConfig,
 } from '../config/isolation';
-import type {TokenUsage} from '../../../types/headerMetrics';
+import type {TokenUsage} from '../../../shared/types/headerMetrics';
 import {createTokenAccumulator} from './tokenAccumulator';
-import type {WorkflowConfig} from '../../../workflows/types';
+import type {WorkflowConfig} from '../../../core/workflows/types';
 import {
 	applyPromptTemplate,
 	createLoopManager,
 	buildContinuePrompt,
 	type LoopManager,
-} from '../../../workflows/index';
+} from '../../../core/workflows/index';
 import path from 'node:path';
 
 export type {UseClaudeProcessResult};

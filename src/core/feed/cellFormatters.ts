@@ -1,11 +1,11 @@
 import chalk from 'chalk';
-import {type Theme} from '../../theme/types';
-import {fit as fitImpl, formatClock} from '../../utils/format';
-import {getGlyphs} from '../../glyphs/index';
+import {type Theme} from '../../ui/theme/types';
+import {fit as fitImpl, formatClock} from '../../shared/utils/format';
+import {getGlyphs} from '../../ui/glyphs/index';
 import stripAnsi from 'strip-ansi';
 
 // Re-export fit so all formatter consumers import from one place
-export {fit} from '../../utils/format';
+export {fit} from '../../shared/utils/format';
 
 export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;

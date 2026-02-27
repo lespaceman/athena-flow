@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {spawn, type ChildProcess} from 'node:child_process';
-import {processRegistry} from './processRegistry';
+import {processRegistry} from '../shared/utils/processRegistry';
 
 describe('processRegistry', () => {
 	beforeEach(() => {

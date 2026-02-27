@@ -3,6 +3,46 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
+const RELATIVE_PREFIXES = [
+	'../',
+	'../../',
+	'../../../',
+	'../../../../',
+	'../../../../../',
+	'../../../../../../',
+];
+
+const relativeImportPatterns = target =>
+	RELATIVE_PREFIXES.flatMap(prefix => [
+		`${prefix}${target}`,
+		`${prefix}${target}/**`,
+	]);
+
+const legacyRoots = [
+	'context',
+	'runtime/adapters/claudeHooks',
+	'runtime/types',
+	'types/hooks',
+	'types/isolation',
+];
+
+const legacyModules = [
+	'hook-forwarder',
+	'utils/detectClaudeVersion',
+	'utils/flagRegistry',
+	'utils/format',
+	'utils/generateHookSettings',
+	'utils/parseStreamJson',
+	'utils/resolveModel',
+	'utils/spawnClaude',
+	'utils/truncate',
+];
+
+const legacyImportPatterns = [
+	...legacyRoots.flatMap(relativeImportPatterns),
+	...legacyModules.flatMap(relativeImportPatterns),
+];
+
 export default tseslint.config(
 	js.configs.recommended,
 	...tseslint.configs.recommended,
@@ -28,74 +68,108 @@ export default tseslint.config(
 				'error',
 				{argsIgnorePattern: '^_', varsIgnorePattern: '^_'},
 			],
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: legacyImportPatterns,
+							message:
+								'Import from new structure boundaries (app/core/harnesses/infra/ui/shared), not legacy shim paths.',
+						},
+					],
+				},
+			],
 		},
 	},
 	{
-		files: [
-			'src/components/**/*.{ts,tsx}',
-			'src/context/**/*.{ts,tsx}',
-			'src/hooks/**/*.{ts,tsx}',
-			'src/feed/**/*.{ts,tsx}',
-			'src/ui/components/**/*.{ts,tsx}',
-			'src/ui/hooks/**/*.{ts,tsx}',
-		],
-		ignores: ['src/context/HookContext.tsx', 'src/hooks/useFeed.ts'],
+		files: ['src/ui/components/**/*.{ts,tsx}', 'src/ui/hooks/**/*.{ts,tsx}'],
 		rules: {
 			'no-restricted-imports': [
 				'error',
 				{
 					patterns: [
 						{
-							group: ['**/runtime/adapters/claudeHooks/**'],
+							group: relativeImportPatterns('harnesses'),
 							message:
-								'UI must not import from Claude adapter. Use runtime boundary types instead.',
+								'UI must remain harness-agnostic. Import via core/runtime boundaries instead.',
 						},
 						{
-							group: ['**/harnesses/claude/runtime/**'],
+							group: relativeImportPatterns('infra'),
 							message:
-								'UI must not import from Claude adapter internals. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/types/hooks/envelope*'],
-							message:
-								'UI must not import protocol envelope types. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/harnesses/claude/protocol/envelope*'],
-							message:
-								'UI must not import protocol envelope types. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/types/hooks/result*'],
-							message:
-								'UI must not import protocol result types. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/harnesses/claude/protocol/result*'],
-							message:
-								'UI must not import protocol result types. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/types/hooks/events*'],
-							message:
-								'UI must not import protocol event types. Use runtime boundary types instead.',
-						},
-						{
-							group: ['**/harnesses/claude/protocol/events*'],
-							message:
-								'UI must not import protocol event types. Use runtime boundary types instead.',
+								'UI must not depend directly on infra modules.',
 						},
 						{
 							group: [
-								'**/feed/mapper*',
-								'**/feed/filter*',
-								'**/feed/entities*',
-								'**/core/feed/mapper*',
-								'**/core/feed/filter*',
-								'**/core/feed/entities*',
+								...relativeImportPatterns('core/feed/mapper'),
+								...relativeImportPatterns('core/feed/filter'),
+								...relativeImportPatterns('core/feed/entities'),
 							],
 							message:
 								'Components may only import from feed/types.ts and feed/expandable.ts. Do not import stateful feed internals.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ['src/core/**/*.{ts,tsx}'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								...relativeImportPatterns('app'),
+								...relativeImportPatterns('harnesses'),
+							],
+							message:
+								'Core must stay app-agnostic and harness-agnostic.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ['src/harnesses/**/*.{ts,tsx}'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								...relativeImportPatterns('app'),
+								...relativeImportPatterns('ui'),
+							],
+							message:
+								'Harness adapters must not depend on app or UI layers.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ['src/shared/**/*.{ts,tsx}'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								...relativeImportPatterns('app'),
+								...relativeImportPatterns('core'),
+								...relativeImportPatterns('harnesses'),
+								...relativeImportPatterns('infra'),
+								...relativeImportPatterns('ui'),
+							],
+							message:
+								'Shared modules must remain boundary-neutral and not import layered domains.',
 						},
 					],
 				},

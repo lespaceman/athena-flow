@@ -1,8 +1,8 @@
 import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useTextInput} from '../hooks/useTextInput';
-import * as registry from '../../commands/registry';
-import {type Command} from '../../commands/types';
+import * as registry from '../../app/commands/registry';
+import {type Command} from '../../app/commands/types';
 import CommandSuggestions from './CommandSuggestions';
 import {useTheme} from '../theme/index';
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import chalk from 'chalk';
-import {fit, fitAnsi} from '../../utils/format';
+import {fit, fitAnsi} from '../../shared/utils/format';
 import {type Theme} from '../theme/types';
 import {type FeedColumnWidths} from './FeedRow';
 

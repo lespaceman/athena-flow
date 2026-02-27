@@ -6,13 +6,13 @@ import {
 } from 'use-context-selector';
 import path from 'node:path';
 import {useFeed} from '../../hooks/useFeed';
-import {createClaudeHookRuntime} from '../../runtime/adapters/claudeHooks/index';
-import {createSessionStore} from '../../sessions/store';
-import {sessionsDir} from '../../sessions/registry';
+import {createClaudeHookRuntime} from '../../harnesses/claude/runtime/index';
+import {createSessionStore} from '../../infra/sessions/store';
+import {sessionsDir} from '../../infra/sessions/registry';
 import {
 	type HookContextValue,
 	type HookProviderProps,
-} from '../../types/context';
+} from './types';
 
 const HookContext = createContext<HookContextValue | null>(null);
 const EMPTY_MESSAGES: never[] = [];

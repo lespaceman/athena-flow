@@ -1,7 +1,7 @@
 import React, {useState, useCallback} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
-import type {FeedEvent} from '../../feed/types';
+import type {FeedEvent} from '../../core/feed/types';
 import OptionList, {type OptionItem} from './OptionList';
 import MultiOptionList from './MultiOptionList';
 import QuestionKeybindingBar from './QuestionKeybindingBar';

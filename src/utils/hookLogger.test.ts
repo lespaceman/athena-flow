@@ -6,8 +6,8 @@ import {
 	logHookResponded,
 	closeHookLogger,
 	getLogFilePath,
-} from './hookLogger';
-import {type HookEventEnvelope} from '../types/hooks/index';
+} from '../harnesses/claude/runtime/hookLogger';
+import {type HookEventEnvelope} from '../harnesses/claude/protocol/index';
 
 vi.mock('node:fs');
 

@@ -1,6 +1,6 @@
 import {useMemo, useEffect, useState} from 'react';
-import {type FeedItem} from './useFeed';
-import {type FeedEvent} from '../../feed/types';
+import {type FeedItem} from '../../hooks/useFeed';
+import {type FeedEvent} from '../../core/feed/types';
 import {
 	type TimelineEntry,
 	type RunSummary,
@@ -16,13 +16,13 @@ import {
 	toRunStatus,
 	VERBOSE_ONLY_KINDS,
 	computeDuplicateActors,
-} from '../../feed/timeline';
-import {compactText, actorLabel} from '../../utils/format';
+} from '../../core/feed/timeline';
+import {compactText, actorLabel} from '../../shared/utils/format';
 import {
 	resolveToolColumn,
 	resolveEventToolColumn,
-} from '../../feed/toolDisplay';
-import {startPerfMeasure} from '../../utils/perf';
+} from '../../core/feed/toolDisplay';
+import {startPerfMeasure} from '../../shared/utils/perf';
 
 function subagentActorLabel(agentType?: string, agentId?: string): string {
 	if (agentType) {

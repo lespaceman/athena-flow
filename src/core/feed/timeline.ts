@@ -1,14 +1,14 @@
-import {type Message} from '../../types/index';
+import {type Message} from '../../shared/types/common';
 import {
 	compactText,
 	summarizeToolPrimaryInput,
 	shortenPathStructured,
-} from '../../utils/format';
+} from '../../shared/utils/format';
 import {
 	extractFriendlyServerName,
 	parseToolName,
-} from '../../utils/toolNameParser';
-import {summarizeToolResult} from '../../utils/toolSummary';
+} from '../../shared/utils/toolNameParser';
+import {summarizeToolResult} from './toolSummary';
 import {type FeedEvent, type FeedEventKind} from './types';
 import {resolveVerb} from './verbMap';
 

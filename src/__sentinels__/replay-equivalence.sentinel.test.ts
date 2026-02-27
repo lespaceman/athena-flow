@@ -7,9 +7,9 @@
  * If this test fails, investigate pipeline integrity before touching assertions.
  */
 import {describe, it, expect, afterEach} from 'vitest';
-import {createSessionStore, type SessionStore} from '../sessions/store';
-import {createFeedMapper} from '../feed/mapper';
-import type {FeedEvent} from '../feed/types';
+import {createSessionStore, type SessionStore} from '../infra/sessions/store';
+import {createFeedMapper} from '../core/feed/mapper';
+import type {FeedEvent} from '../core/feed/types';
 import {makeEvent, makeDecision, resetCounter} from './helpers';
 
 describe('Sentinel: replay equivalence', () => {

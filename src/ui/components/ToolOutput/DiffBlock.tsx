@@ -1,8 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import {useTheme} from '../../theme/index';
-import {type DiffHunk, type DiffLine} from '../../../types/toolOutput';
-import {fileLink} from '../../../utils/hyperlink';
+import {type DiffHunk, type DiffLine} from '../../../shared/types/toolOutput';
+import {fileLink} from '../../../shared/utils/hyperlink';
 
 type Props = {
 	oldText: string;

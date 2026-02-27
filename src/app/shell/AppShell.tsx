@@ -9,36 +9,36 @@ import React, {
 } from 'react';
 import {Box, Text, useApp, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
-import PermissionDialog from '../../components/PermissionDialog';
-import QuestionDialog from '../../components/QuestionDialog';
-import ErrorBoundary from '../../components/ErrorBoundary';
+import PermissionDialog from '../../ui/components/PermissionDialog';
+import QuestionDialog from '../../ui/components/QuestionDialog';
+import ErrorBoundary from '../../ui/components/ErrorBoundary';
 import {HookProvider, useHookContextSelector} from '../providers/RuntimeProvider';
-import {useClaudeProcess} from '../../hooks/useClaudeProcess';
-import {useHeaderMetrics} from '../../hooks/useHeaderMetrics';
-import {useAppMode} from '../../hooks/useAppMode';
-import {type InputHistory, useInputHistory} from '../../hooks/useInputHistory';
-import {useFeedNavigation} from '../../hooks/useFeedNavigation';
-import {useTodoPanel} from '../../hooks/useTodoPanel';
-import {useFeedKeyboard} from '../../hooks/useFeedKeyboard';
-import {useTodoKeyboard} from '../../hooks/useTodoKeyboard';
-import {useSpinner} from '../../hooks/useSpinner';
-import {useTimeline} from '../../hooks/useTimeline';
-import {useLayout} from '../../hooks/useLayout';
-import {useCommandDispatch} from '../../hooks/useCommandDispatch';
-import {buildBodyLines} from '../../utils/buildBodyLines';
-import {FeedGrid} from '../../components/FeedGrid';
-import {FrameRow} from '../../components/FrameRow';
-import {useFeedColumns} from '../../hooks/useFeedColumns';
-import {buildFrameLines} from '../../utils/buildFrameLines';
-import {buildHeaderModel} from '../../utils/headerModel';
-import {renderHeaderLines} from '../../utils/renderHeaderLines';
-import {
-	type Message as MessageType,
-	type IsolationConfig,
-	generateId,
-} from '../../types/index';
-import type {IsolationPreset} from '../../types/isolation';
-import {type PermissionDecision} from '../../types/server';
+import {useClaudeProcess} from '../../harnesses/claude/process/useProcess';
+import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
+import {useAppMode} from '../../ui/hooks/useAppMode';
+import {type InputHistory, useInputHistory} from '../../ui/hooks/useInputHistory';
+import {useFeedNavigation} from '../../ui/hooks/useFeedNavigation';
+import {useTodoPanel} from '../../ui/hooks/useTodoPanel';
+import {useFeedKeyboard} from '../../ui/hooks/useFeedKeyboard';
+import {useTodoKeyboard} from '../../ui/hooks/useTodoKeyboard';
+import {useSpinner} from '../../ui/hooks/useSpinner';
+import {useTimeline} from '../../ui/hooks/useTimeline';
+import {useLayout} from '../../ui/hooks/useLayout';
+import {useCommandDispatch} from '../../ui/hooks/useCommandDispatch';
+import {buildBodyLines} from '../../ui/layout/buildBodyLines';
+import {FeedGrid} from '../../ui/components/FeedGrid';
+import {FrameRow} from '../../ui/components/FrameRow';
+import {useFeedColumns} from '../../ui/hooks/useFeedColumns';
+import {buildFrameLines} from '../../ui/layout/buildFrameLines';
+import {buildHeaderModel} from '../../ui/header/model';
+import {renderHeaderLines} from '../../ui/header/renderLines';
+import type {Message as MessageType} from '../../shared/types/common';
+import {generateId} from '../../shared/utils/id';
+import type {
+	IsolationConfig,
+	IsolationPreset,
+} from '../../harnesses/claude/config/isolation';
+import {type PermissionDecision} from '../../core/controller/permission';
 import {parseInput} from '../commands/parser';
 import {executeCommand} from '../commands/executor';
 import {
@@ -46,22 +46,22 @@ import {
 	useTheme,
 	type Theme,
 	resolveTheme,
-} from '../../theme/index';
-import SessionPicker from '../../components/SessionPicker';
-import type {SessionEntry} from '../../utils/sessionIndex';
-import {listSessions, getSessionMeta} from '../../sessions/registry';
-import {fit, fitAnsi} from '../../utils/format';
-import {frameGlyphs} from '../../glyphs/index';
-import type {WorkflowConfig} from '../../workflows/types';
+} from '../../ui/theme/index';
+import SessionPicker from '../../ui/components/SessionPicker';
+import type {SessionEntry} from '../../shared/types/session';
+import {listSessions, getSessionMeta} from '../../infra/sessions/registry';
+import {fit, fitAnsi} from '../../shared/utils/format';
+import {frameGlyphs} from '../../ui/glyphs/index';
+import type {WorkflowConfig} from '../../core/workflows/types';
 import SetupWizard from '../../setup/SetupWizard';
-import {bootstrapRuntimeConfig} from '../../runtime/bootstrapConfig';
+import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
 import {
 	isPerfEnabled,
 	logPerfEvent,
 	logReactCommit,
 	startEventLoopMonitor,
 	startInputMeasure,
-} from '../../utils/perf';
+} from '../../shared/utils/perf';
 
 type Props = {
 	projectDir: string;
@@ -238,7 +238,7 @@ function AppContent({
 	);
 
 	const onExitTokens = useCallback(
-		(tokens: import('../../types/headerMetrics').TokenUsage) => {
+		(tokens: import('../../shared/types/headerMetrics').TokenUsage) => {
 			if (session?.session_id) {
 				recordTokens(session.session_id, tokens);
 			}

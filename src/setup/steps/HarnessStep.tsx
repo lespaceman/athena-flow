@@ -2,9 +2,9 @@ import React, {useState, useCallback} from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
 import StepStatus from '../components/StepStatus';
-import {detectClaudeVersion} from '../../utils/detectClaudeVersion';
-import {useTheme} from '../../theme/index';
-import type {AthenaHarness} from '../../plugins/config';
+import {detectClaudeVersion} from '../../harnesses/claude/system/detectVersion';
+import {useTheme} from '../../ui/theme/index';
+import type {AthenaHarness} from '../../infra/plugins/config';
 
 type Props = {
 	onComplete: (harness: AthenaHarness) => void;

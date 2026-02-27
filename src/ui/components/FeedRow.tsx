@@ -2,7 +2,7 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import {type TimelineEntry} from '../../feed/timeline';
+import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
 import {
 	formatGutter,
@@ -13,8 +13,8 @@ import {
 	formatResult,
 	formatDetails,
 	formatSuffix,
-} from '../../feed/cellFormatters';
-import {fitAnsi, spaces} from '../../utils/format';
+} from '../../core/feed/cellFormatters';
+import {fitAnsi, spaces} from '../../shared/utils/format';
 
 type FeedColumnWidths = {
 	toolW: number;

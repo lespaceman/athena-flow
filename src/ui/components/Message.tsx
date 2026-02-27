@@ -1,6 +1,6 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {type Message as MessageType} from '../../types/index';
+import {type Message as MessageType} from '../../shared/types/common';
 import {useTheme} from '../theme/index';
 import {MarkdownText} from './ToolOutput/index';
 import {getGlyphs} from '../glyphs/index';

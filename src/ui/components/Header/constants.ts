@@ -1,4 +1,4 @@
-import type {ClaudeState} from '../../../types/headerMetrics';
+import type {ClaudeState} from '../../../shared/types/headerMetrics';
 import {type Theme} from '../../theme/index';
 
 export function getStateColors(theme: Theme): Record<ClaudeState, string> {

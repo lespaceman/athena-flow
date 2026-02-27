@@ -1,11 +1,11 @@
 import {useEffect, useMemo} from 'react';
-import {type TimelineEntry, type RunSummary} from '../../feed/timeline';
+import {type TimelineEntry, type RunSummary} from '../../core/feed/timeline';
 import {type UseFeedNavigationResult} from './useFeedNavigation';
 import {type UseTodoPanelResult} from './useTodoPanel';
 import {
 	renderDetailLines,
 	renderMarkdownToLines,
-} from '../../utils/renderDetailLines';
+} from '../layout/renderDetailLines';
 
 const HEADER_ROWS = 1;
 const FRAME_BORDER_ROWS = 4;

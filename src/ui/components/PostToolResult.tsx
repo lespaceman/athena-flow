@@ -1,9 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import type {FeedEvent} from '../../feed/types';
+import type {FeedEvent} from '../../core/feed/types';
 import {getStatusColors, getPostToolText} from './hookEventUtils';
 import {ToolOutputRenderer, ToolResultContainer} from './ToolOutput/index';
-import {extractToolOutput} from '../../utils/toolExtractors';
+import {extractToolOutput} from '../tooling/toolExtractors';
 import {useTheme} from '../theme/index';
 
 type Props = {

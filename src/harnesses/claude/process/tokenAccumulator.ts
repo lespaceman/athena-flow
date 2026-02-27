@@ -1,4 +1,4 @@
-import type {TokenUsage} from '../../../types/headerMetrics';
+import type {TokenUsage} from '../../../shared/types/headerMetrics';
 
 /**
  * Token usage fields in the Claude stream-json `usage` object.

@@ -2,8 +2,8 @@ import {useCallback} from 'react';
 import {parseCommand} from './useCommandMode';
 import {type UseFeedNavigationResult} from './useFeedNavigation';
 import {type UseTodoPanelResult} from './useTodoPanel';
-import {type TimelineEntry, type RunSummary} from '../../feed/timeline';
-import {formatRunLabel} from '../../utils/format';
+import {type TimelineEntry, type RunSummary} from '../../core/feed/timeline';
+import {formatRunLabel} from '../../shared/utils/format';
 
 export type UseCommandDispatchOptions = {
 	addMessage: (role: 'user' | 'assistant', content: string) => void;

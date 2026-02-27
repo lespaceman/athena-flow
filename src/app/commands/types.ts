@@ -5,10 +5,10 @@
  * `category` field. Each category has its own execution interface.
  */
 
-import {type Message} from '../../types/common';
-import {type IsolationConfig} from '../../types/isolation';
+import {type Message} from '../../shared/types/common';
+import {type IsolationConfig} from '../../harnesses/claude/config/isolation';
 import {type UseFeedResult} from '../../hooks/useFeed';
-import {type SessionStatsSnapshot} from '../../types/headerMetrics';
+import {type SessionStatsSnapshot} from '../../shared/types/headerMetrics';
 
 // ---------------------------------------------------------------------------
 // Core command types

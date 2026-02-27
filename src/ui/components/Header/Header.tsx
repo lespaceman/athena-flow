@@ -1,9 +1,9 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import chalk from 'chalk';
-import {formatModelName} from '../../../utils/formatters';
-import {renderContextBar} from '../../../utils/contextBar';
-import type {ClaudeState} from '../../../types/headerMetrics';
+import {formatModelName} from '../../../shared/utils/formatters';
+import {renderContextBar} from '../../header/contextBar';
+import type {ClaudeState} from '../../../shared/types/headerMetrics';
 import {getStateColors, STATE_LABELS} from './constants';
 import {useTheme} from '../../theme/index';
 import {getGlyphs} from '../../glyphs/index';

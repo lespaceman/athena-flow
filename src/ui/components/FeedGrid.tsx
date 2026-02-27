@@ -1,9 +1,9 @@
 import React from 'react';
 import {Text} from 'ink';
-import {type TimelineEntry} from '../../feed/timeline';
+import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
 import {frameGlyphs} from '../glyphs/index';
-import {fitAnsi, spaces} from '../../utils/format';
+import {fitAnsi, spaces} from '../../shared/utils/format';
 import {type FeedColumnWidths, formatFeedRowLine} from './FeedRow';
 import {formatFeedHeaderLine} from './FeedHeader';
 

@@ -3,7 +3,7 @@ import {Box, Text} from 'ink';
 import {type Tokens} from 'marked';
 import Table from 'cli-table3';
 import chalk from 'chalk';
-import {createMarkedInstance} from '../../../utils/markedFactory';
+import {createMarkedInstance} from '../../../shared/utils/markedFactory';
 
 type Props = {
 	content: string;

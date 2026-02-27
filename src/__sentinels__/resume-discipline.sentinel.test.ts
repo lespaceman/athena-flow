@@ -29,13 +29,13 @@ vi.mock('../harnesses/claude/process/spawn', () => ({
 }));
 
 // Also mock workflow utilities to prevent side effects
-vi.mock('../workflows/index', () => ({
+vi.mock('../core/workflows/index', () => ({
 	applyPromptTemplate: vi.fn((_t: string, p: string) => p),
 	writeLoopState: vi.fn(),
 	removeLoopState: vi.fn(),
 }));
 
-import {useClaudeProcess} from '../hooks/useClaudeProcess';
+import {useClaudeProcess} from '../harnesses/claude/process/useProcess';
 import {spawnClaude} from '../harnesses/claude/process/spawn';
 
 describe('Sentinel: resume non-execution discipline', () => {

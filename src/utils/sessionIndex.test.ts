@@ -3,7 +3,7 @@ import {
 	encodeProjectPath,
 	readSessionIndex,
 	getMostRecentSession,
-} from './sessionIndex';
+} from '../infra/sessions/sessionIndex';
 
 vi.mock('node:fs');
 vi.mock('node:os', () => ({

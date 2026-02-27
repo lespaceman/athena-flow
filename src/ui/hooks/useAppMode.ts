@@ -1,4 +1,4 @@
-import type {AppMode} from '../../types/headerMetrics';
+import type {AppMode} from '../../shared/types/headerMetrics';
 
 /**
  * Derive the current app mode from runtime state.

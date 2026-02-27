@@ -3,11 +3,11 @@ import {
 	type TodoPanelItem,
 	type TodoPanelStatus,
 	toTodoStatus,
-} from '../../feed/todoPanel';
-import {type TodoItem} from '../../types/todo';
+} from '../../core/feed/todoPanel';
+import {type TodoItem} from '../../core/feed/todo';
 
-import {generateId} from '../../types/index';
-import {formatElapsed} from '../../utils/formatElapsed';
+import {generateId} from '../../shared/utils/id';
+import {formatElapsed} from '../../shared/utils/formatElapsed';
 
 export type UseTodoPanelOptions = {
 	tasks: TodoItem[];

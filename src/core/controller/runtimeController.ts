@@ -9,7 +9,7 @@
  */
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
-import {type HookRule, matchRule} from '../../types/rules';
+import {type HookRule, matchRule} from './rules';
 
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];

@@ -1,9 +1,9 @@
 import React, {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {type SessionEntry} from '../../utils/sessionIndex';
-import {formatRelativeTime} from '../../utils/formatters';
+import {type SessionEntry} from '../../shared/types/session';
+import {formatRelativeTime} from '../../shared/utils/formatters';
 import {useTheme} from '../theme/index';
-import {startInputMeasure} from '../../utils/perf';
+import {startInputMeasure} from '../../shared/utils/perf';
 
 type Props = {
 	sessions: SessionEntry[];

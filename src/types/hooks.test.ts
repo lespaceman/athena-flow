@@ -17,7 +17,7 @@ import {
 	isSubagentStartEvent,
 	isSubagentStopEvent,
 	isToolEvent,
-} from './hooks/index';
+} from '../harnesses/claude/protocol';
 
 // Helper to create base event fields
 const createBaseEvent = () => ({

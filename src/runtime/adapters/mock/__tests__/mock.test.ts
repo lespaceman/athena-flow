@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
-import {createMockRuntime} from '../scriptedReplay';
-import {createInjectableMockRuntime} from '../injectable';
-import type {RuntimeEvent, RuntimeDecision} from '../../../types';
+import {createMockRuntime} from '../../../../harnesses/mock/runtime/scriptedReplay';
+import {createInjectableMockRuntime} from '../../../../harnesses/mock/runtime/injectable';
+import type {RuntimeEvent, RuntimeDecision} from '../../../../core/runtime/types';
 
 describe('createMockRuntime (scripted)', () => {
 	it('emits scripted events after delay', async () => {

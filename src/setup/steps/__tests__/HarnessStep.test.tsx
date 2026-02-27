@@ -5,7 +5,7 @@ import HarnessStep from '../HarnessStep';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-vi.mock('../../../utils/detectClaudeVersion', () => ({
+vi.mock('../../../harnesses/claude/system/detectVersion', () => ({
 	detectClaudeVersion: vi.fn(() => '2.5.0'),
 }));
 

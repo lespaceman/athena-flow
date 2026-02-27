@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {type PluginManifest} from './types';
 import {parseFrontmatter} from './frontmatter';
-import {type PromptCommand} from '../../commands/types';
+import {type PromptCommand} from '../../app/commands/types';
 
 /**
  * Load a plugin from a directory and return PromptCommands for its

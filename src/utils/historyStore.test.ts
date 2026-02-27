@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest';
 import * as fs from 'node:fs';
-import {loadHistory, saveHistory} from './historyStore';
+import {loadHistory, saveHistory} from '../app/history/historyStore';
 
 vi.mock('node:fs');
 

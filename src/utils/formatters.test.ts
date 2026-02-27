@@ -7,9 +7,9 @@ import {
 	formatModelName,
 	getContextBarColor,
 	formatStatsSnapshot,
-} from './formatters';
-import {darkTheme} from '../theme/index';
-import type {SessionStatsSnapshot} from '../types/headerMetrics';
+} from '../shared/utils/formatters';
+import {darkTheme} from '../ui/theme/index';
+import type {SessionStatsSnapshot} from '../shared/types/headerMetrics';
 
 vi.mock('node:os', () => ({
 	default: {homedir: () => '/home/testuser'},

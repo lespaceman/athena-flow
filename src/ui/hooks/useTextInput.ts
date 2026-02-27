@@ -1,6 +1,6 @@
 import {useReducer, useCallback, useEffect, useRef} from 'react';
 import {useInput, useStdin} from 'ink';
-import {startInputMeasure} from '../../utils/perf';
+import {startInputMeasure} from '../../shared/utils/perf';
 
 export type TextInputState = {
 	value: string;

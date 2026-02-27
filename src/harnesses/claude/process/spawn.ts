@@ -1,15 +1,12 @@
 import {spawn, type ChildProcess} from 'node:child_process';
-import {processRegistry} from '../../../utils/processRegistry';
-import {type SpawnClaudeOptions} from '../../../types/process';
+import {processRegistry} from '../../../shared/utils/processRegistry';
+import {type SpawnClaudeOptions} from './types';
 import {resolveIsolationConfig} from '../config/isolation';
 import {
 	generateHookSettings,
 	registerCleanupOnExit,
 } from '../hooks/generateHookSettings';
 import {buildIsolationArgs, validateConflicts} from '../config/flagRegistry';
-
-// Re-export type for backwards compatibility
-export type {SpawnClaudeOptions};
 
 /**
  * Spawns a Claude Code headless process with the given prompt.

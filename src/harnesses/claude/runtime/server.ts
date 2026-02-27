@@ -17,7 +17,7 @@ import type {
 	RuntimeDecision,
 	RuntimeEventHandler,
 	RuntimeDecisionHandler,
-} from '../../../runtime/types';
+} from '../../../core/runtime/types';
 import {mapEnvelopeToRuntimeEvent} from './mapper';
 import {mapDecisionToResult} from './decisionMapper';
 

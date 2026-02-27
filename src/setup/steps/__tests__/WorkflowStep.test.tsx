@@ -3,7 +3,7 @@ import {render} from 'ink-testing-library';
 import {describe, it, expect, vi} from 'vitest';
 import WorkflowStep from '../WorkflowStep';
 
-vi.mock('../../../workflows/index', () => ({
+vi.mock('../../../core/workflows/index', () => ({
 	installWorkflow: vi.fn(() => 'e2e-test-builder'),
 	resolveWorkflow: vi.fn(() => ({name: 'e2e-test-builder', plugins: []})),
 }));

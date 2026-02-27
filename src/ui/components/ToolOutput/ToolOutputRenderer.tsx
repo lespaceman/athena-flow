@@ -1,5 +1,5 @@
 import React from 'react';
-import {extractToolOutput} from '../../../utils/toolExtractors';
+import {extractToolOutput} from '../../tooling/toolExtractors';
 import CodeBlock from './CodeBlock';
 import DiffBlock from './DiffBlock';
 import StructuredList from './StructuredList';

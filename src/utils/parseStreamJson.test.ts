@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {createTokenAccumulator} from './parseStreamJson';
+import {createTokenAccumulator} from '../harnesses/claude/process/tokenAccumulator';
 
 /** Build a newline-terminated NDJSON line from a stream event. */
 function line(event: Record<string, unknown>): string {

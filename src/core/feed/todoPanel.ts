@@ -1,9 +1,9 @@
 import chalk from 'chalk';
-import {type TodoItem} from '../../types/todo';
+import {type TodoItem} from './todo';
 import {
 	todoGlyphSet as getTodoGlyphSet,
 	getGlyphs,
-} from '../../glyphs/index';
+} from '../../ui/glyphs/index';
 
 export type TodoPanelStatus = 'open' | 'doing' | 'blocked' | 'done' | 'failed';
 

@@ -5,8 +5,8 @@ import ThemeStep from './steps/ThemeStep';
 import HarnessStep from './steps/HarnessStep';
 import WorkflowStep from './steps/WorkflowStep';
 import StepStatus from './components/StepStatus';
-import {writeGlobalConfig, type AthenaHarness} from '../plugins/config';
-import {useTheme} from '../theme/index';
+import {writeGlobalConfig, type AthenaHarness} from '../infra/plugins/config';
+import {useTheme} from '../ui/theme/index';
 
 export type SetupResult = {
 	theme: string;

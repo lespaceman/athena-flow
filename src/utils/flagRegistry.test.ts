@@ -4,11 +4,11 @@ import {
 	validateConflicts,
 	FLAG_REGISTRY,
 	type FlagDef,
-} from './flagRegistry';
+} from '../harnesses/claude/config/flagRegistry';
 import {
 	type IsolationConfig,
 	resolveIsolationConfig,
-} from '../types/isolation';
+} from '../harnesses/claude/config/isolation';
 
 describe('FLAG_REGISTRY', () => {
 	it('should contain exactly 28 flag definitions', () => {

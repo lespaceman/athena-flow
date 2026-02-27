@@ -1,7 +1,10 @@
 import {defineConfig} from 'tsup';
 
 export default defineConfig({
-	entry: ['src/cli.tsx', 'src/hook-forwarder.ts'],
+	entry: {
+		cli: 'src/app/entry/cli.tsx',
+		'hook-forwarder': 'src/harnesses/claude/hook-forwarder.ts',
+	},
 	format: ['esm'],
 	target: 'node18',
 	outDir: 'dist',

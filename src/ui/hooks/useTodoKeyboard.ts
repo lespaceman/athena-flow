@@ -1,8 +1,8 @@
 import {useRef} from 'react';
 import {useInput} from 'ink';
-import {type TodoPanelItem} from '../../feed/todoPanel';
-import {type TimelineEntry} from '../../feed/timeline';
-import {startInputMeasure} from '../../utils/perf';
+import {type TodoPanelItem} from '../../core/feed/todoPanel';
+import {type TimelineEntry} from '../../core/feed/timeline';
+import {startInputMeasure} from '../../shared/utils/perf';
 
 export type TodoKeyboardCallbacks = {
 	setFocusMode: (mode: 'feed' | 'input' | 'todo') => void;

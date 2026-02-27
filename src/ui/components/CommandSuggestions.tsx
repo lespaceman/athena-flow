@@ -1,7 +1,7 @@
 import process from 'node:process';
 import React from 'react';
 import {Box, Text} from 'ink';
-import {type Command} from '../../commands/types';
+import {type Command} from '../../app/commands/types';
 import {useTheme} from '../theme/index';
 
 type Props = {

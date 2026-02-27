@@ -1,6 +1,6 @@
 import {type UICommand} from '../types';
-import {generateId} from '../../../types/hooks/index';
-import {formatTokens} from '../../../utils/formatters';
+import {generateId} from '../../../harnesses/claude/protocol/index';
+import {formatTokens} from '../../../shared/utils/formatters';
 
 export const contextCommand: UICommand = {
 	name: 'context',

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
-import {useTheme} from '../../theme/index';
+import {useTheme} from '../../ui/theme/index';
 
 type Props = {
 	onComplete: (theme: string) => void;

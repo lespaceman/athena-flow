@@ -1,5 +1,5 @@
 import {useState, useCallback, useEffect, useMemo, useRef} from 'react';
-import {type TimelineEntry} from '../../feed/timeline';
+import {type TimelineEntry} from '../../core/feed/timeline';
 
 export type UseFeedNavigationOptions = {
 	filteredEntries: TimelineEntry[];

@@ -1,5 +1,5 @@
 import {useMemo} from 'react';
-import {type TimelineEntry} from '../../feed/timeline';
+import {type TimelineEntry} from '../../core/feed/timeline';
 
 export type FeedColumns = {
 	toolW: number;

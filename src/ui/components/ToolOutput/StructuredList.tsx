@@ -1,8 +1,8 @@
 import React from 'react';
 import {Box, Text} from 'ink';
-import {type ListItem} from '../../../types/toolOutput';
-import {buildFileTree, renderTree} from '../../../utils/fileTree';
-import {fileLink} from '../../../utils/hyperlink';
+import {type ListItem} from '../../../shared/types/toolOutput';
+import {buildFileTree, renderTree} from '../../../shared/utils/fileTree';
+import {fileLink} from '../../../shared/utils/hyperlink';
 
 type Props = {
 	items: ListItem[];

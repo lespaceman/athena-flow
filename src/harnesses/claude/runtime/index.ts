@@ -4,7 +4,7 @@
  * Factory that creates a Runtime instance backed by UDS + NDJSON protocol.
  */
 
-import type {Runtime} from '../../../runtime/types';
+import type {Runtime} from '../../../core/runtime/types';
 import {createServer} from './server';
 
 export type ClaudeHookRuntimeOptions = {

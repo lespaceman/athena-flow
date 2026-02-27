@@ -11,7 +11,7 @@ import {
 	isSubagentStartEvent,
 	isSubagentStopEvent,
 } from '../protocol/events';
-import type {RuntimeEvent} from '../../../runtime/types';
+import type {RuntimeEvent} from '../../../core/runtime/types';
 import {getInteractionHints} from './interactionRules';
 
 export function mapEnvelopeToRuntimeEvent(

@@ -1,6 +1,6 @@
 import React from 'react';
 import {Text, Box} from 'ink';
-import {useTheme} from '../../theme/index';
+import {useTheme} from '../../ui/theme/index';
 
 type Props = {
 	status: 'verifying' | 'success' | 'error';

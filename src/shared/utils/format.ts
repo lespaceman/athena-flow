@@ -1,6 +1,6 @@
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
-import {parseToolName} from '../../utils/toolNameParser';
+import {parseToolName} from './toolNameParser';
 
 const SIMPLE_ASCII_RE = /^[\x20-\x7E]*$/;
 const WIDTH_CACHE_MAX = 2_000;

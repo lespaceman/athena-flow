@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import * as childProcess from 'node:child_process';
-import {spawnClaude} from './spawnClaude';
+import {spawnClaude} from '../harnesses/claude/process/spawn';
 import {EventEmitter} from 'node:events';
 
 const mockCleanup = vi.fn();

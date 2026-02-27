@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {useTheme} from '../../theme/index';
+import {useTheme} from '../../ui/theme/index';
 
 export type SelectorOption = {
 	label: string;

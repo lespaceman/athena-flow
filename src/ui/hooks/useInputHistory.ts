@@ -1,5 +1,5 @@
 import {useCallback, useRef} from 'react';
-import {loadHistory, saveHistory} from '../../utils/historyStore';
+import {loadHistory, saveHistory} from '../../app/history/historyStore';
 
 const MAX_HISTORY = 200;
 

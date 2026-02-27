@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 import type {FeedEvent} from '../../core/feed/types';
 import type {MapperBootstrap} from '../../core/feed/bootstrap';
 import type {RuntimeEvent} from '../../core/runtime/types';
-import type {TokenUsage} from '../../types/headerMetrics';
+import type {TokenUsage} from '../../shared/types/headerMetrics';
 import {initSchema} from './schema';
 import type {
 	AthenaSession,

@@ -1,6 +1,6 @@
 import {type UICommand} from '../types';
-import {generateId} from '../../../types/hooks/index';
-import {formatStatsSnapshot} from '../../../utils/formatters';
+import {generateId} from '../../../harnesses/claude/protocol/index';
+import {formatStatsSnapshot} from '../../../shared/utils/formatters';
 
 export const statsCommand: UICommand = {
 	name: 'stats',

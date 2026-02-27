@@ -1,4 +1,4 @@
-import type {RuntimeEvent} from '../../../runtime/types';
+import type {RuntimeEvent} from '../../../core/runtime/types';
 
 type InteractionHints = RuntimeEvent['interaction'];
 
