@@ -8,21 +8,14 @@ import os from 'node:os';
 import path from 'node:path';
 import App from './app.js';
 import {processRegistry} from './utils/processRegistry.js';
-import {type IsolationPreset, type IsolationConfig} from './types/isolation.js';
+import {type IsolationPreset} from './types/isolation.js';
 import {registerBuiltins} from './commands/builtins/index.js';
-import {
-	registerPlugins,
-	readConfig,
-	readGlobalConfig,
-} from './plugins/index.js';
-import {readClaudeSettingsModel} from './utils/resolveModel.js';
+import {readConfig, readGlobalConfig} from './plugins/index.js';
+import {bootstrapRuntimeConfig} from './runtime/bootstrapConfig.js';
 import {resolveTheme} from './theme/index.js';
 import crypto from 'node:crypto';
 import {getSessionMeta, getMostRecentAthenaSession} from './sessions/index.js';
-import type {WorkflowConfig} from './workflows/types.js';
-import {resolveWorkflow, installWorkflowPlugins} from './workflows/index.js';
 import {shouldShowSetup} from './setup/shouldShowSetup.js';
-import {shouldResolveWorkflow} from './setup/shouldResolveWorkflow.js';
 
 const require = createRequire(import.meta.url);
 const {version} = require('../package.json') as {version: string};
@@ -134,89 +127,26 @@ const showSetup = shouldShowSetup({
 	),
 });
 
-// Resolve workflow from standalone registry if configured
-const workflowName =
-	cli.flags.workflow ?? projectConfig.workflow ?? globalConfig.workflow;
-let workflowPluginDirs: string[] = [];
-let resolvedWorkflow: WorkflowConfig | undefined;
-
-// Setup must remain recoverable even if existing workflow config is invalid.
-const workflowToResolve = shouldResolveWorkflow({showSetup, workflowName})
-	? workflowName
-	: undefined;
-
-if (workflowToResolve) {
-	try {
-		resolvedWorkflow = resolveWorkflow(workflowToResolve);
-		workflowPluginDirs = installWorkflowPlugins(resolvedWorkflow);
-	} catch (error) {
-		console.error(`Error: ${(error as Error).message}`);
-		process.exit(1);
-	}
+let runtimeConfig: ReturnType<typeof bootstrapRuntimeConfig>;
+try {
+	runtimeConfig = bootstrapRuntimeConfig({
+		projectDir: cli.flags.projectDir,
+		showSetup,
+		workflowFlag: cli.flags.workflow,
+		pluginFlags: cli.flags.plugin ?? [],
+		isolationPreset,
+		verbose: cli.flags.verbose,
+		globalConfig,
+		projectConfig,
+	});
+} catch (error) {
+	console.error(`Error: ${(error as Error).message}`);
+	process.exit(1);
 }
 
-const pluginDirs = [
-	...new Set([
-		...workflowPluginDirs,
-		...globalConfig.plugins,
-		...projectConfig.plugins,
-		...(cli.flags.plugin ?? []),
-	]),
-];
-const pluginResult =
-	pluginDirs.length > 0
-		? registerPlugins(pluginDirs)
-		: {mcpConfig: undefined, workflows: [] as WorkflowConfig[]};
-const pluginMcpConfig = pluginResult.mcpConfig;
-const workflows = pluginResult.workflows;
-
-// Select active workflow: resolved from registry takes precedence over plugin-embedded
-let activeWorkflow: WorkflowConfig | undefined = resolvedWorkflow;
-if (!activeWorkflow && workflows.length === 1) {
-	activeWorkflow = workflows[0];
-} else if (!activeWorkflow && workflows.length > 1) {
-	console.error(
-		`Multiple workflows found: ${workflows.map(w => w.name).join(', ')}. Use --workflow=<name> to select one.`,
-	);
+for (const warning of runtimeConfig.warnings) {
+	console.error(warning);
 }
-
-// Merge additionalDirectories from global and project configs
-const additionalDirectories = [
-	...globalConfig.additionalDirectories,
-	...projectConfig.additionalDirectories,
-];
-
-// Resolve model: project config > global config > env var > Claude settings
-const configModel =
-	projectConfig.model || globalConfig.model || activeWorkflow?.model;
-
-// Workflow may require a less restrictive isolation preset
-if (activeWorkflow?.isolation) {
-	const presetOrder = ['strict', 'minimal', 'permissive'];
-	const workflowIdx = presetOrder.indexOf(activeWorkflow.isolation);
-	const userIdx = presetOrder.indexOf(isolationPreset);
-	if (workflowIdx > userIdx) {
-		console.error(
-			`Workflow '${activeWorkflow.name}' requires '${activeWorkflow.isolation}' isolation (upgrading from '${isolationPreset}')`,
-		);
-		isolationPreset = activeWorkflow.isolation as IsolationPreset;
-	}
-}
-
-// Build isolation config with preset, additional directories, and plugin dirs
-const isolationConfig: IsolationConfig = {
-	preset: isolationPreset,
-	additionalDirectories,
-	pluginDirs: pluginDirs.length > 0 ? pluginDirs : undefined,
-	debug: cli.flags.verbose, // Pass --debug to Claude when --verbose is set
-	model: configModel,
-};
-
-const modelName =
-	isolationConfig.model ||
-	process.env['ANTHROPIC_MODEL'] ||
-	readClaudeSettingsModel(cli.flags.projectDir) ||
-	null;
 
 // Resolve theme: CLI flag > project config > global config > default
 const themeName =
@@ -262,17 +192,20 @@ render(
 	<App
 		projectDir={cli.flags.projectDir}
 		instanceId={instanceId}
-		isolation={isolationConfig}
+		isolation={runtimeConfig.isolationConfig}
 		verbose={cli.flags.verbose}
 		version={version}
-		pluginMcpConfig={pluginMcpConfig}
-		modelName={modelName}
+		pluginMcpConfig={runtimeConfig.pluginMcpConfig}
+		modelName={runtimeConfig.modelName}
 		theme={theme}
 		initialSessionId={initialSessionId}
 		athenaSessionId={athenaSessionId}
 		showSessionPicker={showSessionPicker}
-		workflowRef={cli.flags.workflow ?? activeWorkflow?.name}
-		workflow={activeWorkflow}
+		workflowRef={runtimeConfig.workflowRef}
+		workflow={runtimeConfig.workflow}
+		workflowFlag={cli.flags.workflow}
+		pluginFlags={cli.flags.plugin ?? []}
+		isolationPreset={isolationPreset}
 		ascii={cli.flags.ascii}
 		showSetup={showSetup}
 	/>,

@@ -47,7 +47,22 @@ Config files are merged in order: global → project → CLI flags.
 ```json
 {
 	"plugins": ["/path/to/plugin"],
-	"additionalDirectories": ["/path/to/allow"]
+	"additionalDirectories": ["/path/to/allow"],
+	"workflow": "e2e-test-builder"
+}
+```
+
+### Workflow Marketplace Resolution
+
+- Workflow refs (`name@owner/repo`) are resolved from `.athena-workflow/marketplace.json` (preferred).
+- Legacy workflow manifests at `.claude-plugin/marketplace.json` are still supported as a fallback.
+- Workflow `plugins[]` should use marketplace refs, for example:
+
+```json
+{
+	"name": "e2e-test-builder",
+	"plugins": ["e2e-test-builder@lespaceman/athena-workflow-marketplace"],
+	"promptTemplate": "{input}"
 }
 ```
 

@@ -361,7 +361,8 @@ describe('resolveMarketplacePlugin', () => {
 describe('resolveMarketplaceWorkflow', () => {
 	const cacheBase =
 		'/home/testuser/.config/athena/marketplaces/lespaceman/athena-workflow-marketplace';
-	const manifestPath = `${cacheBase}/.claude-plugin/marketplace.json`;
+	const athenaWorkflowManifestPath = `${cacheBase}/.athena-workflow/marketplace.json`;
+	const legacyManifestPath = `${cacheBase}/.claude-plugin/marketplace.json`;
 
 	const manifestWithWorkflows = JSON.stringify({
 		name: 'athena-workflow-marketplace',
@@ -378,7 +379,77 @@ describe('resolveMarketplaceWorkflow', () => {
 
 	it('resolves a workflow from the manifest', () => {
 		dirs.add(cacheBase);
-		files[manifestPath] = manifestWithWorkflows;
+		files[athenaWorkflowManifestPath] = manifestWithWorkflows;
+		files[`${cacheBase}/workflows/e2e-test-builder/workflow.json`] = '{}';
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		const result = resolveMarketplaceWorkflow(
+			'e2e-test-builder@lespaceman/athena-workflow-marketplace',
+		);
+
+		expect(result).toBe(
+			`${cacheBase}/workflows/e2e-test-builder/workflow.json`,
+		);
+	});
+
+	it('falls back to legacy .claude-plugin/marketplace.json when RFC manifest is missing', () => {
+		dirs.add(cacheBase);
+		files[legacyManifestPath] = manifestWithWorkflows;
+		files[`${cacheBase}/workflows/e2e-test-builder/workflow.json`] = '{}';
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		const result = resolveMarketplaceWorkflow(
+			'e2e-test-builder@lespaceman/athena-workflow-marketplace',
+		);
+
+		expect(result).toBe(
+			`${cacheBase}/workflows/e2e-test-builder/workflow.json`,
+		);
+	});
+
+	it('uses metadata.workflowRoot for bare workflow sources', () => {
+		dirs.add(cacheBase);
+		files[athenaWorkflowManifestPath] = JSON.stringify({
+			name: 'athena-workflow-marketplace',
+			owner: {name: 'Test Team'},
+			plugins: [],
+			metadata: {workflowRoot: './.workflows'},
+			workflows: [
+				{
+					name: 'e2e-test-builder',
+					source: 'e2e-test-builder/workflow.json',
+				},
+			],
+		});
+		files[`${cacheBase}/.workflows/e2e-test-builder/workflow.json`] = '{}';
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		const result = resolveMarketplaceWorkflow(
+			'e2e-test-builder@lespaceman/athena-workflow-marketplace',
+		);
+
+		expect(result).toBe(
+			`${cacheBase}/.workflows/e2e-test-builder/workflow.json`,
+		);
+	});
+
+	it('does not prepend workflowRoot when source starts with ./', () => {
+		dirs.add(cacheBase);
+		files[athenaWorkflowManifestPath] = JSON.stringify({
+			name: 'athena-workflow-marketplace',
+			owner: {name: 'Test Team'},
+			plugins: [],
+			metadata: {workflowRoot: './.workflows'},
+			workflows: [
+				{
+					name: 'e2e-test-builder',
+					source: './workflows/e2e-test-builder/workflow.json',
+				},
+			],
+		});
 		files[`${cacheBase}/workflows/e2e-test-builder/workflow.json`] = '{}';
 
 		execFileSyncMock.mockImplementation(() => {});
@@ -394,7 +465,7 @@ describe('resolveMarketplaceWorkflow', () => {
 
 	it('throws when workflow not found in manifest', () => {
 		dirs.add(cacheBase);
-		files[manifestPath] = manifestWithWorkflows;
+		files[athenaWorkflowManifestPath] = manifestWithWorkflows;
 
 		execFileSyncMock.mockImplementation(() => {});
 
@@ -409,7 +480,7 @@ describe('resolveMarketplaceWorkflow', () => {
 
 	it('throws when manifest has no workflows array', () => {
 		dirs.add(cacheBase);
-		files[manifestPath] = JSON.stringify({
+		files[athenaWorkflowManifestPath] = JSON.stringify({
 			name: 'marketplace',
 			owner: {name: 'Test'},
 			plugins: [],
@@ -422,5 +493,29 @@ describe('resolveMarketplaceWorkflow', () => {
 				'some-workflow@lespaceman/athena-workflow-marketplace',
 			),
 		).toThrow('Available workflows: (none)');
+	});
+
+	it('throws when workflow source resolves outside the repo (path traversal)', () => {
+		dirs.add(cacheBase);
+		files[athenaWorkflowManifestPath] = JSON.stringify({
+			name: 'marketplace',
+			owner: {name: 'Test'},
+			plugins: [],
+			metadata: {workflowRoot: './.workflows'},
+			workflows: [
+				{
+					name: 'e2e-test-builder',
+					source: '../../../etc/passwd',
+				},
+			],
+		});
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		expect(() =>
+			resolveMarketplaceWorkflow(
+				'e2e-test-builder@lespaceman/athena-workflow-marketplace',
+			),
+		).toThrow('resolves outside the marketplace repo');
 	});
 });

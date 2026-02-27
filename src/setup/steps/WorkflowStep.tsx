@@ -57,7 +57,7 @@ export default function WorkflowStep({onComplete, onError, onSkip}: Props) {
 				You can skip this and install workflows later from the CLI.
 			</Text>
 			<Text color={theme.textMuted}>
-				Workflow defaults apply on the next CLI launch.
+				Workflow defaults apply as soon as setup finishes.
 			</Text>
 			{status === 'selecting' && (
 				<Box marginTop={1}>

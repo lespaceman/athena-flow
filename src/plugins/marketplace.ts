@@ -23,7 +23,7 @@ export type MarketplaceEntry = {
 	version?: string;
 };
 
-/** Shape of `.claude-plugin/marketplace.json`. */
+/** Shape of marketplace manifests used by athena-cli resolvers. */
 export type MarketplaceManifest = {
 	name: string;
 	owner: {name: string; email?: string};
@@ -31,6 +31,7 @@ export type MarketplaceManifest = {
 		description?: string;
 		version?: string;
 		pluginRoot?: string;
+		workflowRoot?: string;
 	};
 	plugins: MarketplaceEntry[];
 	workflows?: MarketplaceEntry[];
@@ -220,9 +221,23 @@ export function resolveMarketplaceWorkflow(ref: string): string {
 	const cacheDir = path.join(os.homedir(), '.config', 'athena', 'marketplaces');
 	const repoDir = ensureRepo(cacheDir, owner, repo);
 
-	const manifestPath = path.join(repoDir, '.claude-plugin', 'marketplace.json');
+	const preferredManifestPath = path.join(
+		repoDir,
+		'.athena-workflow',
+		'marketplace.json',
+	);
+	const legacyManifestPath = path.join(
+		repoDir,
+		'.claude-plugin',
+		'marketplace.json',
+	);
+	const manifestPath = fs.existsSync(preferredManifestPath)
+		? preferredManifestPath
+		: legacyManifestPath;
 	if (!fs.existsSync(manifestPath)) {
-		throw new Error(`Marketplace manifest not found: ${manifestPath}`);
+		throw new Error(
+			`Marketplace manifest not found: ${preferredManifestPath} (legacy fallback: ${legacyManifestPath})`,
+		);
 	}
 
 	const manifest = JSON.parse(
@@ -244,7 +259,18 @@ export function resolveMarketplaceWorkflow(ref: string): string {
 		);
 	}
 
-	const workflowPath = path.resolve(repoDir, entry.source);
+	let sourcePath = entry.source;
+	const {workflowRoot} = manifest.metadata ?? {};
+	if (
+		workflowRoot &&
+		!path.isAbsolute(sourcePath) &&
+		!sourcePath.startsWith('./') &&
+		!sourcePath.startsWith('../')
+	) {
+		sourcePath = path.join(workflowRoot, sourcePath);
+	}
+
+	const workflowPath = path.resolve(repoDir, sourcePath);
 
 	// Guard against path traversal
 	if (

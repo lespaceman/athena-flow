@@ -37,6 +37,7 @@ import {
 	type IsolationConfig,
 	generateId,
 } from './types/index.js';
+import type {IsolationPreset} from './types/isolation.js';
 import {type PermissionDecision} from './types/server.js';
 import {parseInput} from './commands/parser.js';
 import {executeCommand} from './commands/executor.js';
@@ -53,6 +54,7 @@ import {fit, fitAnsi} from './utils/format.js';
 import {frameGlyphs} from './glyphs/index.js';
 import type {WorkflowConfig} from './workflows/types.js';
 import SetupWizard from './setup/SetupWizard.js';
+import {bootstrapRuntimeConfig} from './runtime/bootstrapConfig.js';
 import {
 	isPerfEnabled,
 	logPerfEvent,
@@ -74,6 +76,9 @@ type Props = {
 	showSessionPicker?: boolean;
 	workflowRef?: string;
 	workflow?: WorkflowConfig;
+	workflowFlag?: string;
+	pluginFlags?: string[];
+	isolationPreset: IsolationPreset;
 	ascii?: boolean;
 	showSetup?: boolean;
 	athenaSessionId: string;
@@ -136,7 +141,15 @@ function AppContent({
 	workflowRef,
 	workflow,
 	ascii,
-}: Omit<Props, 'showSessionPicker' | 'showSetup' | 'theme'> & {
+}: Omit<
+	Props,
+	| 'showSessionPicker'
+	| 'showSetup'
+	| 'theme'
+	| 'workflowFlag'
+	| 'pluginFlags'
+	| 'isolationPreset'
+> & {
 	initialSessionId?: string;
 	onClear: () => void;
 	onShowSessions: () => void;
@@ -1035,6 +1048,9 @@ export default function App({
 	showSetup,
 	workflowRef,
 	workflow,
+	workflowFlag,
+	pluginFlags,
+	isolationPreset,
 	ascii,
 	athenaSessionId: initialAthenaSessionId,
 }: Props) {
@@ -1044,6 +1060,19 @@ export default function App({
 		initialAthenaSessionId,
 	);
 	const [activeTheme, setActiveTheme] = useState(theme);
+	const [runtimeState, setRuntimeState] = useState<{
+		isolation?: IsolationConfig;
+		pluginMcpConfig?: string;
+		modelName: string | null;
+		workflowRef?: string;
+		workflow?: WorkflowConfig;
+	}>({
+		isolation,
+		pluginMcpConfig,
+		modelName,
+		workflowRef,
+		workflow,
+	});
 	const inputHistory = useInputHistory(projectDir);
 	const initialPhase: AppPhase = showSetup
 		? {type: 'setup'}
@@ -1140,6 +1169,28 @@ export default function App({
 					}}
 					onComplete={setupResult => {
 						setActiveTheme(resolveTheme(setupResult.theme));
+						try {
+							const refreshed = bootstrapRuntimeConfig({
+								projectDir,
+								showSetup: false,
+								workflowFlag,
+								pluginFlags,
+								isolationPreset,
+								verbose,
+							});
+							for (const warning of refreshed.warnings) {
+								console.error(warning);
+							}
+							setRuntimeState({
+								isolation: refreshed.isolationConfig,
+								pluginMcpConfig: refreshed.pluginMcpConfig,
+								modelName: refreshed.modelName,
+								workflowRef: refreshed.workflowRef,
+								workflow: refreshed.workflow,
+							});
+						} catch (error) {
+							console.error(`Error: ${(error as Error).message}`);
+						}
 						setPhase({type: 'main'});
 					}}
 				/>
@@ -1172,26 +1223,26 @@ export default function App({
 			<HookProvider
 				projectDir={projectDir}
 				instanceId={instanceId}
-				allowedTools={isolation?.allowedTools}
+				allowedTools={runtimeState.isolation?.allowedTools}
 				athenaSessionId={athenaSessionId}
 			>
 				<AppContent
 					key={clearCount}
 					projectDir={projectDir}
 					instanceId={instanceId}
-					isolation={isolation}
+					isolation={runtimeState.isolation}
 					verbose={verbose}
 					version={version}
-					pluginMcpConfig={pluginMcpConfig}
-					modelName={modelName}
+					pluginMcpConfig={runtimeState.pluginMcpConfig}
+					modelName={runtimeState.modelName}
 					athenaSessionId={athenaSessionId}
 					initialSessionId={phase.initialSessionId}
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
 					onShowSetup={handleShowSetup}
 					inputHistory={inputHistory}
-					workflowRef={workflowRef}
-					workflow={workflow}
+					workflowRef={runtimeState.workflowRef}
+					workflow={runtimeState.workflow}
 					ascii={ascii}
 				/>
 			</HookProvider>
