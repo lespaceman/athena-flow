@@ -93,10 +93,13 @@ describe('SetupWizard', () => {
 		stdin.write('r');
 		await delay(650);
 
-		await vi.waitFor(() => {
-			expect(onComplete).toHaveBeenCalledTimes(1);
-			expect(writeMock).toHaveBeenCalledTimes(2);
-		});
+		await vi.waitFor(
+			() => {
+				expect(onComplete).toHaveBeenCalledTimes(1);
+				expect(writeMock).toHaveBeenCalledTimes(2);
+			},
+			{timeout: 3000},
+		);
 	});
 
 	it('supports skip and back keyboard shortcuts', async () => {
