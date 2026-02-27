@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect, beforeEach, afterEach} from 'vitest';
 import {render} from 'ink-testing-library';
-import CommandSuggestions from './CommandSuggestions.js';
-import {type Command} from '../commands/types.js';
+import CommandSuggestions from './CommandSuggestions';
+import {type Command} from '../commands/types';
 
 const makeCommand = (name: string, description: string): Command => ({
 	name,

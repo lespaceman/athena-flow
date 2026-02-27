@@ -1,8 +1,8 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import SubagentStopEvent from '../SubagentStopEvent.js';
-import type {FeedEvent} from '../../feed/types.js';
+import SubagentStopEvent from '../SubagentStopEvent';
+import type {FeedEvent} from '../../feed/types';
 
 function makeEvent(
 	overrides: Partial<{

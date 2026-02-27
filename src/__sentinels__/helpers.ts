@@ -1,4 +1,4 @@
-import type {RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
+import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
 
 let counter = 0;
 

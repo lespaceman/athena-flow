@@ -1,8 +1,8 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import HookEvent from '../HookEvent.js';
-import type {FeedEvent} from '../../feed/types.js';
+import HookEvent from '../HookEvent';
+import type {FeedEvent} from '../../feed/types';
 
 describe('HookEvent expanded prop', () => {
 	it('renders without expanded prop (default behavior)', () => {

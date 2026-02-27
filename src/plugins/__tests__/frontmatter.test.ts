@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {parseFrontmatter} from '../frontmatter.js';
+import {parseFrontmatter} from '../frontmatter';
 
 describe('parseFrontmatter', () => {
 	it('parses plain key-value strings', () => {

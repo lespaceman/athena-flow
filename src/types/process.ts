@@ -4,8 +4,8 @@
  * Types for spawning and managing Claude Code headless processes.
  */
 
-import {type IsolationConfig, type IsolationPreset} from './isolation.js';
-import type {TokenUsage} from './headerMetrics.js';
+import {type IsolationConfig, type IsolationPreset} from './isolation';
+import type {TokenUsage} from './headerMetrics';
 
 /**
  * Options for spawning a Claude Code headless process.

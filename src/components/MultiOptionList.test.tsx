@@ -2,7 +2,7 @@ import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
 import chalk from 'chalk';
-import MultiOptionList from './MultiOptionList.js';
+import MultiOptionList from './MultiOptionList';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 

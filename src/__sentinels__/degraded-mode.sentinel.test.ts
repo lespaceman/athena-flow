@@ -17,9 +17,9 @@
  * of the contract: throws on failure + markDegraded API behaves correctly.
  */
 import {describe, it, expect, afterEach} from 'vitest';
-import {createSessionStore, type SessionStore} from '../sessions/store.js';
-import {createFeedMapper} from '../feed/mapper.js';
-import {makeEvent, resetCounter} from './helpers.js';
+import {createSessionStore, type SessionStore} from '../sessions/store';
+import {createFeedMapper} from '../feed/mapper';
+import {makeEvent, resetCounter} from './helpers';
 
 describe('Sentinel: degraded mode on persistence failure', () => {
 	let store: SessionStore;

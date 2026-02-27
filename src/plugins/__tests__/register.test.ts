@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest';
-import {registerPlugins} from '../register.js';
-import {clear, get} from '../../commands/registry.js';
+import {registerPlugins} from '../register';
+import {clear, get} from '../../commands/registry';
 
 // Virtual file system for tests
 const files: Record<string, string> = {};

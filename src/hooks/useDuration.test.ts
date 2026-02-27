@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useDuration} from './useDuration.js';
+import {useDuration} from './useDuration';
 
 beforeEach(() => {
 	vi.useFakeTimers();

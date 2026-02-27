@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest';
-import {tasksCommand} from '../builtins/tasks.js';
+import {tasksCommand} from '../builtins/tasks';
 
 describe('tasks command', () => {
 	it('has correct name and category', () => {

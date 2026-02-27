@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {useAppMode} from './useAppMode.js';
+import {useAppMode} from './useAppMode';
 
 const fakeEvent = {event_id: 'test'};
 

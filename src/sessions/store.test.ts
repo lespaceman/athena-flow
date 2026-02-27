@@ -1,7 +1,7 @@
 import {describe, it, expect, afterEach} from 'vitest';
-import {createSessionStore} from './store.js';
-import type {RuntimeEvent} from '../runtime/types.js';
-import type {FeedEvent} from '../feed/types.js';
+import {createSessionStore} from './store';
+import type {RuntimeEvent} from '../runtime/types';
+import type {FeedEvent} from '../feed/types';
 
 // Helper: minimal RuntimeEvent
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {

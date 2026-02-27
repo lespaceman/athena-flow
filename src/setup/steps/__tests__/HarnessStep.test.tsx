@@ -1,11 +1,11 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect, vi} from 'vitest';
-import HarnessStep from '../HarnessStep.js';
+import HarnessStep from '../HarnessStep';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-vi.mock('../../../utils/detectClaudeVersion.js', () => ({
+vi.mock('../../../utils/detectClaudeVersion', () => ({
 	detectClaudeVersion: vi.fn(() => '2.5.0'),
 }));
 

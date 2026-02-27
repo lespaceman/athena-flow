@@ -1,4 +1,4 @@
-import type {RuntimeEvent} from '../../types.js';
+import type {RuntimeEvent} from '../../types';
 
 let counter = 0;
 

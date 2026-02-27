@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
-import type {PermissionQueueItem} from '../useFeed.js';
-import {extractPermissionSnapshot} from '../useFeed.js';
-import type {RuntimeEvent} from '../../runtime/types.js';
+import type {PermissionQueueItem} from '../useFeed';
+import {extractPermissionSnapshot} from '../useFeed';
+import type {RuntimeEvent} from '../../runtime/types';
 
 describe('PermissionQueueItem', () => {
 	it('has required fields for dialog rendering', () => {

@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {render} from 'ink-testing-library';
-import TaskList from './TaskList.js';
-import {type TodoItem} from '../types/todo.js';
+import TaskList from './TaskList';
+import {type TodoItem} from '../types/todo';
 
 describe('TaskList', () => {
 	beforeEach(() => {

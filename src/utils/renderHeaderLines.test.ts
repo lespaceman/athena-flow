@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
-import {renderHeaderLines} from './renderHeaderLines.js';
+import {renderHeaderLines} from './renderHeaderLines';
 import stripAnsi from 'strip-ansi';
-import type {HeaderModel} from './headerModel.js';
+import type {HeaderModel} from './headerModel';
 
 const model: HeaderModel = {
 	session_id: 'abc123',

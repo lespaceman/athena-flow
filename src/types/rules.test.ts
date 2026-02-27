@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {matchRule, type HookRule} from './rules.js';
+import {matchRule, type HookRule} from './rules';
 
 function makeRule(
 	overrides: Partial<HookRule> & {toolName: string; action: HookRule['action']},

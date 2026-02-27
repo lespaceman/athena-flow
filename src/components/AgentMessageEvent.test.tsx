@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest';
 import React from 'react';
 import {render} from 'ink-testing-library';
-import AgentMessageEvent from './AgentMessageEvent.js';
-import type {FeedEvent} from '../feed/types.js';
+import AgentMessageEvent from './AgentMessageEvent';
+import type {FeedEvent} from '../feed/types';
 
 function makeAgentMessage(scope: 'root' | 'subagent'): FeedEvent {
 	return {

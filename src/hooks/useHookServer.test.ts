@@ -10,8 +10,8 @@ import {
 	type HookResultPayload,
 	generateId,
 	createPermissionRequestAllowResult,
-} from '../types/hooks/index.js';
-import {matchRule, type HookRule} from '../types/rules.js';
+} from '../types/hooks/index';
+import {matchRule, type HookRule} from '../types/rules';
 
 // Suppress console.error from hook logger / server internals
 vi.spyOn(console, 'error').mockImplementation(() => {});

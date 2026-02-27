@@ -6,7 +6,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import {type HookEventEnvelope} from '../types/hooks/index.js';
+import {type HookEventEnvelope} from '../types/hooks/index';
 
 let logFilePath: string | null = null;
 let isInitialized = false;

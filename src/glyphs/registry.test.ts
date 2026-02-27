@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
 import stringWidth from 'string-width';
-import {GLYPH_REGISTRY, type GlyphKey} from './registry.js';
-import {getGlyphs, feedGlyphs, todoGlyphSet, frameGlyphs} from './index.js';
+import {GLYPH_REGISTRY, type GlyphKey} from './registry';
+import {getGlyphs, feedGlyphs, todoGlyphSet, frameGlyphs} from './index';
 
 describe('GLYPH_REGISTRY', () => {
 	const entries = Object.entries(GLYPH_REGISTRY) as [

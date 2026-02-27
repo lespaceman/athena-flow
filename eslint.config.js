@@ -36,6 +36,8 @@ export default tseslint.config(
 			'src/context/**/*.{ts,tsx}',
 			'src/hooks/**/*.{ts,tsx}',
 			'src/feed/**/*.{ts,tsx}',
+			'src/ui/components/**/*.{ts,tsx}',
+			'src/ui/hooks/**/*.{ts,tsx}',
 		],
 		ignores: ['src/context/HookContext.tsx', 'src/hooks/useFeed.ts'],
 		rules: {
@@ -49,7 +51,17 @@ export default tseslint.config(
 								'UI must not import from Claude adapter. Use runtime boundary types instead.',
 						},
 						{
+							group: ['**/harnesses/claude/runtime/**'],
+							message:
+								'UI must not import from Claude adapter internals. Use runtime boundary types instead.',
+						},
+						{
 							group: ['**/types/hooks/envelope*'],
+							message:
+								'UI must not import protocol envelope types. Use runtime boundary types instead.',
+						},
+						{
+							group: ['**/harnesses/claude/protocol/envelope*'],
 							message:
 								'UI must not import protocol envelope types. Use runtime boundary types instead.',
 						},
@@ -59,7 +71,17 @@ export default tseslint.config(
 								'UI must not import protocol result types. Use runtime boundary types instead.',
 						},
 						{
+							group: ['**/harnesses/claude/protocol/result*'],
+							message:
+								'UI must not import protocol result types. Use runtime boundary types instead.',
+						},
+						{
 							group: ['**/types/hooks/events*'],
+							message:
+								'UI must not import protocol event types. Use runtime boundary types instead.',
+						},
+						{
+							group: ['**/harnesses/claude/protocol/events*'],
 							message:
 								'UI must not import protocol event types. Use runtime boundary types instead.',
 						},
@@ -68,6 +90,9 @@ export default tseslint.config(
 								'**/feed/mapper*',
 								'**/feed/filter*',
 								'**/feed/entities*',
+								'**/core/feed/mapper*',
+								'**/core/feed/filter*',
+								'**/core/feed/entities*',
 							],
 							message:
 								'Components may only import from feed/types.ts and feed/expandable.ts. Do not import stateful feed internals.',

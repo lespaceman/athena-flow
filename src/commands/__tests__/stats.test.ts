@@ -1,7 +1,7 @@
 import {describe, it, expect, vi} from 'vitest';
-import {statsCommand} from '../builtins/stats.js';
-import {type UICommandContext} from '../types.js';
-import type {SessionStatsSnapshot} from '../../types/headerMetrics.js';
+import {statsCommand} from '../builtins/stats';
+import {type UICommandContext} from '../types';
+import type {SessionStatsSnapshot} from '../../types/headerMetrics';
 
 const NULL_TOKENS = {
 	input: null,

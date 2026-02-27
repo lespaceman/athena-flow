@@ -1,7 +1,7 @@
 import {describe, it, expect, vi} from 'vitest';
-import {handleEvent, type ControllerCallbacks} from './hookController.js';
-import type {RuntimeEvent} from '../runtime/types.js';
-import type {HookRule} from '../types/rules.js';
+import {handleEvent, type ControllerCallbacks} from './hookController';
+import type {RuntimeEvent} from '../runtime/types';
+import type {HookRule} from '../types/rules';
 
 function makeEvent(
 	hookName: string,

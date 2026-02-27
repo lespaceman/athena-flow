@@ -1,7 +1,7 @@
 import React from 'react';
 import {describe, it, expect, vi, afterEach} from 'vitest';
 import {render} from 'ink-testing-library';
-import CodeBlock from './CodeBlock.js';
+import CodeBlock from './CodeBlock';
 
 describe('CodeBlock', () => {
 	afterEach(() => {

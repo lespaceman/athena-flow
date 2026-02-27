@@ -1,9 +1,9 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import FeedList from '../FeedList.js';
-import type {FeedEvent} from '../../feed/types.js';
-import type {FeedItem} from '../../hooks/useFeed.js';
+import FeedList from '../FeedList';
+import type {FeedEvent} from '../../feed/types';
+import type {FeedItem} from '../../hooks/useFeed';
 
 function stubFeedEvent(id: string, kind: string, title: string): FeedEvent {
 	return {
@@ -30,7 +30,7 @@ function toFeedItems(events: FeedEvent[]): FeedItem[] {
 
 describe('FEEDLIST_ROW_OVERHEAD', () => {
 	it('exports FEEDLIST_ROW_OVERHEAD constant', async () => {
-		const {FEEDLIST_ROW_OVERHEAD} = await import('../FeedList.js');
+		const {FEEDLIST_ROW_OVERHEAD} = await import('../FeedList');
 		expect(FEEDLIST_ROW_OVERHEAD).toBe(4);
 	});
 });

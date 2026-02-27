@@ -3,12 +3,12 @@ import {
 	readConfig,
 	readGlobalConfig,
 	type AthenaConfig,
-} from '../plugins/index.js';
-import {shouldResolveWorkflow} from '../setup/shouldResolveWorkflow.js';
-import type {IsolationConfig, IsolationPreset} from '../types/isolation.js';
-import {readClaudeSettingsModel} from '../utils/resolveModel.js';
-import {installWorkflowPlugins, resolveWorkflow} from '../workflows/index.js';
-import type {WorkflowConfig} from '../workflows/types.js';
+} from '../plugins/index';
+import {shouldResolveWorkflow} from '../setup/shouldResolveWorkflow';
+import type {IsolationConfig, IsolationPreset} from '../types/isolation';
+import {readClaudeSettingsModel} from '../utils/resolveModel';
+import {installWorkflowPlugins, resolveWorkflow} from '../workflows/index';
+import type {WorkflowConfig} from '../workflows/types';
 
 export type RuntimeBootstrapInput = {
 	projectDir: string;

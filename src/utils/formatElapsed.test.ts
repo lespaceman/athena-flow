@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {formatElapsed} from './formatElapsed.js';
+import {formatElapsed} from './formatElapsed';
 
 describe('formatElapsed', () => {
 	it('formats seconds under 60', () => {

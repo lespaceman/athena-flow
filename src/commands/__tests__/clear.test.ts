@@ -1,6 +1,6 @@
 import {describe, it, expect, vi} from 'vitest';
-import {clearCommand} from '../builtins/clear.js';
-import {type UICommandContext} from '../types.js';
+import {clearCommand} from '../builtins/clear';
+import {type UICommandContext} from '../types';
 
 const NULL_TOKENS = {
 	input: null,

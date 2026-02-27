@@ -1,14 +1,14 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect, vi} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useFeed} from '../useFeed.js';
+import {useFeed} from '../useFeed';
 import type {
 	Runtime,
 	RuntimeEvent,
 	RuntimeDecision,
 	RuntimeEventHandler,
 	RuntimeDecisionHandler,
-} from '../../runtime/types.js';
+} from '../../runtime/types';
 
 function createMockRuntime(): Runtime & {
 	emitEvent: (event: RuntimeEvent) => void;

@@ -1,7 +1,7 @@
 import {describe, it, expect, vi} from 'vitest';
-import {buildHeaderModel} from './headerModel.js';
+import {buildHeaderModel} from './headerModel';
 
-vi.mock('./detectHarness.js', () => ({
+vi.mock('./detectHarness', () => ({
 	detectHarness: () => 'Claude Code',
 }));
 

@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {buildPostByToolUseId} from '../hooks/useFeed.js';
-import type {FeedEvent} from '../feed/types.js';
+import {buildPostByToolUseId} from '../hooks/useFeed';
+import type {FeedEvent} from '../feed/types';
 
 // invariant-waiver: #2 (mapper is sole constructor) — test helper for unit testing buildPostByToolUseId
 function makeFeedEvent(

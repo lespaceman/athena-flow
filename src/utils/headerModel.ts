@@ -1,7 +1,7 @@
-import type {HeaderStatus} from './statusBadge.js';
-import {detectHarness} from './detectHarness.js';
+import type {HeaderStatus} from './statusBadge';
+import {detectHarness} from './detectHarness';
 
-export type {HeaderStatus} from './statusBadge.js';
+export type {HeaderStatus} from './statusBadge';
 
 export interface HeaderModel {
 	session_id: string;

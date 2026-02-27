@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import {renderContextBar, formatTokenCount} from './contextBar.js';
+import {renderContextBar, formatTokenCount} from './contextBar';
 
 describe('formatTokenCount', () => {
 	it('formats thousands as k', () => {

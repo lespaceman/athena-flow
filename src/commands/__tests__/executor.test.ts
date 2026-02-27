@@ -1,11 +1,11 @@
 import {describe, it, expect, vi} from 'vitest';
-import {executeCommand} from '../executor.js';
+import {executeCommand} from '../executor';
 import {
 	type UICommand,
 	type PromptCommand,
 	type HookCommand,
 	type ExecuteCommandContext,
-} from '../types.js';
+} from '../types';
 
 function makeContext(
 	overrides?: Partial<ExecuteCommandContext>,

@@ -7,10 +7,10 @@
  * If this test fails, investigate pipeline integrity before touching assertions.
  */
 import {describe, it, expect, afterEach} from 'vitest';
-import {createSessionStore, type SessionStore} from '../sessions/store.js';
-import {createFeedMapper} from '../feed/mapper.js';
-import type {FeedEvent} from '../feed/types.js';
-import {makeEvent, makeDecision, resetCounter} from './helpers.js';
+import {createSessionStore, type SessionStore} from '../sessions/store';
+import {createFeedMapper} from '../feed/mapper';
+import type {FeedEvent} from '../feed/types';
+import {makeEvent, makeDecision, resetCounter} from './helpers';
 
 describe('Sentinel: replay equivalence', () => {
 	let store: SessionStore;

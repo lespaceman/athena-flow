@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useFocusableList} from '../useFocusableList.js';
+import {useFocusableList} from '../useFocusableList';
 
 describe('useFocusableList', () => {
 	const ids = ['E1', 'E2', 'E3'];

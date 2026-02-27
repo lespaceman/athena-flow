@@ -5,7 +5,7 @@
  */
 
 import {type ReactNode} from 'react';
-import {type UseFeedResult} from '../hooks/useFeed.js';
+import {type UseFeedResult} from '../hooks/useFeed';
 
 /**
  * Value provided by the HookContext.

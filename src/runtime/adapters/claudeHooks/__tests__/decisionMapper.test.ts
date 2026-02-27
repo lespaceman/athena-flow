@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {mapDecisionToResult} from '../decisionMapper.js';
-import type {RuntimeEvent} from '../../../types.js';
+import {mapDecisionToResult} from '../decisionMapper';
+import type {RuntimeEvent} from '../../../types';
 
 function makeEvent(
 	hookName: string,

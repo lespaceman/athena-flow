@@ -9,8 +9,8 @@ import type {
 	RuntimeDecision,
 	RuntimeEventHandler,
 	RuntimeDecisionHandler,
-} from '../../types.js';
-import {fillDefaults} from './helpers.js';
+} from '../../types';
+import {fillDefaults} from './helpers';
 
 type ScriptedEvent = {
 	delayMs: number;

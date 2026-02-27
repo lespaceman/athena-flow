@@ -24,7 +24,7 @@ vi.mock('node:os', () => ({
 
 const resolveMarketplacePluginMock = vi.fn();
 
-vi.mock('../marketplace.js', () => ({
+vi.mock('../../infra/plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplacePlugin: (ref: string) => resolveMarketplacePluginMock(ref),
@@ -32,7 +32,7 @@ vi.mock('../marketplace.js', () => ({
 
 // Import after mocks are set up
 const {readConfig, readGlobalConfig, writeGlobalConfig} =
-	await import('../config.js');
+	await import('../../infra/plugins/config');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) {

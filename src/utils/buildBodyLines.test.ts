@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest';
-import {buildBodyLines, opCategory} from './buildBodyLines.js';
-import {type TodoPanelItem} from '../feed/todoPanel.js';
-import {darkTheme} from '../theme/themes.js';
+import {buildBodyLines, opCategory} from './buildBodyLines';
+import {type TodoPanelItem} from '../feed/todoPanel';
+import {darkTheme} from '../theme/themes';
 import stripAnsi from 'strip-ansi';
 
 describe('opCategory', () => {

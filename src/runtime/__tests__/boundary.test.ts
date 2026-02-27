@@ -16,13 +16,18 @@ const EXCLUDED_FILES = new Set(['HookContext.tsx']);
 
 // UI directories that should NOT import protocol types
 const UI_DIRS = ['components', 'context', 'hooks', 'feed'];
+const UI_LAYER_DIRS = ['ui/components', 'ui/hooks'];
 
 // Forbidden import paths (substrings)
 const FORBIDDEN_PATHS = [
 	'runtime/adapters/claudeHooks',
+	'harnesses/claude/runtime',
 	'types/hooks/envelope',
+	'harnesses/claude/protocol/envelope',
 	'types/hooks/result',
+	'harnesses/claude/protocol/result',
 	'types/hooks/events',
+	'harnesses/claude/protocol/events',
 ];
 
 // Forbidden type names (as import specifiers)
@@ -49,7 +54,7 @@ function collectFiles(dir: string, ext: string[]): string[] {
 }
 
 describe('runtime boundary enforcement', () => {
-	for (const uiDir of UI_DIRS) {
+	for (const uiDir of [...UI_DIRS, ...UI_LAYER_DIRS]) {
 		const dirPath = path.join(SOURCE_DIR, uiDir);
 		const files = collectFiles(dirPath, ['.ts', '.tsx']).filter(
 			f => !EXCLUDED_FILES.has(path.basename(f)),

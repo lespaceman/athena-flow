@@ -1,5 +1,5 @@
-export {createMockRuntime} from './scriptedReplay.js';
+export {createMockRuntime} from './scriptedReplay';
 export {
 	createInjectableMockRuntime,
 	type InjectableMockRuntime,
-} from './injectable.js';
+} from './injectable';

@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useTodoPanel} from './useTodoPanel.js';
-import {type TodoItem} from '../types/todo.js';
+import {useTodoPanel} from './useTodoPanel';
+import {type TodoItem} from '../types/todo';
 
 beforeEach(() => {
 	vi.useFakeTimers();

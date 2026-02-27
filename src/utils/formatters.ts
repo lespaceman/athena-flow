@@ -1,6 +1,6 @@
 import os from 'node:os';
-import type {SessionStatsSnapshot} from '../types/headerMetrics.js';
-import {type Theme} from '../theme/index.js';
+import type {SessionStatsSnapshot} from '../types/headerMetrics';
+import {type Theme} from '../theme/index';
 
 /** Replace the home directory prefix with ~. */
 export function shortenPath(fullPath: string): string {

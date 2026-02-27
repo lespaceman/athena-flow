@@ -1,7 +1,7 @@
 // src/feed/__tests__/filter.test.ts
 import {describe, it, expect} from 'vitest';
-import {shouldExcludeFromFeed} from '../filter.js';
-import type {FeedEvent, FeedEventKind} from '../types.js';
+import {shouldExcludeFromFeed} from '../filter';
+import type {FeedEvent, FeedEventKind} from '../types';
 
 function makeEvent(
 	kind: FeedEventKind,

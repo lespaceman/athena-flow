@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest';
 import {render} from 'ink-testing-library';
-import CommandInput from './CommandInput.js';
-import * as registryModule from '../commands/registry.js';
+import CommandInput from './CommandInput';
+import * as registryModule from '../commands/registry';
 
 // ANSI escape sequences for special keys
 const KEY = {

@@ -1,5 +1,5 @@
 import {describe, it, expect, vi} from 'vitest';
-import {detectClaudeVersion} from './detectClaudeVersion.js';
+import {detectClaudeVersion} from './detectClaudeVersion';
 
 vi.mock('node:child_process', () => ({
 	execFileSync: vi.fn(),

@@ -10,7 +10,7 @@ import {
 	textInputReducer,
 	useTextInput,
 	type TextInputState,
-} from './useTextInput.js';
+} from './useTextInput';
 
 describe('textInputReducer', () => {
 	const initial: TextInputState = {value: '', cursorOffset: 0};

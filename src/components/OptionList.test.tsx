@@ -7,7 +7,7 @@ vi.hoisted(() => {
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import OptionList from './OptionList.js';
+import OptionList from './OptionList';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 

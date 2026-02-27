@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect} from 'vitest';
 import {renderHook} from '@testing-library/react';
-import {useFeedColumns} from './useFeedColumns.js';
-import type {TimelineEntry} from '../feed/timeline.js';
+import {useFeedColumns} from './useFeedColumns';
+import type {TimelineEntry} from '../feed/timeline';
 
 function makeEntry(overrides: Partial<TimelineEntry> = {}): TimelineEntry {
 	return {

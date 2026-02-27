@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {shouldShowSetup} from '../shouldShowSetup.js';
+import {shouldShowSetup} from '../shouldShowSetup';
 
 describe('shouldShowSetup', () => {
 	it('shows setup when explicitly requested by subcommand', () => {

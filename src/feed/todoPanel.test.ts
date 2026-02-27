@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {toTodoStatus} from './todoPanel.js';
+import {toTodoStatus} from './todoPanel';
 
 describe('toTodoStatus', () => {
 	it('maps failed to failed (not blocked)', () => {

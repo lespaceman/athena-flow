@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest';
-import {loadPlugin} from '../loader.js';
+import {loadPlugin} from '../loader';
 
 // Build a minimal in-memory file system for tests
 const files: Record<string, string> = {};

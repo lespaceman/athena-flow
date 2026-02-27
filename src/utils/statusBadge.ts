@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import {getGlyphs} from '../glyphs/index.js';
+import {getGlyphs} from '../glyphs/index';
 
 export type HeaderStatus = 'active' | 'idle' | 'error' | 'stopped';
 

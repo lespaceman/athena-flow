@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, expect, it, vi} from 'vitest';
-import DashboardInput from './DashboardInput.js';
+import DashboardInput from './DashboardInput';
 
 const KEY = {ENTER: '\r'};
 

@@ -1,8 +1,8 @@
 // src/utils/toolSummary.ts
 
-import {isBashToolResponse} from '../components/hookEventUtils.js';
-import {parseToolName} from './toolNameParser.js';
-import {compactText} from './format.js';
+import {isBashToolResponse} from '../components/hookEventUtils';
+import {parseToolName} from './toolNameParser';
+import {compactText} from './format';
 
 function prop(obj: unknown, key: string): unknown {
 	if (typeof obj === 'object' && obj !== null) {

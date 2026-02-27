@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import {progressGlyphs} from '../glyphs/index.js';
+import {progressGlyphs} from '../glyphs/index';
 
 export function formatTokenCount(value: number | null): string {
 	if (value === null) return '0';

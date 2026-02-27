@@ -2,8 +2,8 @@ import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import stripAnsi from 'strip-ansi';
-import MergedToolCallEvent from './MergedToolCallEvent.js';
-import type {FeedEvent} from '../feed/types.js';
+import MergedToolCallEvent from './MergedToolCallEvent';
+import type {FeedEvent} from '../feed/types';
 
 // invariant-waiver: #2 (mapper is sole constructor) — test helper for unit testing MergedToolCallEvent
 function makeFeedEvent(

@@ -2,8 +2,8 @@ import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import {Text} from 'ink';
-import {ThemeProvider, useTheme} from './index.js';
-import {darkTheme, lightTheme} from './themes.js';
+import {ThemeProvider, useTheme} from './index';
+import {darkTheme, lightTheme} from './themes';
 
 /** Renders the theme name so we can assert on it. */
 function ThemeProbe() {

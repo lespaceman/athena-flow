@@ -1,8 +1,8 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import UnifiedToolCallEvent from '../UnifiedToolCallEvent.js';
-import type {FeedEvent} from '../../feed/types.js';
+import UnifiedToolCallEvent from '../UnifiedToolCallEvent';
+import type {FeedEvent} from '../../feed/types';
 
 function stubToolPre(toolInput: Record<string, unknown>): FeedEvent {
 	return {

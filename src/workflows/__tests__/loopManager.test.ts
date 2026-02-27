@@ -14,7 +14,7 @@ vi.mock('node:fs', () => ({
 }));
 
 const {createLoopManager, buildContinuePrompt} =
-	await import('../loopManager.js');
+	await import('../loopManager');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) delete files[key];

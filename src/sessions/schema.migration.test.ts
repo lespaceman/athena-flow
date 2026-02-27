@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import Database from 'better-sqlite3';
-import {initSchema} from './schema.js';
+import {initSchema} from './schema';
 
 describe('schema migrations', () => {
 	it('rejects duplicate global seq (different runs)', () => {

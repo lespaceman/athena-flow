@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {type FeedEvent, type FeedEventBase} from './types.js';
-import {type Message} from '../types/index.js';
+import {type FeedEvent, type FeedEventBase} from './types';
+import {type Message} from '../types/index';
 import {
 	eventOperation,
 	eventLabel,
@@ -16,7 +16,7 @@ import {
 	VERBOSE_ONLY_KINDS,
 	computeDuplicateActors,
 	type TimelineEntry,
-} from './timeline.js';
+} from './timeline';
 
 function base(overrides: Partial<FeedEventBase> = {}): FeedEventBase {
 	return {

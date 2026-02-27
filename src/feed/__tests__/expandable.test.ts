@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {isExpandable} from '../expandable.js';
-import type {FeedEvent} from '../types.js';
+import {isExpandable} from '../expandable';
+import type {FeedEvent} from '../types';
 
 function stub(kind: string, extra?: Record<string, unknown>): FeedEvent {
 	return {

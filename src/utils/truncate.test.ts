@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
 import stringWidth from 'string-width';
-import {truncateLine} from './truncate.js';
+import {truncateLine} from './truncate';
 
 describe('truncateLine', () => {
 	it('returns string unchanged if within width', () => {

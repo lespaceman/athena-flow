@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect, vi} from 'vitest';
 import {renderHook} from '@testing-library/react';
-import {useHeaderMetrics} from './useHeaderMetrics.js';
-import type {FeedEvent} from '../feed/types.js';
+import {useHeaderMetrics} from './useHeaderMetrics';
+import type {FeedEvent} from '../feed/types';
 
 let seqCounter = 0;
 

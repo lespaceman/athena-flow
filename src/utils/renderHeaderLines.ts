@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import stringWidth from 'string-width';
-import type {HeaderModel} from './headerModel.js';
-import {renderContextBar} from './contextBar.js';
+import type {HeaderModel} from './headerModel';
+import {renderContextBar} from './contextBar';
 
 export function truncateSessionId(id: string, maxWidth: number): string {
 	if (id.length <= maxWidth) return id;

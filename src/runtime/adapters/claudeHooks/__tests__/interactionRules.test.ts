@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {getInteractionHints} from '../interactionRules.js';
+import {getInteractionHints} from '../interactionRules';
 
 describe('getInteractionHints', () => {
 	it('returns correct hints for known event types', () => {

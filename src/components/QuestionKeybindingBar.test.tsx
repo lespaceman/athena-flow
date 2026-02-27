@@ -1,7 +1,7 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import QuestionKeybindingBar from './QuestionKeybindingBar.js';
+import QuestionKeybindingBar from './QuestionKeybindingBar';
 
 describe('QuestionKeybindingBar', () => {
 	it('renders navigation and action hints for single-select', () => {

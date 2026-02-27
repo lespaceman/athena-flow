@@ -7,8 +7,8 @@
  * If this test fails, investigate pipeline integrity before touching assertions.
  */
 import {describe, it, expect, afterEach} from 'vitest';
-import {createFeedMapper} from '../feed/mapper.js';
-import {makeEvent, makeDecision, resetCounter} from './helpers.js';
+import {createFeedMapper} from '../feed/mapper';
+import {makeEvent, makeDecision, resetCounter} from './helpers';
 
 describe('Sentinel: double-decision race', () => {
 	afterEach(() => resetCounter());

@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest';
 import fs from 'node:fs';
-import {readClaudeSettingsModel} from './resolveModel.js';
+import {readClaudeSettingsModel} from './resolveModel';
 
 vi.mock('node:os', () => ({
 	default: {homedir: () => '/home/testuser'},

@@ -4,11 +4,11 @@ import {
 	validateConflicts,
 	FLAG_REGISTRY,
 	type FlagDef,
-} from './flagRegistry.js';
+} from './flagRegistry';
 import {
 	type IsolationConfig,
 	resolveIsolationConfig,
-} from '../types/isolation.js';
+} from '../types/isolation';
 
 describe('FLAG_REGISTRY', () => {
 	it('should contain exactly 28 flag definitions', () => {

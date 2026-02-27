@@ -2,7 +2,7 @@ import React from 'react';
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {render} from 'ink-testing-library';
 import {Text} from 'ink';
-import ErrorBoundary from './ErrorBoundary.js';
+import ErrorBoundary from './ErrorBoundary';
 
 // Suppress React's console.error for expected error boundary triggers
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;

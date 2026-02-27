@@ -1,18 +1,18 @@
 // src/hooks/useFeed.ts
 
 import {useEffect, useRef, useState, useCallback, useMemo} from 'react';
-import type {Runtime, RuntimeEvent, RuntimeDecision} from '../runtime/types.js';
-import type {FeedEvent} from '../feed/types.js';
-import type {SessionStore} from '../sessions/store.js';
-import type {Session, Run, Actor} from '../feed/entities.js';
-import type {HookRule} from '../types/rules.js';
-import type {PermissionDecision} from '../types/server.js';
-import type {Message} from '../types/common.js';
-import type {TokenUsage} from '../types/headerMetrics.js';
-import type {TodoItem, TodoWriteInput} from '../types/todo.js';
-import {createFeedMapper, type FeedMapper} from '../feed/mapper.js';
-import {shouldExcludeFromFeed} from '../feed/filter.js';
-import {handleEvent, type ControllerCallbacks} from './hookController.js';
+import type {Runtime, RuntimeEvent, RuntimeDecision} from '../runtime/types';
+import type {FeedEvent} from '../feed/types';
+import type {SessionStore} from '../sessions/store';
+import type {Session, Run, Actor} from '../feed/entities';
+import type {HookRule} from '../types/rules';
+import type {PermissionDecision} from '../types/server';
+import type {Message} from '../types/common';
+import type {TokenUsage} from '../types/headerMetrics';
+import type {TodoItem, TodoWriteInput} from '../types/todo';
+import {createFeedMapper, type FeedMapper} from '../feed/mapper';
+import {shouldExcludeFromFeed} from '../feed/filter';
+import {handleEvent, type ControllerCallbacks} from './hookController';
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }

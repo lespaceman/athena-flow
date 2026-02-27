@@ -1,9 +1,9 @@
 import React, {useState, useCallback} from 'react';
 import {Box, Text} from 'ink';
-import StepSelector from '../components/StepSelector.js';
-import StepStatus from '../components/StepStatus.js';
-import {installWorkflow, resolveWorkflow} from '../../workflows/index.js';
-import {useTheme} from '../../theme/index.js';
+import StepSelector from '../components/StepSelector';
+import StepStatus from '../components/StepStatus';
+import {installWorkflow, resolveWorkflow} from '../../workflows/index';
+import {useTheme} from '../../theme/index';
 
 // Marketplace ref for the e2e-test-builder workflow
 const E2E_WORKFLOW_REF =

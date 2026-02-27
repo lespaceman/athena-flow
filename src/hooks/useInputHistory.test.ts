@@ -3,7 +3,7 @@
  */
 import {describe, it, expect} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useInputHistory} from './useInputHistory.js';
+import {useInputHistory} from './useInputHistory';
 
 describe('useInputHistory', () => {
 	it('returns undefined from back() when history is empty', () => {

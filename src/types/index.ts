@@ -5,10 +5,10 @@
  */
 
 // Common types
-export {type Message} from './common.js';
+export {type Message} from './common';
 
 // Hook types
-export * from './hooks/index.js';
+export * from './hooks/index';
 
 // Transcript types
 export {
@@ -18,13 +18,13 @@ export {
 	type TranscriptContent,
 	type TranscriptEntry,
 	type ParsedTranscriptSummary,
-} from './transcript.js';
+} from './transcript';
 
 // Process types
 export {
 	type SpawnClaudeOptions,
 	type UseClaudeProcessResult,
-} from './process.js';
+} from './process';
 
 // Isolation types
 export {
@@ -32,19 +32,19 @@ export {
 	type IsolationConfig,
 	ISOLATION_PRESETS,
 	resolveIsolationConfig,
-} from './isolation.js';
+} from './isolation';
 
 // Rule types
-export {type RuleAction, type HookRule, matchRule} from './rules.js';
+export {type RuleAction, type HookRule, matchRule} from './rules';
 
 // Server types
-export {type PermissionDecision} from './server.js';
+export {type PermissionDecision} from './server';
 
 // Header metrics types
-export * from './headerMetrics.js';
+export * from './headerMetrics';
 
 // Context types
-export {type HookContextValue, type HookProviderProps} from './context.js';
+export {type HookContextValue, type HookProviderProps} from './context';
 
 // Command types
 export {
@@ -59,4 +59,4 @@ export {
 	type HookCommandContext,
 	type PromptCommandContext,
 	type ExecuteCommandContext,
-} from '../commands/types.js';
+} from '../commands/types';

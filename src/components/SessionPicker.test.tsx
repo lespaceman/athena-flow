@@ -7,9 +7,9 @@ vi.hoisted(() => {
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import SessionPicker from './SessionPicker.js';
-import {type SessionEntry} from '../utils/sessionIndex.js';
-import {formatRelativeTime} from '../utils/formatters.js';
+import SessionPicker from './SessionPicker';
+import {type SessionEntry} from '../utils/sessionIndex';
+import {formatRelativeTime} from '../utils/formatters';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 

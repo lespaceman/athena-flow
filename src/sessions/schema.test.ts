@@ -1,6 +1,6 @@
 import {describe, it, expect, afterEach} from 'vitest';
 import Database from 'better-sqlite3';
-import {initSchema, SCHEMA_VERSION} from './schema.js';
+import {initSchema, SCHEMA_VERSION} from './schema';
 
 describe('session schema', () => {
 	let db: Database.Database;

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {shouldResolveWorkflow} from '../shouldResolveWorkflow.js';
+import {shouldResolveWorkflow} from '../shouldResolveWorkflow';
 
 describe('shouldResolveWorkflow', () => {
 	it('resolves when a workflow is configured and setup is not shown', () => {

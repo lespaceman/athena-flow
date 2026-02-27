@@ -1,19 +1,19 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect, vi, beforeEach} from 'vitest';
-import SetupWizard from '../SetupWizard.js';
-import {ThemeProvider} from '../../theme/index.js';
-import {darkTheme} from '../../theme/index.js';
-import {writeGlobalConfig} from '../../plugins/config.js';
+import SetupWizard from '../SetupWizard';
+import {ThemeProvider} from '../../theme/index';
+import {darkTheme} from '../../theme/index';
+import {writeGlobalConfig} from '../../plugins/config';
 
-vi.mock('../../utils/detectClaudeVersion.js', () => ({
+vi.mock('../../utils/detectClaudeVersion', () => ({
 	detectClaudeVersion: vi.fn(() => '2.5.0'),
 }));
-vi.mock('../../workflows/index.js', () => ({
+vi.mock('../../workflows/index', () => ({
 	installWorkflow: vi.fn(() => 'e2e-test-builder'),
 	resolveWorkflow: vi.fn(() => ({name: 'e2e-test-builder', plugins: []})),
 }));
-vi.mock('../../plugins/config.js', () => ({
+vi.mock('../../plugins/config', () => ({
 	writeGlobalConfig: vi.fn(),
 }));
 

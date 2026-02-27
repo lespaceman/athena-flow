@@ -1,6 +1,6 @@
 import {describe, it, expect, vi} from 'vitest';
-import {sessionsCommand} from '../builtins/sessions.js';
-import {type UICommandContext} from '../types.js';
+import {sessionsCommand} from '../builtins/sessions';
+import {type UICommandContext} from '../types';
 
 const NULL_TOKENS = {
 	input: null,

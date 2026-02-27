@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import SessionEndEvent from './SessionEndEvent.js';
-import type {FeedEvent} from '../feed/types.js';
+import SessionEndEvent from './SessionEndEvent';
+import type {FeedEvent} from '../feed/types';
 
 function makeSessionEndEvent(
 	overrides: Partial<Record<string, unknown>> = {},

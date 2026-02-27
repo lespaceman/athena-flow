@@ -4,11 +4,11 @@ import {
 	type ListItem,
 	type DiffHunk,
 	type DiffLine,
-} from '../types/toolOutput.js';
+} from '../types/toolOutput';
 import {
 	formatToolResponse,
 	isBashToolResponse,
-} from '../components/hookEventUtils.js';
+} from '../components/hookEventUtils';
 
 const EXT_TO_LANGUAGE: Record<string, string> = {
 	'.ts': 'typescript',

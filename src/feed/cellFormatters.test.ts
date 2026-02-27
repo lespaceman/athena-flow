@@ -1,6 +1,6 @@
 import {describe, test, expect} from 'vitest';
 import stripAnsi from 'strip-ansi';
-import {darkTheme} from '../theme/themes.js';
+import {darkTheme} from '../theme/themes';
 import {
 	formatGutter,
 	opCategoryColor,
@@ -13,9 +13,9 @@ import {
 	buildDetailsPrefix,
 	layoutTargetAndOutcome,
 	formatDetails,
-} from './cellFormatters.js';
-import type {TimelineEntry} from './timeline.js';
-import {computeDuplicateActors} from './timeline.js';
+} from './cellFormatters';
+import type {TimelineEntry} from './timeline';
+import {computeDuplicateActors} from './timeline';
 
 const theme = darkTheme;
 

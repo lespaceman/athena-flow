@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {summarizeToolResult} from './toolSummary.js';
+import {summarizeToolResult} from './toolSummary';
 
 describe('summarizeToolResult', () => {
 	it('summarizes Bash success with exit 0', () => {

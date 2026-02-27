@@ -1,9 +1,9 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import Message from './Message.js';
-import {ThemeProvider} from '../theme/index.js';
-import {darkTheme, lightTheme} from '../theme/themes.js';
+import Message from './Message';
+import {ThemeProvider} from '../theme/index';
+import {darkTheme, lightTheme} from '../theme/themes';
 
 describe('Message', () => {
 	it('renders user message with ❯ prefix', () => {

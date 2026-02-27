@@ -3,13 +3,13 @@
  */
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useClaudeProcess} from './useClaudeProcess.js';
-import * as spawnModule from '../utils/spawnClaude.js';
-import * as workflowModule from '../workflows/index.js';
+import {useClaudeProcess} from './useClaudeProcess';
+import * as spawnModule from '../harnesses/claude/process/spawn';
+import * as workflowModule from '../workflows/index';
 import fs from 'node:fs';
 import {EventEmitter} from 'node:events';
 import type {ChildProcess} from 'node:child_process';
-import type {WorkflowConfig} from '../workflows/types.js';
+import type {WorkflowConfig} from '../workflows/types';
 
 // Create mock child process
 function createMockChildProcess(): ChildProcess {
@@ -18,11 +18,11 @@ function createMockChildProcess(): ChildProcess {
 	return mockProcess;
 }
 
-vi.mock('../utils/spawnClaude.js', () => ({
+vi.mock('../harnesses/claude/process/spawn', () => ({
 	spawnClaude: vi.fn(),
 }));
 
-vi.mock('../workflows/index.js', () => ({
+vi.mock('../workflows/index', () => ({
 	applyPromptTemplate: vi.fn((_tpl: string, prompt: string) => prompt),
 	createLoopManager: vi.fn(),
 	buildContinuePrompt: vi.fn(() => 'Continue the task.'),

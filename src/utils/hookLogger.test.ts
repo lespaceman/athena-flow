@@ -6,8 +6,8 @@ import {
 	logHookResponded,
 	closeHookLogger,
 	getLogFilePath,
-} from './hookLogger.js';
-import {type HookEventEnvelope} from '../types/hooks/index.js';
+} from './hookLogger';
+import {type HookEventEnvelope} from '../types/hooks/index';
 
 vi.mock('node:fs');
 

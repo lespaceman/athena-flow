@@ -1,11 +1,11 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import * as childProcess from 'node:child_process';
-import {spawnClaude} from './spawnClaude.js';
+import {spawnClaude} from './spawnClaude';
 import {EventEmitter} from 'node:events';
 
 const mockCleanup = vi.fn();
 
-vi.mock('./generateHookSettings.js', () => ({
+vi.mock('../harnesses/claude/hooks/generateHookSettings', () => ({
 	generateHookSettings: vi.fn(() => ({
 		settingsPath: '/tmp/mock-settings.json',
 		cleanup: mockCleanup,

@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import StepStatus from '../StepStatus.js';
+import StepStatus from '../StepStatus';
 
 describe('StepStatus', () => {
 	it('renders success state with checkmark', () => {

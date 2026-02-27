@@ -7,24 +7,24 @@ const resolveWorkflowMock = vi.fn();
 const installWorkflowPluginsMock = vi.fn();
 const readClaudeSettingsModelMock = vi.fn();
 
-vi.mock('../../plugins/index.js', () => ({
+vi.mock('../../plugins/index', () => ({
 	readGlobalConfig: () => readGlobalConfigMock(),
 	readConfig: (projectDir: string) => readConfigMock(projectDir),
 	registerPlugins: (dirs: string[]) => registerPluginsMock(dirs),
 }));
 
-vi.mock('../../workflows/index.js', () => ({
+vi.mock('../../workflows/index', () => ({
 	resolveWorkflow: (name: string) => resolveWorkflowMock(name),
 	installWorkflowPlugins: (workflow: unknown) =>
 		installWorkflowPluginsMock(workflow),
 }));
 
-vi.mock('../../utils/resolveModel.js', () => ({
+vi.mock('../../utils/resolveModel', () => ({
 	readClaudeSettingsModel: (projectDir: string) =>
 		readClaudeSettingsModelMock(projectDir),
 }));
 
-const {bootstrapRuntimeConfig} = await import('../bootstrapConfig.js');
+const {bootstrapRuntimeConfig} = await import('../bootstrapConfig');
 
 const emptyConfig = {plugins: [], additionalDirectories: []};
 const initialAnthropicModel = process.env['ANTHROPIC_MODEL'];

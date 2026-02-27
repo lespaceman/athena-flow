@@ -2,8 +2,8 @@ import React from 'react';
 import {describe, it, expect, vi, afterEach} from 'vitest';
 import chalk from 'chalk';
 import {render} from 'ink-testing-library';
-import PermissionDialog from './PermissionDialog.js';
-import type {PermissionQueueItem} from '../hooks/useFeed.js';
+import PermissionDialog from './PermissionDialog';
+import type {PermissionQueueItem} from '../hooks/useFeed';
 
 function makePermissionEvent(
 	toolName: string,

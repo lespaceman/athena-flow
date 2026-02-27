@@ -15,7 +15,7 @@ import {describe, it, expect, vi, afterEach} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
 
 // Mock spawnClaude before importing the hook
-vi.mock('../utils/spawnClaude.js', () => ({
+vi.mock('../harnesses/claude/process/spawn', () => ({
 	spawnClaude: vi.fn(() => {
 		// Return a minimal ChildProcess-like object
 		const proc = {
@@ -29,14 +29,14 @@ vi.mock('../utils/spawnClaude.js', () => ({
 }));
 
 // Also mock workflow utilities to prevent side effects
-vi.mock('../workflows/index.js', () => ({
+vi.mock('../workflows/index', () => ({
 	applyPromptTemplate: vi.fn((_t: string, p: string) => p),
 	writeLoopState: vi.fn(),
 	removeLoopState: vi.fn(),
 }));
 
-import {useClaudeProcess} from '../hooks/useClaudeProcess.js';
-import {spawnClaude} from '../utils/spawnClaude.js';
+import {useClaudeProcess} from '../hooks/useClaudeProcess';
+import {spawnClaude} from '../harnesses/claude/process/spawn';
 
 describe('Sentinel: resume non-execution discipline', () => {
 	afterEach(() => {

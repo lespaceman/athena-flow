@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {buildFrameLines, type FrameContext} from './buildFrameLines.js';
+import {buildFrameLines, type FrameContext} from './buildFrameLines';
 
 const baseCtx: FrameContext = {
 	innerWidth: 80,

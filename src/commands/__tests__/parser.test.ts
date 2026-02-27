@@ -1,7 +1,7 @@
 import {describe, it, expect, beforeEach} from 'vitest';
-import {parseInput} from '../parser.js';
-import {register, clear} from '../registry.js';
-import {type UICommand, type PromptCommand} from '../types.js';
+import {parseInput} from '../parser';
+import {register, clear} from '../registry';
+import {type UICommand, type PromptCommand} from '../types';
 
 function makeUICommand(
 	overrides: Partial<UICommand> & {name: string},

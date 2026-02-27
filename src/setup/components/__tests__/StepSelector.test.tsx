@@ -1,7 +1,7 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import StepSelector from '../StepSelector.js';
+import StepSelector from '../StepSelector';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 

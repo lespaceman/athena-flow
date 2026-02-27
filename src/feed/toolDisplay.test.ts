@@ -4,8 +4,8 @@ import {
 	resolveToolColumn,
 	resolveEventDisplay,
 	humanizeToolName,
-} from './toolDisplay.js';
-import {type FeedEvent} from './types.js';
+} from './toolDisplay';
+import {type FeedEvent} from './types';
 
 // ── resolveToolColumn ───────────────────────────────────
 

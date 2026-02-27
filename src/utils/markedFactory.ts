@@ -1,7 +1,7 @@
 import {Marked, type Tokens} from 'marked';
 import {markedTerminal} from 'marked-terminal';
 import chalk from 'chalk';
-import {urlLink} from './hyperlink.js';
+import {urlLink} from './hyperlink';
 
 /**
  * Shared markedTerminal options used by both MarkdownText (component)

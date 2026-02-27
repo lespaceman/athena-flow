@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {parseCommand} from './useCommandMode.js';
+import {parseCommand} from './useCommandMode';
 
 describe('parseCommand', () => {
 	it('parses :todo as toggle-todo', () => {

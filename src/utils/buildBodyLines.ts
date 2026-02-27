@@ -2,7 +2,7 @@ import {
 	type TimelineEntry,
 	type RunSummary,
 	opCategory,
-} from '../feed/timeline.js';
+} from '../feed/timeline';
 
 // Re-export for backward compatibility with existing consumers
 export {opCategory};
@@ -10,11 +10,11 @@ import {
 	type TodoPanelItem,
 	type TodoGlyphColors,
 	todoGlyphs,
-} from '../feed/todoPanel.js';
+} from '../feed/todoPanel';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
-import {compactText, fitAnsi, formatRunLabel} from './format.js';
-import {type Theme} from '../theme/types.js';
+import {compactText, fitAnsi, formatRunLabel} from './format';
+import {type Theme} from '../theme/types';
 
 export type DetailViewState = {
 	expandedEntry: TimelineEntry;

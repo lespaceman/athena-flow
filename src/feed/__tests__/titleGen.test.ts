@@ -1,7 +1,7 @@
 // src/feed/__tests__/titleGen.test.ts
 import {describe, it, expect} from 'vitest';
-import {generateTitle} from '../titleGen.js';
-import type {FeedEvent} from '../types.js';
+import {generateTitle} from '../titleGen';
+import type {FeedEvent} from '../types';
 
 function makeFeedEvent(kind: string, data: Record<string, unknown>): FeedEvent {
 	return {

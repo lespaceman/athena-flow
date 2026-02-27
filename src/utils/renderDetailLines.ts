@@ -1,9 +1,9 @@
-import {type FeedEvent} from '../feed/types.js';
-import {extractToolOutput} from './toolExtractors.js';
-import {parseToolName, extractFriendlyServerName} from './toolNameParser.js';
+import {type FeedEvent} from '../feed/types';
+import {extractToolOutput} from './toolExtractors';
+import {parseToolName, extractFriendlyServerName} from './toolNameParser';
 import {highlight} from 'cli-highlight';
 import chalk from 'chalk';
-import {createMarkedInstance} from './markedFactory.js';
+import {createMarkedInstance} from './markedFactory';
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
 

@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {buildFileTree, renderTree} from './fileTree.js';
+import {buildFileTree, renderTree} from './fileTree';
 
 describe('buildFileTree', () => {
 	it('builds a tree from flat file paths', () => {

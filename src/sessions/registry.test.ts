@@ -2,7 +2,7 @@ import {describe, it, expect, beforeEach, afterEach} from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {createSessionStore} from './store.js';
+import {createSessionStore} from './store';
 import {
 	listSessions,
 	getSessionMeta,
@@ -10,8 +10,8 @@ import {
 	getMostRecentAthenaSession,
 	findSessionByAdapterId,
 	sessionsDir,
-} from './registry.js';
-import type {RuntimeEvent} from '../runtime/types.js';
+} from './registry';
+import type {RuntimeEvent} from '../runtime/types';
 
 describe('session registry', () => {
 	let tmpDir: string;

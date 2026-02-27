@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import DiffBlock from './DiffBlock.js';
-import {type DiffHunk} from '../../types/toolOutput.js';
+import DiffBlock from './DiffBlock';
+import {type DiffHunk} from '../../types/toolOutput';
 
 describe('DiffBlock', () => {
 	it('returns null for empty old and new text', () => {

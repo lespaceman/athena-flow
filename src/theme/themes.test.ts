@@ -4,8 +4,8 @@ import {
 	lightTheme,
 	highContrastTheme,
 	resolveTheme,
-} from './themes.js';
-import {type Theme} from './types.js';
+} from './themes';
+import {type Theme} from './types';
 
 /** Verify a theme has all required tokens with valid hex strings. */
 function assertValidTheme(theme: Theme) {

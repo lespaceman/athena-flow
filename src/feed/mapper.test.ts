@@ -1,8 +1,8 @@
 import {describe, it, expect} from 'vitest';
-import {createFeedMapper} from './mapper.js';
-import type {MapperBootstrap} from './bootstrap.js';
-import type {FeedEvent} from './types.js';
-import type {RuntimeEvent} from '../runtime/types.js';
+import {createFeedMapper} from './mapper';
+import type {MapperBootstrap} from './bootstrap';
+import type {FeedEvent} from './types';
+import type {RuntimeEvent} from '../runtime/types';
 
 function makeFeedEvent(overrides: Partial<FeedEvent> = {}): FeedEvent {
 	return {

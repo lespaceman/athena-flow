@@ -1,8 +1,8 @@
 import {describe, it, expect, afterEach} from 'vitest';
-import {createSessionStore, type SessionStore} from './store.js';
-import {createFeedMapper} from '../feed/mapper.js';
-import type {RuntimeEvent} from '../runtime/types.js';
-import type {RuntimeDecision} from '../runtime/types.js';
+import {createSessionStore, type SessionStore} from './store';
+import {createFeedMapper} from '../feed/mapper';
+import type {RuntimeEvent} from '../runtime/types';
+import type {RuntimeDecision} from '../runtime/types';
 
 let seq = 0;
 function makeRuntimeEvent(

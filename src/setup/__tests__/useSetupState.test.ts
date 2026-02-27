@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useSetupState} from '../useSetupState.js';
+import {useSetupState} from '../useSetupState';
 
 describe('useSetupState', () => {
 	it('starts at step 0 in selecting state', () => {

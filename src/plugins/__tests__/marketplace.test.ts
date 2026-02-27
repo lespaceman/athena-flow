@@ -27,7 +27,7 @@ vi.mock('node:child_process', () => ({
 }));
 
 const {isMarketplaceRef, resolveMarketplacePlugin, resolveMarketplaceWorkflow} =
-	await import('../marketplace.js');
+	await import('../marketplace');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) {

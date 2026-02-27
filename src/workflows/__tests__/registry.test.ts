@@ -49,14 +49,14 @@ vi.mock('node:os', () => ({
 	},
 }));
 
-vi.mock('../../plugins/marketplace.js', () => ({
+vi.mock('../../plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplaceWorkflow: () => '/tmp/resolved-workflow.json',
 }));
 
 const {resolveWorkflow, installWorkflow, listWorkflows, removeWorkflow} =
-	await import('../registry.js');
+	await import('../registry');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) {

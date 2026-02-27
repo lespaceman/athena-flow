@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {getStatusBadge, type HeaderStatus} from './statusBadge.js';
+import {getStatusBadge, type HeaderStatus} from './statusBadge';
 
 describe('getStatusBadge', () => {
 	it('returns colored glyph + label when hasColor is true', () => {

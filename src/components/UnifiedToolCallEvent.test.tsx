@@ -3,8 +3,8 @@ import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
 import stripAnsi from 'strip-ansi';
 import stringWidth from 'string-width';
-import UnifiedToolCallEvent from './UnifiedToolCallEvent.js';
-import type {FeedEvent} from '../feed/types.js';
+import UnifiedToolCallEvent from './UnifiedToolCallEvent';
+import type {FeedEvent} from '../feed/types';
 
 function makeFeedEvent(
 	kind: FeedEvent['kind'],

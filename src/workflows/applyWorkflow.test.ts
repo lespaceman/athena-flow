@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {applyPromptTemplate} from './applyWorkflow.js';
+import {applyPromptTemplate} from './applyWorkflow';
 
 describe('applyPromptTemplate', () => {
 	it('replaces {input} with user prompt', () => {

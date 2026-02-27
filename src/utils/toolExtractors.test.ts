@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {extractToolOutput, detectLanguage} from './toolExtractors.js';
+import {extractToolOutput, detectLanguage} from './toolExtractors';
 
 describe('detectLanguage', () => {
 	it('maps common extensions to languages', () => {

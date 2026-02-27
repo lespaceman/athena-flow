@@ -2,13 +2,13 @@ import {describe, it, expect, vi, beforeEach} from 'vitest';
 
 const resolveMarketplacePluginMock = vi.fn();
 
-vi.mock('../../plugins/marketplace.js', () => ({
+vi.mock('../../plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplacePlugin: (ref: string) => resolveMarketplacePluginMock(ref),
 }));
 
-const {installWorkflowPlugins} = await import('../installer.js');
+const {installWorkflowPlugins} = await import('../installer');
 
 beforeEach(() => {
 	resolveMarketplacePluginMock.mockReset();

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
-import {type TimelineEntry} from '../feed/timeline.js';
-import {hintGlyphs} from '../glyphs/index.js';
-import {fit, fitAnsi, renderInputLines} from './format.js';
+import {type TimelineEntry} from '../feed/timeline';
+import {hintGlyphs} from '../glyphs/index';
+import {fit, fitAnsi, renderInputLines} from './format';
 
 export type FrameContext = {
 	innerWidth: number;

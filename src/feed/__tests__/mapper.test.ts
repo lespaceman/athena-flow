@@ -1,8 +1,8 @@
 // src/feed/__tests__/mapper.test.ts
 import {describe, it, expect} from 'vitest';
-import {createFeedMapper} from '../mapper.js';
-import type {RuntimeEvent} from '../../runtime/types.js';
-import type {FeedEvent} from '../types.js';
+import {createFeedMapper} from '../mapper';
+import type {RuntimeEvent} from '../../runtime/types';
+import type {FeedEvent} from '../types';
 
 function makeRuntimeEvent(
 	hookName: string,
@@ -1306,7 +1306,7 @@ describe('FeedMapper', () => {
 
 	describe('bootstrap from stored session', () => {
 		it('rebuilds currentRun from stored events with open run', () => {
-			const bootstrap: import('../bootstrap.js').MapperBootstrap = {
+			const bootstrap: import('../bootstrap').MapperBootstrap = {
 				adapterSessionIds: ['sess-1'],
 				createdAt: 1000,
 				feedEvents: [
@@ -1374,7 +1374,7 @@ describe('FeedMapper', () => {
 		});
 
 		it('does NOT rebuild currentRun when last run is closed', () => {
-			const bootstrap: import('../bootstrap.js').MapperBootstrap = {
+			const bootstrap: import('../bootstrap').MapperBootstrap = {
 				adapterSessionIds: ['sess-1'],
 				createdAt: 1000,
 				feedEvents: [

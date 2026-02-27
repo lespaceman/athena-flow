@@ -1,8 +1,8 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import AgentMessageEvent from '../AgentMessageEvent.js';
-import type {FeedEvent} from '../../feed/types.js';
+import AgentMessageEvent from '../AgentMessageEvent';
+import type {FeedEvent} from '../../feed/types';
 
 function makeEvent(overrides?: Partial<Record<string, unknown>>): FeedEvent {
 	return {

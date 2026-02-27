@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {createFeedMapper} from './mapper.js';
-import type {RuntimeEvent} from '../runtime/types.js';
+import {createFeedMapper} from './mapper';
+import type {RuntimeEvent} from '../runtime/types';
 
 function makeRuntimeEvent(
 	overrides: Partial<RuntimeEvent> & {hookName: string},

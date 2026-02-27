@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest';
-import {mergeFeedItems} from './useFeed.js';
-import type {FeedEvent} from '../feed/types.js';
-import type {Message} from '../types/common.js';
+import {mergeFeedItems} from './useFeed';
+import type {FeedEvent} from '../feed/types';
+import type {Message} from '../types/common';
 
 // invariant-waiver: #2 (mapper is sole constructor) — test helper for ordering tests
 function makeFeedEvent(

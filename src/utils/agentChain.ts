@@ -1,4 +1,4 @@
-import type {FeedEvent} from '../feed/types.js';
+import type {FeedEvent} from '../feed/types';
 
 /**
  * Build the agent chain from event history.

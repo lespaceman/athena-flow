@@ -1,8 +1,8 @@
 import React from 'react';
 import {describe, it, expect, vi} from 'vitest';
 import {render} from 'ink-testing-library';
-import QuestionDialog from './QuestionDialog.js';
-import type {FeedEvent} from '../feed/types.js';
+import QuestionDialog from './QuestionDialog';
+import type {FeedEvent} from '../feed/types';
 
 function makeRequest(
 	questions: Array<{

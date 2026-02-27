@@ -3,7 +3,7 @@ import {
 	parseToolName,
 	formatInlineParams,
 	formatArgs,
-} from './toolNameParser.js';
+} from './toolNameParser';
 
 describe('parseToolName', () => {
 	it('parses MCP tool name into server and action', () => {

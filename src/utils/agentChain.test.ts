@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {getAgentChain} from './agentChain.js';
-import {type FeedEvent} from '../feed/types.js';
+import {getAgentChain} from './agentChain';
+import {type FeedEvent} from '../feed/types';
 
 const mkSubagentStart = (agentId: string, agentType: string): FeedEvent => ({
 	event_id: `e-${agentId}`,

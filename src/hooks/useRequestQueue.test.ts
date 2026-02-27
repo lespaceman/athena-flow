@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import {describe, it, expect} from 'vitest';
 import {renderHook, act} from '@testing-library/react';
-import {useRequestQueue} from './useRequestQueue.js';
+import {useRequestQueue} from './useRequestQueue';
 
 type TestEvent = {event_id: string; label: string};
 

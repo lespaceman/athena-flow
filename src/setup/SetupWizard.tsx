@@ -1,12 +1,12 @@
 import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
-import {useSetupState} from './useSetupState.js';
-import ThemeStep from './steps/ThemeStep.js';
-import HarnessStep from './steps/HarnessStep.js';
-import WorkflowStep from './steps/WorkflowStep.js';
-import StepStatus from './components/StepStatus.js';
-import {writeGlobalConfig, type AthenaHarness} from '../plugins/config.js';
-import {useTheme} from '../theme/index.js';
+import {useSetupState} from './useSetupState';
+import ThemeStep from './steps/ThemeStep';
+import HarnessStep from './steps/HarnessStep';
+import WorkflowStep from './steps/WorkflowStep';
+import StepStatus from './components/StepStatus';
+import {writeGlobalConfig, type AthenaHarness} from '../plugins/config';
+import {useTheme} from '../theme/index';
 
 export type SetupResult = {
 	theme: string;

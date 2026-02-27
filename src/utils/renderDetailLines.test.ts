@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {renderDetailLines} from './renderDetailLines.js';
-import type {FeedEvent} from '../feed/types.js';
+import {renderDetailLines} from './renderDetailLines';
+import type {FeedEvent} from '../feed/types';
 import stripAnsi from 'strip-ansi';
 import stringWidth from 'string-width';
 

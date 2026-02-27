@@ -15,7 +15,7 @@ import {
 	MAX_INPUT_ROWS,
 	shortenPath,
 	shortenPathStructured,
-} from './format.js';
+} from './format';
 
 describe('compactText', () => {
 	it('returns clean text when under max', () => {

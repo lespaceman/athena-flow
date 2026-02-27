@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest';
-import {mapEnvelopeToRuntimeEvent} from '../mapper.js';
-import type {HookEventEnvelope} from '../../../../types/hooks/envelope.js';
+import {mapEnvelopeToRuntimeEvent} from '../mapper';
+import type {HookEventEnvelope} from '../../../../types/hooks/envelope';
 
 function makeEnvelope(
 	overrides: Partial<Omit<HookEventEnvelope, 'payload'>> & {

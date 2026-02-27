@@ -1,7 +1,7 @@
 import React from 'react';
 import {describe, it, expect} from 'vitest';
 import {render} from 'ink-testing-library';
-import StreamingResponse from './StreamingResponse.js';
+import StreamingResponse from './StreamingResponse';
 
 describe('StreamingResponse', () => {
 	it('renders nothing when text is empty', () => {

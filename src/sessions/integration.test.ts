@@ -2,9 +2,9 @@ import {describe, it, expect, afterEach} from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {createSessionStore} from './store.js';
-import {createFeedMapper} from '../feed/mapper.js';
-import type {RuntimeEvent} from '../runtime/types.js';
+import {createSessionStore} from './store';
+import {createFeedMapper} from '../feed/mapper';
+import type {RuntimeEvent} from '../runtime/types';
 
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
 	return {

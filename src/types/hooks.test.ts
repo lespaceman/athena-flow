@@ -17,7 +17,7 @@ import {
 	isSubagentStartEvent,
 	isSubagentStopEvent,
 	isToolEvent,
-} from './hooks/index.js';
+} from './hooks/index';
 
 // Helper to create base event fields
 const createBaseEvent = () => ({
