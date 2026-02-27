@@ -91,6 +91,7 @@ describe('SetupWizard', () => {
 		expect(onComplete).not.toHaveBeenCalled();
 
 		stdin.write('r');
+		await delay(650);
 
 		await vi.waitFor(() => {
 			expect(onComplete).toHaveBeenCalledTimes(1);
