@@ -107,6 +107,54 @@ describe('useClaudeProcess', () => {
 		);
 	});
 
+	it('should use injected token parser strategy when provided', async () => {
+		const parser = {
+			feed: vi.fn(),
+			flush: vi.fn(),
+			reset: vi.fn(),
+			getUsage: vi.fn(() => ({
+				input: null,
+				output: null,
+				cacheRead: null,
+				cacheWrite: null,
+				total: null,
+				contextSize: null,
+			})),
+		};
+		const tokenParserFactory = vi.fn(() => parser);
+
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				undefined,
+				undefined,
+				false,
+				undefined,
+				{
+					tokenParserFactory,
+				},
+			),
+		);
+
+		await act(async () => {
+			await result.current.spawn('test parser');
+		});
+
+		expect(tokenParserFactory).toHaveBeenCalled();
+		expect(parser.reset).toHaveBeenCalled();
+
+		act(() => {
+			capturedCallbacks.onStdout?.('{"type":"message"}\n');
+		});
+		expect(parser.feed).toHaveBeenCalledWith('{"type":"message"}\n');
+
+		act(() => {
+			capturedCallbacks.onExit?.(0);
+		});
+		expect(parser.flush).toHaveBeenCalled();
+	});
+
 	it('should add stdout data to output', async () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),

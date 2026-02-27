@@ -4,7 +4,7 @@
  * Factory that creates a Runtime instance backed by UDS + NDJSON protocol.
  */
 
-import type {Runtime} from '../../../core/runtime/types';
+import type {RuntimeConnector} from '../../../core/runtime/connector';
 import {createServer} from './server';
 
 export type ClaudeHookRuntimeOptions = {
@@ -14,6 +14,6 @@ export type ClaudeHookRuntimeOptions = {
 
 export function createClaudeHookRuntime(
 	opts: ClaudeHookRuntimeOptions,
-): Runtime {
+): RuntimeConnector {
 	return createServer(opts);
 }

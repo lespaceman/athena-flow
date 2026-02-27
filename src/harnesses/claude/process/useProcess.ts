@@ -18,6 +18,7 @@ import {
 	type LoopManager,
 } from '../../../core/workflows/index';
 import path from 'node:path';
+import type {TokenUsageParserFactory} from '../../../core/runtime/process';
 
 export type {UseClaudeProcessResult};
 
@@ -74,6 +75,8 @@ export type UseClaudeProcessOptions = {
 	trackStreamingText?: boolean;
 	/** Minimum interval for tokenUsage state updates. 0 = update on every chunk. */
 	tokenUpdateMs?: number;
+	/** Parser strategy for streaming token usage extraction. */
+	tokenParserFactory?: TokenUsageParserFactory;
 };
 
 export function useClaudeProcess(
@@ -88,7 +91,9 @@ export function useClaudeProcess(
 	const processRef = useRef<ChildProcess | null>(null);
 	const abortRef = useRef<AbortController>(new AbortController());
 	const exitResolverRef = useRef<(() => void) | null>(null);
-	const tokenAccRef = useRef(createTokenAccumulator());
+	const tokenAccRef = useRef(
+		(options?.tokenParserFactory ?? createTokenAccumulator)(),
+	);
 	const loopManagerRef = useRef<LoopManager | null>(null);
 	const tokenBaseRef = useRef({
 		input: options?.initialTokens?.input ?? 0,

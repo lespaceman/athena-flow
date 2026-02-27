@@ -8,6 +8,7 @@ import type {
 	RuntimeEvent,
 	RuntimeDecision,
 } from '../../../../core/runtime/types';
+import type {RuntimeConnector} from '../../../../core/runtime/connector';
 
 function makeTmpDir(): string {
 	return fs.mkdtempSync(path.join(os.tmpdir(), 'athena-test-'));
@@ -31,6 +32,24 @@ describe('createClaudeHookRuntime', () => {
 
 		await new Promise(r => setTimeout(r, 100));
 		expect(runtime.getStatus()).toBe('running');
+	});
+
+	it('conforms to the transport-neutral runtime connector contract', () => {
+		const projectDir = makeTmpDir();
+		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
+
+		const runtime: RuntimeConnector = createClaudeHookRuntime({
+			projectDir,
+			instanceId: 95,
+		});
+
+		expect(typeof runtime.start).toBe('function');
+		expect(typeof runtime.stop).toBe('function');
+		expect(typeof runtime.getStatus).toBe('function');
+		expect(typeof runtime.onEvent).toBe('function');
+		expect(typeof runtime.onDecision).toBe('function');
+		expect(typeof runtime.sendDecision).toBe('function');
+		expect(runtime.getStatus()).toBe('stopped');
 	});
 
 	it('emits RuntimeEvent when NDJSON arrives on socket', async () => {

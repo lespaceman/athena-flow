@@ -18,6 +18,7 @@ import type {
 	RuntimeEventHandler,
 	RuntimeDecisionHandler,
 } from '../../../core/runtime/types';
+import type {RuntimeConnector} from '../../../core/runtime/connector';
 import {mapEnvelopeToRuntimeEvent} from './mapper';
 import {mapDecisionToResult} from './decisionMapper';
 
@@ -92,7 +93,7 @@ export function createServer(opts: ServerOptions) {
 		pending.delete(requestId);
 	}
 
-	return {
+	const connector: RuntimeConnector = {
 		start(): void {
 			const socketDir = path.join(projectDir, '.claude', 'run');
 			socketPath = path.join(socketDir, `ink-${instanceId}.sock`);
@@ -228,7 +229,10 @@ export function createServer(opts: ServerOptions) {
 			respondToForwarder(eventId, result);
 			notifyDecision(eventId, decision);
 		},
+	};
 
+	return {
+		...connector,
 		_getPendingCount(): number {
 			return pending.size;
 		},

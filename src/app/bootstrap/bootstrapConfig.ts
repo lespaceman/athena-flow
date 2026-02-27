@@ -10,13 +10,13 @@ import type {
 	IsolationConfig,
 	IsolationPreset,
 } from '../../harnesses/claude/config/isolation';
-import {readClaudeSettingsModel} from '../../harnesses/claude/config/readSettingsModel';
 import {
 	installWorkflowPlugins,
 	resolveWorkflow,
 } from '../../core/workflows/index';
 import type {WorkflowConfig} from '../../core/workflows/types';
 import {DEFAULT_HARNESS} from '../runtime/createRuntime';
+import {resolveHarnessConfigProfile} from '../../harnesses/configProfiles';
 
 export type RuntimeBootstrapInput = {
 	projectDir: string;
@@ -118,6 +118,7 @@ export function bootstrapRuntimeConfig({
 		...globalConfig.additionalDirectories,
 		...projectConfig.additionalDirectories,
 	];
+	const harnessConfigProfile = resolveHarnessConfigProfile(harness);
 
 	const configModel =
 		projectConfig.model || globalConfig.model || activeWorkflow?.model;
@@ -135,20 +136,19 @@ export function bootstrapRuntimeConfig({
 		}
 	}
 
-	const isolationConfig: IsolationConfig = {
-		preset: isolationPreset,
-		additionalDirectories,
-		pluginDirs: pluginDirs.length > 0 ? pluginDirs : undefined,
-		debug: verbose,
-		model: configModel,
-	};
-
-	const modelName =
-		isolationConfig.model ||
-		(harness === 'claude-code'
-			? process.env['ANTHROPIC_MODEL'] || readClaudeSettingsModel(projectDir)
-			: null) ||
-		null;
+	const isolationConfig: IsolationConfig =
+		harnessConfigProfile.buildIsolationConfig({
+			projectDir,
+			isolationPreset,
+			additionalDirectories,
+			pluginDirs,
+			verbose,
+			configuredModel: configModel,
+		});
+	const modelName = harnessConfigProfile.resolveModelName({
+		projectDir,
+		configuredModel: isolationConfig.model,
+	});
 
 	return {
 		globalConfig,
