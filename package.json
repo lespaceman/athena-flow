@@ -1,6 +1,6 @@
 {
 	"name": "athena-flow-cli",
-	"description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
+	"description": "Workflow runtime for Claude Code with hooks, plugins, and interactive terminal observability",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/lespaceman/athena-flow.git"

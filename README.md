@@ -1,6 +1,8 @@
 # athena-flow
 
-Terminal companion UI for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — intercepts hook events via Unix Domain Sockets and renders a rich, interactive dashboard.
+Athena is a workflow runtime for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
+Today it runs on Claude Code hooks, orchestrates workflow and plugin execution, and provides an interactive terminal runtime for observability and control.
+The harness architecture is expanding: Codex support will run through `codex-app-server`, with more harness integrations coming.
 
 ## Install
 
@@ -16,78 +18,104 @@ Requires Node.js >= 20.
 # Launch in your project directory
 athena
 
-# Or use the full name
+# Or use the full command name
 athena-flow
 ```
 
-On first run, a setup wizard walks you through theme selection, harness configuration, and optional workflow activation.
+On first run, a setup wizard guides theme selection, harness configuration, and optional workflow activation.
 
-## How It Works
+## Usage
 
-athena-flow acts as a companion process alongside Claude Code. It:
+```bash
+athena-flow                             # Start in current project directory
+athena-flow --project-dir=/my/project   # Specify project directory
+athena-flow --continue                  # Resume most recent session
+athena-flow --sessions                  # Pick a session interactively
+athena-flow setup                       # Re-run setup wizard
+```
 
-1. Registers Claude Code [hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) that forward events to the athena-flow process
-2. Receives hook events over a Unix Domain Socket (NDJSON protocol)
-3. Renders a live terminal dashboard with tool calls, permissions, subagent activity, and more
+## What Athena Does
+
+Athena runs as a workflow runtime around Claude Code execution:
+
+1. Registers Claude Code [hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) to forward runtime events.
+2. Receives event streams over Unix Domain Sockets using NDJSON.
+3. Applies workflow, plugin, and isolation policy.
+4. Persists session state and renders live runtime state in the terminal.
 
 ```
-Claude Code → hook-forwarder (stdin) → UDS → athena-flow dashboard
+Claude Code -> hook-forwarder (stdin) -> UDS -> athena-flow runtime
 ```
+
+## Harness Support
+
+- `claude-code` (current): integrated via Claude Code hooks and forwarded runtime events.
+- `codex` (planned): integration path is `codex-app-server`.
+- Additional harness support is in progress.
 
 ## CLI Options
 
-```
-Usage
-  $ athena-flow
-
-Options
-  --project-dir   Project directory for hook socket (default: cwd)
-  --plugin        Path to a Claude Code plugin directory (repeatable)
-  --isolation     Isolation preset: strict (default), minimal, permissive
-  --verbose       Show additional rendering detail
-  --theme         Color theme: dark (default), light, or high-contrast
-  --continue      Resume the most recent session (or specify a session ID)
-  --sessions      Launch interactive session picker
-  --workflow      Workflow reference (e.g. name@owner/repo)
-
-Examples
-  $ athena-flow --project-dir=/my/project
-  $ athena-flow --plugin=/path/to/my-plugin
-  $ athena-flow --isolation=minimal
-  $ athena-flow --continue
-  $ athena-flow --sessions
-```
+| Flag            | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| `--project-dir` | Project directory for hook socket (default: cwd)              |
+| `--plugin`      | Path to a Claude Code plugin directory (repeatable)           |
+| `--isolation`   | Isolation preset: `strict` (default), `minimal`, `permissive` |
+| `--theme`       | Color theme: `dark` (default), `light`, `high-contrast`       |
+| `--workflow`    | Workflow reference (for example `name@owner/repo`)            |
+| `--continue`    | Resume most recent session, or specify a session ID           |
+| `--sessions`    | Launch interactive session picker                             |
+| `--verbose`     | Show additional rendering detail                              |
 
 ## Features
 
-- **Live event feed** — tool calls, results, permissions, and errors stream in real-time
-- **Session persistence** — sessions are stored in SQLite; resume with `--continue`
-- **Plugin system** — extend with custom commands, hooks, MCP servers, and agents
-- **Workflow orchestration** — define reusable workflows with prompt templates, loop control, and plugin bundles
-- **Isolation presets** — `strict`, `minimal`, or `permissive` control what Claude Code can access
-- **Themes** — dark, light, and high-contrast terminal themes
-- **Keyboard driven** — navigate, expand/collapse events, and interact entirely from the keyboard
+- Live event feed for tools, permissions, results, and errors
+- Session persistence in SQLite with resume support
+- Plugin system for commands, hooks, MCP servers, and agents
+- Workflow orchestration with prompt templates, loops, and plugin bundles
+- Isolation presets (`strict`, `minimal`, `permissive`)
+- Keyboard-driven terminal runtime with theme support
 
 ## Configuration
 
-Global config lives at `~/.config/athena/config.json`, project config at `{projectDir}/.athena/config.json`.
+Config files are merged in order: global -> project -> CLI flags.
+
+```text
+~/.config/athena/config.json          # Global config
+{projectDir}/.athena/config.json      # Project config
+```
 
 ```json
 {
 	"plugins": ["/path/to/plugin"],
 	"additionalDirectories": ["/path/to/allow"],
-	"workflow": "my-workflow"
+	"workflow": "e2e-test-builder"
 }
 ```
 
-Plugin and workflow configs merge in order: global → project → CLI flags.
+## Workflow Marketplace Resolution
 
-## Tech Stack
+- Workflow refs (`name@owner/repo`) are resolved from `.athena-workflow/marketplace.json` (preferred).
+- Legacy workflow manifests at `.claude-plugin/marketplace.json` are still supported as fallback.
+- Workflow `plugins[]` should use marketplace refs.
 
-- [Ink](https://github.com/vadimdemedes/ink) + React 19 for terminal rendering
-- [meow](https://github.com/sindresorhus/meow) for CLI argument parsing
-- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) for session persistence
-- TypeScript, ESM, vitest
+## Development
+
+```bash
+npm install
+npm run build
+npm run typecheck
+npm run dev
+npm test
+npm run lint
+```
+
+Performance profiling artifacts are written to `.profiles/` via:
+
+```bash
+npm run perf:tui -- -- --sessions
+```
+
+See `docs/performance-profiling.md` for profiling modes and artifact analysis.
 
 ## License
 
