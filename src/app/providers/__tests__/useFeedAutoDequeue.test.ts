@@ -44,6 +44,11 @@ function makePermissionEvent(requestId: string): RuntimeEvent {
 	return {
 		id: requestId,
 		timestamp: Date.now(),
+		kind: 'permission.request',
+		data: {
+			tool_name: 'Bash',
+			tool_input: {command: 'ls'},
+		},
 		hookName: 'PermissionRequest',
 		sessionId: 'test-session',
 		toolName: 'Bash',

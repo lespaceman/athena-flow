@@ -43,6 +43,19 @@ describe('createRuntime', () => {
 		});
 	});
 
+	it('falls back to claude runtime for opencode harness until adapter lands', () => {
+		createRuntime({
+			harness: 'opencode',
+			projectDir: '/tmp/project',
+			instanceId: 8,
+		});
+
+		expect(createClaudeHookRuntimeMock).toHaveBeenCalledWith({
+			projectDir: '/tmp/project',
+			instanceId: 8,
+		});
+	});
+
 	it('defines claude-code as default harness', () => {
 		expect(DEFAULT_HARNESS).toBe('claude-code');
 	});

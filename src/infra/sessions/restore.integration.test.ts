@@ -3,6 +3,7 @@ import {createSessionStore, type SessionStore} from './store';
 import {createFeedMapper} from '../../core/feed/mapper';
 import type {RuntimeEvent} from '../../core/runtime/types';
 import type {RuntimeDecision} from '../../core/runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../../core/runtime/events';
 
 let seq = 0;
 function makeRuntimeEvent(
@@ -10,22 +11,28 @@ function makeRuntimeEvent(
 	overrides: Partial<RuntimeEvent> = {},
 ): RuntimeEvent {
 	seq++;
+	const payload = {
+		tool_name: 'Bash',
+		tool_input: {command: 'echo hi'},
+		...(hookName === 'UserPromptSubmit' ? {prompt: 'do stuff'} : {}),
+		...(hookName === 'SessionStart' ? {source: 'startup'} : {}),
+		...(hookName === 'Stop'
+			? {stop_hook_active: true, last_assistant_message: 'done'}
+			: {}),
+		...(typeof overrides.payload === 'object' && overrides.payload !== null
+			? (overrides.payload as Record<string, unknown>)
+			: {}),
+	};
 	return {
 		id: `rt-${seq}`,
 		timestamp: Date.now() + seq,
+		kind: overrides.kind ?? mapLegacyHookNameToRuntimeKind(hookName),
+		data: overrides.data ?? payload,
 		hookName,
 		sessionId: 'claude-sess-1',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: hookName === 'PermissionRequest'},
-		payload: {
-			tool_name: 'Bash',
-			tool_input: {command: 'echo hi'},
-			...(hookName === 'UserPromptSubmit' ? {prompt: 'do stuff'} : {}),
-			...(hookName === 'SessionStart' ? {source: 'startup'} : {}),
-			...(hookName === 'Stop'
-				? {stop_hook_active: true, last_assistant_message: 'done'}
-				: {}),
-		},
+		payload,
 		...overrides,
 	};
 }

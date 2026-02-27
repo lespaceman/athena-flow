@@ -208,8 +208,7 @@ export function useFeed(
 			}
 
 			// Use PreToolUse intents for PreToolUse events, PermissionRequest intents otherwise
-			const isPreToolUse =
-				queueItem?.kind === 'tool.pre' || queueItem?.hookName === 'PreToolUse';
+			const isPreToolUse = queueItem?.kind === 'tool.pre';
 			const runtimeDecision: RuntimeDecision = {
 				type: 'json',
 				source: 'user',

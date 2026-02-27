@@ -8,15 +8,19 @@ function makeRuntimeEvent(
 ): RuntimeEvent {
 	const kind =
 		overrides.kind ?? mapLegacyHookNameToRuntimeKind(overrides.hookName);
+	const payload =
+		typeof overrides.payload === 'object' && overrides.payload !== null
+			? (overrides.payload as Record<string, unknown>)
+			: {};
 	return {
 		id: `evt-${Math.random().toString(36).slice(2)}`,
 		timestamp: Date.now(),
 		kind,
-		data: {},
+		data: overrides.data ?? payload,
 		sessionId: 'test-session',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/transcript.json'},
 		interaction: {expectsDecision: false},
-		payload: {},
+		payload,
 		...overrides,
 	};
 }

@@ -1,15 +1,16 @@
 import type {AthenaHarness} from '../../infra/plugins/config';
-import {type UseClaudeProcessOptions} from '../../harnesses/claude/process/useProcess';
-import type {
-	IsolationConfig,
-	IsolationPreset,
-} from '../../harnesses/claude/config/isolation';
 import type {WorkflowConfig} from '../../core/workflows/types';
-import type {HarnessProcess} from '../../core/runtime/process';
+import type {
+	HarnessProcess,
+	HarnessProcessConfig,
+	HarnessProcessOptions,
+	HarnessProcessOverride,
+	HarnessProcessPreset,
+} from '../../core/runtime/process';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
 import {resolveHarnessProcessProfile} from '../../harnesses/processProfiles';
 
-export type HarnessProcessResult = HarnessProcess<Partial<IsolationConfig>> & {
+export type HarnessProcessResult = HarnessProcess<HarnessProcessOverride> & {
 	tokenUsage: TokenUsage;
 };
 
@@ -17,11 +18,11 @@ export type UseHarnessProcessInput = {
 	harness: AthenaHarness;
 	projectDir: string;
 	instanceId: number;
-	isolation?: IsolationConfig | IsolationPreset;
+	isolation?: HarnessProcessConfig | HarnessProcessPreset;
 	pluginMcpConfig?: string;
 	verbose?: boolean;
 	workflow?: WorkflowConfig;
-	options?: UseClaudeProcessOptions;
+	options?: HarnessProcessOptions;
 };
 
 export function useHarnessProcess(

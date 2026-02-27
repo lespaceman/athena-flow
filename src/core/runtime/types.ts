@@ -20,10 +20,13 @@ export type RuntimeEvent = {
 	/** Unix ms timestamp */
 	timestamp: number;
 	/** Canonical semantic kind (harness-neutral). */
-	kind?: RuntimeEventKind;
+	kind: RuntimeEventKind;
 	/** Canonical normalized event data (harness-neutral). */
-	data?: RuntimeEventData;
-	/** Hook event name as open string (forward compatible with unknown events) */
+	data: RuntimeEventData;
+	/**
+	 * Adapter metadata: original provider event name for diagnostics.
+	 * Core logic must not branch on this field.
+	 */
 	hookName: string;
 	/** Session ID from the hook event */
 	sessionId: string;
@@ -51,7 +54,10 @@ export type RuntimeEvent = {
 		canBlock?: boolean;
 	};
 
-	/** Opaque payload — UI renderers may deep-access but must not import protocol types */
+	/**
+	 * Adapter metadata: raw provider payload for debugging/inspection.
+	 * Core logic must not branch on this field.
+	 */
 	payload: unknown;
 };
 

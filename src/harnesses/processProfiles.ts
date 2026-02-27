@@ -2,27 +2,55 @@ import type {AthenaHarness} from '../infra/plugins/config';
 import {createTokenAccumulator} from './claude/process/tokenAccumulator';
 import {
 	useClaudeProcess,
+	type UseClaudeProcessResult,
 	type UseClaudeProcessOptions,
 } from './claude/process/useProcess';
 import type {IsolationConfig, IsolationPreset} from './claude/config/isolation';
 import type {WorkflowConfig} from '../core/workflows/types';
-import type {TokenUsageParserFactory} from '../core/runtime/process';
+import type {
+	HarnessProcessConfig,
+	HarnessProcessOptions,
+	HarnessProcessPreset,
+	TokenUsageParserFactory,
+} from '../core/runtime/process';
+
+type HarnessProcessHook = Pick<
+	UseClaudeProcessResult,
+	'spawn' | 'isRunning' | 'sendInterrupt' | 'kill' | 'tokenUsage'
+>;
 
 export type HarnessProcessProfile = {
 	useProcess: (
 		projectDir: string,
 		instanceId: number,
-		isolation?: IsolationConfig | IsolationPreset,
+		processConfig?: HarnessProcessConfig | HarnessProcessPreset,
 		pluginMcpConfig?: string,
 		verbose?: boolean,
 		workflow?: WorkflowConfig,
-		options?: UseClaudeProcessOptions,
-	) => ReturnType<typeof useClaudeProcess>;
+		options?: HarnessProcessOptions,
+	) => HarnessProcessHook;
 	tokenParserFactory: TokenUsageParserFactory;
 };
 
 const CLAUDE_PROCESS_PROFILE: HarnessProcessProfile = {
-	useProcess: useClaudeProcess,
+	useProcess: (
+		projectDir,
+		instanceId,
+		processConfig,
+		pluginMcpConfig,
+		verbose,
+		workflow,
+		options,
+	) =>
+		useClaudeProcess(
+			projectDir,
+			instanceId,
+			processConfig as IsolationConfig | IsolationPreset | undefined,
+			pluginMcpConfig,
+			verbose,
+			workflow,
+			options as UseClaudeProcessOptions | undefined,
+		),
 	tokenParserFactory: createTokenAccumulator,
 };
 

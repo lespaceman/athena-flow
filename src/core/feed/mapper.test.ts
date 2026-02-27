@@ -23,16 +23,20 @@ function makeFeedEvent(overrides: Partial<FeedEvent> = {}): FeedEvent {
 
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
 	const hookName = overrides.hookName ?? 'PreToolUse';
+	const payload =
+		typeof overrides.payload === 'object' && overrides.payload !== null
+			? (overrides.payload as Record<string, unknown>)
+			: {tool_name: 'Bash'};
 	return {
 		id: 'rt-1',
 		timestamp: Date.now(),
 		kind: mapLegacyHookNameToRuntimeKind(hookName),
-		data: {},
+		data: payload,
 		hookName,
 		sessionId: 'cs-1',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: false},
-		payload: {tool_name: 'Bash'},
+		payload,
 		...overrides,
 	};
 }

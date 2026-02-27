@@ -2,17 +2,25 @@ import {describe, it, expect, afterEach} from 'vitest';
 import {createSessionStore} from './store';
 import type {RuntimeEvent} from '../../core/runtime/types';
 import type {FeedEvent} from '../../core/feed/types';
+import {mapLegacyHookNameToRuntimeKind} from '../../core/runtime/events';
 
 // Helper: minimal RuntimeEvent
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
+	const hookName = overrides.hookName ?? 'PreToolUse';
+	const payload =
+		typeof overrides.payload === 'object' && overrides.payload !== null
+			? (overrides.payload as Record<string, unknown>)
+			: {tool_name: 'Bash'};
 	return {
 		id: 'rt-1',
 		timestamp: Date.now(),
-		hookName: 'PreToolUse',
+		kind: overrides.kind ?? mapLegacyHookNameToRuntimeKind(hookName),
+		data: overrides.data ?? payload,
+		hookName,
 		sessionId: 'claude-session-1',
 		context: {cwd: '/tmp', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: false},
-		payload: {tool_name: 'Bash'},
+		payload,
 		...overrides,
 	};
 }

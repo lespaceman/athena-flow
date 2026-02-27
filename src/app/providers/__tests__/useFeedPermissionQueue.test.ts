@@ -10,6 +10,8 @@ describe('PermissionQueueItem', () => {
 		const item: PermissionQueueItem = {
 			request_id: 'req-1',
 			ts: Date.now(),
+			kind: 'permission.request',
+			hookName: 'PermissionRequest',
 			tool_name: 'Bash',
 			tool_input: {command: 'ls'},
 		};
@@ -21,6 +23,8 @@ describe('PermissionQueueItem', () => {
 		const item: PermissionQueueItem = {
 			request_id: 'req-2',
 			ts: Date.now(),
+			kind: 'permission.request',
+			hookName: 'PermissionRequest',
 			tool_name: 'mcp__server__tool',
 			tool_input: {},
 			tool_use_id: 'tu-123',
@@ -36,6 +40,13 @@ describe('extractPermissionSnapshot', () => {
 		const event: RuntimeEvent = {
 			id: 'req-1',
 			timestamp: 1000,
+			kind: 'permission.request',
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'rm -rf /'},
+				tool_use_id: 'tu-1',
+				permission_suggestions: [{type: 'allow', tool: 'Bash'}],
+			},
 			hookName: 'PermissionRequest',
 			sessionId: 'sess-1',
 			toolName: 'Bash',
@@ -58,6 +69,7 @@ describe('extractPermissionSnapshot', () => {
 		expect(snapshot).toEqual({
 			request_id: 'req-1',
 			ts: 1000,
+			kind: 'permission.request',
 			hookName: 'PermissionRequest',
 			tool_name: 'Bash',
 			tool_input: {command: 'rm -rf /'},
@@ -70,6 +82,11 @@ describe('extractPermissionSnapshot', () => {
 		const event: RuntimeEvent = {
 			id: 'req-2',
 			timestamp: 2000,
+			kind: 'permission.request',
+			data: {
+				tool_name: 'Read',
+				tool_input: {file_path: '/etc/passwd'},
+			},
 			hookName: 'PermissionRequest',
 			sessionId: 'sess-1',
 			toolName: 'Read',

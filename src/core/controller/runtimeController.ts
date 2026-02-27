@@ -9,7 +9,6 @@
  */
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
-import {mapLegacyHookNameToRuntimeKind} from '../runtime/events';
 import {type HookRule, matchRule} from './rules';
 
 export type ControllerCallbacks = {
@@ -27,9 +26,8 @@ export function handleEvent(
 	event: RuntimeEvent,
 	cb: ControllerCallbacks,
 ): ControllerResult {
-	const eventKind =
-		event.kind ?? mapLegacyHookNameToRuntimeKind(event.hookName);
-	const eventData = (event.data ?? event.payload) as Record<string, unknown>;
+	const eventKind = event.kind;
+	const eventData = event.data as Record<string, unknown>;
 	const toolName =
 		event.toolName ??
 		(typeof eventData['tool_name'] === 'string'

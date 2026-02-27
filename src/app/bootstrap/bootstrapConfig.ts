@@ -7,9 +7,9 @@ import {
 } from '../../infra/plugins/index';
 import {shouldResolveWorkflow} from '../../setup/shouldResolveWorkflow';
 import type {
-	IsolationConfig,
-	IsolationPreset,
-} from '../../harnesses/claude/config/isolation';
+	HarnessProcessConfig,
+	HarnessProcessPreset,
+} from '../../core/runtime/process';
 import {
 	installWorkflowPlugins,
 	resolveWorkflow,
@@ -23,7 +23,7 @@ export type RuntimeBootstrapInput = {
 	showSetup: boolean;
 	workflowFlag?: string;
 	pluginFlags?: string[];
-	isolationPreset: IsolationPreset;
+	isolationPreset: HarnessProcessPreset;
 	verbose?: boolean;
 	globalConfig?: AthenaConfig;
 	projectConfig?: AthenaConfig;
@@ -33,7 +33,7 @@ export type RuntimeBootstrapOutput = {
 	globalConfig: AthenaConfig;
 	projectConfig: AthenaConfig;
 	harness: AthenaHarness;
-	isolationConfig: IsolationConfig;
+	isolationConfig: HarnessProcessConfig;
 	pluginMcpConfig?: string;
 	workflowRef?: string;
 	workflow?: WorkflowConfig;
@@ -132,11 +132,11 @@ export function bootstrapRuntimeConfig({
 			warnings.push(
 				`Workflow '${activeWorkflow.name}' requires '${activeWorkflow.isolation}' isolation (upgrading from '${isolationPreset}')`,
 			);
-			isolationPreset = activeWorkflow.isolation as IsolationPreset;
+			isolationPreset = activeWorkflow.isolation as HarnessProcessPreset;
 		}
 	}
 
-	const isolationConfig: IsolationConfig =
+	const isolationConfig: HarnessProcessConfig =
 		harnessConfigProfile.buildIsolationConfig({
 			projectDir,
 			isolationPreset,

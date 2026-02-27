@@ -5,16 +5,24 @@ import os from 'node:os';
 import {createSessionStore} from './store';
 import {createFeedMapper} from '../../core/feed/mapper';
 import type {RuntimeEvent} from '../../core/runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../../core/runtime/events';
 
 function makeRuntimeEvent(overrides: Partial<RuntimeEvent> = {}): RuntimeEvent {
+	const hookName = overrides.hookName ?? 'SessionStart';
+	const payload =
+		typeof overrides.payload === 'object' && overrides.payload !== null
+			? (overrides.payload as Record<string, unknown>)
+			: {session_id: 'claude-1', source: 'startup'};
 	return {
 		id: 'evt-1',
 		timestamp: Date.now(),
-		hookName: 'SessionStart',
+		kind: overrides.kind ?? mapLegacyHookNameToRuntimeKind(hookName),
+		data: overrides.data ?? payload,
+		hookName,
 		sessionId: 'claude-1',
 		context: {cwd: '/test', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: false},
-		payload: {session_id: 'claude-1', source: 'startup'},
+		payload,
 		...overrides,
 	};
 }

@@ -1,10 +1,13 @@
 import type {AthenaHarness} from '../infra/plugins/config';
-import type {IsolationConfig, IsolationPreset} from './claude/config/isolation';
 import {resolveClaudeModel} from './claude/config/modelResolver';
+import type {
+	HarnessProcessConfig,
+	HarnessProcessPreset,
+} from '../core/runtime/process';
 
 export type BuildHarnessConfigInput = {
 	projectDir: string;
-	isolationPreset: IsolationPreset;
+	isolationPreset: HarnessProcessPreset;
 	additionalDirectories: string[];
 	pluginDirs: string[];
 	verbose: boolean;
@@ -18,7 +21,9 @@ export type ResolveHarnessModelInput = {
 
 export type HarnessConfigProfile = {
 	harness: AthenaHarness;
-	buildIsolationConfig: (input: BuildHarnessConfigInput) => IsolationConfig;
+	buildIsolationConfig: (
+		input: BuildHarnessConfigInput,
+	) => HarnessProcessConfig;
 	resolveModelName: (input: ResolveHarnessModelInput) => string | null;
 };
 
@@ -28,7 +33,7 @@ function buildClaudeCompatibleIsolationConfig({
 	pluginDirs,
 	verbose,
 	configuredModel,
-}: BuildHarnessConfigInput): IsolationConfig {
+}: BuildHarnessConfigInput): HarnessProcessConfig {
 	return {
 		preset: isolationPreset,
 		additionalDirectories,

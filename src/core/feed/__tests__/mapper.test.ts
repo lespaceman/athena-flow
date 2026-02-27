@@ -3,24 +3,34 @@ import {describe, it, expect} from 'vitest';
 import {createFeedMapper} from '../mapper';
 import type {RuntimeEvent} from '../../runtime/types';
 import type {FeedEvent} from '../types';
+import {mapLegacyHookNameToRuntimeKind} from '../../runtime/events';
 
 function makeRuntimeEvent(
 	hookName: string,
 	extra?: Partial<RuntimeEvent>,
 ): RuntimeEvent {
+	const kind = extra?.kind ?? mapLegacyHookNameToRuntimeKind(hookName);
+	const payload = {
+		hook_event_name: hookName,
+		session_id: 'sess-1',
+		transcript_path: '/tmp/t.jsonl',
+		cwd: '/project',
+		...(typeof extra?.payload === 'object' && extra.payload !== null
+			? (extra.payload as Record<string, unknown>)
+			: {}),
+	};
 	return {
 		id: `req-${Date.now()}`,
 		timestamp: Date.now(),
+		kind,
+		data:
+			extra?.data ??
+			(kind === 'unknown' ? {source_event_name: hookName, payload} : payload),
 		hookName,
 		sessionId: 'sess-1',
 		context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},
 		interaction: {expectsDecision: false},
-		payload: {
-			hook_event_name: hookName,
-			session_id: 'sess-1',
-			transcript_path: '/tmp/t.jsonl',
-			cwd: '/project',
-		},
+		payload,
 		...extra,
 	};
 }

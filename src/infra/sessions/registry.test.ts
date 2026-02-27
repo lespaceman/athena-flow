@@ -12,6 +12,7 @@ import {
 	sessionsDir,
 } from './registry';
 import type {RuntimeEvent} from '../../core/runtime/types';
+import {mapLegacyHookNameToRuntimeKind} from '../../core/runtime/events';
 
 describe('session registry', () => {
 	let tmpDir: string;
@@ -147,6 +148,11 @@ describe('findSessionByAdapterId', () => {
 		const runtimeEvent: RuntimeEvent = {
 			id: 'req-1',
 			timestamp: Date.now(),
+			kind: mapLegacyHookNameToRuntimeKind('SessionStart'),
+			data: {
+				hook_event_name: 'SessionStart',
+				session_id: 'claude-adapter-abc',
+			},
 			hookName: 'SessionStart',
 			sessionId: 'claude-adapter-abc',
 			context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},
