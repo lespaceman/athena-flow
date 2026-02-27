@@ -3,7 +3,7 @@ import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
 import FeedList from '../FeedList';
 import type {FeedEvent} from '../../../core/feed/types';
-import type {FeedItem} from '../../../hooks/useFeed';
+import type {FeedItem} from '../../../core/feed/items';
 
 function stubFeedEvent(id: string, kind: string, title: string): FeedEvent {
 	return {

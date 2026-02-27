@@ -7,7 +7,7 @@
 
 import {type Message} from '../../shared/types/common';
 import {type IsolationConfig} from '../../harnesses/claude/config/isolation';
-import {type UseFeedResult} from '../../hooks/useFeed';
+import {type UseFeedResult} from '../providers/useFeed';
 import {type SessionStatsSnapshot} from '../../shared/types/headerMetrics';
 
 // ---------------------------------------------------------------------------

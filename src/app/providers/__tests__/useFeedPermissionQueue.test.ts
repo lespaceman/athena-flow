@@ -1,6 +1,8 @@
 import {describe, it, expect} from 'vitest';
-import type {PermissionQueueItem} from '../../../hooks/useFeed';
-import {extractPermissionSnapshot} from '../../../hooks/useFeed';
+import {
+	type PermissionQueueItem,
+	extractPermissionSnapshot,
+} from '../../../core/controller/permission';
 import type {RuntimeEvent} from '../../../core/runtime/types';
 
 describe('PermissionQueueItem', () => {

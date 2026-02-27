@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {buildPostByToolUseId} from '../../hooks/useFeed';
+import {buildPostByToolUseId} from '../../core/feed/items';
 import type {FeedEvent} from '../../core/feed/types';
 
 // invariant-waiver: #2 (mapper is sole constructor) — test helper for unit testing buildPostByToolUseId

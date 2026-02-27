@@ -3,7 +3,7 @@ import {describe, it, expect, vi, afterEach} from 'vitest';
 import chalk from 'chalk';
 import {render} from 'ink-testing-library';
 import PermissionDialog from './PermissionDialog';
-import type {PermissionQueueItem} from '../../hooks/useFeed';
+import type {PermissionQueueItem} from '../../core/controller/permission';
 
 function makePermissionEvent(
 	toolName: string,

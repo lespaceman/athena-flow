@@ -1,6 +1,6 @@
 import React, {useMemo} from 'react';
 import {Box, Static, Text, useStdout} from 'ink';
-import type {FeedItem} from '../../hooks/useFeed';
+import type {FeedItem} from '../../core/feed/items';
 import {isExpandable} from '../../core/feed/expandable';
 import HookEvent from './HookEvent';
 import Message from './Message';

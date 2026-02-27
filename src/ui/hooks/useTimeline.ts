@@ -1,5 +1,5 @@
 import {useMemo, useEffect, useState} from 'react';
-import {type FeedItem} from '../../hooks/useFeed';
+import {type FeedItem} from '../../core/feed/items';
 import {type FeedEvent} from '../../core/feed/types';
 import {
 	type TimelineEntry,

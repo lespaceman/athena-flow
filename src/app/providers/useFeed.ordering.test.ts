@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {mergeFeedItems} from '../../hooks/useFeed';
+import {mergeFeedItems} from '../../core/feed/items';
 import type {FeedEvent} from '../../core/feed/types';
 import type {Message} from '../../shared/types/common';
 

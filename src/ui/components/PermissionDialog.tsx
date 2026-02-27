@@ -1,10 +1,12 @@
 import {useCallback, useMemo} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {getGlyphs} from '../glyphs/index';
-import type {PermissionQueueItem} from '../../hooks/useFeed';
-import {useTheme} from '../theme/index';
-import {type PermissionDecision} from '../../core/controller/permission';
+import {
+	type PermissionDecision,
+	type PermissionQueueItem,
+} from '../../core/controller/permission';
 import {parseToolName} from '../../shared/utils/toolNameParser';
+import {useTheme} from '../theme/index';
 import OptionList, {type OptionItem} from './OptionList';
 
 type Props = {

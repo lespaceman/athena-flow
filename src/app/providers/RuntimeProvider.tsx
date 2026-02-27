@@ -5,7 +5,7 @@ import {
 	useContextSelector,
 } from 'use-context-selector';
 import path from 'node:path';
-import {useFeed} from '../../hooks/useFeed';
+import {useFeed} from './useFeed';
 import {createClaudeHookRuntime} from '../../harnesses/claude/runtime/index';
 import {createSessionStore} from '../../infra/sessions/store';
 import {sessionsDir} from '../../infra/sessions/registry';

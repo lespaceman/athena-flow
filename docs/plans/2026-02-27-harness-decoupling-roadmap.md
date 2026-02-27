@@ -1,7 +1,7 @@
 # Harness Decoupling Roadmap (Pre-Codex)
 
 Date: 2026-02-27  
-Status: Draft for implementation planning
+Status: Reassessed after folder migration
 
 ## Goal
 
@@ -14,8 +14,7 @@ Remove Claude-specific coupling from athena-cli so adding a new harness (for exa
 
 ## Pathing Note
 
-Canonical implementation paths in this roadmap follow the new folder structure (`src/app`, `src/core`, `src/harnesses`, `src/infra`, `src/ui`).
-Some validation commands still reference legacy shim test paths (for example `src/feed`, `src/hooks`, `src/sessions`, `src/runtime/adapters/claudeHooks`) until shim cleanup is complete.
+Canonical implementation paths in this roadmap follow the new folder structure (`src/app`, `src/core`, `src/harnesses`, `src/infra`, `src/ui`, `src/shared`).
 
 ## Coupling Inventory
 
@@ -24,18 +23,31 @@ Some validation commands still reference legacy shim test paths (for example `sr
 | A   | Runtime/feed semantics tied to Claude hook names and payload shapes       | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts`     | Very High   |
 | B   | Process lifecycle tied to `claude -p` and Claude stream-json output       | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts`                                       | High        |
 | C   | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts`                                        | High        |
-| D   | Isolation/model bootstrapping tied to Claude flags/env/settings           | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/runtime/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
+| D   | Isolation/model bootstrapping tied to Claude flags/env/settings           | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/app/bootstrap/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
 | E   | Runtime selection hardcoded to Claude adapter                             | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx`                                                                                  | Medium      |
-| F   | Setup/header/harness UX still Claude-specific                             | `src/setup/steps/HarnessStep.tsx`, `src/utils/detectHarness.ts`, `README.md`, `CLAUDE.md`                                                                                       | Low-Medium  |
+| F   | Setup/header/harness UX still Claude-specific                             | `src/setup/steps/HarnessStep.tsx`, `src/shared/utils/detectHarness.ts`, `README.md`, `CLAUDE.md`                                                                                | Low-Medium  |
+
+## Current Track Status (2026-02-27)
+
+| Track | Status | Current Reality |
+| --- | --- | --- |
+| A | Not started | Core runtime/controller/feed still branch on Claude hook names and raw payload shape (`event.hookName`, `event.payload`). |
+| B | Partial | Claude process code moved under `src/harnesses/claude/process/*`, but app shell still depends directly on Claude process API. |
+| C | Partial | Claude transport/server is isolated under `src/harnesses/claude/runtime/server.ts`, but no app-level transport-neutral connector boundary yet. |
+| D | Partial | Claude config files are isolated, but bootstrap path still reads Claude settings directly. |
+| E | Not started | `RuntimeProvider` still constructs Claude runtime directly (no harness runtime factory). |
+| F | Not started | Setup/header/docs still default to Claude labels/verification flows. |
 
 ## Execution Order
 
 1. Track A (hardest): runtime/feed semantic decoupling
-2. Track B: process lifecycle abstraction
-3. Track C: transport abstraction
-4. Track D: provider config abstraction
-5. Track E: runtime factory wiring
+2. Track E: runtime factory wiring (establish app boundary for multi-harness composition)
+3. Track B: process lifecycle abstraction
+4. Track C: transport abstraction
+5. Track D: provider config abstraction
 6. Track F: setup and UX cleanup
+
+Track B and Track C can run in parallel after Track E lands.
 
 Track A detailed plan: [2026-02-27-runtime-semantic-decoupling-impl.md](./2026-02-27-runtime-semantic-decoupling-impl.md)
 
@@ -58,7 +70,7 @@ Replace Claude-specific process hook APIs with a harness-agnostic process interf
 ### Validation
 
 - `npm run typecheck`
-- `npx vitest run src/hooks/useClaudeProcess.test.ts src/__sentinels__/resume-discipline.sentinel.test.ts` (legacy shim tests)
+- `npx vitest run src/harnesses/claude/process/useProcess.test.ts src/__sentinels__/resume-discipline.sentinel.test.ts`
 - Add new tests for `useHarnessProcess` neutral contract.
 
 ### Exit Criteria
@@ -84,7 +96,7 @@ Decouple runtime transport so UDS hook forwarding is one adapter, not the defaul
 
 ### Validation
 
-- `npx vitest run src/runtime/adapters/claudeHooks/__tests__/server.test.ts` (legacy shim test path)
+- `npx vitest run src/harnesses/claude/runtime/__tests__/server.test.ts`
 - Add new transport interface tests with mock/injectable runtime.
 
 ### Exit Criteria
@@ -110,7 +122,7 @@ Replace Claude-centric isolation/model bootstrapping with provider profile resol
 
 ### Validation
 
-- `npx vitest run src/runtime/__tests__/bootstrapConfig.test.ts src/types/isolation.test.ts src/utils/flagRegistry.test.ts` (legacy shim tests for moved config modules)
+- `npx vitest run src/app/bootstrap/bootstrapConfig.test.ts src/harnesses/claude/config/isolation.test.ts src/harnesses/claude/config/flagRegistry.test.ts src/harnesses/claude/config/readSettingsModel.test.ts`
 
 ### Exit Criteria
 
@@ -134,7 +146,7 @@ Enable runtime creation by selected harness instead of hardcoding Claude in cont
 
 ### Validation
 
-- `npx vitest run src/runtime/__tests__/boundary.test.ts`
+- `npx vitest run src/app/__tests__/boundary.test.ts`
 - `npm run typecheck` (ensures provider wiring at `src/app/providers/RuntimeProvider.tsx`)
 - Add tests covering factory selection path.
 
@@ -160,7 +172,7 @@ Remove UI and docs assumptions that only Claude exists.
 
 ### Validation
 
-- `npx vitest run src/setup/steps/__tests__/HarnessStep.test.tsx src/utils/headerModel.test.ts src/utils/detectHarness.test.ts`
+- `npx vitest run src/setup/steps/__tests__/HarnessStep.test.tsx src/ui/header/model.test.ts src/shared/utils/detectHarness.test.ts`
 - `npm run lint`
 
 ### Exit Criteria
