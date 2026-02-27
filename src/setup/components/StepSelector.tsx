@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useTheme} from '../../ui/theme/index';
 

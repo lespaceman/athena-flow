@@ -136,7 +136,6 @@ async function main(): Promise<void> {
 		} catch {
 			// Invalid JSON, passthrough
 			process.exit(0);
-			return; // TypeScript: unreachable, but helps with control flow analysis
 		}
 
 		// Build the envelope

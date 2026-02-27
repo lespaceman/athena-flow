@@ -44,8 +44,9 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 					return `${g['permission.timeout']} No opinion: ${event.data.reason ?? 'timeout'}`;
 				case 'ask':
 					return '? Ask';
+				default:
+					return '? Permission';
 			}
-			break;
 		case 'stop.request':
 			return `${g['stop.icon']} Stop requested`;
 		case 'stop.decision':
@@ -56,8 +57,9 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 					return `${g['task.completed']} Stop allowed`;
 				case 'no_opinion':
 					return `${g['permission.timeout']} Stop: no opinion`;
+				default:
+					return `${g['stop.icon']} Stop decision`;
 			}
-			break;
 		case 'subagent.start':
 			return `${g['subagent.start']} Subagent: ${event.data.agent_type}`;
 		case 'subagent.stop':
@@ -89,5 +91,4 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 				? truncate(`${g['message.agent']} Subagent response`)
 				: truncate(`${g['message.agent']} Agent response`);
 	}
-	return 'Unknown event';
 }

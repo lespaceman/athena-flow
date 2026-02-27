@@ -1,4 +1,3 @@
-import React from 'react';
 import {Box, Text} from 'ink';
 import type {FeedEvent} from '../../core/feed/types';
 import {getStatusColors} from './hookEventUtils';

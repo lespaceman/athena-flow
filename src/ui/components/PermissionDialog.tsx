@@ -1,4 +1,4 @@
-import React, {useCallback, useMemo} from 'react';
+import {useCallback, useMemo} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {getGlyphs} from '../glyphs/index';
 import type {PermissionQueueItem} from '../../hooks/useFeed';

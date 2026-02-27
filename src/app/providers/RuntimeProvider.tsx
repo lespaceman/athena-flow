@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo} from 'react';
+import {useEffect, useMemo} from 'react';
 import {
 	createContext,
 	useContext,
@@ -9,10 +9,7 @@ import {useFeed} from '../../hooks/useFeed';
 import {createClaudeHookRuntime} from '../../harnesses/claude/runtime/index';
 import {createSessionStore} from '../../infra/sessions/store';
 import {sessionsDir} from '../../infra/sessions/registry';
-import {
-	type HookContextValue,
-	type HookProviderProps,
-} from './types';
+import {type HookContextValue, type HookProviderProps} from './types';
 
 const HookContext = createContext<HookContextValue | null>(null);
 const EMPTY_MESSAGES: never[] = [];

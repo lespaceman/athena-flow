@@ -1,10 +1,5 @@
 import {describe, it, expect} from 'vitest';
-import {
-	darkTheme,
-	lightTheme,
-	highContrastTheme,
-	resolveTheme,
-} from './themes';
+import {darkTheme, lightTheme, highContrastTheme, resolveTheme} from './themes';
 import {type Theme} from './types';
 
 /** Verify a theme has all required tokens with valid hex strings. */

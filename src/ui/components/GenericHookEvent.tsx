@@ -6,11 +6,7 @@
 import React from 'react';
 import {Box, Text} from 'ink';
 import type {FeedEvent} from '../../core/feed/types';
-import {
-	getStatusColors,
-	STATUS_SYMBOLS,
-	truncateStr,
-} from './hookEventUtils';
+import {getStatusColors, STATUS_SYMBOLS, truncateStr} from './hookEventUtils';
 import {useTheme} from '../theme/index';
 
 type Props = {

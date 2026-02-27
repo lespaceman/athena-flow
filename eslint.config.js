@@ -43,6 +43,13 @@ const legacyImportPatterns = [
 	...legacyModules.flatMap(relativeImportPatterns),
 ];
 
+const testFileGlobs = [
+	'src/**/*.test.ts',
+	'src/**/*.test.tsx',
+	'src/**/__tests__/**',
+	'src/**/__sentinels__/**',
+];
+
 export default tseslint.config(
 	js.configs.recommended,
 	...tseslint.configs.recommended,
@@ -83,6 +90,20 @@ export default tseslint.config(
 		},
 	},
 	{
+		files: ['src/**/*.{ts,tsx}'],
+		ignores: testFileGlobs,
+		languageOptions: {
+			parserOptions: {
+				projectService: true,
+				tsconfigRootDir: import.meta.dirname,
+			},
+		},
+		rules: {
+			'@typescript-eslint/no-unnecessary-condition': 'warn',
+			'@typescript-eslint/switch-exhaustiveness-check': 'warn',
+		},
+	},
+	{
 		files: ['src/ui/components/**/*.{ts,tsx}', 'src/ui/hooks/**/*.{ts,tsx}'],
 		rules: {
 			'no-restricted-imports': [
@@ -96,8 +117,7 @@ export default tseslint.config(
 						},
 						{
 							group: relativeImportPatterns('infra'),
-							message:
-								'UI must not depend directly on infra modules.',
+							message: 'UI must not depend directly on infra modules.',
 						},
 						{
 							group: [
@@ -125,8 +145,7 @@ export default tseslint.config(
 								...relativeImportPatterns('app'),
 								...relativeImportPatterns('harnesses'),
 							],
-							message:
-								'Core must stay app-agnostic and harness-agnostic.',
+							message: 'Core must stay app-agnostic and harness-agnostic.',
 						},
 					],
 				},
@@ -145,8 +164,7 @@ export default tseslint.config(
 								...relativeImportPatterns('app'),
 								...relativeImportPatterns('ui'),
 							],
-							message:
-								'Harness adapters must not depend on app or UI layers.',
+							message: 'Harness adapters must not depend on app or UI layers.',
 						},
 					],
 				},

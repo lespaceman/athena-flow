@@ -19,14 +19,14 @@ Some validation commands still reference legacy shim test paths (for example `sr
 
 ## Coupling Inventory
 
-| ID | Coupling Point | Primary Files | Difficulty |
-| --- | --- | --- | --- |
-| A | Runtime/feed semantics tied to Claude hook names and payload shapes | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts` | Very High |
-| B | Process lifecycle tied to `claude -p` and Claude stream-json output | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts` | High |
-| C | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts` | High |
-| D | Isolation/model bootstrapping tied to Claude flags/env/settings | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/runtime/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
-| E | Runtime selection hardcoded to Claude adapter | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx` | Medium |
-| F | Setup/header/harness UX still Claude-specific | `src/setup/steps/HarnessStep.tsx`, `src/utils/detectHarness.ts`, `README.md`, `CLAUDE.md` | Low-Medium |
+| ID  | Coupling Point                                                            | Primary Files                                                                                                                                                                   | Difficulty  |
+| --- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| A   | Runtime/feed semantics tied to Claude hook names and payload shapes       | `src/core/feed/mapper.ts`, `src/core/controller/runtimeController.ts`, `src/harnesses/claude/runtime/interactionRules.ts`, `src/harnesses/claude/runtime/decisionMapper.ts`     | Very High   |
+| B   | Process lifecycle tied to `claude -p` and Claude stream-json output       | `src/harnesses/claude/process/useProcess.ts`, `src/harnesses/claude/process/spawn.ts`, `src/harnesses/claude/process/tokenAccumulator.ts`                                       | High        |
+| C   | Transport tied to hook-forwarder + UDS + `.claude/run` socket conventions | `src/harnesses/claude/hook-forwarder.ts`, `src/harnesses/claude/runtime/server.ts`, `src/harnesses/claude/hooks/generateHookSettings.ts`                                        | High        |
+| D   | Isolation/model bootstrapping tied to Claude flags/env/settings           | `src/harnesses/claude/config/isolation.ts`, `src/harnesses/claude/config/flagRegistry.ts`, `src/runtime/bootstrapConfig.ts`, `src/harnesses/claude/config/readSettingsModel.ts` | Medium-High |
+| E   | Runtime selection hardcoded to Claude adapter                             | `src/app/providers/RuntimeProvider.tsx`, `src/app/shell/AppShell.tsx`, `src/app/entry/cli.tsx`                                                                                  | Medium      |
+| F   | Setup/header/harness UX still Claude-specific                             | `src/setup/steps/HarnessStep.tsx`, `src/utils/detectHarness.ts`, `README.md`, `CLAUDE.md`                                                                                       | Low-Medium  |
 
 ## Execution Order
 

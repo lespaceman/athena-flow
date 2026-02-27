@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import {useState, useCallback} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type OptionItem} from './OptionList';
 import {useTheme} from '../theme/index';

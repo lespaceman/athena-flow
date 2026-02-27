@@ -38,29 +38,29 @@ src/
 
 ## End-State Folder Mapping
 
-| Current | Target |
-| --- | --- |
-| `src/runtime/adapters/claudeHooks/*` | `src/harnesses/claude/runtime/*` |
-| `src/types/hooks/*` | `src/harnesses/claude/protocol/*` |
-| `src/hook-forwarder.ts` | `src/harnesses/claude/hook-forwarder.ts` |
-| `src/utils/spawnClaude.ts` | `src/harnesses/claude/process/spawn.ts` |
-| `src/hooks/useClaudeProcess.ts` | `src/harnesses/claude/process/useProcess.ts` |
-| `src/utils/generateHookSettings.ts` | `src/harnesses/claude/hooks/generateHookSettings.ts` |
-| `src/utils/parseStreamJson.ts` | `src/harnesses/claude/process/tokenAccumulator.ts` |
-| `src/utils/detectClaudeVersion.ts` | `src/harnesses/claude/system/detectVersion.ts` |
-| `src/utils/resolveModel.ts` | `src/harnesses/claude/config/readSettingsModel.ts` |
-| `src/types/isolation.ts` + `src/utils/flagRegistry.ts` | `src/harnesses/claude/config/*` |
-| `src/feed/*` | `src/core/feed/*` |
-| `src/hooks/hookController.ts` | `src/core/controller/runtimeController.ts` |
-| `src/runtime/types.ts` | `src/core/runtime/types.ts` |
-| `src/workflows/*` | `src/core/workflows/*` |
-| `src/sessions/*` | `src/infra/sessions/*` |
-| `src/plugins/*` | `src/infra/plugins/*` |
-| `src/components/*` | `src/ui/components/*` |
-| `src/context/HookContext.tsx` | `src/app/providers/RuntimeProvider.tsx` |
-| `src/cli.tsx`, `src/app.tsx` | `src/app/entry/cli.tsx`, `src/app/shell/AppShell.tsx` |
-| `src/theme/*`, `src/glyphs/*` | `src/ui/theme/*`, `src/ui/glyphs/*` |
-| neutral utils/types in `src/utils`, `src/types` | `src/shared/*` |
+| Current                                                | Target                                                |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| `src/runtime/adapters/claudeHooks/*`                   | `src/harnesses/claude/runtime/*`                      |
+| `src/types/hooks/*`                                    | `src/harnesses/claude/protocol/*`                     |
+| `src/hook-forwarder.ts`                                | `src/harnesses/claude/hook-forwarder.ts`              |
+| `src/utils/spawnClaude.ts`                             | `src/harnesses/claude/process/spawn.ts`               |
+| `src/hooks/useClaudeProcess.ts`                        | `src/harnesses/claude/process/useProcess.ts`          |
+| `src/utils/generateHookSettings.ts`                    | `src/harnesses/claude/hooks/generateHookSettings.ts`  |
+| `src/utils/parseStreamJson.ts`                         | `src/harnesses/claude/process/tokenAccumulator.ts`    |
+| `src/utils/detectClaudeVersion.ts`                     | `src/harnesses/claude/system/detectVersion.ts`        |
+| `src/utils/resolveModel.ts`                            | `src/harnesses/claude/config/readSettingsModel.ts`    |
+| `src/types/isolation.ts` + `src/utils/flagRegistry.ts` | `src/harnesses/claude/config/*`                       |
+| `src/feed/*`                                           | `src/core/feed/*`                                     |
+| `src/hooks/hookController.ts`                          | `src/core/controller/runtimeController.ts`            |
+| `src/runtime/types.ts`                                 | `src/core/runtime/types.ts`                           |
+| `src/workflows/*`                                      | `src/core/workflows/*`                                |
+| `src/sessions/*`                                       | `src/infra/sessions/*`                                |
+| `src/plugins/*`                                        | `src/infra/plugins/*`                                 |
+| `src/components/*`                                     | `src/ui/components/*`                                 |
+| `src/context/HookContext.tsx`                          | `src/app/providers/RuntimeProvider.tsx`               |
+| `src/cli.tsx`, `src/app.tsx`                           | `src/app/entry/cli.tsx`, `src/app/shell/AppShell.tsx` |
+| `src/theme/*`, `src/glyphs/*`                          | `src/ui/theme/*`, `src/ui/glyphs/*`                   |
+| neutral utils/types in `src/utils`, `src/types`        | `src/shared/*`                                        |
 
 ## Migration Strategy
 

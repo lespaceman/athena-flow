@@ -1,4 +1,4 @@
-import React, {useCallback, useRef} from 'react';
+import {useCallback, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useTextInput} from '../hooks/useTextInput';
 import {fit} from '../../shared/utils/format';

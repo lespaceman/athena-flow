@@ -162,8 +162,9 @@ export function eventLabel(event: FeedEvent): string {
 					return 'Perm Ask';
 				case 'no_opinion':
 					return 'Perm Skip';
+				default:
+					return 'Perm Decision';
 			}
-			break;
 		case 'stop.request':
 			return 'Stop Request';
 		case 'stop.decision':
@@ -174,8 +175,9 @@ export function eventLabel(event: FeedEvent): string {
 					return 'Stop Allow';
 				case 'no_opinion':
 					return 'Stop Skip';
+				default:
+					return 'Stop Decision';
 			}
-			break;
 		case 'session.start':
 			return 'Sess Start';
 		case 'session.end':
@@ -205,7 +207,6 @@ export function eventLabel(event: FeedEvent): string {
 		default:
 			return 'Event';
 	}
-	return 'Event'; // unreachable fallback for TS exhaustiveness
 }
 
 /** Extract contextual detail for the DETAIL column (tool name, agent type, etc.). */

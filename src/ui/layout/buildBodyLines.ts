@@ -1,7 +1,4 @@
-import {
-	type TimelineEntry,
-	type RunSummary,
-} from '../../core/feed/timeline';
+import {type TimelineEntry, type RunSummary} from '../../core/feed/timeline';
 import {
 	type TodoPanelItem,
 	type TodoGlyphColors,

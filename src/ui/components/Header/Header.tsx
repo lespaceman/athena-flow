@@ -1,4 +1,3 @@
-import React from 'react';
 import {Box, Text} from 'ink';
 import chalk from 'chalk';
 import {formatModelName} from '../../../shared/utils/formatters';

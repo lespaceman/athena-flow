@@ -74,9 +74,9 @@ Global config lives at `~/.config/athena/config.json`, project config at `{proje
 
 ```json
 {
-  "plugins": ["/path/to/plugin"],
-  "additionalDirectories": ["/path/to/allow"],
-  "workflow": "my-workflow"
+	"plugins": ["/path/to/plugin"],
+	"additionalDirectories": ["/path/to/allow"],
+	"workflow": "my-workflow"
 }
 ```
 

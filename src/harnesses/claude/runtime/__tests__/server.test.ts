@@ -4,7 +4,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import {createClaudeHookRuntime} from '..';
-import type {RuntimeEvent, RuntimeDecision} from '../../../../core/runtime/types';
+import type {
+	RuntimeEvent,
+	RuntimeDecision,
+} from '../../../../core/runtime/types';
 
 function makeTmpDir(): string {
 	return fs.mkdtempSync(path.join(os.tmpdir(), 'athena-test-'));

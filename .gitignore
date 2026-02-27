@@ -6,6 +6,8 @@ dist
 .claude/logs/
 .claude/settings.local.json
 
+.athena
+
 # Git worktrees
 .worktrees/
 

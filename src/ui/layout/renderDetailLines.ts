@@ -1,6 +1,9 @@
 import {type FeedEvent} from '../../core/feed/types';
 import {extractToolOutput} from '../tooling/toolExtractors';
-import {parseToolName, extractFriendlyServerName} from '../../shared/utils/toolNameParser';
+import {
+	parseToolName,
+	extractFriendlyServerName,
+} from '../../shared/utils/toolNameParser';
 import {highlight} from 'cli-highlight';
 import chalk from 'chalk';
 import {createMarkedInstance} from '../../shared/utils/markedFactory';

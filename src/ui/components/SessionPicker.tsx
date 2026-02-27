@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type SessionEntry} from '../../shared/types/session';
 import {formatRelativeTime} from '../../shared/utils/formatters';

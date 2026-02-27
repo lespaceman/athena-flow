@@ -1,4 +1,3 @@
-import React from 'react';
 import {Text, Box} from 'ink';
 import {useTheme} from '../../ui/theme/index';
 

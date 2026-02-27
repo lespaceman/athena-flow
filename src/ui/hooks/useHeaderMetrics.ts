@@ -1,6 +1,9 @@
 import {useMemo, useRef} from 'react';
 import type {FeedEvent} from '../../core/feed/types';
-import type {SessionMetrics, TokenUsage} from '../../shared/types/headerMetrics';
+import type {
+	SessionMetrics,
+	TokenUsage,
+} from '../../shared/types/headerMetrics';
 
 const NULL_TOKENS: TokenUsage = {
 	input: null,

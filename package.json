@@ -41,9 +41,12 @@
 		"perf:heap": "node scripts/perf-runner.mjs --mode=heap --no-app-profile",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"lint": "prettier --check . && eslint .",
+		"lint:format": "prettier --check .",
+		"lint:eslint": "eslint .",
+		"lint:dead": "knip --strict --exclude dependencies,unlisted,binaries",
+		"lint": "npm run lint:format && npm run lint:eslint",
 		"format": "prettier --write .",
-		"prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build"
+		"prepublishOnly": "npm run lint && npm run typecheck && npm run lint:dead && npm test && npm run build"
 	},
 	"files": [
 		"dist",
@@ -75,6 +78,7 @@
 		"eslint-plugin-react-hooks": "^5.0.0",
 		"ink-testing-library": "^4.0.0",
 		"jsdom": "^27.4.0",
+		"knip": "^5.85.0",
 		"prettier": "^3.0.0",
 		"react-devtools": "^6.1.5",
 		"react-devtools-core": "^6.1.5",

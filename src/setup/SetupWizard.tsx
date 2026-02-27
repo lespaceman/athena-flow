@@ -1,4 +1,4 @@
-import React, {useState, useCallback, useEffect, useRef} from 'react';
+import {useState, useCallback, useEffect, useRef} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {useSetupState} from './useSetupState';
 import ThemeStep from './steps/ThemeStep';
@@ -161,6 +161,7 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 			const timer = setTimeout(() => advance(), 500);
 			return () => clearTimeout(timer);
 		}
+		return undefined;
 	}, [stepState, advance, isComplete]);
 
 	// Write config and notify parent on completion

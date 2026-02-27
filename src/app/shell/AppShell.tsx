@@ -12,11 +12,17 @@ import {TextInput} from '@inkjs/ui';
 import PermissionDialog from '../../ui/components/PermissionDialog';
 import QuestionDialog from '../../ui/components/QuestionDialog';
 import ErrorBoundary from '../../ui/components/ErrorBoundary';
-import {HookProvider, useHookContextSelector} from '../providers/RuntimeProvider';
+import {
+	HookProvider,
+	useHookContextSelector,
+} from '../providers/RuntimeProvider';
 import {useClaudeProcess} from '../../harnesses/claude/process/useProcess';
 import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
 import {useAppMode} from '../../ui/hooks/useAppMode';
-import {type InputHistory, useInputHistory} from '../../ui/hooks/useInputHistory';
+import {
+	type InputHistory,
+	useInputHistory,
+} from '../../ui/hooks/useInputHistory';
 import {useFeedNavigation} from '../../ui/hooks/useFeedNavigation';
 import {useTodoPanel} from '../../ui/hooks/useTodoPanel';
 import {useFeedKeyboard} from '../../ui/hooks/useFeedKeyboard';

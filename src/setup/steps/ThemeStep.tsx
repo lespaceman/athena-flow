@@ -1,4 +1,3 @@
-import React from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
 import {useTheme} from '../../ui/theme/index';

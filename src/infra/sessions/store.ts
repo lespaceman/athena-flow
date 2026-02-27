@@ -6,11 +6,7 @@ import type {MapperBootstrap} from '../../core/feed/bootstrap';
 import type {RuntimeEvent} from '../../core/runtime/types';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
 import {initSchema} from './schema';
-import type {
-	AthenaSession,
-	AdapterSessionRecord,
-	StoredSession,
-} from './types';
+import type {AthenaSession, AdapterSessionRecord, StoredSession} from './types';
 
 export type SessionStoreOptions = {
 	sessionId: string;

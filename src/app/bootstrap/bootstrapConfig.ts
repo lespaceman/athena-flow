@@ -5,9 +5,15 @@ import {
 	type AthenaConfig,
 } from '../../infra/plugins/index';
 import {shouldResolveWorkflow} from '../../setup/shouldResolveWorkflow';
-import type {IsolationConfig, IsolationPreset} from '../../harnesses/claude/config/isolation';
+import type {
+	IsolationConfig,
+	IsolationPreset,
+} from '../../harnesses/claude/config/isolation';
 import {readClaudeSettingsModel} from '../../harnesses/claude/config/readSettingsModel';
-import {installWorkflowPlugins, resolveWorkflow} from '../../core/workflows/index';
+import {
+	installWorkflowPlugins,
+	resolveWorkflow,
+} from '../../core/workflows/index';
 import type {WorkflowConfig} from '../../core/workflows/types';
 
 export type RuntimeBootstrapInput = {

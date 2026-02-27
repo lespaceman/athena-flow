@@ -1,7 +1,11 @@
 // src/hooks/useFeed.ts
 
 import {useEffect, useRef, useState, useCallback, useMemo} from 'react';
-import type {Runtime, RuntimeEvent, RuntimeDecision} from '../core/runtime/types';
+import type {
+	Runtime,
+	RuntimeEvent,
+	RuntimeDecision,
+} from '../core/runtime/types';
 import type {FeedEvent} from '../core/feed/types';
 import type {SessionStore} from '../infra/sessions/store';
 import type {Session, Run, Actor} from '../core/feed/entities';
@@ -12,7 +16,10 @@ import type {TokenUsage} from '../shared/types/headerMetrics';
 import type {TodoItem, TodoWriteInput} from '../core/feed/todo';
 import {createFeedMapper, type FeedMapper} from '../core/feed/mapper';
 import {shouldExcludeFromFeed} from '../core/feed/filter';
-import {handleEvent, type ControllerCallbacks} from '../core/controller/runtimeController';
+import {
+	handleEvent,
+	type ControllerCallbacks,
+} from '../core/controller/runtimeController';
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }

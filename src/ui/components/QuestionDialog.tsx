@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import {useState, useCallback} from 'react';
 import {Box, Text, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
 import type {FeedEvent} from '../../core/feed/types';

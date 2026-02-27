@@ -1,4 +1,3 @@
-import React from 'react';
 import {Box, Text} from 'ink';
 import {useTheme} from '../theme/index';
 import {getGlyphs} from '../glyphs/index';

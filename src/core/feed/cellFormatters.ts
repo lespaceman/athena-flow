@@ -111,7 +111,7 @@ export function formatResult(
 export function formatSuffix(
 	expandable: boolean,
 	expanded: boolean,
-	ascii: boolean,
+	_ascii: boolean,
 	theme: Theme,
 ): string {
 	if (!expandable) return '  ';

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import React from 'react';
 import {render} from 'ink';
 import meow from 'meow';
 import fs from 'node:fs';
@@ -14,7 +13,10 @@ import {readConfig, readGlobalConfig} from '../../infra/plugins/index';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
 import {resolveTheme} from '../../ui/theme/index';
 import crypto from 'node:crypto';
-import {getSessionMeta, getMostRecentAthenaSession} from '../../infra/sessions/index';
+import {
+	getSessionMeta,
+	getMostRecentAthenaSession,
+} from '../../infra/sessions/index';
 import {shouldShowSetup} from '../../setup/shouldShowSetup';
 
 const require = createRequire(import.meta.url);

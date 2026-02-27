@@ -24,7 +24,8 @@ vi.mock('../../harnesses/claude/config/readSettingsModel', () => ({
 		readClaudeSettingsModelMock(projectDir),
 }));
 
-const {bootstrapRuntimeConfig} = await import('../../app/bootstrap/bootstrapConfig');
+const {bootstrapRuntimeConfig} =
+	await import('../../app/bootstrap/bootstrapConfig');
 
 const emptyConfig = {plugins: [], additionalDirectories: []};
 const initialAnthropicModel = process.env['ANTHROPIC_MODEL'];

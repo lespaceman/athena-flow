@@ -1,5 +1,10 @@
 import {describe, it, expect, vi, afterEach} from 'vitest';
-import {hyperlink, supportsHyperlinks, fileLink, urlLink} from '../shared/utils/hyperlink';
+import {
+	hyperlink,
+	supportsHyperlinks,
+	fileLink,
+	urlLink,
+} from '../shared/utils/hyperlink';
 
 describe('hyperlink', () => {
 	afterEach(() => {

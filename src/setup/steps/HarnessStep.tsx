@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import {useState, useCallback} from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
 import StepStatus from '../components/StepStatus';
