@@ -49,7 +49,7 @@ vi.mock('node:os', () => ({
 	},
 }));
 
-vi.mock('../../infra/plugins/marketplace', () => ({
+vi.mock('../../../infra/plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplaceWorkflow: () => '/tmp/resolved-workflow.json',

@@ -697,7 +697,12 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 					'debug',
 					'system',
 					{
-						hook_event_name: readString(d['source_event_name']) ?? 'unknown',
+						hook_event_name:
+							readString(
+								d['source_event_name'],
+								d['hook_event_name'],
+								event.hookName,
+							) ?? 'unknown',
 						payload: d.payload ?? null,
 					} satisfies import('./types').UnknownHookData,
 					event,

@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach} from 'vitest';
 
 const resolveMarketplacePluginMock = vi.fn();
 
-vi.mock('../../infra/plugins/marketplace', () => ({
+vi.mock('../../../infra/plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplacePlugin: (ref: string) => resolveMarketplacePluginMock(ref),

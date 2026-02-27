@@ -24,7 +24,7 @@ vi.mock('node:os', () => ({
 
 const resolveMarketplacePluginMock = vi.fn();
 
-vi.mock('../../infra/plugins/marketplace', () => ({
+vi.mock('../marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
 	resolveMarketplacePlugin: (ref: string) => resolveMarketplacePluginMock(ref),
