@@ -60,7 +60,7 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		if (ctx.focusMode === 'input') {
 			return buildHintPairs([
 				[h.enter, 'Send'],
-				[h.escape, ctx.isClaudeRunning ? 'Interrupt' : 'Back'],
+				[h.escape, 'Back'],
 				[h.tab, 'Focus'],
 				['⌃P/N', 'History'],
 				[h.toggle, 'Hints'],
@@ -83,15 +83,18 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 			searchPart = ' | search 0/0';
 		}
 
-		return (
-			buildHintPairs([
-				[h.arrows, 'Navigate'],
-				[h.enter, 'Expand'],
-				['/', 'Search'],
-				[':', 'Cmd'],
-				['End', 'Tail'],
-			]) + searchPart
-		);
+		const feedPairs: Array<[string, string]> = [
+			[h.arrows, 'Navigate'],
+			[h.enter, 'Expand'],
+			['/', 'Search'],
+			[':', 'Cmd'],
+			['End', 'Tail'],
+		];
+		if (ctx.isClaudeRunning) {
+			feedPairs.push([`${h.escape} ${h.escape}`, 'Interrupt']);
+		}
+
+		return buildHintPairs(feedPairs) + searchPart;
 	})();
 
 	// Input lines (multi-line)

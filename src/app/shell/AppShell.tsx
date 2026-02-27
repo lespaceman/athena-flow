@@ -62,6 +62,7 @@ import {frameGlyphs} from '../../ui/glyphs/index';
 import type {WorkflowConfig} from '../../core/workflows/types';
 import SetupWizard from '../../setup/SetupWizard';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
+import {evaluateEscapeInterruptGate} from './escapeInterruptGate';
 import {
 	isPerfEnabled,
 	logPerfEvent,
@@ -708,12 +709,29 @@ function AppContent({
 
 	// ── Keyboard hooks ──────────────────────────────────────
 
+	const interruptEscapeAtRef = useRef<number | null>(null);
+	useEffect(() => {
+		if (!isHarnessRunning || focusMode !== 'feed' || expandedEntry !== null) {
+			interruptEscapeAtRef.current = null;
+		}
+	}, [isHarnessRunning, focusMode, expandedEntry]);
+
 	useInput(
 		(input, key) => {
 			const done = startInputMeasure('app.global', input, key);
 			try {
 				if (dialogActive) return;
-				if (key.escape && isHarnessRunning) {
+
+				const interruptGate = evaluateEscapeInterruptGate({
+					keyEscape: key.escape,
+					isHarnessRunning,
+					focusMode,
+					hasExpandedEntry: expandedEntry !== null,
+					lastEscapeAtMs: interruptEscapeAtRef.current,
+					nowMs: Date.now(),
+				});
+				interruptEscapeAtRef.current = interruptGate.nextLastEscapeAtMs;
+				if (interruptGate.shouldInterrupt) {
 					interrupt();
 					return;
 				}
@@ -756,7 +774,6 @@ function AppContent({
 
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive,
-		escapeHandledExternally: isHarnessRunning,
 		expandedEntry,
 		expandedId: feedNav.expandedId,
 		pageStep,
@@ -785,7 +802,6 @@ function AppContent({
 
 	useTodoKeyboard({
 		isActive: focusMode === 'todo' && !dialogActive,
-		escapeHandledExternally: isHarnessRunning,
 		todoCursor: todoPanel.todoCursor,
 		visibleTodoItems: todoPanel.visibleTodoItems,
 		filteredEntries,

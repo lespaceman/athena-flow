@@ -45,9 +45,19 @@ describe('buildFrameLines contextual prompt', () => {
 		expect(footerHelp).not.toContain('Interrupt');
 	});
 
-	it('shows Esc Interrupt hint in input mode while running', () => {
+	it('shows Esc Back hint in input mode while running', () => {
 		const {footerHelp} = buildFrameLines({...baseCtx, isClaudeRunning: true});
+		expect(footerHelp).toContain('Back');
+		expect(footerHelp).not.toContain('Interrupt');
+	});
+
+	it('shows double-escape interrupt hint in running feed mode', () => {
+		const {footerHelp} = buildFrameLines({
+			...baseCtx,
+			focusMode: 'feed',
+			isClaudeRunning: true,
+		});
+		expect(footerHelp?.toLowerCase()).toContain('esc esc');
 		expect(footerHelp).toContain('Interrupt');
-		expect(footerHelp).not.toContain('Back');
 	});
 });

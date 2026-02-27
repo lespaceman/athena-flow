@@ -23,7 +23,6 @@ export type FeedKeyboardCallbacks = {
 
 export type FeedKeyboardOptions = {
 	isActive: boolean;
-	escapeHandledExternally?: boolean;
 	expandedEntry: TimelineEntry | null;
 	expandedId: string | null;
 	pageStep: number;
@@ -35,7 +34,6 @@ export type FeedKeyboardOptions = {
 
 export function useFeedKeyboard({
 	isActive,
-	escapeHandledExternally = false,
 	expandedEntry,
 	expandedId,
 	pageStep,
@@ -52,7 +50,6 @@ export function useFeedKeyboard({
 
 				// Escape
 				if (key.escape) {
-					if (escapeHandledExternally) return;
 					if (expandedId) {
 						callbacks.setExpandedId(null);
 						return;

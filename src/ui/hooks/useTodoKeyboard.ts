@@ -17,7 +17,6 @@ export type TodoKeyboardCallbacks = {
 
 export type TodoKeyboardOptions = {
 	isActive: boolean;
-	escapeHandledExternally?: boolean;
 	todoCursor: number;
 	visibleTodoItems: TodoPanelItem[];
 	filteredEntries: TimelineEntry[];
@@ -26,7 +25,6 @@ export type TodoKeyboardOptions = {
 
 export function useTodoKeyboard({
 	isActive,
-	escapeHandledExternally = false,
 	todoCursor,
 	visibleTodoItems,
 	filteredEntries,
@@ -42,7 +40,6 @@ export function useTodoKeyboard({
 			const done = startInputMeasure('todo.keyboard', input, key);
 			try {
 				if (key.escape) {
-					if (escapeHandledExternally) return;
 					callbacks.setFocusMode('feed');
 					return;
 				}
@@ -68,8 +65,14 @@ export function useTodoKeyboard({
 					return;
 				}
 				if (key.return) {
-					const selected = visibleTodoItemsRef.current[todoCursor];
-					if (!selected?.linkedEventId) return;
+					if (
+						todoCursor < 0 ||
+						todoCursor >= visibleTodoItemsRef.current.length
+					) {
+						return;
+					}
+					const selected = visibleTodoItemsRef.current[todoCursor]!;
+					if (!selected.linkedEventId) return;
 					const idx = filteredEntriesRef.current.findIndex(
 						entry => entry.id === selected.linkedEventId,
 					);
