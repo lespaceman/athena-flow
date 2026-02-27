@@ -1,5 +1,5 @@
 {
-	"name": "@lespaceman/athena-flow",
+	"name": "athena-flow-cli",
 	"description": "Terminal companion UI for Claude Code — intercepts hook events and renders a rich dashboard",
 	"repository": {
 		"type": "git",
@@ -20,6 +20,7 @@
 	"version": "0.1.2",
 	"license": "MIT",
 	"bin": {
+		"athena": "dist/cli.js",
 		"athena-flow": "dist/cli.js",
 		"athena-hook-forwarder": "dist/hook-forwarder.js"
 	},
