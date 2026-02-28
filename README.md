@@ -33,6 +33,9 @@ athena-flow setup                       # Re-run setup wizard
 athena-flow sessions                    # Pick a session interactively
 athena-flow resume                      # Resume most recent session
 athena-flow resume <sessionId>          # Resume specific session
+athena-flow exec "summarize repo state" # Non-interactive run (CI/script)
+athena-flow --help                      # Show full command/flag manual
+athena-flow --version                   # Print CLI version
 ```
 
 ## What Athena Does
@@ -66,6 +69,18 @@ Claude Code -> hook-forwarder (stdin) -> UDS -> athena-flow runtime
 | `--workflow`    | Workflow reference (for example `name@owner/repo`)            |
 | `--verbose`     | Show additional rendering detail                              |
 
+`exec`-only flags:
+
+| Flag                    | Description                                                |
+| ----------------------- | ---------------------------------------------------------- |
+| `--continue`            | Resume most recent exec session (or `--continue=<id>`)     |
+| `--json`                | Emit JSONL lifecycle events to stdout                      |
+| `--output-last-message` | Write the final assistant message to a file                |
+| `--ephemeral`           | Disable durable session persistence (`--continue` invalid) |
+| `--on-permission`       | `allow`, `deny`, or `fail` (default) for permission hooks  |
+| `--on-question`         | `empty` or `fail` (default) for `AskUserQuestion`          |
+| `--timeout-ms`          | Hard timeout for the full exec run                         |
+
 ## CLI Commands
 
 | Command              | Description                                   |
@@ -73,6 +88,102 @@ Claude Code -> hook-forwarder (stdin) -> UDS -> athena-flow runtime
 | `setup`              | Re-run setup wizard                           |
 | `sessions`           | Launch interactive session picker             |
 | `resume [sessionId]` | Resume most recent session, or a specific one |
+| `exec "<prompt>"`    | Run Athena without Ink/TUI (automation mode)  |
+
+## Non-Interactive Exec Mode
+
+`athena-flow exec` is designed for CI and automation.
+
+```bash
+# Human mode: final message to stdout, diagnostics to stderr
+athena-flow exec "summarize latest test failures"
+
+# Machine mode: JSONL events on stdout
+athena-flow exec "run checks" --json --on-permission=deny --on-question=empty
+
+# Persist final message as an artifact
+athena-flow exec "write release notes" \
+  --output-last-message .artifacts/release-notes.md
+```
+
+Output behavior:
+
+- Default mode: stdout contains only the final assistant message.
+- `--json` mode: stdout contains only JSONL events.
+- stderr contains warnings/errors/progress diagnostics.
+
+Safety defaults:
+
+- `--on-permission=fail`
+- `--on-question=fail`
+
+Use explicit policies in unattended environments:
+
+```bash
+athena-flow exec "validate change" \
+  --on-permission=deny \
+  --on-question=empty
+```
+
+Parse JSONL with `jq`:
+
+```bash
+athena-flow exec "summarize diff" --json | jq -c 'select(.type == "exec.completed")'
+```
+
+Show the built-in terminal manual:
+
+```bash
+athena-flow --help
+```
+
+## Exec Exit Codes
+
+| Code | Meaning                                                            |
+| ---- | ------------------------------------------------------------------ |
+| `0`  | Success                                                            |
+| `2`  | Usage/validation error (for example invalid flags, missing prompt) |
+| `3`  | Bootstrap/configuration failure                                    |
+| `4`  | Runtime/process failure                                            |
+| `5`  | Non-interactive policy failure (`--on-permission=fail`, etc.)      |
+| `6`  | Timeout exceeded                                                   |
+| `7`  | Output failure (for example `--output-last-message` write error)   |
+
+## CI Examples
+
+GitHub Actions:
+
+```yaml
+name: athena-exec
+on: [pull_request]
+jobs:
+  athena:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx athena-flow exec "summarize risk in this PR" --json --on-permission=deny --on-question=empty --output-last-message athena-summary.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: athena-summary
+          path: athena-summary.md
+```
+
+GitLab CI:
+
+```yaml
+athena_exec:
+  image: node:20
+  script:
+    - npm ci
+    - npx athena-flow exec "summarize pipeline status" --json --on-permission=deny --on-question=empty --output-last-message athena-summary.md
+  artifacts:
+    paths:
+      - athena-summary.md
+```
 
 ## Features
 

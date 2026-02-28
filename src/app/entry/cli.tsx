@@ -13,17 +13,21 @@ import {registerBuiltins} from '../commands/builtins/index';
 import {readConfig, readGlobalConfig} from '../../infra/plugins/index';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
 import {resolveTheme} from '../../ui/theme/index';
-import crypto from 'node:crypto';
-import {
-	getSessionMeta,
-	getMostRecentAthenaSession,
-} from '../../infra/sessions/index';
 import {shouldShowSetup} from '../../setup/shouldShowSetup';
+import {
+	EXEC_EXIT_CODE,
+	EXEC_PERMISSION_POLICIES,
+	EXEC_QUESTION_POLICIES,
+	EXEC_DEFAULT_PERMISSION_POLICY,
+	EXEC_DEFAULT_QUESTION_POLICY,
+} from '../exec';
+import {runExecCommand} from './execCommand';
+import {resolveInteractiveSession} from './interactiveSession';
 
 function resolvePackageJsonPath(entryUrl: string): string {
 	let currentDir = path.dirname(fileURLToPath(entryUrl));
 
-	while (true) {
+	for (;;) {
 		const candidatePath = path.join(currentDir, 'package.json');
 		if (fs.existsSync(candidatePath)) {
 			return candidatePath;
@@ -43,6 +47,19 @@ const {version} = require(resolvePackageJsonPath(import.meta.url)) as {
 	version: string;
 };
 
+const KNOWN_COMMANDS = new Set(['setup', 'sessions', 'resume', 'exec']);
+const VALID_ISOLATION_PRESETS = ['strict', 'minimal', 'permissive'] as const;
+const EXEC_PERMISSION_POLICIES_HELP = EXEC_PERMISSION_POLICIES.join(', ');
+const EXEC_QUESTION_POLICIES_HELP = EXEC_QUESTION_POLICIES.join(', ');
+
+function isIsolationPreset(value: string): value is IsolationPreset {
+	return (VALID_ISOLATION_PRESETS as readonly string[]).includes(value);
+}
+
+function exitWith(code: number): void {
+	process.exit(code);
+}
+
 // Register cleanup handlers early to catch all exit scenarios
 processRegistry.registerCleanupHandlers();
 
@@ -55,6 +72,7 @@ const cli = meow(
 			setup                 Re-run setup wizard
 			sessions              Launch interactive session picker
 			resume [sessionId]    Resume most recent (or specified) session
+			exec "<prompt>"       Run non-interactively (CI/script mode)
 
 		Options
 			--project-dir   Project directory for hook socket (default: cwd)
@@ -67,6 +85,15 @@ const cli = meow(
 			--theme         Color theme: dark (default), light, or high-contrast
 			--ascii         Use ASCII-only UI glyphs for compatibility
 			--workflow      Workflow reference displayed in header (e.g. name@rev)
+			--continue      Resume most recent exec session, or use --continue=<athenaSessionId> (exec mode)
+			--json          Emit JSONL events to stdout (exec mode)
+			--output-last-message  Write final assistant message to a file (exec mode)
+			--ephemeral     Do not persist session data (exec mode)
+			--on-permission Policy for permission requests: ${EXEC_PERMISSION_POLICIES_HELP} (default: ${EXEC_DEFAULT_PERMISSION_POLICY}, exec mode)
+			--on-question   Policy for AskUserQuestion: ${EXEC_QUESTION_POLICIES_HELP} (default: ${EXEC_DEFAULT_QUESTION_POLICY}, exec mode)
+			--timeout-ms    Hard timeout for exec run in milliseconds
+			--help          Show command help
+			--version       Show CLI version
 
 		Note: All isolation modes use --setting-sources "" to completely isolate
 		      from Claude Code's settings. athena-flow is fully self-contained.
@@ -86,6 +113,8 @@ const cli = meow(
 		  $ athena-flow sessions
 		  $ athena-flow resume
 		  $ athena-flow resume <sessionId>
+		  $ athena-flow exec "summarize current repo status"
+		  $ athena-flow exec "run tests" --json --on-permission=deny --on-question=empty
 		  $ athena-flow --project-dir=/my/project
 		  $ athena-flow --plugin=/path/to/my-plugin
 		  $ athena-flow --isolation=minimal
@@ -122,137 +151,189 @@ const cli = meow(
 				type: 'boolean',
 				default: false,
 			},
+			continue: {
+				type: 'string',
+			},
+			json: {
+				type: 'boolean',
+				default: false,
+			},
+			outputLastMessage: {
+				type: 'string',
+			},
+			ephemeral: {
+				type: 'boolean',
+				default: false,
+			},
+			onPermission: {
+				type: 'string',
+				default: EXEC_DEFAULT_PERMISSION_POLICY,
+			},
+			onQuestion: {
+				type: 'string',
+				default: EXEC_DEFAULT_QUESTION_POLICY,
+			},
+			timeoutMs: {
+				type: 'number',
+			},
 		},
 	},
 );
 
-const projectDir = path.resolve(cli.flags.projectDir);
-const [command, ...commandArgs] = cli.input;
+async function main(): Promise<void> {
+	const projectDir = path.resolve(cli.flags.projectDir);
+	const [command, ...commandArgs] = cli.input;
 
-const knownCommands = new Set(['setup', 'sessions', 'resume']);
-if (command && !knownCommands.has(command)) {
-	console.error(
-		`Unknown command: ${command}\n` +
-			`Available commands: setup, sessions, resume`,
-	);
-	process.exit(1);
-}
-
-if ((command === 'setup' || command === 'sessions') && commandArgs.length > 0) {
-	console.error(`Command "${command}" does not accept positional arguments.`);
-	process.exit(1);
-}
-
-if (command === 'resume' && commandArgs.length > 1) {
-	console.error('Usage: athena-flow resume [sessionId]');
-	process.exit(1);
-}
-
-const showSessionPicker = command === 'sessions';
-const resumeSessionId = command === 'resume' ? commandArgs[0] : undefined;
-const resumeMostRecent = command === 'resume' && !resumeSessionId;
-
-// Validate isolation preset
-const validIsolationPresets = ['strict', 'minimal', 'permissive'];
-let isolationPreset: IsolationPreset = 'strict';
-if (validIsolationPresets.includes(cli.flags.isolation)) {
-	isolationPreset = cli.flags.isolation as IsolationPreset;
-} else if (cli.flags.isolation !== 'strict') {
-	console.error(
-		`Warning: Invalid isolation preset '${cli.flags.isolation}', using 'strict'`,
-	);
-}
-
-// Register commands: builtins first, then plugins (global -> project -> CLI flags)
-registerBuiltins();
-const globalConfig = readGlobalConfig();
-const projectConfig = readConfig(projectDir);
-
-// Detect first run or 'setup' subcommand
-const showSetup = shouldShowSetup({
-	cliInput: cli.input,
-	setupComplete: globalConfig.setupComplete,
-	globalConfigExists: fs.existsSync(
-		path.join(os.homedir(), '.config', 'athena', 'config.json'),
-	),
-});
-
-let runtimeConfig: ReturnType<typeof bootstrapRuntimeConfig>;
-try {
-	runtimeConfig = bootstrapRuntimeConfig({
-		projectDir,
-		showSetup,
-		workflowFlag: cli.flags.workflow,
-		pluginFlags: cli.flags.plugin ?? [],
-		isolationPreset,
-		verbose: cli.flags.verbose,
-		globalConfig,
-		projectConfig,
-	});
-} catch (error) {
-	console.error(`Error: ${(error as Error).message}`);
-	process.exit(1);
-}
-
-for (const warning of runtimeConfig.warnings) {
-	console.error(warning);
-}
-
-// Resolve theme: CLI flag > project config > global config > default
-const themeName =
-	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
-const theme = resolveTheme(themeName);
-
-let initialSessionId: string | undefined;
-let athenaSessionId: string;
-
-if (resumeSessionId) {
-	// resume <id> — treat as Athena session ID first
-	const meta = getSessionMeta(resumeSessionId);
-	if (meta) {
-		athenaSessionId = meta.id;
-		initialSessionId = meta.adapterSessionIds.at(-1);
-	} else {
+	if (command && !KNOWN_COMMANDS.has(command)) {
 		console.error(
-			`Unknown session ID: ${resumeSessionId}\n` +
-				`Use 'athena-flow sessions' to choose an available session.`,
+			`Unknown command: ${command}\n` +
+				`Available commands: setup, sessions, resume, exec`,
 		);
-		process.exit(1);
+		exitWith(1);
+		return;
 	}
-} else if (resumeMostRecent) {
-	// resume — resume most recent Athena session
-	const recent = getMostRecentAthenaSession(projectDir);
-	if (recent) {
-		athenaSessionId = recent.id;
-		initialSessionId = recent.adapterSessionIds.at(-1);
-	} else {
-		console.error('No previous sessions found. Starting new session.');
-		athenaSessionId = crypto.randomUUID();
+
+	if (
+		(command === 'setup' || command === 'sessions') &&
+		commandArgs.length > 0
+	) {
+		console.error(`Command "${command}" does not accept positional arguments.`);
+		exitWith(1);
+		return;
 	}
-} else {
-	athenaSessionId = crypto.randomUUID();
+
+	if (command === 'resume' && commandArgs.length > 1) {
+		console.error('Usage: athena-flow resume [sessionId]');
+		exitWith(1);
+		return;
+	}
+
+	if (command === 'exec' && commandArgs.length !== 1) {
+		console.error('Usage: athena-flow exec "<prompt>" [options]');
+		exitWith(EXEC_EXIT_CODE.USAGE);
+		return;
+	}
+
+	// Validate isolation preset
+	let isolationPreset: IsolationPreset = 'strict';
+	if (isIsolationPreset(cli.flags.isolation)) {
+		isolationPreset = cli.flags.isolation;
+	} else if (cli.flags.isolation !== 'strict') {
+		console.error(
+			`Warning: Invalid isolation preset '${cli.flags.isolation}', using 'strict'`,
+		);
+	}
+
+	// Register commands: builtins first, then plugins (global -> project -> CLI flags)
+	registerBuiltins();
+	const globalConfig = readGlobalConfig();
+	const projectConfig = readConfig(projectDir);
+
+	// Interactive setup wizard must not run in exec mode
+	const showSetup =
+		command === 'exec'
+			? false
+			: shouldShowSetup({
+					cliInput: cli.input,
+					setupComplete: globalConfig.setupComplete,
+					globalConfigExists: fs.existsSync(
+						path.join(os.homedir(), '.config', 'athena', 'config.json'),
+					),
+				});
+
+	let runtimeConfig: ReturnType<typeof bootstrapRuntimeConfig>;
+	try {
+		runtimeConfig = bootstrapRuntimeConfig({
+			projectDir,
+			showSetup,
+			workflowFlag: cli.flags.workflow,
+			pluginFlags: cli.flags.plugin ?? [],
+			isolationPreset,
+			verbose: cli.flags.verbose,
+			globalConfig,
+			projectConfig,
+		});
+	} catch (error) {
+		console.error(`Error: ${(error as Error).message}`);
+		exitWith(command === 'exec' ? EXEC_EXIT_CODE.BOOTSTRAP : 1);
+		return;
+	}
+
+	for (const warning of runtimeConfig.warnings) {
+		console.error(warning);
+	}
+
+	if (command === 'exec') {
+		const exitCode = await runExecCommand({
+			projectDir,
+			prompt: commandArgs[0]!,
+			flags: {
+				continueFlag: cli.flags.continue,
+				json: cli.flags.json,
+				outputLastMessage: cli.flags.outputLastMessage,
+				ephemeral: cli.flags.ephemeral,
+				onPermission: cli.flags.onPermission,
+				onQuestion: cli.flags.onQuestion,
+				timeoutMs: cli.flags.timeoutMs,
+				verbose: cli.flags.verbose,
+			},
+			runtimeConfig,
+		});
+
+		exitWith(exitCode);
+		return;
+	}
+
+	const showSessionPicker = command === 'sessions';
+	const resumeSessionId = command === 'resume' ? commandArgs[0] : undefined;
+	const resumeMostRecent = command === 'resume' && !resumeSessionId;
+
+	// Resolve theme: CLI flag > project config > global config > default
+	const themeName =
+		cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
+	const theme = resolveTheme(themeName);
+
+	const interactiveSession = resolveInteractiveSession({
+		projectDir,
+		resumeSessionId,
+		resumeMostRecent,
+		logError: console.error,
+	});
+	if (!interactiveSession) {
+		exitWith(1);
+		return;
+	}
+
+	const {athenaSessionId, initialSessionId} = interactiveSession;
+	const instanceId = process.pid;
+	render(
+		<App
+			projectDir={projectDir}
+			instanceId={instanceId}
+			harness={runtimeConfig.harness}
+			isolation={runtimeConfig.isolationConfig}
+			verbose={cli.flags.verbose}
+			version={version}
+			pluginMcpConfig={runtimeConfig.pluginMcpConfig}
+			modelName={runtimeConfig.modelName}
+			theme={theme}
+			initialSessionId={initialSessionId}
+			athenaSessionId={athenaSessionId}
+			showSessionPicker={showSessionPicker}
+			workflowRef={runtimeConfig.workflowRef}
+			workflow={runtimeConfig.workflow}
+			workflowFlag={cli.flags.workflow}
+			pluginFlags={cli.flags.plugin ?? []}
+			isolationPreset={isolationPreset}
+			ascii={cli.flags.ascii}
+			showSetup={showSetup}
+		/>,
+	);
 }
-const instanceId = process.pid;
-render(
-	<App
-		projectDir={projectDir}
-		instanceId={instanceId}
-		harness={runtimeConfig.harness}
-		isolation={runtimeConfig.isolationConfig}
-		verbose={cli.flags.verbose}
-		version={version}
-		pluginMcpConfig={runtimeConfig.pluginMcpConfig}
-		modelName={runtimeConfig.modelName}
-		theme={theme}
-		initialSessionId={initialSessionId}
-		athenaSessionId={athenaSessionId}
-		showSessionPicker={showSessionPicker}
-		workflowRef={runtimeConfig.workflowRef}
-		workflow={runtimeConfig.workflow}
-		workflowFlag={cli.flags.workflow}
-		pluginFlags={cli.flags.plugin ?? []}
-		isolationPreset={isolationPreset}
-		ascii={cli.flags.ascii}
-		showSetup={showSetup}
-	/>,
-);
+
+void main().catch(error => {
+	console.error(
+		`Error: ${error instanceof Error ? error.message : String(error)}`,
+	);
+	exitWith(1);
+});
