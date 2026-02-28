@@ -41,7 +41,7 @@
 		"perf:heap": "node scripts/perf-runner.mjs --mode=heap --no-app-profile",
 		"test": "vitest run",
 		"test:watch": "vitest",
-		"lint:format": "prettier --check .",
+		"lint:format": "git ls-files -z | xargs -0 prettier --check --ignore-unknown",
 		"lint:eslint": "eslint .",
 		"lint:dead": "knip --strict --exclude dependencies,unlisted,binaries",
 		"lint": "npm run lint:format && npm run lint:eslint",
