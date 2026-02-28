@@ -255,7 +255,7 @@ export function useFeed(
 			timestamp: Date.now(),
 			kind: 'notification',
 			data: {
-				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
+				message: '\u{1F4CB} Task list snapshot requested via /tasks command',
 			},
 			hookName: 'Notification',
 			sessionId: mapper.getSession()?.session_id ?? 'unknown',
@@ -266,7 +266,7 @@ export function useFeed(
 				session_id: mapper.getSession()?.session_id ?? 'unknown',
 				transcript_path: '',
 				cwd: '',
-				message: '\u{1F4CB} Task list snapshot requested via :tasks command',
+				message: '\u{1F4CB} Task list snapshot requested via /tasks command',
 			},
 		};
 		const newEvents = mapper.mapEvent(syntheticRuntime);

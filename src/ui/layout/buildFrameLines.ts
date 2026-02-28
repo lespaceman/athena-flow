@@ -52,7 +52,7 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 				[h.arrowsUpDown, 'Select'],
 				[h.space, 'Toggle'],
 				[h.enter, 'Jump'],
-				['a', 'Add'],
+				['a', 'Prompt'],
 				[h.escape, 'Back'],
 			]);
 		}
@@ -87,7 +87,6 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 			[h.arrows, 'Navigate'],
 			[h.enter, 'Expand'],
 			['/', 'Search'],
-			[':', 'Cmd'],
 			['End', 'Tail'],
 		];
 		if (ctx.isClaudeRunning) {
@@ -101,7 +100,6 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 	const runBadge = ctx.isClaudeRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
 		runBadge,
-		...(ctx.inputMode === 'cmd' ? ['[CMD]'] : []),
 		...(ctx.inputMode === 'search' ? ['[SEARCH]'] : []),
 	];
 	const badgeText = modeBadges.join('');
@@ -114,19 +112,17 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		innerWidth - rawPrefix.length - badgeText.length,
 	);
 	let inputPlaceholder: string;
-	if (ctx.inputMode === 'cmd') {
-		inputPlaceholder = ':command';
-	} else if (ctx.inputMode === 'search') {
+	if (ctx.inputMode === 'search') {
 		inputPlaceholder = '/search';
 	} else if (ctx.lastRunStatus === 'completed') {
-		inputPlaceholder = 'Run complete \u2014 type a follow-up or :retry';
+		inputPlaceholder = 'Run complete \u2014 type a follow-up';
 	} else if (
 		ctx.lastRunStatus === 'failed' ||
 		ctx.lastRunStatus === 'aborted'
 	) {
-		inputPlaceholder = 'Run failed \u2014 type a follow-up or :retry';
+		inputPlaceholder = 'Run failed \u2014 type a follow-up';
 	} else {
-		inputPlaceholder = 'Type a prompt or :command';
+		inputPlaceholder = 'Type a prompt or /command';
 	}
 
 	const contentLines = ctx.dialogActive

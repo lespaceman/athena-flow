@@ -61,6 +61,7 @@ Claude Code -> hook-forwarder (stdin) -> UDS -> athena-flow runtime
 | `--plugin`      | Path to a Claude Code plugin directory (repeatable)           |
 | `--isolation`   | Isolation preset: `strict` (default), `minimal`, `permissive` |
 | `--theme`       | Color theme: `dark` (default), `light`, `high-contrast`       |
+| `--ascii`       | Use ASCII-only UI glyphs for compatibility                    |
 | `--workflow`    | Workflow reference (for example `name@owner/repo`)            |
 | `--continue`    | Resume most recent session, or specify a session ID           |
 | `--sessions`    | Launch interactive session picker                             |

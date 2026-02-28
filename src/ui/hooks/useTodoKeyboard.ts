@@ -6,7 +6,7 @@ import {startInputMeasure} from '../../shared/utils/perf';
 
 export type TodoKeyboardCallbacks = {
 	setFocusMode: (mode: 'feed' | 'input' | 'todo') => void;
-	setInputMode: (mode: 'normal' | 'cmd' | 'search') => void;
+	setInputMode: (mode: 'normal' | 'search') => void;
 	setInputValue: (value: string) => void;
 	setTodoCursor: React.Dispatch<React.SetStateAction<number>>;
 	setFeedCursor: (cursor: number) => void;
@@ -85,8 +85,8 @@ export function useTodoKeyboard({
 				}
 				if (input.toLowerCase() === 'a') {
 					callbacks.setFocusMode('input');
-					callbacks.setInputMode('cmd');
-					callbacks.setInputValue(':todo add ');
+					callbacks.setInputMode('normal');
+					callbacks.setInputValue('');
 					return;
 				}
 			} finally {

@@ -10,7 +10,7 @@ export type FeedKeyboardCallbacks = {
 	scrollDetail: (delta: number, maxDetailScroll: number) => void;
 	cycleFocus: () => void;
 	setFocusMode: (mode: 'feed' | 'input' | 'todo') => void;
-	setInputMode: (mode: 'normal' | 'cmd' | 'search') => void;
+	setInputMode: (mode: 'normal' | 'search') => void;
 	setInputValue: (value: string) => void;
 	setExpandedId: (id: string | null) => void;
 	setShowRunOverlay: (show: boolean) => void;
@@ -94,13 +94,6 @@ export function useFeedKeyboard({
 				// Feed navigation mode
 				if (key.tab) {
 					callbacks.cycleFocus();
-					return;
-				}
-
-				if (input === ':') {
-					callbacks.setFocusMode('input');
-					callbacks.setInputMode('cmd');
-					callbacks.setInputValue(':');
 					return;
 				}
 

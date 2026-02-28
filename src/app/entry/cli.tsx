@@ -51,18 +51,19 @@ const cli = meow(
 	Usage
 	  $ athena-flow
 
-	Options
-		--project-dir   Project directory for hook socket (default: cwd)
-		--plugin        Path to a Claude Code plugin directory (repeatable)
-		--isolation     Isolation preset for spawned Claude process:
-		                  strict (default) - Full isolation, no MCP servers
-		                  minimal - Full isolation, allow project MCP servers
-		                  permissive - Full isolation, allow project MCP servers
-		--verbose       Show additional rendering detail and streaming display
-		--theme         Color theme: dark (default), light, or high-contrast
-		--continue      Resume the most recent session (or specify a session ID)
-		--sessions      Launch interactive session picker before main UI
-		--workflow       Workflow reference displayed in header (e.g. name@rev)
+		Options
+			--project-dir   Project directory for hook socket (default: cwd)
+			--plugin        Path to a Claude Code plugin directory (repeatable)
+			--isolation     Isolation preset for spawned Claude process:
+			                  strict (default) - Full isolation, no MCP servers
+			                  minimal - Full isolation, allow project MCP servers
+			                  permissive - Full isolation, allow project MCP servers
+			--verbose       Show additional rendering detail and streaming display
+			--theme         Color theme: dark (default), light, or high-contrast
+			--ascii         Use ASCII-only UI glyphs for compatibility
+			--continue      Resume the most recent session (or specify a session ID)
+			--sessions      Launch interactive session picker before main UI
+			--workflow      Workflow reference displayed in header (e.g. name@rev)
 
 	Note: All isolation modes use --setting-sources "" to completely isolate
 	      from Claude Code's settings. athena-flow is fully self-contained.
@@ -79,14 +80,16 @@ const cli = meow(
 	Examples
 	  $ athena-flow --project-dir=/my/project
 	  $ athena-flow --plugin=/path/to/my-plugin
-	  $ athena-flow --isolation=minimal
-	  $ athena-flow --verbose
-	  $ athena-flow --continue
-	  $ athena-flow --continue=<sessionId>
-	  $ athena-flow --sessions
+		  $ athena-flow --isolation=minimal
+		  $ athena-flow --verbose
+		  $ athena-flow --ascii
+		  $ athena-flow --continue
+		  $ athena-flow --continue=<sessionId>
+		  $ athena-flow --sessions
 `,
 	{
 		importMeta: import.meta,
+		allowUnknownFlags: false,
 		flags: {
 			projectDir: {
 				type: 'string',
@@ -125,6 +128,8 @@ const cli = meow(
 	},
 );
 
+const projectDir = path.resolve(cli.flags.projectDir);
+
 // Validate isolation preset
 const validIsolationPresets = ['strict', 'minimal', 'permissive'];
 let isolationPreset: IsolationPreset = 'strict';
@@ -139,7 +144,7 @@ if (validIsolationPresets.includes(cli.flags.isolation)) {
 // Register commands: builtins first, then plugins (global -> project -> CLI flags)
 registerBuiltins();
 const globalConfig = readGlobalConfig();
-const projectConfig = readConfig(cli.flags.projectDir);
+const projectConfig = readConfig(projectDir);
 
 // Detect first run or 'setup' subcommand
 const showSetup = shouldShowSetup({
@@ -153,7 +158,7 @@ const showSetup = shouldShowSetup({
 let runtimeConfig: ReturnType<typeof bootstrapRuntimeConfig>;
 try {
 	runtimeConfig = bootstrapRuntimeConfig({
-		projectDir: cli.flags.projectDir,
+		projectDir,
 		showSetup,
 		workflowFlag: cli.flags.workflow,
 		pluginFlags: cli.flags.plugin ?? [],
@@ -193,13 +198,13 @@ if (cli.flags.continue) {
 	} else {
 		console.error(
 			`Unknown session ID: ${cli.flags.continue}\n` +
-				`Use 'athena-flow --list' to see available sessions.`,
+				`Use 'athena-flow --sessions' to choose an available session.`,
 		);
 		process.exit(1);
 	}
 } else if (hasContinueFlag) {
 	// --continue (bare) — resume most recent Athena session
-	const recent = getMostRecentAthenaSession(cli.flags.projectDir);
+	const recent = getMostRecentAthenaSession(projectDir);
 	if (recent) {
 		athenaSessionId = recent.id;
 		initialSessionId = recent.adapterSessionIds.at(-1);
@@ -213,7 +218,7 @@ if (cli.flags.continue) {
 const instanceId = process.pid;
 render(
 	<App
-		projectDir={cli.flags.projectDir}
+		projectDir={projectDir}
 		instanceId={instanceId}
 		harness={runtimeConfig.harness}
 		isolation={runtimeConfig.isolationConfig}

@@ -209,7 +209,7 @@ export function buildBodyLines({
 		}
 
 		if (actualRunOverlayRows > 0) {
-			bodyLines.push(fitAnsi('[RUNS] :run <id>  :run all', innerWidth));
+			bodyLines.push(fitAnsi('[RUNS]', innerWidth));
 			const listRows = actualRunOverlayRows - 1;
 			const start = Math.max(0, runSummaries.length - listRows);
 			for (let i = 0; i < actualRunOverlayRows - 1; i++) {

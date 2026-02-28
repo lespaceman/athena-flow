@@ -21,7 +21,7 @@ describe('buildFrameLines contextual prompt', () => {
 	it('shows default prompt when no run has completed', () => {
 		const {inputLines} = buildFrameLines(baseCtx);
 		const line = inputLines.join('');
-		expect(line).toContain('Type a prompt or :command');
+		expect(line).toContain('Type a prompt or /command');
 	});
 
 	it('shows contextual prompt after completed run (X2)', () => {

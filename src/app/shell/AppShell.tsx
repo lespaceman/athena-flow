@@ -30,7 +30,6 @@ import {useTodoKeyboard} from '../../ui/hooks/useTodoKeyboard';
 import {useSpinner} from '../../ui/hooks/useSpinner';
 import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
-import {useCommandDispatch} from '../../ui/hooks/useCommandDispatch';
 import {buildBodyLines} from '../../ui/layout/buildBodyLines';
 import {FeedGrid} from '../../ui/components/FeedGrid';
 import {FrameRow} from '../../ui/components/FrameRow';
@@ -99,10 +98,9 @@ type AppPhase =
 	| {type: 'main'; initialSessionId?: string};
 
 type FocusMode = 'feed' | 'input' | 'todo';
-type InputMode = 'normal' | 'cmd' | 'search';
+type InputMode = 'normal' | 'search';
 
 function deriveInputMode(value: string): InputMode {
-	if (value.startsWith(':')) return 'cmd';
 	if (value.startsWith('/')) return 'search';
 	return 'normal';
 }
@@ -169,11 +167,11 @@ function AppContent({
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const [focusMode, setFocusMode] = useState<FocusMode>('feed');
 	const [inputMode, setInputMode] = useState<InputMode>('normal');
-	const [runFilter, setRunFilter] = useState<string>('all');
 	const [hintsForced, setHintsForced] = useState<boolean | null>(null);
 	const [showRunOverlay, setShowRunOverlay] = useState(false);
-	const [errorsOnly, setErrorsOnly] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
+	const runFilter = 'all';
+	const errorsOnly = false;
 
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
@@ -376,8 +374,6 @@ function AppContent({
 
 	const filteredEntriesRef = useRef(filteredEntries);
 	filteredEntriesRef.current = filteredEntries;
-	const runSummariesRef = useRef(runSummaries);
-	runSummariesRef.current = runSummaries;
 
 	// ── Prompt submission ───────────────────────────────────
 
@@ -452,20 +448,6 @@ function AppContent({
 		],
 	);
 
-	// ── Command dispatch ────────────────────────────────────
-
-	const runCommand = useCommandDispatch({
-		addMessage,
-		todoPanel,
-		feedNav,
-		setFocusMode,
-		setShowRunOverlay,
-		setRunFilter,
-		setErrorsOnly,
-		filteredEntriesRef,
-		runSummariesRef,
-	});
-
 	// ── Input handling ──────────────────────────────────────
 
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
@@ -505,11 +487,6 @@ function AppContent({
 				resetInput();
 				return;
 			}
-			if (trimmed.startsWith(':') || inputMode === 'cmd') {
-				runCommand(trimmed.startsWith(':') ? trimmed : `:${trimmed}`);
-				resetInput();
-				return;
-			}
 			const parsedSlash = parseInput(trimmed);
 			if (parsedSlash.type === 'command') {
 				submitPromptOrSlashCommand(trimmed);
@@ -536,13 +513,7 @@ function AppContent({
 			submitPromptOrSlashCommand(trimmed);
 			resetInput();
 		},
-		[
-			inputMode,
-			runCommand,
-			submitPromptOrSlashCommand,
-			feedNav,
-			setSearchMatchPos,
-		],
+		[inputMode, submitPromptOrSlashCommand, feedNav, setSearchMatchPos],
 	);
 
 	const handleMainInputChange = useCallback(
@@ -954,7 +925,6 @@ function AppContent({
 	const runBadge = isHarnessRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
 		runBadge,
-		...(inputMode === 'cmd' ? ['[CMD]'] : []),
 		...(inputMode === 'search' ? ['[SEARCH]'] : []),
 	];
 	const badgeText = modeBadges.join('');
@@ -964,15 +934,13 @@ function AppContent({
 		innerWidth - inputPrefix.length - badgeText.length,
 	);
 	const inputPlaceholder =
-		inputMode === 'cmd'
-			? ':command'
-			: inputMode === 'search'
-				? '/search'
-				: lastRunStatus === 'completed'
-					? 'Run complete - type a follow-up or :retry'
-					: lastRunStatus === 'failed' || lastRunStatus === 'aborted'
-						? 'Run failed - type a follow-up or :retry'
-						: 'Type a prompt or :command';
+		inputMode === 'search'
+			? '/search'
+			: lastRunStatus === 'completed'
+				? 'Run complete - type a follow-up'
+				: lastRunStatus === 'failed' || lastRunStatus === 'aborted'
+					? 'Run failed - type a follow-up'
+					: 'Type a prompt or /command';
 	const dialogPlaceholder =
 		appMode.type === 'question'
 			? 'Answer question in dialog...'
