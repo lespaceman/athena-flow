@@ -15,8 +15,8 @@ Options:
   --help                         Show help
 
 Examples:
-  npm run perf:tui -- -- --sessions
-  npm run perf:cpu -- -- --continue
+  npm run perf:tui -- -- sessions
+  npm run perf:cpu -- -- resume
 `;
 
 const args = process.argv.slice(2);

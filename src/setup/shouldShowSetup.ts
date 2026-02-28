@@ -5,7 +5,7 @@ type SetupTriggerInputs = {
 };
 
 /**
- * Setup is shown when explicitly requested (`athena-cli setup`) or when
+ * Setup is shown when explicitly requested (`athena setup`) or when
  * first-run metadata is incomplete.
  */
 export function shouldShowSetup({

@@ -29,9 +29,10 @@ On first run, a setup wizard guides theme selection, harness configuration, and 
 ```bash
 athena-flow                             # Start in current project directory
 athena-flow --project-dir=/my/project   # Specify project directory
-athena-flow --continue                  # Resume most recent session
-athena-flow --sessions                  # Pick a session interactively
 athena-flow setup                       # Re-run setup wizard
+athena-flow sessions                    # Pick a session interactively
+athena-flow resume                      # Resume most recent session
+athena-flow resume <sessionId>          # Resume specific session
 ```
 
 ## What Athena Does
@@ -63,9 +64,15 @@ Claude Code -> hook-forwarder (stdin) -> UDS -> athena-flow runtime
 | `--theme`       | Color theme: `dark` (default), `light`, `high-contrast`       |
 | `--ascii`       | Use ASCII-only UI glyphs for compatibility                    |
 | `--workflow`    | Workflow reference (for example `name@owner/repo`)            |
-| `--continue`    | Resume most recent session, or specify a session ID           |
-| `--sessions`    | Launch interactive session picker                             |
 | `--verbose`     | Show additional rendering detail                              |
+
+## CLI Commands
+
+| Command              | Description                                   |
+| -------------------- | --------------------------------------------- |
+| `setup`              | Re-run setup wizard                           |
+| `sessions`           | Launch interactive session picker             |
+| `resume [sessionId]` | Resume most recent session, or a specific one |
 
 ## Features
 
@@ -113,7 +120,7 @@ npm run lint
 Performance profiling artifacts are written to `.profiles/` via:
 
 ```bash
-npm run perf:tui -- -- --sessions
+npm run perf:tui -- -- sessions
 ```
 
 See `docs/performance-profiling.md` for profiling modes and artifact analysis.

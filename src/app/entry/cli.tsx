@@ -48,8 +48,13 @@ processRegistry.registerCleanupHandlers();
 
 const cli = meow(
 	`
-	Usage
-	  $ athena-flow
+		Usage
+		  $ athena-flow [command] [options]
+
+		Commands
+			setup                 Re-run setup wizard
+			sessions              Launch interactive session picker
+			resume [sessionId]    Resume most recent (or specified) session
 
 		Options
 			--project-dir   Project directory for hook socket (default: cwd)
@@ -61,12 +66,10 @@ const cli = meow(
 			--verbose       Show additional rendering detail and streaming display
 			--theme         Color theme: dark (default), light, or high-contrast
 			--ascii         Use ASCII-only UI glyphs for compatibility
-			--continue      Resume the most recent session (or specify a session ID)
-			--sessions      Launch interactive session picker before main UI
 			--workflow      Workflow reference displayed in header (e.g. name@rev)
 
-	Note: All isolation modes use --setting-sources "" to completely isolate
-	      from Claude Code's settings. athena-flow is fully self-contained.
+		Note: All isolation modes use --setting-sources "" to completely isolate
+		      from Claude Code's settings. athena-flow is fully self-contained.
 
 	Config Files
 		Global:  ~/.config/athena/config.json
@@ -77,16 +80,18 @@ const cli = meow(
 		         }
 		Merge order: global → project → --plugin flags
 
-	Examples
-	  $ athena-flow --project-dir=/my/project
-	  $ athena-flow --plugin=/path/to/my-plugin
+		Examples
+		  $ athena-flow
+		  $ athena-flow setup
+		  $ athena-flow sessions
+		  $ athena-flow resume
+		  $ athena-flow resume <sessionId>
+		  $ athena-flow --project-dir=/my/project
+		  $ athena-flow --plugin=/path/to/my-plugin
 		  $ athena-flow --isolation=minimal
 		  $ athena-flow --verbose
 		  $ athena-flow --ascii
-		  $ athena-flow --continue
-		  $ athena-flow --continue=<sessionId>
-		  $ athena-flow --sessions
-`,
+	`,
 	{
 		importMeta: import.meta,
 		allowUnknownFlags: false,
@@ -110,13 +115,6 @@ const cli = meow(
 			theme: {
 				type: 'string',
 			},
-			continue: {
-				type: 'string',
-			},
-			sessions: {
-				type: 'boolean',
-				default: false,
-			},
 			workflow: {
 				type: 'string',
 			},
@@ -129,6 +127,30 @@ const cli = meow(
 );
 
 const projectDir = path.resolve(cli.flags.projectDir);
+const [command, ...commandArgs] = cli.input;
+
+const knownCommands = new Set(['setup', 'sessions', 'resume']);
+if (command && !knownCommands.has(command)) {
+	console.error(
+		`Unknown command: ${command}\n` +
+			`Available commands: setup, sessions, resume`,
+	);
+	process.exit(1);
+}
+
+if ((command === 'setup' || command === 'sessions') && commandArgs.length > 0) {
+	console.error(`Command "${command}" does not accept positional arguments.`);
+	process.exit(1);
+}
+
+if (command === 'resume' && commandArgs.length > 1) {
+	console.error('Usage: athena-flow resume [sessionId]');
+	process.exit(1);
+}
+
+const showSessionPicker = command === 'sessions';
+const resumeSessionId = command === 'resume' ? commandArgs[0] : undefined;
+const resumeMostRecent = command === 'resume' && !resumeSessionId;
 
 // Validate isolation preset
 const validIsolationPresets = ['strict', 'minimal', 'permissive'];
@@ -181,29 +203,24 @@ const themeName =
 	cli.flags.theme ?? projectConfig.theme ?? globalConfig.theme ?? 'dark';
 const theme = resolveTheme(themeName);
 
-// Resolve --continue flag: Athena session registry is the sole identity authority.
-// meow parses --continue (no value) as undefined for type: 'string', so check process.argv
-const hasContinueFlag = process.argv.includes('--continue');
-const showSessionPicker = cli.flags.sessions;
-
 let initialSessionId: string | undefined;
 let athenaSessionId: string;
 
-if (cli.flags.continue) {
-	// --continue=<id> — treat as Athena session ID first
-	const meta = getSessionMeta(cli.flags.continue);
+if (resumeSessionId) {
+	// resume <id> — treat as Athena session ID first
+	const meta = getSessionMeta(resumeSessionId);
 	if (meta) {
 		athenaSessionId = meta.id;
 		initialSessionId = meta.adapterSessionIds.at(-1);
 	} else {
 		console.error(
-			`Unknown session ID: ${cli.flags.continue}\n` +
-				`Use 'athena-flow --sessions' to choose an available session.`,
+			`Unknown session ID: ${resumeSessionId}\n` +
+				`Use 'athena-flow sessions' to choose an available session.`,
 		);
 		process.exit(1);
 	}
-} else if (hasContinueFlag) {
-	// --continue (bare) — resume most recent Athena session
+} else if (resumeMostRecent) {
+	// resume — resume most recent Athena session
 	const recent = getMostRecentAthenaSession(projectDir);
 	if (recent) {
 		athenaSessionId = recent.id;

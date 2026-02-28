@@ -6,7 +6,7 @@ This repo includes built-in profiling tooling for the Ink TUI.
 
 ```bash
 # Full capture: CPU profile + Node trace events + app-level perf log
-npm run perf:tui -- -- --sessions
+npm run perf:tui -- -- sessions
 ```
 
 Then reproduce the lag (for example: hold arrow-down in session picker, then type quickly in input) for 20-60 seconds and exit with `Ctrl+C`.
@@ -21,13 +21,13 @@ Artifacts are written to `.profiles/`:
 
 ```bash
 # CPU only
-npm run perf:cpu -- -- --sessions
+npm run perf:cpu -- -- sessions
 
 # Trace only
-npm run perf:trace -- -- --sessions
+npm run perf:trace -- -- sessions
 
 # Heap only (memory profiling)
-npm run perf:heap -- -- --sessions
+npm run perf:heap -- -- sessions
 ```
 
 ## App Instrumentation Controls
@@ -45,7 +45,7 @@ Optional env vars:
 Example with full input trace:
 
 ```bash
-ATHENA_PROFILE_INPUT_ALL=1 npm run perf:tui -- -- --sessions
+ATHENA_PROFILE_INPUT_ALL=1 npm run perf:tui -- -- sessions
 ```
 
 ## Inspecting Results
