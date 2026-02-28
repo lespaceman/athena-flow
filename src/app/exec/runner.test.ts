@@ -296,7 +296,9 @@ describe('runExec', () => {
 		expect(result.exitCode).toBe(EXEC_EXIT_CODE.POLICY);
 		expect(result.failure?.kind).toBe('policy');
 		expect(runtime.decisions.length).toBe(0);
-		expect(stderr.read()).toContain('AskUserQuestion interaction requires input');
+		expect(stderr.read()).toContain(
+			'AskUserQuestion interaction requires input',
+		);
 	});
 
 	it('applies on-permission=allow policy to permission requests', async () => {
