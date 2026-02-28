@@ -8,6 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import {fileURLToPath} from 'node:url';
 
 /**
  * Hook events that require a matcher (tool-related events).
@@ -75,24 +76,38 @@ export type GeneratedHookSettings = {
 	cleanup: () => void;
 };
 
+function resolveHookForwarderPath(entryUrl: string): string | null {
+	let currentDir = path.dirname(fileURLToPath(entryUrl));
+
+	// Bundled layout: dist/cli.js + dist/hook-forwarder.js
+	const siblingPath = path.join(currentDir, 'hook-forwarder.js');
+	if (fs.existsSync(siblingPath)) {
+		return siblingPath;
+	}
+
+	// Development/layout fallback: look for <root>/dist/hook-forwarder.js
+	while (true) {
+		const candidatePath = path.join(currentDir, 'dist', 'hook-forwarder.js');
+		if (fs.existsSync(candidatePath)) {
+			return candidatePath;
+		}
+
+		const parentDir = path.dirname(currentDir);
+		if (parentDir === currentDir) {
+			return null;
+		}
+
+		currentDir = parentDir;
+	}
+}
+
 /**
  * Finds the athena-hook-forwarder executable path.
- *
- * When running from the installed package, uses the bin name directly.
- * When running from development, resolves to dist/hook-forwarder.js.
  */
 function getHookForwarderPath(): string {
-	// In development, this file lives in src/harnesses/claude/hooks.
-	// In production, the bin is in PATH as athena-hook-forwarder
-	// For now, we'll use the direct path to the dist file
-	const distPath = path.resolve(
-		path.dirname(new URL(import.meta.url).pathname),
-		'../../../../dist/hook-forwarder.js',
-	);
-
-	// Check if we're running from dist (production)
-	if (fs.existsSync(distPath)) {
-		return `node ${distPath}`;
+	const resolvedPath = resolveHookForwarderPath(import.meta.url);
+	if (resolvedPath) {
+		return `node ${resolvedPath}`;
 	}
 
 	// Fallback to global bin name (when installed via npm -g)

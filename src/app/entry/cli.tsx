@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import {createRequire} from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import App from '../shell/AppShell';
 import {processRegistry} from '../../shared/utils/processRegistry';
 import {type IsolationPreset} from '../../harnesses/claude/config/isolation';
@@ -19,8 +20,28 @@ import {
 } from '../../infra/sessions/index';
 import {shouldShowSetup} from '../../setup/shouldShowSetup';
 
+function resolvePackageJsonPath(entryUrl: string): string {
+	let currentDir = path.dirname(fileURLToPath(entryUrl));
+
+	while (true) {
+		const candidatePath = path.join(currentDir, 'package.json');
+		if (fs.existsSync(candidatePath)) {
+			return candidatePath;
+		}
+
+		const parentDir = path.dirname(currentDir);
+		if (parentDir === currentDir) {
+			throw new Error('Could not locate package.json for CLI metadata.');
+		}
+
+		currentDir = parentDir;
+	}
+}
+
 const require = createRequire(import.meta.url);
-const {version} = require('../../../package.json') as {version: string};
+const {version} = require(resolvePackageJsonPath(import.meta.url)) as {
+	version: string;
+};
 
 // Register cleanup handlers early to catch all exit scenarios
 processRegistry.registerCleanupHandlers();
