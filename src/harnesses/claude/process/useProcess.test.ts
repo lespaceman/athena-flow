@@ -726,6 +726,45 @@ describe('useClaudeProcess', () => {
 		);
 	});
 
+	it('should pass workflow systemPromptFile to harness isolation when file exists', async () => {
+		const existsSpy = vi
+			.spyOn(fs, 'existsSync')
+			.mockImplementation(p => p === '/test/workflow-prompt.md');
+		try {
+			const workflow: WorkflowConfig = {
+				name: 'wf',
+				plugins: [],
+				promptTemplate: '{input}',
+				systemPromptFile: 'workflow-prompt.md',
+			};
+
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+					workflow,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test prompt');
+			});
+
+			expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+				expect.objectContaining({
+					isolation: expect.objectContaining({
+						appendSystemPromptFile: '/test/workflow-prompt.md',
+					}),
+				}),
+			);
+		} finally {
+			existsSpy.mockRestore();
+		}
+	});
+
 	it('should skip missing workflow systemPromptFile instead of passing invalid appendSystemPromptFile', async () => {
 		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 		try {

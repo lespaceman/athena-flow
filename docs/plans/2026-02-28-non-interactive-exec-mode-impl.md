@@ -203,7 +203,11 @@ It should run as a standalone async path inside `cli.tsx` dispatch.
 Each line is a JSON object:
 
 ```json
-{"type":"exec.started","ts":1700000000000,"data":{"projectDir":"/repo","harness":"claude-code"}}
+{
+	"type": "exec.started",
+	"ts": 1700000000000,
+	"data": {"projectDir": "/repo", "harness": "claude-code"}
+}
 ```
 
 ## Recommended event types (Phase 1)

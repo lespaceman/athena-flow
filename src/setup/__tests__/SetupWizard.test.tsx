@@ -1,6 +1,7 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
-import {describe, it, expect, vi, beforeEach} from 'vitest';
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
+import {act} from '@testing-library/react';
 import SetupWizard from '../SetupWizard';
 import {ThemeProvider} from '../../ui/theme/index';
 import {darkTheme} from '../../ui/theme/index';
@@ -17,13 +18,37 @@ vi.mock('../../infra/plugins/config', () => ({
 	writeGlobalConfig: vi.fn(),
 }));
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+beforeEach(() => {
+	vi.useFakeTimers();
+	vi.clearAllMocks();
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+});
+
+/**
+ * Navigate through all three wizard steps using act() to flush React state
+ * and fake timers to deterministically fire the 500ms auto-advance timer.
+ */
+function walkAllSteps(stdin: {write: (data: string) => void}) {
+	// Step 1: select Dark theme
+	act(() => stdin.write('\r'));
+	// Fire the 500ms auto-advance timer to move to step 2
+	act(() => vi.advanceTimersByTime(500));
+
+	// Step 2: skip harness
+	act(() => stdin.write('s'));
+	act(() => vi.advanceTimersByTime(500));
+
+	// Step 3: arrow down to "None - configure later", then select
+	act(() => stdin.write('\u001B[B'));
+	act(() => stdin.write('\r'));
+	// Fire the final auto-advance timer → isComplete triggers writeGlobalConfig effect
+	act(() => vi.advanceTimersByTime(500));
+}
 
 describe('SetupWizard', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-	});
-
 	it('renders the first step (theme selection)', () => {
 		const {lastFrame} = render(
 			<ThemeProvider value={darkTheme}>
@@ -35,7 +60,7 @@ describe('SetupWizard', () => {
 		expect(lastFrame()!).toContain('Up/Down move');
 	});
 
-	it('completes setup and persists config', async () => {
+	it('completes setup and persists config', () => {
 		const onComplete = vi.fn();
 		const {stdin} = render(
 			<ThemeProvider value={darkTheme}>
@@ -43,26 +68,18 @@ describe('SetupWizard', () => {
 			</ThemeProvider>,
 		);
 
-		stdin.write('\r'); // Theme: Dark
-		await delay(650);
-		stdin.write('s'); // Harness: Skip
-		await delay(650);
-		stdin.write('\u001B[B'); // Workflow: None - configure later
-		await delay(30);
-		stdin.write('\r');
+		walkAllSteps(stdin);
 
-		await vi.waitFor(() => {
-			expect(writeGlobalConfig).toHaveBeenCalledWith({
-				setupComplete: true,
-				theme: 'dark',
-				harness: undefined,
-				workflow: undefined,
-			});
-			expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(writeGlobalConfig).toHaveBeenCalledWith({
+			setupComplete: true,
+			theme: 'dark',
+			harness: undefined,
+			workflow: undefined,
 		});
+		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 
-	it('shows save error and retries when user presses r', async () => {
+	it('shows save error and retries when user presses r', () => {
 		const writeMock = vi.mocked(writeGlobalConfig);
 		writeMock
 			.mockImplementationOnce(() => {
@@ -77,46 +94,29 @@ describe('SetupWizard', () => {
 			</ThemeProvider>,
 		);
 
-		stdin.write('\r'); // Theme: Dark
-		await delay(650);
-		stdin.write('s'); // Harness: Skip
-		await delay(650);
-		stdin.write('\u001B[B'); // Workflow: None - configure later
-		await delay(30);
-		stdin.write('\r');
+		walkAllSteps(stdin);
 
-		await vi.waitFor(() => {
-			expect(lastFrame()!).toContain('Failed to write setup config');
-		});
+		expect(lastFrame()!).toContain('Failed to write setup config');
 		expect(onComplete).not.toHaveBeenCalled();
 
-		stdin.write('r');
-		await delay(650);
+		act(() => stdin.write('r'));
 
-		await vi.waitFor(
-			() => {
-				expect(onComplete).toHaveBeenCalledTimes(1);
-				expect(writeMock).toHaveBeenCalledTimes(2);
-			},
-			{timeout: 3000},
-		);
+		expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(writeMock).toHaveBeenCalledTimes(2);
 	});
 
-	it('supports skip and back keyboard shortcuts', async () => {
+	it('supports skip and back keyboard shortcuts', () => {
 		const {stdin, lastFrame} = render(
 			<ThemeProvider value={darkTheme}>
 				<SetupWizard onComplete={() => {}} />
 			</ThemeProvider>,
 		);
 
-		stdin.write('s'); // Skip theme step
-		await delay(650);
-		await vi.waitFor(() => {
-			expect(lastFrame()!).toContain('Select harness');
-		});
+		act(() => stdin.write('s')); // Skip theme step
+		act(() => vi.advanceTimersByTime(500));
+		expect(lastFrame()!).toContain('Select harness');
 
-		stdin.write('\u001B'); // Esc back
-		await delay(80);
+		act(() => stdin.write('\u001B')); // Esc back
 		expect(lastFrame()!).toContain('Choose your display theme');
 	});
 });

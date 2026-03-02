@@ -171,12 +171,13 @@ export function useTodoPanel({
 		};
 	}, [todoItems]);
 
-	// Tick interval to refresh elapsed times while items are active and working
+	// Tick interval to refresh elapsed times while items are active, working,
+	// and the panel is visible. Skips when hidden to avoid wasted re-renders.
 	useEffect(() => {
-		if (doingCount === 0 || !isWorking) return;
+		if (doingCount === 0 || !isWorking || !todoVisible) return;
 		const id = setInterval(() => setTickCounter(c => c + 1), 1000);
 		return () => clearInterval(id);
-	}, [doingCount, isWorking]);
+	}, [doingCount, isWorking, todoVisible]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {

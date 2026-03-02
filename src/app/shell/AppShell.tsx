@@ -7,7 +7,7 @@ import React, {
 	useEffect,
 	useMemo,
 } from 'react';
-import {Box, Text, useApp, useInput, useStdout} from 'ink';
+import {Box, Static, Text, useApp, useInput, useStdout} from 'ink';
 import {TextInput} from '@inkjs/ui';
 import PermissionDialog from '../../ui/components/PermissionDialog';
 import QuestionDialog from '../../ui/components/QuestionDialog';
@@ -24,6 +24,7 @@ import {
 	useInputHistory,
 } from '../../ui/hooks/useInputHistory';
 import {useFeedNavigation} from '../../ui/hooks/useFeedNavigation';
+import {useStaticFeed} from '../../ui/hooks/useStaticFeed';
 import {useTodoPanel} from '../../ui/hooks/useTodoPanel';
 import {useFeedKeyboard} from '../../ui/hooks/useFeedKeyboard';
 import {useTodoKeyboard} from '../../ui/hooks/useTodoKeyboard';
@@ -32,6 +33,8 @@ import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
 import {buildBodyLines} from '../../ui/layout/buildBodyLines';
 import {FeedGrid} from '../../ui/components/FeedGrid';
+import {formatFeedRowLine} from '../../ui/components/FeedRow';
+import {type TimelineEntry} from '../../core/feed/timeline';
 import {FrameRow} from '../../ui/components/FrameRow';
 import {useFeedColumns} from '../../ui/hooks/useFeedColumns';
 import {buildFrameLines} from '../../ui/layout/buildFrameLines';
@@ -358,13 +361,24 @@ function AppContent({
 	const estimatedRunRows = showRunOverlay
 		? Math.min(6, 1 + Math.max(1, runSummaries.length))
 		: 0;
+	// Static scrollback: compute high-water mark from previous render's viewport,
+	// then feed it as a floor constraint into navigation.
+	const staticHwmRef = useRef(0);
 	const feedNav = useFeedNavigation({
 		filteredEntries,
 		feedContentRows: Math.max(
 			1,
 			terminalRows - 10 - estimatedTodoRows - estimatedRunRows,
 		),
+		staticFloor: staticHwmRef.current,
 	});
+
+	const staticHighWaterMark = useStaticFeed({
+		filteredEntries,
+		feedViewportStart: feedNav.feedViewportStart,
+		tailFollow: feedNav.tailFollow,
+	});
+	staticHwmRef.current = staticHighWaterMark;
 
 	// Compute frame dimensions early (only depends on terminalWidth)
 	const frameWidth = safeTerminalWidth;
@@ -498,9 +512,14 @@ function AppContent({
 				setSearchQuery(query);
 				if (query.length > 0) {
 					const q = query.toLowerCase();
-					const firstIdx = filteredEntriesRef.current.findIndex(e =>
-						e.searchText.toLowerCase().includes(q),
-					);
+					const entries = filteredEntriesRef.current;
+					let firstIdx = -1;
+					for (let i = staticHwmRef.current; i < entries.length; i++) {
+						if (entries[i]!.searchText.toLowerCase().includes(q)) {
+							firstIdx = i;
+							break;
+						}
+					}
 					if (firstIdx >= 0) {
 						feedNav.setFeedCursor(firstIdx);
 						feedNav.setTailFollow(false);
@@ -548,6 +567,11 @@ function AppContent({
 		return null;
 	}, [isHarnessRunning, runSummaries]);
 
+	const visibleSearchMatches = useMemo(
+		() => searchMatches.filter(idx => idx >= staticHighWaterMark),
+		[searchMatches, staticHighWaterMark],
+	);
+
 	const frameExpandedEntry = useMemo(
 		() =>
 			feedNav.expandedId
@@ -564,7 +588,7 @@ function AppContent({
 				focusMode,
 				inputMode,
 				searchQuery,
-				searchMatches,
+				searchMatches: visibleSearchMatches,
 				searchMatchPos,
 				expandedEntry: frameExpandedEntry,
 				isClaudeRunning: isHarnessRunning,
@@ -583,7 +607,7 @@ function AppContent({
 			focusMode,
 			inputMode,
 			searchQuery,
-			searchMatches,
+			visibleSearchMatches,
 			searchMatchPos,
 			frameExpandedEntry,
 			isHarnessRunning,
@@ -750,7 +774,7 @@ function AppContent({
 		pageStep,
 		detailPageStep,
 		maxDetailScroll,
-		searchMatches,
+		searchMatches: visibleSearchMatches,
 		callbacks: {
 			moveFeedCursor: feedNav.moveFeedCursor,
 			jumpToTail: feedNav.jumpToTail,
@@ -921,6 +945,29 @@ function AppContent({
 	);
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
+
+	// ── Static scrollback slicing ────────────────────────────
+	const dynamicEntries = useMemo(
+		() => filteredEntries.slice(staticHighWaterMark),
+		[filteredEntries, staticHighWaterMark],
+	);
+	const adjustedSearchMatchSet = useMemo(() => {
+		if (staticHighWaterMark === 0) return searchMatchSet;
+		const adjusted = new Set<number>();
+		for (const idx of searchMatchSet) {
+			if (idx >= staticHighWaterMark) {
+				adjusted.add(idx - staticHighWaterMark);
+			}
+		}
+		return adjusted;
+	}, [searchMatchSet, staticHighWaterMark]);
+	// Only recompute when HWM advances — Static already rendered previous items.
+	// Using filteredEntriesRef avoids re-slicing on every new event.
+	const staticEntries = useMemo(
+		() => filteredEntriesRef.current.slice(0, staticHighWaterMark),
+		[staticHighWaterMark],
+	);
+
 	const showFeedGrid = !expandedEntry;
 	const runBadge = isHarnessRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
@@ -953,6 +1000,27 @@ function AppContent({
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
+			{staticHighWaterMark > 0 && (
+				<Static items={staticEntries}>
+					{(entry: TimelineEntry) => (
+						<Text key={entry.id}>
+							{frameLine(
+								formatFeedRowLine({
+									entry,
+									cols: feedCols,
+									focused: false,
+									expanded: false,
+									matched: false,
+									isDuplicateActor: entry.duplicateActor,
+									ascii: useAscii,
+									theme,
+									innerWidth,
+								}),
+							)}
+						</Text>
+					)}
+				</Static>
+			)}
 			<Text>{topBorder}</Text>
 			<Text>{frameLine(headerLine1)}</Text>
 			<Text>{sectionBorder}</Text>
@@ -963,12 +1031,12 @@ function AppContent({
 				<FeedGrid
 					feedHeaderRows={feedHeaderRows}
 					feedContentRows={feedContentRows}
-					feedViewportStart={feedNav.feedViewportStart}
-					filteredEntries={filteredEntries}
-					feedCursor={feedNav.feedCursor}
+					feedViewportStart={feedNav.feedViewportStart - staticHighWaterMark}
+					filteredEntries={dynamicEntries}
+					feedCursor={feedNav.feedCursor - staticHighWaterMark}
 					expandedId={feedNav.expandedId}
 					focusMode={focusMode}
-					searchMatchSet={searchMatchSet}
+					searchMatchSet={adjustedSearchMatchSet}
 					ascii={useAscii}
 					theme={theme}
 					innerWidth={innerWidth}
