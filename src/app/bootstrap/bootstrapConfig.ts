@@ -100,7 +100,7 @@ export function bootstrapRuntimeConfig({
 	});
 	const pluginResult =
 		pluginDirs.length > 0
-			? registerPlugins(pluginDirs)
+			? registerPlugins(pluginDirs, globalConfig.mcpServerOptions)
 			: {mcpConfig: undefined, workflows: [] as WorkflowConfig[]};
 	const pluginMcpConfig = pluginResult.mcpConfig;
 	const workflows = pluginResult.workflows;

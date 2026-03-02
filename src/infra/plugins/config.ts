@@ -13,6 +13,14 @@ import {isMarketplaceRef, resolveMarketplacePlugin} from './marketplace';
 
 export type AthenaHarness = 'claude-code' | 'openai-codex' | 'opencode';
 
+export type McpServerOption = {
+	label: string;
+	args: string[];
+};
+
+/** Server name → chosen args array */
+export type McpServerChoices = Record<string, string[]>;
+
 export type AthenaConfig = {
 	plugins: string[];
 	/** Additional directories to grant Claude access to (passed as --add-dir flags) */
@@ -27,6 +35,8 @@ export type AthenaConfig = {
 	setupComplete?: boolean;
 	/** Which AI coding harness is being used */
 	harness?: AthenaHarness;
+	/** User-selected MCP server args from the setup wizard */
+	mcpServerOptions?: McpServerChoices;
 };
 
 const EMPTY_CONFIG: AthenaConfig = {plugins: [], additionalDirectories: []};
@@ -65,6 +75,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		workflow?: string;
 		setupComplete?: boolean;
 		harness?: string;
+		mcpServerOptions?: McpServerChoices;
 	};
 
 	const plugins = (raw.plugins ?? [])
@@ -103,6 +114,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 				: raw.harness === 'codex'
 					? 'openai-codex'
 					: undefined,
+		mcpServerOptions: raw.mcpServerOptions,
 	};
 }
 

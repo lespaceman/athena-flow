@@ -224,6 +224,25 @@ async function main(): Promise<void> {
 
 	if (command === 'workflow') {
 		const [subcommand = '', ...subcommandArgs] = commandArgs;
+
+		// Interactive install: renders MCP options wizard if servers have options
+		if (subcommand === 'install' && subcommandArgs[0]) {
+			const source = subcommandArgs[0];
+			const {default: WorkflowInstallWizard} = await import(
+				'../../setup/steps/WorkflowInstallWizard'
+			);
+			const {waitUntilExit} = render(
+				<WorkflowInstallWizard
+					source={source}
+					onDone={code => {
+						process.exitCode = code;
+					}}
+				/>,
+			);
+			await waitUntilExit();
+			return;
+		}
+
 		exitWith(runWorkflowCommand({subcommand, subcommandArgs}));
 		return;
 	}

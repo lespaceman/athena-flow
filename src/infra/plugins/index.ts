@@ -1,7 +1,12 @@
 export {registerPlugins} from './register';
 export type {PluginRegistrationResult} from './register';
 export {readConfig, readGlobalConfig} from './config';
-export type {AthenaConfig, AthenaHarness} from './config';
+export type {
+	AthenaConfig,
+	AthenaHarness,
+	McpServerOption,
+	McpServerChoices,
+} from './config';
 export {
 	isMarketplaceRef,
 	resolveMarketplacePlugin,
@@ -14,3 +19,5 @@ export type {
 	ParsedSkill,
 	LoadedPlugin,
 } from './types';
+export {collectMcpServersWithOptions} from './mcpOptions';
+export type {McpServerWithOptions} from './mcpOptions';

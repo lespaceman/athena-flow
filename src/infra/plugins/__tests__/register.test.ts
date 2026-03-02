@@ -200,4 +200,77 @@ describe('registerPlugins', () => {
 
 		expect(result.workflows).toEqual([]);
 	});
+
+	it('applies mcpServerOptions to override server args', async () => {
+		const fs = await import('node:fs');
+
+		addPlugin('/plugins/a', {
+			mcpServers: {
+				'agent-web-interface': {
+					command: 'npx',
+					args: ['agent-web-interface'],
+					options: [
+						{label: 'Visible', args: []},
+						{label: 'Headless', args: ['--headless']},
+					],
+				},
+			},
+		});
+
+		registerPlugins(['/plugins/a'], {
+			'agent-web-interface': ['--headless'],
+		});
+
+		const writeCall = vi.mocked(fs.default.writeFileSync).mock.calls[0];
+		const written = JSON.parse(writeCall![1] as string);
+		expect(written.mcpServers['agent-web-interface'].args).toEqual([
+			'--headless',
+		]);
+	});
+
+	it('strips options field from written MCP config', async () => {
+		const fs = await import('node:fs');
+
+		addPlugin('/plugins/a', {
+			mcpServers: {
+				'my-server': {
+					command: 'npx',
+					args: ['my-server'],
+					options: [
+						{label: 'Default', args: []},
+						{label: 'Custom', args: ['--custom']},
+					],
+				},
+			},
+		});
+
+		registerPlugins(['/plugins/a']);
+
+		const writeCall = vi.mocked(fs.default.writeFileSync).mock.calls[0];
+		const written = JSON.parse(writeCall![1] as string);
+		expect(written.mcpServers['my-server']).not.toHaveProperty('options');
+	});
+
+	it('preserves original args when no mcpServerOptions provided', async () => {
+		const fs = await import('node:fs');
+
+		addPlugin('/plugins/a', {
+			mcpServers: {
+				'my-server': {
+					command: 'npx',
+					args: ['my-server', '--default'],
+					options: [{label: 'Default', args: ['--default']}],
+				},
+			},
+		});
+
+		registerPlugins(['/plugins/a']);
+
+		const writeCall = vi.mocked(fs.default.writeFileSync).mock.calls[0];
+		const written = JSON.parse(writeCall![1] as string);
+		expect(written.mcpServers['my-server'].args).toEqual([
+			'my-server',
+			'--default',
+		]);
+	});
 });

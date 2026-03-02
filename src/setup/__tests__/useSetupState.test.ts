@@ -71,6 +71,12 @@ describe('useSetupState', () => {
 			result.current.markSuccess();
 			result.current.advance();
 		});
+		// Step 3
+		act(() => {
+			result.current.startVerifying();
+			result.current.markSuccess();
+			result.current.advance();
+		});
 		expect(result.current.isComplete).toBe(true);
 	});
 });

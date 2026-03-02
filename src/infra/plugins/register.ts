@@ -11,6 +11,7 @@ import path from 'node:path';
 import {register} from '../../app/commands/registry';
 import {loadPlugin} from './loader';
 import type {WorkflowConfig} from '../../core/workflows/types';
+import type {McpServerChoices} from './config';
 
 export type PluginRegistrationResult = {
 	mcpConfig?: string;
@@ -20,11 +21,16 @@ export type PluginRegistrationResult = {
 /**
  * Load plugins from the given directories, register their commands,
  * and return merged MCP config + discovered workflows.
+ *
+ * When `mcpServerOptions` is provided, matching server entries get their
+ * `args` replaced with the user's chosen args. The `options` field is
+ * always stripped before writing — Claude Code doesn't understand it.
  */
 export function registerPlugins(
 	pluginDirs: string[],
+	mcpServerOptions?: McpServerChoices,
 ): PluginRegistrationResult {
-	const mergedServers: Record<string, unknown> = {};
+	const mergedServers: Record<string, Record<string, unknown>> = {};
 	const workflows: WorkflowConfig[] = [];
 
 	for (const dir of pluginDirs) {
@@ -37,19 +43,28 @@ export function registerPlugins(
 		const mcpPath = path.join(dir, '.mcp.json');
 		if (fs.existsSync(mcpPath)) {
 			const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8')) as {
-				mcpServers?: Record<string, unknown>;
+				mcpServers?: Record<string, Record<string, unknown>>;
 			};
 
-			for (const serverName of Object.keys(config.mcpServers ?? {})) {
+			for (const [serverName, serverConfig] of Object.entries(
+				config.mcpServers ?? {},
+			)) {
 				if (serverName in mergedServers) {
 					throw new Error(
 						`MCP server name collision: "${serverName}" is defined by multiple plugins. ` +
 							'Each MCP server must have a unique name across all plugins.',
 					);
 				}
-			}
 
-			Object.assign(mergedServers, config.mcpServers ?? {});
+				const {options: _options, ...rest} = serverConfig;
+
+				// Apply user-chosen args if available
+				if (mcpServerOptions && serverName in mcpServerOptions) {
+					rest.args = mcpServerOptions[serverName];
+				}
+
+				mergedServers[serverName] = rest;
+			}
 		}
 
 		// Discover workflow config

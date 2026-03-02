@@ -12,10 +12,17 @@ vi.mock('../../harnesses/claude/system/detectVersion', () => ({
 }));
 vi.mock('../../core/workflows/index', () => ({
 	installWorkflow: vi.fn(() => 'e2e-test-builder'),
-	resolveWorkflow: vi.fn(() => ({name: 'e2e-test-builder', plugins: []})),
+	resolveWorkflow: vi.fn(() => ({
+		name: 'e2e-test-builder',
+		plugins: ['e2e-test-builder@lespaceman/athena-workflow-marketplace'],
+	})),
+	installWorkflowPlugins: vi.fn(() => ['/resolved/plugin/dir']),
 }));
 vi.mock('../../infra/plugins/config', () => ({
 	writeGlobalConfig: vi.fn(),
+}));
+vi.mock('../../infra/plugins/mcpOptions', () => ({
+	collectMcpServersWithOptions: vi.fn(() => []),
 }));
 
 beforeEach(() => {
@@ -28,7 +35,7 @@ afterEach(() => {
 });
 
 /**
- * Navigate through all three wizard steps using act() to flush React state
+ * Navigate through all four wizard steps using act() to flush React state
  * and fake timers to deterministically fire the 500ms auto-advance timer.
  */
 function walkAllSteps(stdin: {write: (data: string) => void}) {
@@ -44,7 +51,10 @@ function walkAllSteps(stdin: {write: (data: string) => void}) {
 	// Step 3: arrow down to "None - configure later", then select
 	act(() => stdin.write('\u001B[B'));
 	act(() => stdin.write('\r'));
-	// Fire the final auto-advance timer → isComplete triggers writeGlobalConfig effect
+	act(() => vi.advanceTimersByTime(500));
+
+	// Step 4: MCP options — auto-skips when collectMcpServersWithOptions returns []
+	// The useEffect auto-calls onComplete({}) which triggers markSuccess
 	act(() => vi.advanceTimersByTime(500));
 }
 
@@ -75,6 +85,7 @@ describe('SetupWizard', () => {
 			theme: 'dark',
 			harness: undefined,
 			workflow: undefined,
+			mcpServerOptions: {},
 		});
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
@@ -118,5 +129,14 @@ describe('SetupWizard', () => {
 
 		act(() => stdin.write('\u001B')); // Esc back
 		expect(lastFrame()!).toContain('Choose your display theme');
+	});
+
+	it('shows 4 steps in progress bar', () => {
+		const {lastFrame} = render(
+			<ThemeProvider value={darkTheme}>
+				<SetupWizard onComplete={() => {}} />
+			</ThemeProvider>,
+		);
+		expect(lastFrame()!).toContain('Step 1 of 4');
 	});
 });

@@ -4,14 +4,24 @@ import {useSetupState} from './useSetupState';
 import ThemeStep from './steps/ThemeStep';
 import HarnessStep from './steps/HarnessStep';
 import WorkflowStep from './steps/WorkflowStep';
+import McpOptionsStep from './steps/McpOptionsStep';
 import StepStatus from './components/StepStatus';
-import {writeGlobalConfig, type AthenaHarness} from '../infra/plugins/config';
+import {
+	writeGlobalConfig,
+	type AthenaHarness,
+	type McpServerChoices,
+} from '../infra/plugins/config';
+import {
+	collectMcpServersWithOptions,
+	type McpServerWithOptions,
+} from '../infra/plugins/mcpOptions';
 import {useTheme} from '../ui/theme/index';
 
 export type SetupResult = {
 	theme: string;
 	harness?: AthenaHarness;
 	workflow?: string;
+	mcpServerOptions?: McpServerChoices;
 };
 
 type Props = {
@@ -19,7 +29,7 @@ type Props = {
 	onThemePreview?: (theme: string) => void;
 };
 
-const STEP_LABELS = ['Theme', 'Harness', 'Workflow'];
+const STEP_LABELS = ['Theme', 'Harness', 'Workflow', 'MCP Options'];
 const PROGRESS_BAR_WIDTH = 18;
 
 function progressBar(
@@ -55,6 +65,9 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 	const [writeRetryCount, setWriteRetryCount] = useState(0);
 	const themePreviewRef = useRef(result.theme);
 	const completedRef = useRef(false);
+	const [mcpServersWithOptions, setMcpServersWithOptions] = useState<
+		McpServerWithOptions[]
+	>([]);
 
 	const handleThemeComplete = useCallback(
 		(theme: string) => {
@@ -88,8 +101,9 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 	}, [markSuccess]);
 
 	const handleWorkflowComplete = useCallback(
-		(workflow: string) => {
+		(workflow: string, pluginDirs: string[]) => {
 			setResult(prev => ({...prev, workflow}));
+			setMcpServersWithOptions(collectMcpServersWithOptions(pluginDirs));
 			markSuccess();
 		},
 		[markSuccess],
@@ -97,8 +111,17 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 
 	const handleWorkflowSkip = useCallback(() => {
 		setResult(prev => ({...prev, workflow: undefined}));
+		setMcpServersWithOptions([]);
 		markSuccess();
 	}, [markSuccess]);
+
+	const handleMcpOptionsComplete = useCallback(
+		(choices: McpServerChoices) => {
+			setResult(prev => ({...prev, mcpServerOptions: choices}));
+			markSuccess();
+		},
+		[markSuccess],
+	);
 
 	const handleSkipShortcut = useCallback(() => {
 		if (stepState !== 'selecting' || isComplete) {
@@ -117,6 +140,10 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		}
 		if (stepIndex === 2) {
 			handleWorkflowSkip();
+			return;
+		}
+		if (stepIndex === 3) {
+			handleMcpOptionsComplete({});
 		}
 	}, [
 		stepState,
@@ -126,6 +153,7 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		onThemePreview,
 		handleHarnessSkip,
 		handleWorkflowSkip,
+		handleMcpOptionsComplete,
 	]);
 
 	useInput((input, key) => {
@@ -174,6 +202,7 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 					theme: result.theme,
 					harness: result.harness,
 					workflow: result.workflow,
+					mcpServerOptions: result.mcpServerOptions,
 				});
 				onComplete(result);
 			} catch (error) {
@@ -238,6 +267,13 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 						onComplete={handleWorkflowComplete}
 						onError={() => markError()}
 						onSkip={handleWorkflowSkip}
+					/>
+				)}
+
+				{stepIndex === 3 && !isComplete && (
+					<McpOptionsStep
+						servers={mcpServersWithOptions}
+						onComplete={handleMcpOptionsComplete}
 					/>
 				)}
 

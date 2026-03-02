@@ -1,6 +1,6 @@
 import {useState, useCallback} from 'react';
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 export type StepState = 'selecting' | 'verifying' | 'success' | 'error';
 
