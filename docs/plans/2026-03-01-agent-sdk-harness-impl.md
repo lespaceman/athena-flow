@@ -13,6 +13,7 @@
 ### Task 1: Add `'agent-sdk'` to `AthenaHarness` Type Union
 
 **Files:**
+
 - Modify: `src/infra/plugins/config.ts:14`
 
 **Step 1: Add `'agent-sdk'` to the union type**
@@ -24,7 +25,11 @@ In `src/infra/plugins/config.ts`, change line 14:
 export type AthenaHarness = 'claude-code' | 'openai-codex' | 'opencode';
 
 // After:
-export type AthenaHarness = 'claude-code' | 'agent-sdk' | 'openai-codex' | 'opencode';
+export type AthenaHarness =
+	| 'claude-code'
+	| 'agent-sdk'
+	| 'openai-codex'
+	| 'opencode';
 ```
 
 **Step 2: Run typecheck to verify no breakages**
@@ -44,6 +49,7 @@ git commit -m "feat(harness): add agent-sdk to AthenaHarness type union"
 ### Task 2: Create Worker Protocol Types
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/protocol/workerMessages.ts`
 
 **Step 1: Write the protocol types**
@@ -159,6 +165,7 @@ git commit -m "feat(harness): add Agent SDK worker protocol types"
 ### Task 3: Create Event Translator (with TDD)
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/eventTranslator.ts`
 - Create: `src/harnesses/agent-sdk/runtime/__tests__/eventTranslator.test.ts`
 
@@ -428,6 +435,7 @@ git commit -m "feat(harness): add Agent SDK event translator with tests"
 ### Task 4: Create Decision Mapper (with TDD)
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/decisionMapper.ts`
 - Create: `src/harnesses/agent-sdk/runtime/__tests__/decisionMapper.test.ts`
 
@@ -652,6 +660,7 @@ git commit -m "feat(harness): add Agent SDK decision mapper with tests"
 ### Task 5: Create Interaction Rules and Mapper
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/interactionRules.ts`
 - Create: `src/harnesses/agent-sdk/runtime/mapper.ts`
 - Create: `src/harnesses/agent-sdk/runtime/__tests__/mapper.test.ts`
@@ -663,7 +672,9 @@ import {describe, it, expect} from 'vitest';
 import {mapHookEventToRuntimeEvent} from '../mapper';
 import type {WorkerHookEvent} from '../../protocol/workerMessages';
 
-function makeHookEvent(overrides: Partial<WorkerHookEvent> = {}): WorkerHookEvent {
+function makeHookEvent(
+	overrides: Partial<WorkerHookEvent> = {},
+): WorkerHookEvent {
 	return {
 		type: 'hook_event',
 		requestId: 'req-1',
@@ -705,7 +716,10 @@ describe('mapHookEventToRuntimeEvent', () => {
 
 	it('handles unknown hook names gracefully', () => {
 		const event = mapHookEventToRuntimeEvent(
-			makeHookEvent({hookName: 'FutureHook', hookInput: {hook_event_name: 'FutureHook'}}),
+			makeHookEvent({
+				hookName: 'FutureHook',
+				hookInput: {hook_event_name: 'FutureHook'},
+			}),
 		);
 		expect(event.kind).toBe('unknown');
 		expect(event.interaction.expectsDecision).toBe(false);
@@ -756,20 +770,76 @@ const RULES: Record<RuntimeEventKind, InteractionHints> = {
 		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
 		canBlock: true,
 	},
-	'tool.post': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'tool.failure': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'stop.request': {expectsDecision: true, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
-	'subagent.stop': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
-	'subagent.start': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	notification: {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'session.start': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'session.end': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'compact.pre': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'user.prompt': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
-	setup: {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: false},
-	'teammate.idle': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
-	'task.completed': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
-	'config.change': {expectsDecision: false, defaultTimeoutMs: DEFAULT_TIMEOUT_MS, canBlock: true},
+	'tool.post': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'tool.failure': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'stop.request': {
+		expectsDecision: true,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'subagent.stop': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'subagent.start': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	notification: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'session.start': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'session.end': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'compact.pre': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'user.prompt': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	setup: {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'teammate.idle': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'task.completed': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'config.change': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
 	unknown: DEFAULT_HINTS,
 };
 
@@ -794,9 +864,7 @@ import type {WorkerHookEvent} from '../protocol/workerMessages';
 import {translateHookInput} from './eventTranslator';
 import {getInteractionHints} from './interactionRules';
 
-export function mapHookEventToRuntimeEvent(
-	msg: WorkerHookEvent,
-): RuntimeEvent {
+export function mapHookEventToRuntimeEvent(msg: WorkerHookEvent): RuntimeEvent {
 	const translated = translateHookInput(msg.hookName, msg.hookInput);
 
 	const context: RuntimeEvent['context'] = {
@@ -841,6 +909,7 @@ git commit -m "feat(harness): add Agent SDK mapper and interaction rules with te
 ### Task 6: Create MessagePort Server (RuntimeConnector)
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/server.ts`
 - Create: `src/harnesses/agent-sdk/runtime/__tests__/server.test.ts`
 
@@ -1050,10 +1119,7 @@ export function createAgentSdkServer(opts: ServerOptions) {
 		// sdk_message, done, error handled by process layer, not runtime
 	}
 
-	function respondToWorker(
-		requestId: string,
-		decision: RuntimeDecision,
-	): void {
+	function respondToWorker(requestId: string, decision: RuntimeDecision): void {
 		const req = pending.get(requestId);
 		if (!req) return;
 
@@ -1132,6 +1198,7 @@ git commit -m "feat(harness): add Agent SDK MessagePort server with tests"
 ### Task 7: Create Worker Thread Entry Point
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/worker.ts`
 
 **Step 1: Write worker.ts**
@@ -1212,7 +1279,7 @@ function createHookCallback(sessionId: string) {
 		};
 
 		// Post event and wait for decision
-		const decisionPromise = new Promise<RuntimeDecision>((resolve) => {
+		const decisionPromise = new Promise<RuntimeDecision>(resolve => {
 			pendingDecisions.set(requestId, {resolve});
 		});
 
@@ -1240,7 +1307,10 @@ async function runQuery(msg: WorkerStartRequest): Promise<void> {
 
 		// Build hooks config: apply callback to all hook events
 		const allHookMatcher = {hooks: [hookCallback]};
-		const hooks: Record<string, Array<{matcher?: string; hooks: Array<typeof hookCallback>}>> = {
+		const hooks: Record<
+			string,
+			Array<{matcher?: string; hooks: Array<typeof hookCallback>}>
+		> = {
 			PreToolUse: [allHookMatcher],
 			PostToolUse: [allHookMatcher],
 			Stop: [allHookMatcher],
@@ -1341,6 +1411,7 @@ git commit -m "feat(harness): add Agent SDK worker thread entry point"
 ### Task 8: Create Runtime Factory and Index
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/runtime/index.ts`
 
 **Step 1: Write the factory**
@@ -1404,6 +1475,7 @@ git commit -m "feat(harness): add Agent SDK runtime factory"
 ### Task 9: Wire into Registry, Config/Process Profiles, and createRuntime
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/system/detectSdk.ts`
 - Modify: `src/harnesses/registry.ts`
 - Modify: `src/harnesses/configProfiles.ts`
@@ -1517,6 +1589,7 @@ git commit -m "feat(harness): wire Agent SDK into registry, profiles, and create
 ### Task 10: Add Worker Entry to tsup Config
 
 **Files:**
+
 - Modify: `tsup.config.ts`
 
 **Step 1: Add the worker entry point**
@@ -1558,6 +1631,7 @@ git commit -m "build: add agent-sdk-worker entry point to tsup config"
 ### Task 11: Token Accumulator for Agent SDK
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/process/tokenAccumulator.ts`
 - Create: `src/harnesses/agent-sdk/process/tokenAccumulator.test.ts`
 
@@ -1632,7 +1706,12 @@ export type AgentSdkTokenAccumulator = {
 };
 
 export function createAgentSdkTokenAccumulator(): AgentSdkTokenAccumulator {
-	let current: TokenUsage = {input: 0, output: 0, cacheCreation: 0, cacheRead: 0};
+	let current: TokenUsage = {
+		input: 0,
+		output: 0,
+		cacheCreation: 0,
+		cacheRead: 0,
+	};
 
 	return {
 		updateFromResult(usage: SdkUsage) {
@@ -1670,6 +1749,7 @@ git commit -m "feat(harness): add Agent SDK token accumulator with tests"
 ### Task 12: Options Builder
 
 **Files:**
+
 - Create: `src/harnesses/agent-sdk/config/optionsBuilder.ts`
 - Create: `src/harnesses/agent-sdk/config/optionsBuilder.test.ts`
 

@@ -6,12 +6,12 @@ Add the Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) as a new harness alo
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| SDK integration mode | In-process library | Richer data, no IPC overhead, programmatic hooks |
-| Event source | Hooks-first | SDK hooks map 1:1 to RuntimeEventKind; preserves existing feed/controller |
-| Decision model | Same RuntimeDecision flow | Hook callbacks await Promise; controller/user resolves via sendDecision() |
-| Process isolation | Worker thread | Prevents SDK from blocking Ink's main thread rendering |
+| Decision             | Choice                    | Rationale                                                                 |
+| -------------------- | ------------------------- | ------------------------------------------------------------------------- |
+| SDK integration mode | In-process library        | Richer data, no IPC overhead, programmatic hooks                          |
+| Event source         | Hooks-first               | SDK hooks map 1:1 to RuntimeEventKind; preserves existing feed/controller |
+| Decision model       | Same RuntimeDecision flow | Hook callbacks await Promise; controller/user resolves via sendDecision() |
+| Process isolation    | Worker thread             | Prevents SDK from blocking Ink's main thread rendering                    |
 
 ## Architecture
 
@@ -34,17 +34,27 @@ RuntimeProvider                      query() async iterator
 ```typescript
 /** Main thread → Worker */
 type WorkerRequest =
-  | { type: 'start'; options: SerializedAgentOptions; prompt: string; sessionId?: string }
-  | { type: 'decision'; requestId: string; decision: RuntimeDecision }
-  | { type: 'abort' }
+	| {
+			type: 'start';
+			options: SerializedAgentOptions;
+			prompt: string;
+			sessionId?: string;
+	  }
+	| {type: 'decision'; requestId: string; decision: RuntimeDecision}
+	| {type: 'abort'};
 
 /** Worker → Main thread */
 type WorkerResponse =
-  | { type: 'hook_event'; requestId: string; hookName: string; hookInput: Record<string, unknown> }
-  | { type: 'sdk_message'; message: SerializedSDKMessage }
-  | { type: 'ready' }
-  | { type: 'done'; result?: SerializedResultMessage }
-  | { type: 'error'; error: string }
+	| {
+			type: 'hook_event';
+			requestId: string;
+			hookName: string;
+			hookInput: Record<string, unknown>;
+	  }
+	| {type: 'sdk_message'; message: SerializedSDKMessage}
+	| {type: 'ready'}
+	| {type: 'done'; result?: SerializedResultMessage}
+	| {type: 'error'; error: string};
 ```
 
 ### Decision Flow (for events requiring interaction)
@@ -97,20 +107,21 @@ src/harnesses/agent-sdk/
 
 SDK hook events map directly to existing RuntimeEventKind:
 
-| SDK Hook | RuntimeEventKind |
-|----------|-----------------|
-| PreToolUse | `tool.pre` |
-| PostToolUse | `tool.post` |
-| Stop | `stop.request` |
-| SessionStart | `session.start` |
-| SessionEnd | `session.end` |
-| SubagentStart | `subagent.start` |
-| SubagentStop | `subagent.stop` |
-| UserPromptSubmit | `user.prompt` |
-| PreCompact | `compact.pre` |
-| Notification | `notification` |
+| SDK Hook         | RuntimeEventKind |
+| ---------------- | ---------------- |
+| PreToolUse       | `tool.pre`       |
+| PostToolUse      | `tool.post`      |
+| Stop             | `stop.request`   |
+| SessionStart     | `session.start`  |
+| SessionEnd       | `session.end`    |
+| SubagentStart    | `subagent.start` |
+| SubagentStop     | `subagent.stop`  |
+| UserPromptSubmit | `user.prompt`    |
+| PreCompact       | `compact.pre`    |
+| Notification     | `notification`   |
 
 SDKMessage stream events (non-hook):
+
 - `SDKSystemMessage` (init) → synthetic `session.start` with model/tools metadata
 - `SDKResultMessage` (success/error) → synthetic `session.end` + token usage update
 
@@ -118,14 +129,14 @@ SDKMessage stream events (non-hook):
 
 RuntimeDecision → SDK HookJSONOutput:
 
-| RuntimeDecision | HookJSONOutput |
-|----------------|----------------|
-| `type: 'passthrough'` | `{}` (empty object = allow) |
-| `type: 'block'` | `{ hookSpecificOutput: { permissionDecision: 'deny', reason } }` |
-| `intent.kind: 'permission_allow'` | `{ hookSpecificOutput: { decision: { behavior: 'allow' } } }` |
-| `intent.kind: 'permission_deny'` | `{ hookSpecificOutput: { decision: { behavior: 'deny', reason } } }` |
-| `intent.kind: 'pre_tool_allow'` | `{ hookSpecificOutput: { permissionDecision: 'allow' } }` |
-| `intent.kind: 'pre_tool_deny'` | `{ hookSpecificOutput: { permissionDecision: 'deny', reason } }` |
+| RuntimeDecision                   | HookJSONOutput                                                       |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `type: 'passthrough'`             | `{}` (empty object = allow)                                          |
+| `type: 'block'`                   | `{ hookSpecificOutput: { permissionDecision: 'deny', reason } }`     |
+| `intent.kind: 'permission_allow'` | `{ hookSpecificOutput: { decision: { behavior: 'allow' } } }`        |
+| `intent.kind: 'permission_deny'`  | `{ hookSpecificOutput: { decision: { behavior: 'deny', reason } } }` |
+| `intent.kind: 'pre_tool_allow'`   | `{ hookSpecificOutput: { permissionDecision: 'allow' } }`            |
+| `intent.kind: 'pre_tool_deny'`    | `{ hookSpecificOutput: { permissionDecision: 'deny', reason } }`     |
 
 ## Changes to Existing Files
 
@@ -146,20 +157,24 @@ RuntimeDecision → SDK HookJSONOutput:
 ## Worker Thread Lifecycle
 
 ### Startup
+
 1. `useProcess` hook calls `spawn()` → creates `new Worker('./worker.js')`
 2. Worker posts `{ type: 'ready' }` when initialized
 3. Main thread posts `{ type: 'start', options, prompt }` to begin execution
 
 ### Running
+
 1. Worker iterates `query()` async generator
 2. Hook callbacks post events, await decisions
 3. SDK messages forwarded for session tracking
 
 ### Shutdown
+
 - **Graceful:** `sendInterrupt()` → posts `{ type: 'abort' }` → AbortController.abort() → query() terminates → Worker posts `{ type: 'done' }`
 - **Forceful:** `kill()` → `Worker.terminate()` (immediate)
 
 ### Error Recovery
+
 - Worker `'error'` event → set isRunning=false, log error
 - Worker `'exit'` event → cleanup, update token usage from last known state
 
