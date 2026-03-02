@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1](https://github.com/lespaceman/athena-flow/compare/athena-flow-cli-v0.1.0...athena-flow-cli-v0.1.1) (2026-03-02)
+## [0.3.0](https://github.com/lespaceman/athena-flow/compare/athena-flow-cli-v0.2.3...athena-flow-cli-v0.3.0) (2026-03-02)
 
 
 ### Features
