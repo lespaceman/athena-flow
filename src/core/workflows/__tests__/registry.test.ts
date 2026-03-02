@@ -182,6 +182,92 @@ describe('resolveWorkflow', () => {
 		);
 	});
 
+	it('re-syncs workflow files from marketplace when source ref exists', () => {
+		// Simulate a previously installed marketplace workflow
+		const staleWorkflow = {
+			name: 'mkt-workflow',
+			plugins: ['plugin@owner/repo'],
+			promptTemplate: '{input}',
+			description: 'old description',
+		};
+		files[
+			'/home/testuser/.config/athena/workflows/mkt-workflow/workflow.json'
+		] = JSON.stringify(staleWorkflow);
+		files['/home/testuser/.config/athena/workflows/mkt-workflow/source.json'] =
+			JSON.stringify({ref: 'mkt-workflow@owner/repo'});
+
+		// Simulate git pull having fetched a newer version in the marketplace cache
+		const freshWorkflow = {
+			name: 'mkt-workflow',
+			plugins: ['plugin@owner/repo'],
+			promptTemplate: '{input}',
+			description: 'updated description',
+		};
+		files['/tmp/resolved-workflow.json'] = JSON.stringify(freshWorkflow);
+
+		const result = resolveWorkflow('mkt-workflow');
+
+		expect(result.description).toBe('updated description');
+		// Installed copy should also be updated
+		const installed = JSON.parse(
+			files[
+				'/home/testuser/.config/athena/workflows/mkt-workflow/workflow.json'
+			]!,
+		);
+		expect(installed.description).toBe('updated description');
+	});
+
+	it('re-syncs systemPromptFile asset from marketplace source', () => {
+		files['/home/testuser/.config/athena/workflows/synced/workflow.json'] =
+			JSON.stringify({
+				name: 'synced',
+				plugins: [],
+				promptTemplate: '{input}',
+				systemPromptFile: 'prompt.md',
+			});
+		files['/home/testuser/.config/athena/workflows/synced/prompt.md'] =
+			'# Old Prompt';
+		files['/home/testuser/.config/athena/workflows/synced/source.json'] =
+			JSON.stringify({ref: 'synced@owner/repo'});
+
+		// Marketplace has updated workflow and prompt
+		files['/tmp/resolved-workflow.json'] = JSON.stringify({
+			name: 'synced',
+			plugins: [],
+			promptTemplate: '{input}',
+			systemPromptFile: 'prompt.md',
+		});
+		files['/tmp/prompt.md'] = '# New Prompt';
+
+		const result = resolveWorkflow('synced');
+
+		expect(result.systemPromptFile).toBe(
+			'/home/testuser/.config/athena/workflows/synced/prompt.md',
+		);
+		expect(
+			files['/home/testuser/.config/athena/workflows/synced/prompt.md'],
+		).toBe('# New Prompt');
+	});
+
+	it('gracefully falls back to installed copy when marketplace sync fails', () => {
+		const workflow = {
+			name: 'offline-wf',
+			plugins: [],
+			promptTemplate: '{input}',
+		};
+		files['/home/testuser/.config/athena/workflows/offline-wf/workflow.json'] =
+			JSON.stringify(workflow);
+		// source.json references a marketplace, but resolveMarketplaceWorkflow
+		// points to a file that doesn't exist (simulating failure)
+		files['/home/testuser/.config/athena/workflows/offline-wf/source.json'] =
+			JSON.stringify({ref: 'offline-wf@owner/repo'});
+		// Do NOT create /tmp/resolved-workflow.json — simulates marketplace being unavailable
+
+		const result = resolveWorkflow('offline-wf');
+
+		expect(result.name).toBe('offline-wf');
+	});
+
 	it('maps legacy loop fields completionMarkers/trackerFile', () => {
 		files['/home/testuser/.config/athena/workflows/legacy/workflow.json'] =
 			JSON.stringify({
@@ -244,6 +330,37 @@ describe('installWorkflow', () => {
 		const name = installWorkflow('/tmp/workflow.json', 'custom-name');
 
 		expect(name).toBe('custom-name');
+	});
+
+	it('persists marketplace source ref for later re-sync', () => {
+		files['/tmp/resolved-workflow.json'] = JSON.stringify({
+			name: 'mkt-workflow',
+			plugins: ['plugin@owner/repo'],
+			promptTemplate: '{input}',
+		});
+
+		installWorkflow('mkt-workflow@owner/repo');
+
+		const sourceFile =
+			files['/home/testuser/.config/athena/workflows/mkt-workflow/source.json'];
+		expect(sourceFile).toBeDefined();
+		expect(JSON.parse(sourceFile!)).toEqual({
+			ref: 'mkt-workflow@owner/repo',
+		});
+	});
+
+	it('does not persist source ref for local file installs', () => {
+		files['/tmp/workflow.json'] = JSON.stringify({
+			name: 'local-only',
+			plugins: [],
+			promptTemplate: '{input}',
+		});
+
+		installWorkflow('/tmp/workflow.json');
+
+		expect(
+			files['/home/testuser/.config/athena/workflows/local-only/source.json'],
+		).toBeUndefined();
 	});
 
 	it('copies relative systemPromptFile asset next to installed workflow.json', () => {

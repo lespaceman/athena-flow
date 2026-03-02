@@ -19,11 +19,34 @@ function registryDir(): string {
 }
 
 /**
+ * If a source.json exists for this workflow and it's a marketplace ref,
+ * re-copy files from the marketplace cache (which ensureRepo already pulled).
+ * Fails silently so offline/broken marketplace doesn't block startup.
+ */
+function syncFromMarketplace(workflowDir: string): void {
+	const sourceFile = path.join(workflowDir, 'source.json');
+	if (!fs.existsSync(sourceFile)) return;
+
+	try {
+		const {ref} = JSON.parse(fs.readFileSync(sourceFile, 'utf-8')) as {
+			ref: string;
+		};
+		if (!isMarketplaceRef(ref)) return;
+
+		const sourcePath = resolveMarketplaceWorkflow(ref);
+		copyWorkflowFiles(sourcePath, workflowDir);
+	} catch {
+		// Graceful degradation: use installed copy if sync fails (e.g. offline)
+	}
+}
+
+/**
  * Resolve a workflow by name from the registry.
  * Throws if the workflow is not installed.
  */
 export function resolveWorkflow(name: string): WorkflowConfig {
-	const workflowPath = path.join(registryDir(), name, 'workflow.json');
+	const workflowDir = path.join(registryDir(), name);
+	const workflowPath = path.join(workflowDir, 'workflow.json');
 
 	if (!fs.existsSync(workflowPath)) {
 		throw new Error(
@@ -31,11 +54,13 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 		);
 	}
 
+	// Re-sync from marketplace if this workflow was installed from one.
+	syncFromMarketplace(workflowDir);
+
 	const raw = JSON.parse(fs.readFileSync(workflowPath, 'utf-8')) as Record<
 		string,
 		unknown
 	>;
-	const workflowDir = path.dirname(workflowPath);
 
 	if (!Array.isArray(raw['plugins'])) {
 		throw new Error(
@@ -99,26 +124,23 @@ export function resolveWorkflow(name: string): WorkflowConfig {
 }
 
 /**
- * Install a workflow from a local file path.
- * Copies the workflow.json into the registry under the given name.
+ * Read a workflow source file and return its raw content and parsed config.
  */
-export function installWorkflow(source: string, name?: string): string {
-	// Resolve marketplace ref to local path
-	const sourcePath = isMarketplaceRef(source)
-		? resolveMarketplaceWorkflow(source)
-		: source;
-
+function readWorkflowSource(sourcePath: string): {
+	content: string;
+	workflow: WorkflowConfig;
+} {
 	const content = fs.readFileSync(sourcePath, 'utf-8');
-	const workflow = JSON.parse(content) as WorkflowConfig;
-	const workflowName = name ?? workflow.name;
+	return {content, workflow: JSON.parse(content) as WorkflowConfig};
+}
 
-	if (!workflowName) {
-		throw new Error(
-			'Workflow has no "name" field. Provide --name to specify one.',
-		);
-	}
+/**
+ * Copy workflow.json and referenced assets from a source path into a
+ * destination directory. Shared by installWorkflow and syncFromMarketplace.
+ */
+function copyWorkflowFiles(sourcePath: string, destDir: string): void {
+	const {content, workflow} = readWorkflowSource(sourcePath);
 
-	const destDir = path.join(registryDir(), workflowName);
 	fs.mkdirSync(destDir, {recursive: true});
 	fs.writeFileSync(path.join(destDir, 'workflow.json'), content, 'utf-8');
 
@@ -138,6 +160,40 @@ export function installWorkflow(source: string, name?: string): string {
 	)?.trackerTemplate;
 	if (typeof trackerTemplate === 'string' && trackerTemplate.endsWith('.md')) {
 		copyRelativeAsset(trackerTemplate);
+	}
+}
+
+/**
+ * Install a workflow from a local file path.
+ * Copies the workflow.json into the registry under the given name.
+ */
+export function installWorkflow(source: string, name?: string): string {
+	const isMarketplace = isMarketplaceRef(source);
+
+	// Resolve marketplace ref to local path
+	const sourcePath = isMarketplace
+		? resolveMarketplaceWorkflow(source)
+		: source;
+
+	const {workflow} = readWorkflowSource(sourcePath);
+	const workflowName = name ?? workflow.name;
+
+	if (!workflowName) {
+		throw new Error(
+			'Workflow has no "name" field. Provide --name to specify one.',
+		);
+	}
+
+	const destDir = path.join(registryDir(), workflowName);
+	copyWorkflowFiles(sourcePath, destDir);
+
+	// Persist the marketplace source ref so resolveWorkflow can re-sync on startup.
+	if (isMarketplace) {
+		fs.writeFileSync(
+			path.join(destDir, 'source.json'),
+			JSON.stringify({ref: source}),
+			'utf-8',
+		);
 	}
 
 	return workflowName;
