@@ -186,4 +186,57 @@ describe('useStaticFeed', () => {
 		);
 		expect(result.current).toBe(2);
 	});
+
+	it('returns same value when new entries arrive but HWM cannot advance', () => {
+		const initialEntries = [
+			stableToolEntry('e1'),
+			stableToolEntry('e2'),
+			unstableToolEntry('e3'), // blocks HWM advancement
+		];
+		const initialProps: UseStaticFeedOptions = {
+			filteredEntries: initialEntries,
+			feedViewportStart: 2,
+			tailFollow: true,
+		};
+		const {result, rerender} = renderHook(
+			(props: UseStaticFeedOptions) => useStaticFeed(props),
+			{initialProps},
+		);
+		expect(result.current).toBe(2);
+
+		// Append new entry — HWM should not advance (e3 still unstable)
+		const updatedEntries = [...initialEntries, stableToolEntry('e4')];
+		rerender({
+			filteredEntries: updatedEntries,
+			feedViewportStart: 3,
+			tailFollow: true,
+		});
+		// HWM stays at 2 because e3 (index 2) is still unstable
+		expect(result.current).toBe(2);
+	});
+
+	it('advances HWM when previously unstable entry becomes stable', () => {
+		const unstableE2 = unstableToolEntry('e2');
+		const entries = [stableToolEntry('e1'), unstableE2];
+		const initialProps: UseStaticFeedOptions = {
+			filteredEntries: entries,
+			feedViewportStart: 2,
+			tailFollow: true,
+		};
+		const {result, rerender} = renderHook(
+			(props: UseStaticFeedOptions) => useStaticFeed(props),
+			{initialProps},
+		);
+		// Blocked at e2
+		expect(result.current).toBe(1);
+
+		// e2 now has a paired post event — becomes stable
+		const stableE2 = stableToolEntry('e2');
+		rerender({
+			filteredEntries: [stableToolEntry('e1'), stableE2, stableToolEntry('e3')],
+			feedViewportStart: 3,
+			tailFollow: true,
+		});
+		expect(result.current).toBe(3);
+	});
 });

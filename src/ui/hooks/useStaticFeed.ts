@@ -1,6 +1,5 @@
 import {useRef} from 'react';
-import {type TimelineEntry} from '../../core/feed/timeline';
-import {isEntryStable} from '../../core/feed/timeline';
+import {type TimelineEntry, isEntryStable} from '../../core/feed/timeline';
 
 export type UseStaticFeedOptions = {
 	filteredEntries: TimelineEntry[];
@@ -28,9 +27,8 @@ export function useStaticFeed({
 	let candidate = hwmRef.current;
 
 	// Advance consecutively while entries are below viewport and stable
-	while (candidate < feedViewportStart) {
-		const entry = filteredEntries[candidate];
-		if (!entry || !isEntryStable(entry)) break;
+	while (candidate < feedViewportStart && candidate < filteredEntries.length) {
+		if (!isEntryStable(filteredEntries[candidate]!)) break;
 		candidate++;
 	}
 

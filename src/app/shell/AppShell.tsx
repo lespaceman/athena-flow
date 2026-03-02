@@ -364,7 +364,7 @@ function AppContent({
 	// Static scrollback: compute high-water mark from previous render's viewport,
 	// then feed it as a floor constraint into navigation.
 	const staticHwmRef = useRef(0);
-	const feedNavEstimate = useFeedNavigation({
+	const feedNav = useFeedNavigation({
 		filteredEntries,
 		feedContentRows: Math.max(
 			1,
@@ -375,12 +375,10 @@ function AppContent({
 
 	const staticHighWaterMark = useStaticFeed({
 		filteredEntries,
-		feedViewportStart: feedNavEstimate.feedViewportStart,
-		tailFollow: feedNavEstimate.tailFollow,
+		feedViewportStart: feedNav.feedViewportStart,
+		tailFollow: feedNav.tailFollow,
 	});
 	staticHwmRef.current = staticHighWaterMark;
-
-	const feedNav = feedNavEstimate;
 
 	// Compute frame dimensions early (only depends on terminalWidth)
 	const frameWidth = safeTerminalWidth;
@@ -963,9 +961,11 @@ function AppContent({
 		}
 		return adjusted;
 	}, [searchMatchSet, staticHighWaterMark]);
+	// Only recompute when HWM advances — Static already rendered previous items.
+	// Using filteredEntriesRef avoids re-slicing on every new event.
 	const staticEntries = useMemo(
-		() => filteredEntries.slice(0, staticHighWaterMark),
-		[filteredEntries, staticHighWaterMark],
+		() => filteredEntriesRef.current.slice(0, staticHighWaterMark),
+		[staticHighWaterMark],
 	);
 
 	const showFeedGrid = !expandedEntry;
