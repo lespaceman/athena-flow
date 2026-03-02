@@ -118,9 +118,7 @@ describe('useTodoPanel', () => {
 	describe('tick gating', () => {
 		it('does not tick when panel is hidden', () => {
 			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() =>
-				useTodoPanel({tasks, isWorking: true}),
-			);
+			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
 
 			// Hide the panel
 			act(() => {
@@ -139,9 +137,7 @@ describe('useTodoPanel', () => {
 
 		it('resumes ticking when panel becomes visible again', () => {
 			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() =>
-				useTodoPanel({tasks, isWorking: true}),
-			);
+			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
 
 			expect(result.current.todoItems[0]!.elapsed).toBe('0s');
 
