@@ -666,6 +666,19 @@ export function mergedEventSummary(
 	};
 }
 
+/**
+ * A TimelineEntry is "stable" when its content is finalized and won't change.
+ * Unstable entries are tool.pre / permission.request without a paired post event.
+ */
+export function isEntryStable(entry: TimelineEntry): boolean {
+	if (!entry.feedEvent) return true;
+	const kind = entry.feedEvent.kind;
+	if (kind === 'tool.pre' || kind === 'permission.request') {
+		return entry.pairedPostEvent !== undefined;
+	}
+	return true;
+}
+
 export function toRunStatus(
 	event: Extract<FeedEvent, {kind: 'run.end'}>,
 ): RunStatus {

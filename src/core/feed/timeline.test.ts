@@ -9,6 +9,7 @@ import {
 	eventSummary,
 	isEventError,
 	isEventExpandable,
+	isEntryStable,
 	toRunStatus,
 	deriveRunTitle,
 	mergedEventOperation,
@@ -1433,5 +1434,104 @@ describe('mergedEventSummary', () => {
 		const result = mergedEventSummary(pre);
 		expect(result.text).toContain('Read');
 		expect(result.text).toContain('foo.ts');
+	});
+});
+
+describe('isEntryStable', () => {
+	const stableEntry = (overrides: Partial<TimelineEntry> = {}): TimelineEntry =>
+		({
+			id: 'e1',
+			ts: 1000,
+			op: 'Tool Call',
+			opTag: 'tool.call',
+			actor: 'root',
+			actorId: 'agent:root',
+			toolColumn: '',
+			summary: '',
+			summarySegments: [],
+			searchText: '',
+			error: false,
+			expandable: false,
+			details: '',
+			duplicateActor: false,
+			...overrides,
+		}) as TimelineEntry;
+
+	it('returns true for entry without feedEvent (message entry)', () => {
+		expect(isEntryStable(stableEntry())).toBe(true);
+	});
+
+	it('returns true for immutable event kinds', () => {
+		for (const kind of [
+			'user.prompt',
+			'session.start',
+			'session.end',
+			'notification',
+			'run.start',
+			'run.end',
+			'tool.post',
+			'tool.failure',
+			'subagent.start',
+			'subagent.stop',
+		] as const) {
+			const entry = stableEntry({
+				feedEvent: {...base({kind}), kind, data: {}} as FeedEvent,
+			});
+			expect(isEntryStable(entry)).toBe(true);
+		}
+	});
+
+	it('returns false for tool.pre without pairedPostEvent', () => {
+		const entry = stableEntry({
+			feedEvent: {
+				...base({kind: 'tool.pre'}),
+				kind: 'tool.pre' as const,
+				data: {tool_name: 'Bash', tool_input: {}},
+			},
+		});
+		expect(isEntryStable(entry)).toBe(false);
+	});
+
+	it('returns true for tool.pre with pairedPostEvent', () => {
+		const entry = stableEntry({
+			feedEvent: {
+				...base({kind: 'tool.pre'}),
+				kind: 'tool.pre' as const,
+				data: {tool_name: 'Bash', tool_input: {}},
+			},
+			pairedPostEvent: {
+				...base({kind: 'tool.post'}),
+				kind: 'tool.post' as const,
+				data: {tool_name: 'Bash', tool_input: {}, tool_response: {}},
+			},
+		});
+		expect(isEntryStable(entry)).toBe(true);
+	});
+
+	it('returns false for permission.request without pairedPostEvent', () => {
+		const entry = stableEntry({
+			feedEvent: {
+				...base({kind: 'permission.request'}),
+				kind: 'permission.request' as const,
+				data: {tool_name: 'Bash', tool_input: {}, permission_suggestions: []},
+			},
+		});
+		expect(isEntryStable(entry)).toBe(false);
+	});
+
+	it('returns true for permission.request with pairedPostEvent', () => {
+		const entry = stableEntry({
+			feedEvent: {
+				...base({kind: 'permission.request'}),
+				kind: 'permission.request' as const,
+				data: {tool_name: 'Bash', tool_input: {}, permission_suggestions: []},
+			},
+			pairedPostEvent: {
+				...base({kind: 'permission.decision'}),
+				kind: 'permission.decision' as const,
+				data: {decision_type: 'allow' as const},
+			},
+		});
+		expect(isEntryStable(entry)).toBe(true);
 	});
 });

@@ -4,6 +4,8 @@ import {type TimelineEntry} from '../../core/feed/timeline';
 export type UseFeedNavigationOptions = {
 	filteredEntries: TimelineEntry[];
 	feedContentRows: number;
+	/** Minimum valid cursor index — entries below this are in static scrollback. */
+	staticFloor?: number;
 };
 
 export type UseFeedNavigationResult = {
@@ -26,6 +28,7 @@ export type UseFeedNavigationResult = {
 export function useFeedNavigation({
 	filteredEntries,
 	feedContentRows,
+	staticFloor = 0,
 }: UseFeedNavigationOptions): UseFeedNavigationResult {
 	const [feedCursor, setFeedCursor] = useState(0);
 	const [tailFollow, setTailFollow] = useState(true);
@@ -35,12 +38,15 @@ export function useFeedNavigation({
 	const filteredEntriesRef = useRef(filteredEntries);
 	filteredEntriesRef.current = filteredEntries;
 
-	// Clamp cursor when entries shrink
+	// Clamp cursor when entries shrink or staticFloor advances
 	useEffect(() => {
 		setFeedCursor(prev =>
-			Math.min(prev, Math.max(0, filteredEntries.length - 1)),
+			Math.max(
+				staticFloor,
+				Math.min(prev, Math.max(0, filteredEntries.length - 1)),
+			),
 		);
-	}, [filteredEntries.length]);
+	}, [filteredEntries.length, staticFloor]);
 
 	// Tail-follow: snap cursor to end
 	useEffect(() => {
@@ -60,10 +66,13 @@ export function useFeedNavigation({
 		}
 	}, [expandedId, filteredEntries]);
 
+	const staticFloorRef = useRef(staticFloor);
+	staticFloorRef.current = staticFloor;
+
 	const moveFeedCursor = useCallback((delta: number) => {
 		setFeedCursor(prev => {
 			const max = Math.max(0, filteredEntriesRef.current.length - 1);
-			return Math.max(0, Math.min(prev + delta, max));
+			return Math.max(staticFloorRef.current, Math.min(prev + delta, max));
 		});
 		setTailFollow(false);
 	}, []);
@@ -75,7 +84,7 @@ export function useFeedNavigation({
 
 	const jumpToTop = useCallback(() => {
 		setTailFollow(false);
-		setFeedCursor(0);
+		setFeedCursor(staticFloorRef.current);
 	}, []);
 
 	const toggleExpandedAtCursor = useCallback(() => {
@@ -115,8 +124,8 @@ export function useFeedNavigation({
 			start = feedCursor - feedContentRows + 1;
 		}
 
-		return Math.max(0, Math.min(start, maxStart));
-	}, [filteredEntries, feedCursor, feedContentRows, tailFollow]);
+		return Math.max(staticFloor, Math.min(start, maxStart));
+	}, [filteredEntries, feedCursor, feedContentRows, tailFollow, staticFloor]);
 
 	return {
 		feedCursor,
