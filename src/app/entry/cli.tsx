@@ -23,6 +23,7 @@ import {
 } from '../exec';
 import {runExecCommand} from './execCommand';
 import {resolveInteractiveSession} from './interactiveSession';
+import {runWorkflowCommand} from './workflowCommand';
 
 function resolvePackageJsonPath(entryUrl: string): string {
 	let currentDir = path.dirname(fileURLToPath(entryUrl));
@@ -47,7 +48,13 @@ const {version} = require(resolvePackageJsonPath(import.meta.url)) as {
 	version: string;
 };
 
-const KNOWN_COMMANDS = new Set(['setup', 'sessions', 'resume', 'exec']);
+const KNOWN_COMMANDS = new Set([
+	'setup',
+	'sessions',
+	'resume',
+	'exec',
+	'workflow',
+]);
 const VALID_ISOLATION_PRESETS = ['strict', 'minimal', 'permissive'] as const;
 const EXEC_PERMISSION_POLICIES_HELP = EXEC_PERMISSION_POLICIES.join(', ');
 const EXEC_QUESTION_POLICIES_HELP = EXEC_QUESTION_POLICIES.join(', ');
@@ -73,6 +80,7 @@ const cli = meow(
 			sessions              Launch interactive session picker
 			resume [sessionId]    Resume most recent (or specified) session
 			exec "<prompt>"       Run non-interactively (CI/script mode)
+			workflow <sub>        Manage workflows (install, list, remove)
 
 		Options
 			--project-dir   Project directory for hook socket (default: cwd)
@@ -187,7 +195,7 @@ async function main(): Promise<void> {
 	if (command && !KNOWN_COMMANDS.has(command)) {
 		console.error(
 			`Unknown command: ${command}\n` +
-				`Available commands: setup, sessions, resume, exec`,
+				`Available commands: ${[...KNOWN_COMMANDS].join(', ')}`,
 		);
 		exitWith(1);
 		return;
@@ -211,6 +219,12 @@ async function main(): Promise<void> {
 	if (command === 'exec' && commandArgs.length !== 1) {
 		console.error('Usage: athena-flow exec "<prompt>" [options]');
 		exitWith(EXEC_EXIT_CODE.USAGE);
+		return;
+	}
+
+	if (command === 'workflow') {
+		const [subcommand = '', ...subcommandArgs] = commandArgs;
+		exitWith(runWorkflowCommand({subcommand, subcommandArgs}));
 		return;
 	}
 
