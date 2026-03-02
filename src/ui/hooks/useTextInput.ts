@@ -151,6 +151,11 @@ export function useTextInput(
 	// If the pending data is the forward-Delete sequence, we set a flag that
 	// the useInput handler checks to dispatch delete-forward instead of
 	// backspace.
+	//
+	// The peek uses read() + unshift() which re-triggers `readable`.  A
+	// re-entrance guard prevents the handler from consuming the data twice —
+	// the second `readable` (from unshift) is a no-op for us, letting Ink's
+	// handler consume the data normally.
 	const {stdin} = useStdin();
 	const isForwardDeleteRef = useRef(false);
 
@@ -158,12 +163,14 @@ export function useTextInput(
 		if (!isActive || !stdin) return;
 
 		const FORWARD_DELETE = '\x1b[3~';
+		let peeking = false;
 
 		const onReadable = () => {
-			// Peek at the pending data to detect the forward-Delete sequence.
-			// ink-testing-library exposes `.data` directly; for real Node.js
-			// readable streams we read() then unshift() to put data back
-			// before Ink's handler consumes it.
+			// Guard: unshift() re-triggers readable — skip re-entrant calls
+			// so Ink's handler sees the data on the second emission.
+			if (peeking) return;
+			peeking = true;
+
 			let raw: string | null = null;
 
 			if (typeof (stdin as unknown as {data?: unknown}).data === 'string') {
@@ -178,9 +185,11 @@ export function useTextInput(
 				}
 			}
 
-			if (raw === FORWARD_DELETE) {
+			if (raw !== null && raw.includes(FORWARD_DELETE)) {
 				isForwardDeleteRef.current = true;
 			}
+
+			peeking = false;
 		};
 
 		stdin.prependListener('readable', onReadable);
