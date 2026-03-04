@@ -23,8 +23,12 @@ function makeEntry(overrides: Partial<TimelineEntry> = {}): TimelineEntry {
 	};
 }
 
+function countOccurrences(haystack: string, needle: string): number {
+	return haystack.split(needle).length - 1;
+}
+
 describe('extractYankContent', () => {
-	it('extracts agent.message as raw markdown', () => {
+	it('extracts agent.message as rich detail text', () => {
 		const event = {
 			kind: 'agent.message' as const,
 			data: {
@@ -34,29 +38,13 @@ describe('extractYankContent', () => {
 			},
 		} as FeedEvent;
 		const entry = makeEntry({feedEvent: event});
-		expect(extractYankContent(entry)).toBe('# Hello\n\nWorld');
-	});
-
-	it('extracts user.prompt as raw text', () => {
-		const event = {
-			kind: 'user.prompt' as const,
-			data: {prompt: 'fix the bug', cwd: '/home'},
-		} as FeedEvent;
-		const entry = makeEntry({feedEvent: event});
-		expect(extractYankContent(entry)).toBe('fix the bug');
-	});
-
-	it('extracts tool.pre as JSON of tool_input', () => {
-		const event = {
-			kind: 'tool.pre' as const,
-			data: {tool_name: 'Read', tool_input: {file_path: '/foo.ts'}},
-		} as FeedEvent;
-		const entry = makeEntry({feedEvent: event});
 		const result = extractYankContent(entry);
-		expect(JSON.parse(result)).toEqual({file_path: '/foo.ts'});
+		expect(result).toContain('Agent response');
+		expect(result).toContain('Hello');
+		expect(result).toContain('World');
 	});
 
-	it('extracts tool.post with paired response', () => {
+	it('includes full rich request + response for paired tool rows', () => {
 		const preEvent = {
 			kind: 'tool.pre' as const,
 			data: {tool_name: 'Read', tool_input: {file_path: '/foo.ts'}},
@@ -75,35 +63,69 @@ describe('extractYankContent', () => {
 		expect(result).toContain('file content here');
 	});
 
-	it('extracts tool.failure error message', () => {
-		const event = {
-			kind: 'tool.failure' as const,
+	it('includes full rich request + failure for paired tool failures', () => {
+		const preEvent = {
+			kind: 'tool.pre' as const,
 			data: {
-				tool_name: 'Read',
-				tool_input: {file_path: '/missing'},
-				error: 'File not found',
+				tool_name: 'Bash',
+				tool_input: {command: 'cat /missing.txt'},
 			},
 		} as FeedEvent;
-		const entry = makeEntry({feedEvent: event});
+		const failureEvent = {
+			kind: 'tool.failure' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'cat /missing.txt'},
+				error: 'File not found',
+				is_interrupt: false,
+			},
+		} as FeedEvent;
+		const entry = makeEntry({
+			feedEvent: preEvent,
+			pairedPostEvent: failureEvent,
+		});
 		const result = extractYankContent(entry);
+		expect(result).toContain('"command": "cat /missing.txt"');
 		expect(result).toContain('File not found');
 	});
 
-	it('extracts notification message', () => {
-		const event = {
-			kind: 'notification' as const,
-			data: {message: 'Build succeeded'},
+	it('does not duplicate headers/request blocks for paired MCP rows', () => {
+		const toolName =
+			'mcp__plugin_web-testing-toolkit_agent-web-interface__find_elements';
+		const preEvent = {
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: toolName,
+				tool_input: {kind: 'button', label: 'Search'},
+				tool_use_id: 'mcp-1',
+			},
 		} as FeedEvent;
-		const entry = makeEntry({feedEvent: event});
-		expect(extractYankContent(entry)).toBe('Build succeeded');
+		const postEvent = {
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: toolName,
+				tool_input: {kind: 'button', label: 'Search'},
+				tool_response: {result: 'ok'},
+				tool_use_id: 'mcp-1',
+			},
+		} as FeedEvent;
+		const entry = makeEntry({feedEvent: preEvent, pairedPostEvent: postEvent});
+		const result = extractYankContent(entry);
+		expect(countOccurrences(result, 'Namespace: mcp')).toBe(1);
+		expect(countOccurrences(result, '"kind": "button"')).toBe(1);
 	});
 
-	it('falls back to entry.details when no feedEvent', () => {
-		const entry = makeEntry({feedEvent: undefined, details: 'fallback text'});
-		expect(extractYankContent(entry)).toBe('fallback text');
+	it('falls back to markdown details rendering when no feedEvent exists', () => {
+		const entry = makeEntry({
+			feedEvent: undefined,
+			details: '## fallback text',
+			summary: 'fallback summary',
+		});
+		const result = extractYankContent(entry);
+		expect(result).toContain('fallback text');
 	});
 
-	it('falls back to JSON.stringify for unknown event kinds', () => {
+	it('renders unknown event details as structured JSON text', () => {
 		const event = {
 			kind: 'run.end' as const,
 			data: {
@@ -118,6 +140,36 @@ describe('extractYankContent', () => {
 		} as FeedEvent;
 		const entry = makeEntry({feedEvent: event});
 		const result = extractYankContent(entry);
-		expect(JSON.parse(result)).toEqual(event.data);
+		expect(result).toContain('"status": "completed"');
+		expect(result).toContain('"tool_uses": 5');
+	});
+
+	it('strips ANSI escape sequences from copied output', () => {
+		const event = {
+			kind: 'agent.message' as const,
+			data: {
+				message: '**bold** text',
+				source: 'hook' as const,
+				scope: 'root' as const,
+			},
+		} as FeedEvent;
+		const entry = makeEntry({feedEvent: event});
+		const result = extractYankContent(entry);
+		// eslint-disable-next-line no-control-regex
+		expect(/\x1B\[[0-9;]*m/.test(result)).toBe(false);
+	});
+
+	it('preserves leading indentation in first copied line', () => {
+		const event = {
+			kind: 'tool.post' as const,
+			data: {
+				tool_name: 'Grep',
+				tool_input: {pattern: 'hello'},
+				tool_response: 'src/a.ts:10:hello world',
+			},
+		} as FeedEvent;
+		const entry = makeEntry({feedEvent: event});
+		const result = extractYankContent(entry);
+		expect(result.startsWith('  ')).toBe(true);
 	});
 });

@@ -81,6 +81,7 @@ describe('usePager', () => {
 		stdoutWriteSpy.mockRestore();
 		stdinOnSpy.mockRestore();
 		stdinRemoveSpy.mockRestore();
+		vi.useRealTimers();
 		vi.restoreAllMocks();
 	});
 
@@ -205,7 +206,36 @@ describe('usePager', () => {
 			act(() => {
 				activeHandler.handler('y', {escape: false});
 			});
-			expect(copyToClipboard).toHaveBeenCalled();
+			expect(copyToClipboard).toHaveBeenCalledWith(
+				'   line1\n   line2\n   line3',
+			);
+		}
+	});
+
+	it('cancels pending pager repaint timer on exit', () => {
+		vi.useFakeTimers();
+		const entries = [makeEntry({expandable: true})];
+		const ref = {current: entries};
+
+		inputHandlers.length = 0;
+		const {result} = renderHook(() =>
+			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+		);
+		act(() => {
+			result.current.handleExpandForPager();
+		});
+
+		const activeHandler = inputHandlers.find(h => h.opts.isActive);
+		if (activeHandler) {
+			act(() => {
+				activeHandler.handler('y', {escape: false});
+				activeHandler.handler('q', {escape: false});
+			});
+			stdoutWriteSpy.mockClear();
+			act(() => {
+				vi.advanceTimersByTime(1600);
+			});
+			expect(stdoutWriteSpy).not.toHaveBeenCalled();
 		}
 	});
 

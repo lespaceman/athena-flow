@@ -35,6 +35,15 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 	const pendingPagerEntryRef = useRef<TimelineEntry | null>(null);
 	const pagerLinesRef = useRef<string[]>([]);
 	const pagerScrollRef = useRef(0);
+	const copyToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pagerActiveRef = useRef(false);
+
+	const clearCopyToastTimer = useCallback(() => {
+		if (copyToastTimerRef.current) {
+			clearTimeout(copyToastTimerRef.current);
+			copyToastTimerRef.current = null;
+		}
+	}, []);
 
 	const paintPager = useCallback(() => {
 		const lines = pagerLinesRef.current;
@@ -117,6 +126,19 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 		paintPager();
 	}, [pagerActive, paintPager]);
 
+	useEffect(() => {
+		pagerActiveRef.current = pagerActive;
+		if (!pagerActive) {
+			clearCopyToastTimer();
+		}
+	}, [pagerActive, clearCopyToastTimer]);
+
+	useEffect(() => {
+		return () => {
+			clearCopyToastTimer();
+		};
+	}, [clearCopyToastTimer]);
+
 	// Pager keyboard handler: scroll + exit
 	useInput(
 		(input, key) => {
@@ -132,13 +154,18 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 				process.stdout.write(
 					margin + chalk.bold.green('Copied to clipboard!') + '\x1B[K',
 				);
-				setTimeout(() => {
-					paintPager();
+				clearCopyToastTimer();
+				copyToastTimerRef.current = setTimeout(() => {
+					copyToastTimerRef.current = null;
+					if (pagerActiveRef.current) {
+						paintPager();
+					}
 				}, 1500);
 				return;
 			}
 
 			if (key.escape || input === 'q' || input === 'Q') {
+				clearCopyToastTimer();
 				pagerLinesRef.current = [];
 				pagerScrollRef.current = 0;
 				// Disable mouse tracking, then leave alternate screen

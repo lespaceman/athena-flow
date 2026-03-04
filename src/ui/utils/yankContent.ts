@@ -1,74 +1,61 @@
 import type {TimelineEntry} from '../../core/feed/timeline';
 import type {FeedEvent} from '../../core/feed/types';
+import {
+	renderDetailLines,
+	renderMarkdownToLines,
+} from '../layout/renderDetailLines';
+import stripAnsi from 'strip-ansi';
+import {parseToolName} from '../../shared/utils/toolNameParser';
 
 /**
- * Extract copyable markdown/source content from a timeline entry.
- * Returns raw markdown for text content, JSON for structured data.
+ * Extract copyable rich detail content from a timeline entry.
+ * Uses the same renderers as expanded detail views, then strips ANSI.
  */
 export function extractYankContent(entry: TimelineEntry): string {
+	const terminalColumns = Number.isFinite(process.stdout.columns)
+		? process.stdout.columns
+		: 120;
+	const width = Math.max(10, terminalColumns - 6);
+	const lines = renderYankLines(entry, width);
+	return lines.map(line => stripAnsi(line).trimEnd()).join('\n');
+}
+
+function renderYankLines(entry: TimelineEntry, width: number): string[] {
 	const event = entry.feedEvent;
-	if (!event) return entry.details || entry.summary;
-
-	switch (event.kind) {
-		case 'agent.message':
-			return event.data.message;
-
-		case 'user.prompt':
-			return event.data.prompt;
-
-		case 'notification':
-			return event.data.message;
-
-		case 'tool.pre':
-		case 'permission.request':
-			// If we have a paired post event, include the response too
-			if (entry.pairedPostEvent) {
-				if (entry.pairedPostEvent.kind === 'tool.post') {
-					return formatToolResponse(entry.pairedPostEvent);
-				}
-				if (entry.pairedPostEvent.kind === 'tool.failure') {
-					return formatToolFailure(entry.pairedPostEvent);
-				}
-			}
-			return formatToolRequest(event);
-
-		case 'tool.post':
-			return formatToolResponse(event);
-
-		case 'tool.failure':
-			return formatToolFailure(event);
-
-		default:
-			return formatDefault(entry, event);
-	}
-}
-
-function formatToolRequest(
-	event: Extract<FeedEvent, {kind: 'tool.pre'} | {kind: 'permission.request'}>,
-): string {
-	return JSON.stringify(event.data.tool_input, null, 2);
-}
-
-function formatToolResponse(
-	event: Extract<FeedEvent, {kind: 'tool.post'}>,
-): string {
-	const response = event.data.tool_response;
-	const responseStr =
-		typeof response === 'string' ? response : JSON.stringify(response, null, 2);
-	return `${JSON.stringify(event.data.tool_input, null, 2)}\n\n---\n\n${responseStr}`;
-}
-
-function formatToolFailure(
-	event: Extract<FeedEvent, {kind: 'tool.failure'}>,
-): string {
-	return `${JSON.stringify(event.data.tool_input, null, 2)}\n\n---\n\nERROR: ${event.data.error}`;
-}
-
-function formatDefault(_entry: TimelineEntry, event: FeedEvent): string {
-	// Subagent stop: extract last assistant message if available
-	if (event.kind === 'subagent.stop' && event.data.last_assistant_message) {
-		return event.data.last_assistant_message;
+	if (!event) {
+		return renderMarkdownToLines(entry.details || entry.summary, width);
 	}
 
-	return JSON.stringify(event.data, null, 2);
+	if (
+		isToolRequestEvent(event) &&
+		entry.pairedPostEvent &&
+		isToolTerminalEvent(entry.pairedPostEvent)
+	) {
+		// Built-in merged detail views hide request payload when a response exists.
+		// For yank, preserve request+response for built-ins while avoiding duplicated
+		// request/header blocks for MCP tools.
+		if (parseToolName(event.data.tool_name).isMcp) {
+			return renderDetailLines(event, width, entry.pairedPostEvent).lines;
+		}
+		const requestLines = renderDetailLines(event, width).lines;
+		const responseLines = renderDetailLines(entry.pairedPostEvent, width).lines;
+		return [...requestLines, '', ...responseLines];
+	}
+
+	return renderDetailLines(event, width, entry.pairedPostEvent).lines;
+}
+
+function isToolRequestEvent(
+	event: FeedEvent,
+): event is Extract<
+	FeedEvent,
+	{kind: 'tool.pre'} | {kind: 'permission.request'}
+> {
+	return event.kind === 'tool.pre' || event.kind === 'permission.request';
+}
+
+function isToolTerminalEvent(
+	event: FeedEvent,
+): event is Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}> {
+	return event.kind === 'tool.post' || event.kind === 'tool.failure';
 }
