@@ -756,13 +756,40 @@ function AppContent({
 	// ── Pager mode ──────────────────────────────────────────
 	//
 	// The pager uses the terminal's alternate screen buffer (\x1B[?1049h).
-	// IMPORTANT: We must NOT write to stdout during a React render cycle —
-	// Ink's log-update will immediately overwrite the alternate buffer.
-	// Instead, we set pagerActive=true first (so Ink renders <Box />),
-	// then write content in a useEffect AFTER Ink commits the empty output.
+	// Content is written via useEffect AFTER Ink commits <Box /> to avoid
+	// Ink's log-update clobbering the alternate buffer. Scroll state is
+	// held in refs (not React state) to avoid triggering Ink re-renders.
 
 	const PAGER_MARGIN = 3;
 	const pendingPagerEntryRef = useRef<TimelineEntry | null>(null);
+	const pagerLinesRef = useRef<string[]>([]);
+	const pagerScrollRef = useRef(0);
+
+	/** Paint the visible portion of pager content onto the alternate screen. */
+	const paintPager = useCallback(() => {
+		const lines = pagerLinesRef.current;
+		const scroll = pagerScrollRef.current;
+		const rows = process.stdout.rows ?? 24;
+		const contentRows = rows - 1; // reserve last row for footer
+		const visible = lines.slice(scroll, scroll + contentRows);
+		const margin = ' '.repeat(PAGER_MARGIN);
+
+		// Clear alternate buffer and move cursor home
+		process.stdout.write('\x1B[2J\x1B[H');
+
+		// Write visible lines, pad to fill viewport
+		for (let i = 0; i < contentRows; i++) {
+			process.stdout.write((visible[i] ?? '') + '\n');
+		}
+
+		// Footer: scroll position + exit hint
+		const total = lines.length;
+		const end = Math.min(scroll + contentRows, total);
+		const pos = total > 0 ? `${scroll + 1}-${end}/${total}` : '0/0';
+		process.stdout.write(
+			margin + chalk.dim(`${pos}  ↑/↓ j/k scroll  PgUp/PgDn page  q exit`),
+		);
+	}, []);
 
 	const handleExpandForPager = useCallback(() => {
 		const entry = filteredEntriesRef.current[feedNav.feedCursor];
@@ -771,7 +798,7 @@ function AppContent({
 		setPagerActive(true);
 	}, [feedNav.feedCursor]);
 
-	// Write pager content AFTER Ink has committed the empty <Box /> render.
+	// Render pager content AFTER Ink has committed the empty <Box />.
 	useEffect(() => {
 		if (!pagerActive || !pendingPagerEntryRef.current) return;
 		const entry = pendingPagerEntryRef.current;
@@ -794,22 +821,53 @@ function AppContent({
 			lines = renderMarkdownToLines(entry.details, contentWidth);
 		}
 
-		const marginedLines = lines.map(line => margin + line);
+		pagerLinesRef.current = lines.map(line => margin + line);
+		pagerScrollRef.current = 0;
 
 		process.stdout.write('\x1B[?1049h');
-		process.stdout.write('\x1B[H');
-		process.stdout.write(marginedLines.join('\n') + '\n\n');
-		process.stdout.write(
-			margin + chalk.dim('(press q or Escape to return)') + '\n',
-		);
-	}, [pagerActive]);
+		paintPager();
+	}, [pagerActive, paintPager]);
 
-	// Pager exit handler
+	// Pager keyboard handler: scroll + exit
 	useInput(
 		(input, key) => {
 			if (key.escape || input === 'q' || input === 'Q') {
+				pagerLinesRef.current = [];
+				pagerScrollRef.current = 0;
 				process.stdout.write('\x1B[?1049l');
 				setPagerActive(false);
+				return;
+			}
+
+			const rows = process.stdout.rows ?? 24;
+			const contentRows = rows - 1;
+			const maxScroll = Math.max(0, pagerLinesRef.current.length - contentRows);
+			const prevScroll = pagerScrollRef.current;
+
+			if (key.upArrow || input === 'k' || input === 'K') {
+				pagerScrollRef.current = Math.max(0, prevScroll - 1);
+			} else if (key.downArrow || input === 'j' || input === 'J') {
+				pagerScrollRef.current = Math.min(maxScroll, prevScroll + 1);
+			} else if (key.pageUp) {
+				pagerScrollRef.current = Math.max(
+					0,
+					prevScroll - Math.floor(contentRows / 2),
+				);
+			} else if (key.pageDown) {
+				pagerScrollRef.current = Math.min(
+					maxScroll,
+					prevScroll + Math.floor(contentRows / 2),
+				);
+			} else if (key.home || input === 'g') {
+				pagerScrollRef.current = 0;
+			} else if (key.end || input === 'G') {
+				pagerScrollRef.current = maxScroll;
+			} else {
+				return; // no scroll change
+			}
+
+			if (pagerScrollRef.current !== prevScroll) {
+				paintPager();
 			}
 		},
 		{isActive: pagerActive},
