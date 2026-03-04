@@ -32,7 +32,7 @@ export function renderHeaderLines(
 	const divider = style('\u2502', palette.divider);
 
 	// Context bar (visual progress)
-	const ctxBarWidth = Math.max(30, Math.min(46, Math.floor(width * 0.36)));
+	const ctxBarWidth = Math.max(24, Math.min(32, Math.floor(width * 0.24)));
 	const ctxText = renderContextBar(
 		model.context.used,
 		model.context.max,
@@ -56,7 +56,7 @@ export function renderHeaderLines(
 	type Token = {text: string; priority: number};
 	const leftTokens: Token[] = [
 		{text: athena, priority: 100},
-		{text: divider, priority: 95},
+		{text: divider, priority: 5},
 		{text: sidText, priority: 90},
 		{text: wfText, priority: 70},
 		{text: harnessText, priority: 60},

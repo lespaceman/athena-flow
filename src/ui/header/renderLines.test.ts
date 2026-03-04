@@ -41,4 +41,11 @@ describe('renderHeaderLines', () => {
 		expect(contextIndex).toBeGreaterThan(harnessIndex);
 		expect(line.trimEnd().endsWith('25%')).toBe(true);
 	});
+
+	it('drops divider before session token during compaction', () => {
+		const [line] = renderHeaderLines(model, 92, false);
+		const plain = stripAnsi(line);
+		expect(plain).toContain('S: abc123 (2/5)');
+		expect(plain).not.toContain('ATHENA FLOW  |  S: abc123 (2/5)');
+	});
 });

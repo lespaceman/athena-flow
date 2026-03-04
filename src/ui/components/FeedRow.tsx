@@ -15,7 +15,6 @@ import {
 	resolveToolPillCategoryForLabel,
 	formatResult,
 	formatDetails,
-	formatSuffix,
 } from '../../core/feed/cellFormatters';
 import {fitAnsi, spaces} from '../../shared/utils/format';
 
@@ -211,7 +210,6 @@ function lineParts({
 	tool: string;
 	detail: string;
 	result: string;
-	suffix: string;
 } {
 	const isUserBorder = entry.opTag === 'prompt' || entry.opTag === 'msg.user';
 	const rowTextOverrideColor = focused ? theme.text : undefined;
@@ -242,7 +240,7 @@ function lineParts({
 			entry.feedEvent.kind === 'permission.request'
 		) {
 			const parsed = parseToolName(entry.feedEvent.data.tool_name);
-			const label = parsed.isMcp ? entry.toolColumn : parsed.displayName;
+			const label = entry.toolColumn || parsed.displayName;
 			return resolveToolPillCategoryForLabel(label);
 		}
 		return resolveToolPillCategoryForLabel(toolText);
@@ -290,11 +288,6 @@ function lineParts({
 		cols.resultW,
 		theme,
 	);
-	const suffix = cell(
-		fitAnsi(formatSuffix(entry.expandable, expanded, ascii, theme), 3),
-		rowTextOverrideColor,
-	);
-
 	return {
 		gutter,
 		time,
@@ -303,7 +296,6 @@ function lineParts({
 		tool,
 		detail,
 		result,
-		suffix,
 	};
 }
 
@@ -337,7 +329,6 @@ export function formatFeedRowLine({
 		line += spaces(detailsResultGapW) + parts.result;
 	}
 
-	line += spaces(gapW) + parts.suffix;
 	const formatted = fitAnsi(line, innerWidth);
 	const focusedFormatted = props.focused
 		? fitAnsi(chalk.bgHex('#1b2a3f')(formatted), innerWidth)
@@ -406,10 +397,6 @@ function FeedRowImpl({
 				</>
 			)}
 			<Box flexGrow={1} flexShrink={1} />
-			<Box width={cols.gapW} flexShrink={0} />
-			<Box width={3} flexShrink={0}>
-				<Text wrap="truncate-end">{parts.suffix}</Text>
-			</Box>
 		</>
 	);
 }
