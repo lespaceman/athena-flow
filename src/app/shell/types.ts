@@ -1,2 +1,2 @@
 export type FocusMode = 'feed' | 'input' | 'todo';
-export type InputMode = 'normal' | 'search' | 'command';
+export type InputMode = 'normal' | 'search';
