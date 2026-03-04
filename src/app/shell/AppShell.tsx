@@ -64,6 +64,11 @@ import {frameGlyphs} from '../../ui/glyphs/index';
 import type {WorkflowConfig} from '../../core/workflows/types';
 import SetupWizard from '../../setup/SetupWizard';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
+import {
+	renderDetailLines,
+	renderMarkdownToLines,
+} from '../../ui/layout/renderDetailLines';
+import chalk from 'chalk';
 import {evaluateEscapeInterruptGate} from './escapeInterruptGate';
 import {
 	isPerfEnabled,
@@ -173,6 +178,7 @@ function AppContent({
 	const [hintsForced, setHintsForced] = useState<boolean | null>(null);
 	const [showRunOverlay, setShowRunOverlay] = useState(false);
 	const [searchQuery, setSearchQuery] = useState('');
+	const [pagerActive, setPagerActive] = useState(false);
 	const runFilter = 'all';
 	const errorsOnly = false;
 
@@ -572,15 +578,6 @@ function AppContent({
 		[searchMatches, staticHighWaterMark],
 	);
 
-	const frameExpandedEntry = useMemo(
-		() =>
-			feedNav.expandedId
-				? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ??
-					null)
-				: null,
-		[feedNav.expandedId, filteredEntries],
-	);
-
 	const frame = useMemo(
 		() =>
 			buildFrameLines({
@@ -590,7 +587,6 @@ function AppContent({
 				searchQuery,
 				searchMatches: visibleSearchMatches,
 				searchMatchPos,
-				expandedEntry: frameExpandedEntry,
 				isClaudeRunning: isHarnessRunning,
 				inputValue: '',
 				cursorOffset: 0,
@@ -609,7 +605,6 @@ function AppContent({
 			searchQuery,
 			visibleSearchMatches,
 			searchMatchPos,
-			frameExpandedEntry,
 			isHarnessRunning,
 			dialogActive,
 			appMode.type,
@@ -627,8 +622,6 @@ function AppContent({
 		terminalWidth: safeTerminalWidth,
 		showRunOverlay,
 		runSummaries,
-		filteredEntries,
-		feedNav,
 		todoPanel,
 		footerRows,
 	});
@@ -639,12 +632,6 @@ function AppContent({
 		actualTodoRows,
 		actualRunOverlayRows,
 		pageStep,
-		detailPageStep,
-		maxDetailScroll,
-		detailLines,
-		detailShowLineNumbers,
-		detailContentRows,
-		expandedEntry,
 	} = layout;
 
 	const fr = useMemo(() => frameGlyphs(!!ascii), [ascii]);
@@ -706,10 +693,10 @@ function AppContent({
 
 	const interruptEscapeAtRef = useRef<number | null>(null);
 	useEffect(() => {
-		if (!isHarnessRunning || focusMode !== 'feed' || expandedEntry !== null) {
+		if (!isHarnessRunning || focusMode !== 'feed') {
 			interruptEscapeAtRef.current = null;
 		}
-	}, [isHarnessRunning, focusMode, expandedEntry]);
+	}, [isHarnessRunning, focusMode]);
 
 	useInput(
 		(input, key) => {
@@ -721,7 +708,6 @@ function AppContent({
 					keyEscape: key.escape,
 					isHarnessRunning,
 					focusMode,
-					hasExpandedEntry: expandedEntry !== null,
 					lastEscapeAtMs: interruptEscapeAtRef.current,
 					nowMs: Date.now(),
 				});
@@ -767,31 +753,85 @@ function AppContent({
 		{isActive: !dialogActive},
 	);
 
+	// ── Pager mode ──────────────────────────────────────────
+	//
+	// The pager uses the terminal's alternate screen buffer (\x1B[?1049h)
+	// so its output is completely independent of Ink's rendering area.
+	// This is the same approach used by less, vim, and man.
+
+	const PAGER_MARGIN = 3;
+
+	const enterPager = useCallback((entry: TimelineEntry) => {
+		const contentWidth = Math.max(
+			10,
+			(process.stdout.columns ?? 80) - PAGER_MARGIN * 2,
+		);
+		const margin = ' '.repeat(PAGER_MARGIN);
+
+		let lines: string[];
+		if (entry.feedEvent) {
+			lines = renderDetailLines(
+				entry.feedEvent,
+				contentWidth,
+				entry.pairedPostEvent,
+			).lines;
+		} else {
+			lines = renderMarkdownToLines(entry.details, contentWidth);
+		}
+
+		const marginedLines = lines.map(line => margin + line);
+
+		// Switch to alternate screen buffer, write content, show exit hint
+		process.stdout.write('\x1B[?1049h');
+		process.stdout.write('\x1B[H');
+		process.stdout.write(marginedLines.join('\n') + '\n\n');
+		process.stdout.write(
+			margin + chalk.dim('(press q or Escape to return)') + '\n',
+		);
+
+		setPagerActive(true);
+	}, []);
+
+	const exitPager = useCallback(() => {
+		// Return to the main screen buffer — Ink's output is preserved
+		process.stdout.write('\x1B[?1049l');
+		setPagerActive(false);
+	}, []);
+
+	const handleExpandForPager = useCallback(() => {
+		const entry = filteredEntriesRef.current[feedNav.feedCursor];
+		if (!entry?.expandable) return;
+		enterPager(entry);
+	}, [feedNav.feedCursor, enterPager]);
+
+	// Pager exit handler
+	useInput(
+		(input, key) => {
+			if (key.escape || input === 'q' || input === 'Q') {
+				exitPager();
+			}
+		},
+		{isActive: pagerActive},
+	);
+
 	useFeedKeyboard({
-		isActive: focusMode === 'feed' && !dialogActive,
-		expandedEntry,
-		expandedId: feedNav.expandedId,
+		isActive: focusMode === 'feed' && !dialogActive && !pagerActive,
 		pageStep,
-		detailPageStep,
-		maxDetailScroll,
 		searchMatches: visibleSearchMatches,
 		callbacks: {
 			moveFeedCursor: feedNav.moveFeedCursor,
 			jumpToTail: feedNav.jumpToTail,
 			jumpToTop: feedNav.jumpToTop,
-			toggleExpandedAtCursor: feedNav.toggleExpandedAtCursor,
-			scrollDetail: feedNav.scrollDetail,
+			expandAtCursor: handleExpandForPager,
 			cycleFocus,
 			setFocusMode,
 			setInputMode,
 			setInputValue: (v: string) => setInputValueRef.current(v),
-			setExpandedId: feedNav.setExpandedId,
 			setShowRunOverlay,
 			setSearchQuery,
 			setSearchMatchPos,
 			setFeedCursor: feedNav.setFeedCursor,
 			setTailFollow: feedNav.setTailFollow,
-			setDetailScroll: feedNav.setDetailScroll,
 		},
 	});
 
@@ -815,9 +855,7 @@ function AppContent({
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
 	const spinnerFrame = useSpinner(
-		appMode.type === 'working' &&
-			todoPanel.todoVisible &&
-			feedNav.expandedId === null,
+		appMode.type === 'working' && todoPanel.todoVisible,
 	);
 
 	const todoColors = useMemo(
@@ -890,16 +928,6 @@ function AppContent({
 		() =>
 			buildBodyLines({
 				innerWidth,
-				detail: expandedEntry
-					? {
-							expandedEntry,
-							detailScroll: feedNav.detailScroll,
-							maxDetailScroll,
-							detailLines,
-							detailContentRows,
-							showLineNumbers: detailShowLineNumbers,
-						}
-					: null,
 				todo: {
 					actualTodoRows,
 					todoPanel: {
@@ -920,12 +948,6 @@ function AppContent({
 			}),
 		[
 			innerWidth,
-			expandedEntry,
-			feedNav.detailScroll,
-			maxDetailScroll,
-			detailLines,
-			detailContentRows,
-			detailShowLineNumbers,
 			actualTodoRows,
 			todoPanel.todoScroll,
 			todoPanel.todoCursor,
@@ -968,7 +990,6 @@ function AppContent({
 		[staticHighWaterMark],
 	);
 
-	const showFeedGrid = !expandedEntry;
 	const runBadge = isHarnessRunning ? '[RUN]' : '[IDLE]';
 	const modeBadges = [
 		runBadge,
@@ -997,6 +1018,10 @@ function AppContent({
 		: inputPlaceholder;
 
 	// ── Render ──────────────────────────────────────────────
+
+	if (pagerActive) {
+		return <Box />;
+	}
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
@@ -1027,22 +1052,19 @@ function AppContent({
 			{prefixBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{frameLine(line)}</Text>
 			))}
-			{showFeedGrid && (
-				<FeedGrid
-					feedHeaderRows={feedHeaderRows}
-					feedContentRows={feedContentRows}
-					feedViewportStart={feedNav.feedViewportStart - staticHighWaterMark}
-					filteredEntries={dynamicEntries}
-					feedCursor={feedNav.feedCursor - staticHighWaterMark}
-					expandedId={feedNav.expandedId}
-					focusMode={focusMode}
-					searchMatchSet={adjustedSearchMatchSet}
-					ascii={useAscii}
-					theme={theme}
-					innerWidth={innerWidth}
-					cols={feedCols}
-				/>
-			)}
+			<FeedGrid
+				feedHeaderRows={feedHeaderRows}
+				feedContentRows={feedContentRows}
+				feedViewportStart={feedNav.feedViewportStart - staticHighWaterMark}
+				filteredEntries={dynamicEntries}
+				feedCursor={feedNav.feedCursor - staticHighWaterMark}
+				focusMode={focusMode}
+				searchMatchSet={adjustedSearchMatchSet}
+				ascii={useAscii}
+				theme={theme}
+				innerWidth={innerWidth}
+				cols={feedCols}
+			/>
 			<Text>{sectionBorder}</Text>
 			{frame.footerHelp !== null && (
 				<Text>{frameLine(fit(frame.footerHelp, innerWidth))}</Text>

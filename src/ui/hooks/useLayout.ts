@@ -1,11 +1,6 @@
-import {useEffect, useMemo} from 'react';
-import {type TimelineEntry, type RunSummary} from '../../core/feed/timeline';
-import {type UseFeedNavigationResult} from './useFeedNavigation';
+import {useEffect} from 'react';
+import {type RunSummary} from '../../core/feed/timeline';
 import {type UseTodoPanelResult} from './useTodoPanel';
-import {
-	renderDetailLines,
-	renderMarkdownToLines,
-} from '../layout/renderDetailLines';
 
 const HEADER_ROWS = 1;
 const FRAME_BORDER_ROWS = 4;
@@ -17,8 +12,6 @@ export type UseLayoutOptions = {
 	terminalWidth: number;
 	showRunOverlay: boolean;
 	runSummaries: RunSummary[];
-	filteredEntries: TimelineEntry[];
-	feedNav: UseFeedNavigationResult;
 	todoPanel: UseTodoPanelResult;
 	footerRows: number;
 };
@@ -32,12 +25,6 @@ export type UseLayoutResult = {
 	actualTodoRows: number;
 	actualRunOverlayRows: number;
 	pageStep: number;
-	detailPageStep: number;
-	maxDetailScroll: number;
-	detailLines: string[];
-	detailShowLineNumbers: boolean;
-	detailContentRows: number;
-	expandedEntry: TimelineEntry | null;
 	todoListHeight: number;
 	baseFeedContentRows: number;
 };
@@ -47,8 +34,6 @@ export function useLayout({
 	terminalWidth,
 	showRunOverlay,
 	runSummaries,
-	filteredEntries,
-	feedNav,
 	todoPanel,
 	footerRows,
 }: UseLayoutOptions): UseLayoutResult {
@@ -76,65 +61,17 @@ export function useLayout({
 	);
 	remainingRows -= runOverlayRows;
 	const baseFeedRows = Math.max(1, remainingRows);
-	const baseFeedHeaderRows = baseFeedRows > 1 ? 1 : 0;
-	const baseFeedContentRows = Math.max(0, baseFeedRows - baseFeedHeaderRows);
-
-	const expandedEntry = feedNav.expandedId
-		? (filteredEntries.find(entry => entry.id === feedNav.expandedId) ?? null)
-		: null;
-
-	const feedRows = expandedEntry ? 0 : baseFeedRows;
-	const feedHeaderRows = feedRows > 1 ? 1 : 0;
-	const feedContentRows = expandedEntry ? 0 : baseFeedContentRows;
-	const actualTodoRows = expandedEntry ? 0 : todoRows;
-	const actualRunOverlayRows = expandedEntry ? 0 : runOverlayRows;
+	const feedHeaderRows = baseFeedRows > 1 ? 1 : 0;
+	const baseFeedContentRows = Math.max(0, baseFeedRows - feedHeaderRows);
+	const feedContentRows = baseFeedContentRows;
 	const pageStep = Math.max(1, Math.floor(Math.max(1, feedContentRows) / 2));
 
-	const {detailLines, detailShowLineNumbers} = useMemo(() => {
-		if (!expandedEntry)
-			return {detailLines: [] as string[], detailShowLineNumbers: true};
-		if (expandedEntry.feedEvent) {
-			const result = renderDetailLines(
-				expandedEntry.feedEvent,
-				innerWidth,
-				expandedEntry.pairedPostEvent,
-			);
-			return {
-				detailLines: result.lines,
-				detailShowLineNumbers: result.showLineNumbers,
-			};
-		}
-		// Message entries (no feedEvent) — render as markdown
-		const markdownLines = renderMarkdownToLines(
-			expandedEntry.details,
-			innerWidth,
-		);
-		return {detailLines: markdownLines, detailShowLineNumbers: false};
-	}, [expandedEntry, innerWidth]);
-	const detailHeaderRows = expandedEntry ? 1 : 0;
-	const detailContentRows = expandedEntry
-		? Math.max(1, bodyHeight - detailHeaderRows)
-		: 0;
-	const detailVisibleRows =
-		expandedEntry && detailContentRows > 1
-			? detailContentRows - 1
-			: detailContentRows;
-	const maxDetailScroll = Math.max(0, detailLines.length - detailVisibleRows);
-	const detailPageStep = Math.max(1, Math.floor(detailVisibleRows / 2));
-	const setDetailScroll = feedNav.setDetailScroll;
 	const setTodoScroll = todoPanel.setTodoScroll;
 	const todoCursor = todoPanel.todoCursor;
 	const visibleTodoItemsLength = todoPanel.visibleTodoItems.length;
 
-	// Clamp detail scroll
-	useEffect(() => {
-		setDetailScroll(prev => Math.min(prev, maxDetailScroll));
-	}, [maxDetailScroll, setDetailScroll]);
-
 	// Todo scroll adjustment
-	// Subtract worst-case affordance lines (2) when items exceed raw slots,
-	// so maxScroll allows reaching the last item.
-	const itemSlots = Math.max(0, actualTodoRows - 2); // header + divider
+	const itemSlots = Math.max(0, todoRows - 2);
 	const todoListHeight =
 		todoPanel.visibleTodoItems.length > itemSlots
 			? Math.max(0, itemSlots - 2)
@@ -160,15 +97,9 @@ export function useLayout({
 		bodyHeight,
 		feedHeaderRows,
 		feedContentRows,
-		actualTodoRows,
-		actualRunOverlayRows,
+		actualTodoRows: todoRows,
+		actualRunOverlayRows: runOverlayRows,
 		pageStep,
-		detailPageStep,
-		maxDetailScroll,
-		detailLines,
-		detailShowLineNumbers,
-		detailContentRows,
-		expandedEntry,
 		todoListHeight,
 		baseFeedContentRows,
 	};

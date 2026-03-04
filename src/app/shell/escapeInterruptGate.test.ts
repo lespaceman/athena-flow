@@ -10,7 +10,6 @@ describe('evaluateEscapeInterruptGate', () => {
 			keyEscape: true,
 			isHarnessRunning: true,
 			focusMode: 'feed',
-			hasExpandedEntry: false,
 			lastEscapeAtMs: null,
 			nowMs: 1000,
 		});
@@ -22,7 +21,6 @@ describe('evaluateEscapeInterruptGate', () => {
 			keyEscape: true,
 			isHarnessRunning: true,
 			focusMode: 'feed',
-			hasExpandedEntry: false,
 			lastEscapeAtMs: 1000,
 			nowMs: 1000 + DOUBLE_ESCAPE_INTERRUPT_WINDOW_MS,
 		});
@@ -34,7 +32,6 @@ describe('evaluateEscapeInterruptGate', () => {
 			keyEscape: true,
 			isHarnessRunning: true,
 			focusMode: 'feed',
-			hasExpandedEntry: false,
 			lastEscapeAtMs: 1000,
 			nowMs: 1001 + DOUBLE_ESCAPE_INTERRUPT_WINDOW_MS,
 		});
@@ -44,24 +41,11 @@ describe('evaluateEscapeInterruptGate', () => {
 		});
 	});
 
-	it('never interrupts from feed detail view', () => {
-		const result = evaluateEscapeInterruptGate({
-			keyEscape: true,
-			isHarnessRunning: true,
-			focusMode: 'feed',
-			hasExpandedEntry: true,
-			lastEscapeAtMs: 1000,
-			nowMs: 1200,
-		});
-		expect(result).toEqual({shouldInterrupt: false, nextLastEscapeAtMs: null});
-	});
-
 	it('clears pending state on non-escape keys', () => {
 		const result = evaluateEscapeInterruptGate({
 			keyEscape: false,
 			isHarnessRunning: true,
 			focusMode: 'feed',
-			hasExpandedEntry: false,
 			lastEscapeAtMs: 1000,
 			nowMs: 1200,
 		});
@@ -73,7 +57,6 @@ describe('evaluateEscapeInterruptGate', () => {
 			keyEscape: true,
 			isHarnessRunning: true,
 			focusMode: 'input',
-			hasExpandedEntry: false,
 			lastEscapeAtMs: 1000,
 			nowMs: 1200,
 		});
