@@ -11,19 +11,25 @@ describe('deriveInputPlaceholder', () => {
 
 	it('returns follow-up message on completed run', () => {
 		expect(deriveInputPlaceholder('normal', 'completed')).toBe(
-			'Run complete - type a follow-up',
+			'Run complete — type a follow-up',
 		);
 	});
 
 	it('returns failed message on failed run', () => {
 		expect(deriveInputPlaceholder('normal', 'failed')).toBe(
-			'Run failed - type a follow-up',
+			'Run failed — type a follow-up',
 		);
 	});
 
 	it('returns failed message on aborted run', () => {
 		expect(deriveInputPlaceholder('normal', 'aborted')).toBe(
-			'Run failed - type a follow-up',
+			'Run failed — type a follow-up',
+		);
+	});
+
+	it('uses ASCII-safe separator in ascii mode', () => {
+		expect(deriveInputPlaceholder('normal', 'completed', true)).toBe(
+			'Run complete - type a follow-up',
 		);
 	});
 

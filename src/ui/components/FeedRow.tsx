@@ -197,7 +197,7 @@ function lineParts({
 	entry,
 	cols,
 	focused,
-	expanded,
+	expanded: _expanded,
 	matched,
 	isDuplicateActor,
 	ascii,
@@ -266,6 +266,7 @@ function lineParts({
 		pill: isToolRow || isSubagentRow || hasSyntheticPill,
 		category: toolCategory,
 		subagentType: isSubagentRow ? entry.toolColumn : undefined,
+		ascii,
 	});
 
 	const detailSummaryInfo = trimVerbPrefix(entry);

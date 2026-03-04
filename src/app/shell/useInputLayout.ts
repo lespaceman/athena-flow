@@ -6,11 +6,14 @@ const INPUT_PREFIX = 'input> ';
 export function deriveInputPlaceholder(
 	inputMode: InputMode,
 	lastRunStatus: string | null,
+	ascii = false,
 ): string {
+	const dash = ascii ? '-' : '\u2014';
 	if (inputMode === 'search') return '/search';
-	if (lastRunStatus === 'completed') return 'Run complete - type a follow-up';
+	if (lastRunStatus === 'completed')
+		return `Run complete ${dash} type a follow-up`;
 	if (lastRunStatus === 'failed' || lastRunStatus === 'aborted')
-		return 'Run failed - type a follow-up';
+		return `Run failed ${dash} type a follow-up`;
 	return 'Type a prompt or /command';
 }
 
@@ -38,6 +41,7 @@ export function useInputLayout(opts: {
 	lastRunStatus: string | null;
 	dialogActive: boolean;
 	dialogType: string | undefined;
+	ascii: boolean;
 }): InputLayoutResult {
 	const {
 		innerWidth,
@@ -46,6 +50,7 @@ export function useInputLayout(opts: {
 		lastRunStatus,
 		dialogActive,
 		dialogType,
+		ascii,
 	} = opts;
 
 	return useMemo(() => {
@@ -59,7 +64,11 @@ export function useInputLayout(opts: {
 			1,
 			innerWidth - INPUT_PREFIX.length - badgeText.length,
 		);
-		const inputPlaceholder = deriveInputPlaceholder(inputMode, lastRunStatus);
+		const inputPlaceholder = deriveInputPlaceholder(
+			inputMode,
+			lastRunStatus,
+			ascii,
+		);
 		const textInputPlaceholder = deriveTextInputPlaceholder(
 			dialogActive,
 			dialogType,
@@ -75,9 +84,10 @@ export function useInputLayout(opts: {
 	}, [
 		innerWidth,
 		inputMode,
-		isHarnessRunning,
-		lastRunStatus,
-		dialogActive,
-		dialogType,
-	]);
+			isHarnessRunning,
+			lastRunStatus,
+			dialogActive,
+			dialogType,
+			ascii,
+		]);
 }

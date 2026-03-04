@@ -15,7 +15,8 @@ export function formatFeedHeaderLine(
 	theme: Theme,
 	innerWidth: number,
 ): string {
-	const style = (s: string) => chalk.bold.hex(theme.textMuted)(s);
+	const headerColor = theme.feed.headerLabel;
+	const style = (s: string) => chalk.hex(headerColor)(s);
 	let line = ' ';
 	line += style(fit('TIME', 5));
 	line += ' '.repeat(cols.timeEventGapW);
@@ -30,13 +31,12 @@ export function formatFeedHeaderLine(
 		line += ' '.repeat(cols.detailsResultGapW);
 		line += style(fit('RESULT', cols.resultW));
 	}
-	line += ' '.repeat(cols.gapW);
-	line += '   ';
 	return fitAnsi(line, innerWidth);
 }
 
 function FeedHeaderImpl({cols, theme}: Props) {
-	const style = (s: string) => chalk.bold.hex(theme.textMuted)(s);
+	const headerColor = theme.feed.headerLabel;
+	const style = (s: string) => chalk.hex(headerColor)(s);
 	return (
 		<>
 			<Box width={1} flexShrink={0}>
@@ -72,10 +72,6 @@ function FeedHeaderImpl({cols, theme}: Props) {
 				</>
 			)}
 			<Box flexGrow={1} flexShrink={1} />
-			<Box width={cols.gapW} flexShrink={0} />
-			<Box width={3} flexShrink={0}>
-				<Text wrap="truncate-end">{'   '}</Text>
-			</Box>
 		</>
 	);
 }

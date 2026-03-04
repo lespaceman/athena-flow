@@ -26,6 +26,11 @@ export type Theme = {
 		borderQuestion: string;
 	};
 	inputPrompt: string;
+	inputChevron: string;
+	feed: {
+		headerLabel: string;
+		stripeBackground: string | null;
+	};
 	userMessage: {
 		text: string;
 		background: string;

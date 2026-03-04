@@ -23,6 +23,10 @@ export type MultiLineInputProps = {
 	onHistoryForward?: () => string | undefined;
 	/** Callback that receives the setValue function for programmatic updates */
 	setValueRef?: (setValue: (value: string) => void) => void;
+	/** Optional text color for non-placeholder content */
+	textColor?: string;
+	/** Optional text color when showing placeholder */
+	placeholderColor?: string;
 };
 
 export function MultiLineInput({
@@ -34,6 +38,8 @@ export function MultiLineInput({
 	onHistoryBack,
 	onHistoryForward,
 	setValueRef,
+	textColor,
+	placeholderColor,
 }: MultiLineInputProps) {
 	const {value, cursorOffset, setValue, dispatch} = useTextInput({
 		onChange,
@@ -114,7 +120,9 @@ export function MultiLineInput({
 	return (
 		<Box flexDirection="column">
 			{lines.map((line, i) => (
-				<Text key={i}>{line}</Text>
+				<Text key={i} color={value.length === 0 ? placeholderColor : textColor}>
+					{line}
+				</Text>
 			))}
 		</Box>
 	);

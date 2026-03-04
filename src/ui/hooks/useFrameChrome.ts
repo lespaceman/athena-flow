@@ -104,6 +104,7 @@ export function useFrameChrome({
 		],
 	);
 
+	// Budget: hints row (when visible) + input base row
 	const footerRows = (frame.footerHelp !== null ? 1 : 0) + 1;
 
 	const glyphs = useMemo(() => frameGlyphs(ascii), [ascii]);

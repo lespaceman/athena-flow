@@ -24,10 +24,15 @@ function assertValidTheme(theme: Theme) {
 		theme.dialog.borderPermission,
 		theme.dialog.borderQuestion,
 		theme.inputPrompt,
+		theme.inputChevron,
+		theme.feed.headerLabel,
 		theme.userMessage.text,
 		theme.userMessage.background,
 		theme.userMessage.border,
 	];
+	if (theme.feed.stripeBackground !== null) {
+		flat.push(theme.feed.stripeBackground);
+	}
 	for (const hex of flat) {
 		expect(hex).toMatch(hexPattern);
 	}

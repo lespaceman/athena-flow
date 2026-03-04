@@ -525,6 +525,12 @@ function AppContent({
 		toastTimerRef.current = setTimeout(() => setToastMessage(null), 1500);
 	}, []);
 
+	useEffect(() => {
+		return () => {
+			if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+		};
+	}, []);
+
 	const yankAtCursor = useCallback(() => {
 		const entry = filteredEntriesRef.current.at(feedNav.feedCursor);
 		if (!entry) return;
@@ -694,9 +700,19 @@ function AppContent({
 			lastRunStatus,
 			dialogActive,
 			dialogType: appMode.type,
+			ascii: useAscii,
 		});
 	inputContentWidthRef.current = inputContentWidth;
-	const border = useMemo(() => chalk.hex(theme.border).dim, [theme.border]);
+	const border = useMemo(() => chalk.hex(theme.border), [theme.border]);
+	const inputKeywordColor = theme.inputPrompt;
+	const inputChevronColor = theme.inputChevron;
+	const inputPlaceholderColor = theme.textMuted;
+	const inputPromptStyled = useMemo(
+		() =>
+			chalk.hex(inputKeywordColor).bold('input') +
+			chalk.hex(inputChevronColor)('> '),
+		[inputChevronColor, inputKeywordColor],
+	);
 	const runBadgeStyled = isHarnessRunning
 		? chalk.bgHex('#4a3a0c').hex('#fbbf24')(' RUN ')
 		: chalk.bgHex('#10321d').hex('#3fb950')(' IDLE ');
@@ -758,12 +774,14 @@ function AppContent({
 				height={inputRows}
 			>
 				<Box width={inputPrefix.length} flexShrink={0}>
-					<Text color={theme.inputPrompt}>{inputPrefix}</Text>
+					<Text>{inputPromptStyled}</Text>
 				</Box>
 				<Box width={inputContentWidth} flexShrink={0}>
 					<MultiLineInput
 						width={inputContentWidth}
 						placeholder={textInputPlaceholder}
+						textColor={theme.text}
+						placeholderColor={inputPlaceholderColor}
 						isActive={focusMode === 'input' && !dialogActive}
 						onChange={handleMainInputChange}
 						onSubmit={handleInputSubmit}

@@ -199,6 +199,12 @@ describe('formatTool', () => {
 		expect(stripAnsi(r)).toHaveLength(12);
 	});
 
+	test('uses ASCII-safe tool bullet in ascii mode', () => {
+		const r = formatTool('Read', 12, theme, {pill: true, ascii: true});
+		expect(stripAnsi(r)).toContain('*');
+		expect(stripAnsi(r)).toHaveLength(12);
+	});
+
 	test('truncates long tool name', () => {
 		const r = formatTool('browser_navigate', 8, theme);
 		expect(stripAnsi(r)).toHaveLength(8);
@@ -211,24 +217,24 @@ describe('formatTool', () => {
 });
 
 describe('formatSuffix', () => {
-	test('expandable collapsed shows safe ascii glyph', () => {
-		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe(' >');
+	test('expandable collapsed does not render chevron glyph', () => {
+		expect(stripAnsi(formatSuffix(true, false, false, theme))).toBe('  ');
 	});
 
-	test('expandable expanded shows safe ascii glyph', () => {
-		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe(' v');
+	test('expandable expanded does not render chevron glyph', () => {
+		expect(stripAnsi(formatSuffix(true, true, false, theme))).toBe('  ');
 	});
 
 	test('not expandable shows two spaces', () => {
 		expect(stripAnsi(formatSuffix(false, false, false, theme))).toBe('  ');
 	});
 
-	test('ascii mode collapsed shows  >', () => {
-		expect(stripAnsi(formatSuffix(true, false, true, theme))).toBe(' >');
+	test('ascii mode collapsed still hides chevron glyph', () => {
+		expect(stripAnsi(formatSuffix(true, false, true, theme))).toBe('  ');
 	});
 
-	test('ascii mode expanded shows  v', () => {
-		expect(stripAnsi(formatSuffix(true, true, true, theme))).toBe(' v');
+	test('ascii mode expanded still hides chevron glyph', () => {
+		expect(stripAnsi(formatSuffix(true, true, true, theme))).toBe('  ');
 	});
 });
 

@@ -1,937 +1,372 @@
-<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Athena Flow TUI — Before / After Mockup</title>
-		<style>
-			@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+import { useState } from "react";
 
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
+const feedData = [
+  { time: "20:23", status: "Tool OK", actor: "·", tool: "Navigate", details: "[agent-web-interface] bss-portal-pre-prod.vonnue.dev", result: null },
+  { time: "20:24", status: "Tool OK", actor: "·", tool: "Inspect", details: "[agent-web-interface] eid:40397c…", result: null },
+  { time: "20:24", status: "Tool OK", actor: "·", tool: "Inspect", details: "[agent-web-interface] eid:6e5706…", result: null },
+  { time: "20:24", status: "Tool OK", actor: "·", tool: "Click", details: "[agent-web-interface] eid:40397c…", result: null },
+  { time: "20:24", status: "Tool OK", actor: "·", tool: "Type", details: '[agent-web-interface] "17" → 4e903…', result: null },
+  { time: "20:24", status: "Tool OK", actor: "·", tool: "Press", details: "[agent-web-interface] Tab", result: null },
+  { time: "20:25", status: "Tool OK", actor: "·", tool: "Type", details: '[agent-web-interface] "10" → 12092…', result: null },
+  { time: "20:25", status: "Tool OK", actor: "·", tool: "Press", details: "[agent-web-interface] Tab", result: null },
+  { time: "20:25", status: "Tool OK", actor: "·", tool: "Type", details: '[agent-web-interface] "2025" → 79d01…', result: null },
+  { time: "20:25", status: "Tool OK", actor: "·", tool: "Screenshot", details: "[agent-web-interface]", result: null },
+  { time: "20:26", status: "Tool OK", actor: "·", tool: "Navigate", details: "[agent-web-interface] bss-portal-pre-prod.vonnue.dev", result: null, active: true },
+  { time: "20:26", status: "Tool OK", actor: "·", tool: "Screenshot", details: "[agent-web-interface]", result: null },
+  { time: "20:26", status: "Tool OK", actor: "·", tool: "Find", details: "[agent-web-interface] button", result: "1 found" },
+  { time: "20:26", status: "Tool OK", actor: "·", tool: "Find", details: "[agent-web-interface] main", result: "1 found" },
+  { time: "20:26", status: "Tool OK", actor: "·", tool: "Navigate", details: "[agent-web-interface] bss-portal-pre-prod.vonnue.dev", result: null },
+  { time: "20:28", status: "Tool OK", actor: "·", tool: "Screenshot", details: "[agent-web-interface]", result: null },
+  { time: "20:28", status: "Tool OK", actor: "·", tool: "Find", details: "[agent-web-interface] button", result: "1 found" },
+  { time: "20:29", status: "Tool OK", actor: "·", tool: "Navigate", details: "[agent-web-interface] bss-portal-pre-prod.vonnue.dev", result: null },
+  { time: "20:29", status: "Tool OK", actor: "·", tool: "Find", details: "[agent-web-interface] button", result: "1 found" },
+  { time: "20:29", status: "Tool OK", actor: "·", tool: "Find", details: "[agent-web-interface] main", result: "1 found" },
+];
 
-			body {
-				background: #1a1a2e;
-				color: #c8c8d4;
-				font-family: 'JetBrains Mono', monospace;
-				font-size: 13px;
-				line-height: 1.5;
-				padding: 32px 40px;
-				min-height: 100vh;
-			}
+const tasks = [
+  "Analyze existing subscription test coverage (21 TC-IDs)",
+  "Quick browser inspection of subscription pages for untested features",
+  "Identify coverage gaps and prioritize new test cases",
+  "Write coverage-plan-subscription.md with new TC-IDs",
+  "Explore site and generate detailed test case specs (TC-SUB-022 to TC-SUB-036)",
+  "Write test code for new TC-IDs (TC-SUB-022 to TC-SUB-036)",
+  "Fix all 8 test failures (timing, strict mode, assertions)",
+  "Re-run all subscription tests after fixes",
+  "Coverage check – verify all new TC-IDs implemented",
+];
 
-			.page-title {
-				color: #8888aa;
-				font-size: 11px;
-				font-weight: 500;
-				letter-spacing: 2px;
-				text-transform: uppercase;
-				margin-bottom: 8px;
-			}
+const toolColors = {
+  Navigate: { bg: "rgba(56,189,248,0.12)", text: "#38bdf8", dot: "#38bdf8" },
+  Inspect:  { bg: "rgba(167,139,250,0.12)", text: "#a78bfa", dot: "#a78bfa" },
+  Click:    { bg: "rgba(251,191,36,0.12)", text: "#fbbf24", dot: "#fbbf24" },
+  Type:     { bg: "rgba(52,211,153,0.12)", text: "#34d399", dot: "#34d399" },
+  Press:    { bg: "rgba(251,146,60,0.12)", text: "#fb923c", dot: "#fb923c" },
+  Screenshot:{ bg: "rgba(236,72,153,0.12)", text: "#ec4899", dot: "#ec4899" },
+  Find:     { bg: "rgba(99,102,241,0.12)", text: "#818cf8", dot: "#818cf8" },
+};
 
-			.page-heading {
-				color: #e0e0f0;
-				font-size: 20px;
-				font-weight: 600;
-				margin-bottom: 32px;
-			}
+const mono = "'Berkeley Mono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace";
 
-			.page-heading span {
-				color: #5e6ad2;
-			}
+function BeforePanel() {
+  return (
+    <div style={{
+      fontFamily: mono,
+      fontSize: 12,
+      background: "#0d1117",
+      color: "#8b949e",
+      border: "1px solid #21262d",
+      borderRadius: 6,
+      overflow: "hidden",
+      flex: 1,
+    }}>
+      {/* Header */}
+      <div style={{ background: "#161b22", borderBottom: "1px solid #21262d", padding: "6px 12px", display: "flex", gap: 16, color: "#8b949e", fontSize: 11 }}>
+        <span style={{ color: "#58a6ff" }}>ATHENA FLOW</span>
+        <span>S: S592d (1/1)</span>
+        <span>Workflow: e2e-test-builder</span>
+        <span>Harness: Claude Code</span>
+        <span>Context</span>
+        <span style={{ background: "#238636", padding: "1px 8px", borderRadius: 2 }}></span>
+        <span>135k/200k</span>
+      </div>
 
-			.label-row {
-				display: flex;
-				align-items: center;
-				gap: 12px;
-				margin-bottom: 16px;
-			}
+      {/* Tasks */}
+      <div style={{ padding: "8px 12px", borderBottom: "1px solid #21262d" }}>
+        <div style={{ color: "#8b949e", marginBottom: 4 }}>◇ IDLE  9/9 tasks done</div>
+        {tasks.map((t, i) => (
+          <div key={i} style={{ color: "#484f58", paddingLeft: 8, lineHeight: "1.6" }}>
+            <span style={{ color: "#484f58" }}>✓ </span>{t}
+          </div>
+        ))}
+      </div>
 
-			.label-tag {
-				font-size: 10px;
-				font-weight: 600;
-				letter-spacing: 1.5px;
-				text-transform: uppercase;
-				padding: 3px 10px;
-				border-radius: 4px;
-			}
+      {/* Feed header */}
+      <div style={{ display: "grid", gridTemplateColumns: "50px 70px 50px 90px 1fr 80px", padding: "4px 12px", color: "#484f58", fontSize: 10, borderBottom: "1px solid #21262d" }}>
+        <span>TIME</span><span>EVENT</span><span>ACTOR</span><span>TOOL</span><span>DETAILS</span><span style={{ textAlign: "right" }}>RESULT</span>
+      </div>
 
-			.label-before {
-				background: #3a2a2a;
-				color: #c07070;
-			}
+      {/* Feed rows */}
+      <div style={{ maxHeight: 280, overflow: "hidden" }}>
+        {feedData.map((row, i) => (
+          <div key={i} style={{
+            display: "grid",
+            gridTemplateColumns: "50px 70px 50px 90px 1fr 80px",
+            padding: "2px 12px",
+            background: row.active ? "rgba(31,111,235,0.15)" : "transparent",
+            color: row.active ? "#c9d1d9" : "#484f58",
+          }}>
+            <span>{row.time}</span>
+            <span style={{ color: row.active ? "#58a6ff" : "#484f58" }}>{row.status}</span>
+            <span>{row.actor}</span>
+            <span>{row.tool}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.details}</span>
+            <span style={{ textAlign: "right" }}>{row.result || ""}</span>
+          </div>
+        ))}
+      </div>
 
-			.label-after {
-				background: #2a3a2e;
-				color: #70c080;
-			}
+      {/* Input */}
+      <div style={{ borderTop: "1px solid #21262d", padding: "6px 12px", color: "#484f58" }}>
+        <span>input&gt; </span>
+        <span>Run complete – type a follow-up</span>
+        <span style={{ float: "right" }}>[IDLE]</span>
+      </div>
+    </div>
+  );
+}
 
-			.label-desc {
-				color: #666680;
-				font-size: 11px;
-			}
+function AfterPanel() {
+  const contextPct = Math.round((135 / 200) * 100);
 
-			/* Terminal frame */
-			.terminal {
-				background: #0d1117;
-				border: 1px solid #262a33;
-				border-radius: 8px;
-				overflow: hidden;
-				margin-bottom: 40px;
-				box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-			}
+  return (
+    <div style={{
+      fontFamily: mono,
+      fontSize: 12,
+      background: "#080c10",
+      color: "#8b949e",
+      border: "1px solid #1e2a38",
+      borderRadius: 6,
+      overflow: "hidden",
+      flex: 1,
+    }}>
+      {/* Header — improved */}
+      <div style={{
+        background: "linear-gradient(180deg, #0d1620 0%, #0a1219 100%)",
+        borderBottom: "1px solid #1e2a38",
+        padding: "5px 12px",
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        fontSize: 11,
+      }}>
+        {/* ① Wordmark with weight contrast */}
+        <span style={{ color: "#e6edf3", fontWeight: 700, letterSpacing: "0.08em", fontSize: 12 }}>ATHENA FLOW</span>
+        <span style={{ color: "#30363d" }}>│</span>
+        <span style={{ color: "#484f58" }}>S: <span style={{ color: "#6e7681" }}>S592d</span> (1/1)</span>
+        <span style={{ color: "#484f58" }}>Workflow: <span style={{ color: "#6e7681" }}>e2e-test-builder</span></span>
+        <span style={{ color: "#484f58" }}>Harness: <span style={{ color: "#6e7681" }}>Claude Code</span></span>
+        <span style={{ flex: 1 }} />
+        {/* ⑤ Context bar with label */}
+        <span style={{ color: "#484f58" }}>Context</span>
+        <div style={{ position: "relative", width: 72, height: 10, background: "#1e2a38", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{
+            position: "absolute", left: 0, top: 0, bottom: 0,
+            width: `${contextPct}%`,
+            background: contextPct > 80 ? "#f97316" : contextPct > 60 ? "#fbbf24" : "#3fb950",
+            borderRadius: 2,
+          }} />
+        </div>
+        <span style={{ color: "#6e7681", minWidth: 76 }}>135k / 200k <span style={{ color: "#484f58" }}>· {contextPct}%</span></span>
+      </div>
 
-			.terminal-dots {
-				display: flex;
-				gap: 6px;
-				padding: 10px 14px;
-				background: #161b22;
-				border-bottom: 1px solid #262a33;
-			}
+      {/* Tasks */}
+      <div style={{ padding: "7px 12px", borderBottom: "1px solid #1e2a38" }}>
+        {/* ② Status pill with dot */}
+        <div style={{ marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#3fb950", boxShadow: "0 0 6px #3fb950" }} />
+          <span style={{ color: "#3fb950", fontWeight: 600 }}>IDLE</span>
+          <span style={{ color: "#6e7681" }}>9/9 tasks done</span>
+        </div>
+        {tasks.map((t, i) => (
+          <div key={i} style={{
+            paddingLeft: 8,
+            lineHeight: "1.65",
+            // ③ Last completed slightly brighter
+            color: i === tasks.length - 1 ? "#6e7681" : "#2d333b",
+          }}>
+            <span style={{ color: i === tasks.length - 1 ? "#3fb950" : "#2d333b" }}>✓ </span>{t}
+          </div>
+        ))}
+      </div>
 
-			.terminal-dots span {
-				width: 10px;
-				height: 10px;
-				border-radius: 50%;
-			}
-			.dot-r {
-				background: #f85149;
-			}
-			.dot-y {
-				background: #d29922;
-			}
-			.dot-g {
-				background: #3fb950;
-			}
+      {/* Feed header */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "50px 70px 50px 100px 1fr 90px",
+        padding: "4px 12px",
+        color: "#30363d",
+        fontSize: 10,
+        letterSpacing: "0.06em",
+        borderBottom: "1px solid #1e2a38",
+      }}>
+        <span>TIME</span><span>EVENT</span><span>ACTOR</span><span>TOOL</span><span>DETAILS</span><span style={{ textAlign: "right" }}>RESULT</span>
+      </div>
 
-			.terminal-body {
-				padding: 12px 16px;
-				font-size: 12.5px;
-				line-height: 1.65;
-				overflow-x: auto;
-			}
+      {/* Feed rows — improved */}
+      <div style={{ maxHeight: 280, overflow: "hidden" }}>
+        {feedData.map((row, i) => {
+          const tc = toolColors[row.tool] || { bg: "transparent", text: "#6e7681", dot: "#6e7681" };
+          const isActive = row.active;
+          return (
+            <div key={i} style={{
+              display: "grid",
+              gridTemplateColumns: "50px 70px 50px 100px 1fr 90px",
+              padding: "2px 12px",
+              // ① Active row: strong highlight
+              background: isActive
+                ? "rgba(31,111,235,0.18)"
+                : i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.013)", // ⑨ subtle zebra
+              borderLeft: isActive ? "2px solid #388bfd" : "2px solid transparent",
+              alignItems: "center",
+            }}>
+              <span style={{ color: isActive ? "#8b949e" : "#3d444d" }}>{row.time}</span>
+              <span style={{ color: isActive ? "#3fb950" : "#3d444d" }}>{row.status}</span>
+              <span style={{ color: "#3d444d" }}>{row.actor}</span>
+              {/* ⑦ Color-coded tool pill */}
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{
+                  display: "inline-block", width: 5, height: 5,
+                  borderRadius: "50%", background: tc.dot, flexShrink: 0
+                }} />
+                <span style={{
+                  background: tc.bg,
+                  color: tc.text,
+                  padding: "0px 5px",
+                  borderRadius: 3,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                }}>{row.tool}</span>
+              </span>
+              <span style={{
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                color: isActive ? "#6e7681" : "#3d444d"
+              }}>{row.details}</span>
+              {/* ② Result badge */}
+              <div style={{ textAlign: "right" }}>
+                {row.result && (
+                  <span style={{
+                    background: "rgba(63,185,80,0.1)",
+                    color: "#3fb950",
+                    padding: "1px 6px",
+                    borderRadius: 3,
+                    fontSize: 10,
+                    border: "1px solid rgba(63,185,80,0.2)",
+                  }}>{row.result}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-			/* Header bar */
-			.header {
-				display: flex;
-				gap: 16px;
-				padding: 6px 0;
-				border-bottom: 1px solid #21262d;
-				margin-bottom: 8px;
-				white-space: nowrap;
-			}
+      {/* Input — improved ⑥ */}
+      <div style={{
+        borderTop: "1px solid #1e2a38",
+        padding: "6px 12px",
+        display: "flex",
+        alignItems: "center",
+        background: "#080c10",
+      }}>
+        <span style={{ color: "#388bfd", fontWeight: 700 }}>input</span>
+        <span style={{ color: "#30363d" }}>&gt; </span>
+        <span style={{ color: "#484f58", marginLeft: 4 }}>Run complete – type a follow-up</span>
+        <span style={{
+          marginLeft: "auto",
+          background: "rgba(63,185,80,0.1)",
+          color: "#3fb950",
+          padding: "1px 7px",
+          borderRadius: 3,
+          fontSize: 10,
+          border: "1px solid rgba(63,185,80,0.2)",
+          letterSpacing: "0.06em",
+        }}>IDLE</span>
+      </div>
+    </div>
+  );
+}
 
-			.header .brand {
-				color: #58a6ff;
-				font-weight: 700;
-			}
-			.header .meta {
-				color: #6e7681;
-			}
-			.header .meta b {
-				color: #8b949e;
-				font-weight: 500;
-			}
+export default function App() {
+  const [view, setView] = useState("split");
 
-			/* Stage checklist */
-			.stages {
-				padding: 6px 0 8px 0;
-				border-bottom: 1px solid #21262d;
-				margin-bottom: 10px;
-			}
+  const improvements = [
+    { n: "①", label: "Active row contrast", desc: "Left border + brighter bg makes cursor position unmissable" },
+    { n: "②", label: "Result badges", desc: "Pill with border replaces orphaned plain text in RESULT column" },
+    { n: "③", label: "Last task highlight", desc: "Most recently completed task stays slightly brighter than older ones" },
+    { n: "④", label: "Header hierarchy", desc: "Bold wordmark vs dim metadata — instant visual weight difference" },
+    { n: "⑤", label: "Context bar + %", desc: "Segmented fill with color thresholds (green→amber→orange) + percentage label" },
+    { n: "⑥", label: "Input prompt accent", desc: "Cyan `input` keyword + IDLE as a status badge draws the eye to the prompt" },
+    { n: "⑦", label: "Tool color coding", desc: "Navigate/Inspect/Click/Find each get a unique hue — scan-reading the feed is ~3× faster" },
+    { n: "⑧", label: "Status dot", desc: "Glowing dot prefix on IDLE/RUNNING/ERROR — state readable at a glance" },
+    { n: "⑨", label: "Zebra striping", desc: "1% alternating row bg reduces eye fatigue on dense logs" },
+  ];
 
-			.stage-header {
-				color: #8b949e;
-				margin-bottom: 2px;
-			}
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#020408",
+      fontFamily: mono,
+      color: "#8b949e",
+      padding: 24,
+    }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+        {/* Title */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 18, color: "#e6edf3", fontWeight: 700, letterSpacing: "0.04em", marginBottom: 4 }}>
+            ATHENA FLOW — TUI Quick Wins
+          </div>
+          <div style={{ fontSize: 11, color: "#484f58" }}>9 improvements · all implementable in a single session</div>
+        </div>
 
-			.stage-header .diamond {
-				color: #58a6ff;
-			}
-			.stage-header .count {
-				color: #c9d1d9;
-				font-weight: 500;
-			}
+        {/* Toggle */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          {["split", "before", "after"].map(v => (
+            <button key={v} onClick={() => setView(v)} style={{
+              background: view === v ? "rgba(56,139,253,0.15)" : "transparent",
+              border: `1px solid ${view === v ? "#388bfd" : "#21262d"}`,
+              color: view === v ? "#388bfd" : "#484f58",
+              padding: "3px 12px",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: 11,
+              fontFamily: mono,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+            }}>{v}</button>
+          ))}
+        </div>
 
-			.stage {
-				padding-left: 16px;
-				white-space: nowrap;
-			}
+        {/* Panels */}
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+          {(view === "split" || view === "before") && (
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: "#484f58", letterSpacing: "0.08em", marginBottom: 6 }}>BEFORE</div>
+              <BeforePanel />
+            </div>
+          )}
+          {(view === "split" || view === "after") && (
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: "#3fb950", letterSpacing: "0.08em", marginBottom: 6 }}>AFTER</div>
+              <AfterPanel />
+            </div>
+          )}
+        </div>
 
-			.stage .icon-done {
-				color: #3fb950;
-			}
-			.stage .icon-active {
-				color: #d29922;
-			}
-			.stage .icon-pending {
-				color: #484f58;
-			}
-			.stage .text-done {
-				color: #484f58;
-			}
-			.stage .text-active {
-				color: #e6edf3;
-				font-weight: 500;
-			}
-			.stage .text-pending {
-				color: #484f58;
-			}
-			.stage .elapsed {
-				color: #3a3f47;
-				font-size: 11px;
-			}
-			.stage .arrow {
-				color: #d29922;
-				font-size: 11px;
-			}
-
-			/* Log columns header */
-			.log-header {
-				display: grid;
-				padding: 4px 0;
-				border-bottom: 1px solid #21262d;
-				margin-bottom: 2px;
-				color: #484f58;
-				font-weight: 600;
-				font-size: 11px;
-				letter-spacing: 0.5px;
-			}
-
-			/* BEFORE grid */
-			.grid-before {
-				grid-template-columns: 48px 90px 120px 1fr;
-				gap: 8px;
-			}
-
-			/* AFTER grid */
-			.grid-after {
-				grid-template-columns: 48px 90px 100px 1fr;
-				gap: 8px;
-			}
-
-			/* Log rows */
-			.log-row {
-				display: grid;
-				padding: 1px 0;
-				white-space: nowrap;
-				position: relative;
-			}
-
-			.log-row .time {
-				color: #484f58;
-			}
-			.log-row .event {
-				font-weight: 500;
-			}
-			.log-row .actor {
-			}
-			.log-row .summary {
-				color: #8b949e;
-			}
-
-			/* Before-specific styles */
-			.before .event-ok {
-				color: #3fb950;
-			}
-			.before .event-msg {
-				color: #d29922;
-			}
-			.before .event-sub {
-				color: #6e7681;
-			}
-			.before .actor-sub {
-				color: #8b949e;
-			}
-			.before .actor-agent {
-				color: #8b949e;
-			}
-
-			/* Highlight row — BEFORE (full cyan bg) */
-			.before .highlight-row {
-				background: #0c2d48;
-				border-radius: 2px;
-			}
-
-			/* AFTER-specific styles */
-			.after .event-ok {
-				color: #3a3f47;
-				font-weight: 400;
-			} /* Dimmed! */
-			.after .event-err {
-				color: #f85149;
-				font-weight: 600;
-			}
-			.after .event-retry {
-				color: #d29922;
-				font-weight: 600;
-			}
-			.after .event-msg {
-				color: #d29922;
-				font-weight: 500;
-			}
-			.after .event-sub {
-				color: #6e7681;
-			}
-
-			.after .actor-sub {
-				color: #8b949e;
-			}
-			.after .actor-dim {
-				color: #2d333b;
-			} /* Dimmed consecutive duplicate */
-			.after .actor-agent {
-				color: #8b949e;
-			}
-
-			/* Highlight row — AFTER (left accent only) */
-			.after .highlight-row {
-				background: transparent;
-			}
-			.after .highlight-row::before {
-				content: '';
-				position: absolute;
-				left: -16px;
-				top: 0;
-				bottom: 0;
-				width: 3px;
-				background: #58a6ff;
-				border-radius: 2px;
-			}
-
-			/* Path dimming in AFTER */
-			.path-prefix {
-				color: #2d333b;
-			}
-			.path-file {
-				color: #c9d1d9;
-			}
-
-			/* Summary emphasis in AFTER */
-			.after .summary {
-				color: #c9d1d9;
-			}
-			.after .summary-dim {
-				color: #484f58;
-			}
-
-			/* Minute separator */
-			.minute-sep {
-				border-top: 1px solid #161b22;
-				margin-top: 3px;
-				padding-top: 3px;
-			}
-
-			/* Bottom bar */
-			.bottom-bar {
-				display: flex;
-				justify-content: space-between;
-				padding: 8px 0 4px 0;
-				border-top: 1px solid #21262d;
-				margin-top: 8px;
-				color: #484f58;
-				font-size: 11px;
-			}
-
-			.bottom-bar .nav-hint b {
-				color: #6e7681;
-			}
-			.bottom-bar .state {
-				color: #3fb950;
-			}
-
-			/* Ctx bar */
-			.ctx-bar {
-				display: inline-flex;
-				align-items: center;
-				gap: 4px;
-			}
-			.ctx-track {
-				display: inline-block;
-				width: 80px;
-				height: 6px;
-				background: #161b22;
-				border-radius: 3px;
-				overflow: hidden;
-				vertical-align: middle;
-			}
-			.ctx-fill {
-				display: block;
-				height: 100%;
-				background: #3fb950;
-				border-radius: 3px;
-				transition: width 0.3s;
-			}
-
-			/* Input prompt */
-			.input-row {
-				padding: 6px 0 2px 0;
-				color: #6e7681;
-			}
-			.input-row .prompt {
-				color: #58a6ff;
-				font-weight: 500;
-			}
-			.input-row .hint {
-				color: #2d333b;
-			}
-			.input-row .ctx-hint {
-				color: #484f58;
-				font-style: italic;
-			}
-
-			/* Annotation callouts */
-			.callouts {
-				margin-top: 24px;
-				margin-bottom: 48px;
-			}
-			.callout {
-				display: flex;
-				gap: 12px;
-				align-items: baseline;
-				margin-bottom: 6px;
-			}
-			.callout-num {
-				flex-shrink: 0;
-				width: 20px;
-				height: 20px;
-				border-radius: 50%;
-				background: #5e6ad2;
-				color: #fff;
-				font-size: 10px;
-				font-weight: 700;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-			}
-			.callout-text {
-				color: #8888aa;
-				font-size: 12px;
-			}
-			.callout-text b {
-				color: #c8c8d4;
-				font-weight: 500;
-			}
-		</style>
-	</head>
-	<body>
-		<div class="page-title">Athena Flow TUI</div>
-		<div class="page-heading">Quick Wins <span>— Before / After</span></div>
-
-		<!-- ==================== BEFORE ==================== -->
-
-		<div class="label-row">
-			<span class="label-tag label-before">Before</span>
-			<span class="label-desc"
-				>Current state — green "Tool OK" dominates, duplicate actors, no
-				completed stages</span
-			>
-		</div>
-
-		<div class="terminal">
-			<div class="terminal-dots">
-				<span class="dot-r"></span><span class="dot-y"></span
-				><span class="dot-g"></span>
-			</div>
-			<div class="terminal-body before">
-				<div class="header">
-					<span class="brand">ATHENA FLOW</span>
-					<span class="meta">Workflow: <b>e2e-test-builder</b></span>
-					<span class="meta">Harness: <b>Claude Code</b></span>
-					<span class="meta">S: <b>S3f41</b></span>
-					<span class="meta">Ctx: <b>0k / 200k</b></span>
-				</div>
-
-				<div class="stages">
-					<div class="stage-header">
-						<span class="diamond">◆</span> IDLE
-						<span class="count">5/8 tasks done</span>
-					</div>
-					<div class="stage">
-						<span class="icon-active">■</span>
-						<span class="text-active"
-							>Stage B: Write Playwright tests from specs</span
-						>
-					</div>
-					<div class="stage">
-						<span class="icon-pending">□</span>
-						<span class="text-pending"
-							>Check 4: Run tests and verify they pass</span
-						>
-					</div>
-					<div class="stage">
-						<span class="icon-pending">□</span>
-						<span class="text-pending">Check 5: Verify all TC-IDs covered</span>
-					</div>
-				</div>
-
-				<div class="log-header grid-before">
-					<span>TIME</span><span>EVENT</span><span>ACTOR</span
-					><span>SUMMARY</span>
-				</div>
-
-				<div class="log-row grid-before">
-					<span class="time">02:22</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>[agent-web-interface] find_elements kind="button" label="Feeling
-						Lucky" — done</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:22</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>[agent-web-interface] click eid="264ddc58e08d" — done</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>Write test-cases/google-search.md — wrote
-						/home/nadeemm/Projects/ai-projects/automation-test-setup/test-cases/goog...</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Read test-cases/google-search.md — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>[agent-web-interface] close_session — done</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:25</span>
-					<span class="event event-sub">Sub Stop</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">general-purpose</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">·02:25</span>
-					<span class="event event-msg">Agent Msg</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>Here is a summary of what was accomplished.</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:25</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-agent">AGENT</span>
-					<span class="summary"
-						>Task [general-purpose] Explore Google and generate test specs</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:25</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-agent">AGENT</span>
-					<span class="summary">Read test-cases/google-search.md — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool Call</span>
-					<span class="actor actor-agent">AGENT</span>
-					<span class="summary"
-						>Task [general-purpose] Write Playwright tests + page object</span
-					>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">·02:26</span>
-					<span class="event event-sub">Sub Start</span>
-					<span class="actor actor-agent">AGENT</span>
-					<span class="summary">general-purpose</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">·02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Read test-cases/google-search.md — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Read fixtures/index.ts — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Read pages/BasePage.ts — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>Read automation-test-setup/playwright.config.ts — done</span
-					>
-				</div>
-				<div class="log-row grid-before highlight-row">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Read pages/NytSearchPage.ts — done</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Glob tests/nyt-search.spec.ts — 0 files</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Glob tests/nyt-search.spec.ts — 0 files</span>
-				</div>
-				<div class="log-row grid-before">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary">Glob tests/*.spec.ts — 0 files</span>
-				</div>
-
-				<div class="bottom-bar">
-					<span class="nav-hint"
-						><b>↑↓</b> Navigate <b>↵</b> Expand <b>/</b> Search <b>:</b> Cmd
-						<b>End</b> Tail</span
-					>
-					<span class="state">[IDLE]</span>
-				</div>
-				<div class="input-row">
-					<span class="prompt">input&gt;</span>
-					<span class="hint">Type a prompt or :command</span>
-				</div>
-			</div>
-		</div>
-
-		<!-- ==================== AFTER ==================== -->
-
-		<div class="label-row">
-			<span class="label-tag label-after">After</span>
-			<span class="label-desc"
-				>Quick wins applied — dimmed happy-path noise, full stage history,
-				accent highlight</span
-			>
-		</div>
-
-		<div class="terminal">
-			<div class="terminal-dots">
-				<span class="dot-r"></span><span class="dot-y"></span
-				><span class="dot-g"></span>
-			</div>
-			<div class="terminal-body after">
-				<div class="header">
-					<span class="brand">ATHENA FLOW</span>
-					<span class="meta">Workflow: <b>e2e-test-builder</b></span>
-					<span class="meta">Harness: <b>Claude Code</b></span>
-					<span class="meta">S: <b>S3f41</b></span>
-					<span class="meta"
-						><span class="ctx-bar"
-							>Ctx:
-							<span class="ctx-track"
-								><span class="ctx-fill" style="width: 14%"></span
-							></span>
-							<b>28k / 200k</b></span
-						></span
-					>
-				</div>
-
-				<div class="stages">
-					<div class="stage-header">
-						<span class="diamond">◆</span> IDLE
-						<span class="count">5/8 tasks done</span>
-					</div>
-					<div class="stage">
-						<span class="icon-done">✓</span>
-						<span class="text-done">Parse target URL and resolve config</span>
-						<span class="elapsed">3s</span>
-					</div>
-					<div class="stage">
-						<span class="icon-done">✓</span>
-						<span class="text-done">Explore app and map routes</span>
-						<span class="elapsed">12s</span>
-					</div>
-					<div class="stage">
-						<span class="icon-done">✓</span>
-						<span class="text-done">Generate structured test specs</span>
-						<span class="elapsed">8s</span>
-					</div>
-					<div class="stage">
-						<span class="icon-active">■</span>
-						<span class="text-active">Write Playwright tests from specs</span>
-						<span class="arrow">← active</span>
-					</div>
-					<div class="stage">
-						<span class="icon-pending">□</span>
-						<span class="text-pending">Run tests and verify they pass</span>
-					</div>
-					<div class="stage">
-						<span class="icon-pending">□</span>
-						<span class="text-pending">Verify all TC-IDs covered</span>
-					</div>
-				</div>
-
-				<div class="log-header grid-after">
-					<span>TIME</span><span>EVENT</span><span>ACTOR</span
-					><span>SUMMARY</span>
-				</div>
-
-				<div class="log-row grid-after">
-					<span class="time">02:22</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>[agent-web-interface] find_elements kind="button" label="Feeling
-						Lucky" — done</span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:22</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>[agent-web-interface] click eid="264ddc58e08d" — done</span
-					>
-				</div>
-
-				<div class="log-row grid-after minute-sep">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Write <span class="path-prefix">…/test-cases/</span
-						><span class="path-file">google-search.md</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/test-cases/</span
-						><span class="path-file">google-search.md</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:24</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>[agent-web-interface] close_session — done</span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:25</span>
-					<span class="event event-sub">Sub Stop</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary summary-dim">general-purpose</span>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">·02:25</span>
-					<span class="event event-msg">Agent Msg</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Here is a summary of what was accomplished.</span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:25</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-agent">AGENT</span>
-					<span class="summary"
-						>Task [general-purpose] Explore Google and generate test specs</span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:25</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/test-cases/</span
-						><span class="path-file">google-search.md</span></span
-					>
-				</div>
-
-				<div class="log-row grid-after minute-sep">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool Call</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Task [general-purpose] Write Playwright tests + page object</span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">·02:26</span>
-					<span class="event event-sub">Sub Start</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary summary-dim">general-purpose</span>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">·02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-sub">SUB-AGENT</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/test-cases/</span
-						><span class="path-file">google-search.md</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/</span
-						><span class="path-file">fixtures/index.ts</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/pages/</span
-						><span class="path-file">BasePage.ts</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/</span
-						><span class="path-file">playwright.config.ts</span></span
-					>
-				</div>
-				<div class="log-row grid-after highlight-row">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Read <span class="path-prefix">…/pages/</span
-						><span class="path-file">NytSearchPage.ts</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Glob <span class="path-prefix">…/tests/</span
-						><span class="path-file">nyt-search.spec.ts</span>
-						<span class="summary-dim">— 0 files</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-ok">Tool OK</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Glob <span class="path-prefix">…/tests/</span
-						><span class="path-file">*.spec.ts</span>
-						<span class="summary-dim">— 0 files</span></span
-					>
-				</div>
-
-				<!-- Bonus: show what an ERROR would look like -->
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-err">Error</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Glob <span class="path-prefix">…/tests/</span
-						><span class="path-file">**/*.spec.ts</span>
-						<span class="summary-dim">— permission denied</span></span
-					>
-				</div>
-				<div class="log-row grid-after">
-					<span class="time">02:26</span>
-					<span class="event event-retry">Retry</span>
-					<span class="actor actor-dim">·</span>
-					<span class="summary"
-						>Glob <span class="path-prefix">…/tests/</span
-						><span class="path-file">**/*.spec.ts</span>
-						<span class="summary-dim">— attempt 2/3</span></span
-					>
-				</div>
-
-				<div class="bottom-bar">
-					<span class="nav-hint"
-						><b>↑↓</b> Navigate <b>↵</b> Expand <b>/</b> Search <b>:</b> Cmd
-						<b>End</b> Tail</span
-					>
-					<span class="state">[IDLE]</span>
-				</div>
-				<div class="input-row">
-					<span class="prompt">input&gt;</span>
-					<span class="ctx-hint"
-						>Stage B complete — press Enter to continue or :retry to
-						re-run</span
-					>
-				</div>
-			</div>
-		</div>
-
-		<!-- Callouts -->
-		<div class="callouts">
-			<div class="callout">
-				<span class="callout-num">1</span>
-				<span class="callout-text"
-					><b>"Tool OK" dimmed to near-invisible gray.</b> Green is now reserved
-					for errors/retries that actually need attention. The summary column —
-					the useful part — is brighter by default.</span
-				>
-			</div>
-			<div class="callout">
-				<span class="callout-num">2</span>
-				<span class="callout-text"
-					><b>Consecutive duplicate actors collapse to "·".</b> SUB-AGENT only
-					appears when the actor changes (e.g. back to AGENT), reducing visual
-					repetition without losing information.</span
-				>
-			</div>
-			<div class="callout">
-				<span class="callout-num">3</span>
-				<span class="callout-text"
-					><b>Full stage history with ✓ and elapsed times.</b> Completed stages
-					are dimmed but visible, giving instant context on how the run got here
-					and how long each phase took.</span
-				>
-			</div>
-			<div class="callout">
-				<span class="callout-num">4</span>
-				<span class="callout-text"
-					><b
-						>Highlight row uses left-border accent instead of full-width
-						background.</b
-					>
-					The blue bar draws the eye without crushing text contrast.</span
-				>
-			</div>
-			<div class="callout">
-				<span class="callout-num">+</span>
-				<span class="callout-text"
-					><b>Bonus: Error/Retry get the loud colors.</b> Red for errors, amber
-					for retries — these are the events worth interrupting your scan for.
-					Also: context bar is now visual, paths dim the prefix, and the input
-					prompt is contextual.</span
-				>
-			</div>
-		</div>
-	</body>
-</html>
+        {/* Improvements legend */}
+        <div style={{
+          marginTop: 20,
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 8,
+        }}>
+          {improvements.map(({ n, label, desc }) => (
+            <div key={n} style={{
+              background: "#0d1117",
+              border: "1px solid #1e2a38",
+              borderRadius: 5,
+              padding: "8px 10px",
+              display: "flex",
+              gap: 8,
+            }}>
+              <span style={{ color: "#388bfd", fontWeight: 700, flexShrink: 0, fontSize: 12 }}>{n}</span>
+              <div>
+                <div style={{ color: "#c9d1d9", fontSize: 11, marginBottom: 2 }}>{label}</div>
+                <div style={{ color: "#484f58", fontSize: 10, lineHeight: 1.5 }}>{desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

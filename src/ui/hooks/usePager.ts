@@ -115,7 +115,7 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 		const lines = entry.feedEvent
 			? renderDetailLines(entry.feedEvent, contentWidth, entry.pairedPostEvent)
 					.lines
-			: renderMarkdownToLines(entry.details, contentWidth);
+			: renderMarkdownToLines(entry.details || entry.summary, contentWidth);
 
 		pagerLinesRef.current = lines.map(line => margin + line);
 		pagerScrollRef.current = 0;

@@ -49,7 +49,7 @@ export function renderContextBar(
 	const bracketOverhead = hasColor ? 0 : 2;
 	const numbersWidth = 1 + countText.length + pctText.length;
 	const barWidth = Math.max(
-		8,
+		5,
 		width - label.length - 1 - numbersWidth - bracketOverhead,
 	);
 
@@ -59,10 +59,12 @@ export function renderContextBar(
 
 	let bar: string;
 	if (hasColor) {
-		const filledStr = ' '.repeat(filled);
-		const emptyStr = ' '.repeat(empty);
+		// Terminal UIs cannot set pixel height directly; use a thicker glyph
+		// so the bar visually matches a ~12px loader in common monospace fonts.
+		const filledStr = '▆'.repeat(filled);
+		const emptyStr = '▆'.repeat(empty);
 		const fillColor = ratio > 0.8 ? colors.high : ratio > 0.6 ? colors.medium : colors.low;
-		bar = chalk.bgHex(fillColor)(filledStr) + chalk.bgHex(colors.track)(emptyStr);
+		bar = chalk.hex(fillColor)(filledStr) + chalk.hex(colors.track)(emptyStr);
 	} else {
 		const pg = progressGlyphs(true);
 		const filledStr = pg.filled.repeat(filled);

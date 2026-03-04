@@ -9,7 +9,7 @@ export const darkTheme: Theme = {
 	textInverse: '#0d1117', // Text on colored backgrounds.
 
 	// ── Accent ──────────────────────────────────────────────
-	border: '#58a6ff',
+	border: '#1e2a38',
 	accent: '#58a6ff', // Blue. Focus bar, branding, selection, links.
 	accentSecondary: '#bc8cff', // Soft purple. Permission events.
 
@@ -37,7 +37,14 @@ export const darkTheme: Theme = {
 	},
 
 	// ── Input ───────────────────────────────────────────────
-	inputPrompt: '#58a6ff', // Blue "input>" prefix.
+	inputPrompt: '#388bfd', // Blue "input" keyword in prompt.
+	inputChevron: '#30363d', // Dim chevron after input keyword.
+
+	// ── Feed ────────────────────────────────────────────────
+	feed: {
+		headerLabel: '#30363d',
+		stripeBackground: '#070e16',
+	},
 
 	// ── User messages ───────────────────────────────────────
 	userMessage: {
@@ -85,6 +92,13 @@ export const lightTheme: Theme = {
 
 	// ── Input ───────────────────────────────────────────────
 	inputPrompt: '#0969da',
+	inputChevron: '#656d76',
+
+	// ── Feed ────────────────────────────────────────────────
+	feed: {
+		headerLabel: '#656d76',
+		stripeBackground: '#f7f9fc',
+	},
 
 	// ── User messages ───────────────────────────────────────
 	userMessage: {
@@ -136,6 +150,13 @@ export const highContrastTheme: Theme = {
 
 	// ── Input ───────────────────────────────────────────────
 	inputPrompt: '#71b7ff',
+	inputChevron: '#7d8590',
+
+	// ── Feed ────────────────────────────────────────────────
+	feed: {
+		headerLabel: '#7d8590',
+		stripeBackground: '#0b141f',
+	},
 
 	// ── User messages ───────────────────────────────────────
 	userMessage: {

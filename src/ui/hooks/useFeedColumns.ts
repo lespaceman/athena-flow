@@ -14,8 +14,8 @@ const GUTTER_W = 1;
 const TIME_W = 5;
 const EVENT_W = 12;
 const ACTOR_W = 10;
-// Reserve 3 cells for suffix: leading space + potentially wide expand glyph.
-const SUFFIX_W = 3;
+// Suffix glyph column removed (no chevrons in table rows).
+const SUFFIX_W = 0;
 /** Fixed non-gap overhead: gutter + time + event + actor + suffix. */
 const BASE_FIXED = GUTTER_W + TIME_W + EVENT_W + ACTOR_W + SUFFIX_W;
 
@@ -35,10 +35,10 @@ export function useFeedColumns(
 
 		// Keep TIME visually separated from EVENT, while other gaps stay compact.
 		const timeEventGapW = innerWidth >= 120 ? 2 : 1;
-		const gapW = innerWidth >= 200 ? 2 : 1;
-		// Pill rendering adds visual overhead ("• " + padded chip), so reserve
+		const gapW = innerWidth >= 120 ? 2 : 1;
+		// Pill rendering adds visual overhead ("• " + "(label)"), so reserve
 		// a wider TOOL column to avoid truncating labels like "General Purpose".
-		const toolW = Math.min(22, Math.max(10, maxToolLen + 4));
+		const toolW = Math.min(24, Math.max(12, maxToolLen + 7));
 		const resultMaxW =
 			innerWidth >= 240
 				? 48

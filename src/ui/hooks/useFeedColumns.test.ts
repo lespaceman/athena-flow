@@ -30,7 +30,7 @@ describe('useFeedColumns', () => {
 		const {result} = renderHook(() => useFeedColumns(entries, 160));
 
 		expect(result.current.resultW).toBeGreaterThan(0);
-		expect(result.current.gapW).toBe(1);
+		expect(result.current.gapW).toBe(2);
 		expect(result.current.detailsResultGapW).toBeGreaterThanOrEqual(2);
 	});
 

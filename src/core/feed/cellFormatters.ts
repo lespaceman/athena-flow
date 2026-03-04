@@ -39,17 +39,17 @@ const TOOL_PILL_PALETTES: Record<
 > = {
 	safe: {
 		dot: '#38bdf8',
-		bg: '#0f3b5f',
+		bg: '#102a42',
 		fg: '#7dd3fc',
 	},
 	mutating: {
 		dot: '#f59e0b',
-		bg: '#402a06',
+		bg: '#3a2508',
 		fg: '#fbbf24',
 	},
 	neutral: {
 		dot: '#6b7280',
-		bg: '#1f2937',
+		bg: '#1b2533',
 		fg: '#9ca3af',
 	},
 };
@@ -57,29 +57,29 @@ const TOOL_PILL_PALETTES: Record<
 const SUBAGENT_PILL_PALETTES: Record<BuiltInSubagentType, ToolPalette> = {
 	explore: {
 		dot: '#22d3ee',
-		bg: '#083344',
+		bg: '#0b2a36',
 		fg: '#67e8f9',
 	},
 	plan: {
 		dot: '#a78bfa',
-		bg: '#2e1065',
+		bg: '#2a1452',
 		fg: '#c4b5fd',
 	},
 	'general-purpose': {
 		dot: '#34d399',
-		bg: '#064e3b',
+		bg: '#0a4637',
 		fg: '#6ee7b7',
 	},
 	bash: {
 		dot: '#fb923c',
-		bg: '#431407',
+		bg: '#3b1809',
 		fg: '#fdba74',
 	},
 };
 
 const FALLBACK_SUBAGENT_PILL: ToolPalette = {
 	dot: '#93c5fd',
-	bg: '#1e3a5f',
+	bg: '#1a3252',
 	fg: '#bfdbfe',
 };
 
@@ -215,8 +215,8 @@ export function formatActor(
 	}
 	const fitted = fitImpl(actor, contentWidth);
 	if (actorId === 'system') return chalk.dim.hex(theme.textMuted)(fitted);
-	if (actorId === 'user') return chalk.hex(theme.userMessage.text)(fitted);
-	return chalk.hex(theme.text)(fitted);
+	if (actorId === 'user') return chalk.dim.hex(theme.userMessage.text)(fitted);
+	return chalk.dim.hex(theme.text)(fitted);
 }
 
 export function formatTool(
@@ -227,6 +227,7 @@ export function formatTool(
 		pill?: boolean;
 		category?: ToolPillCategory;
 		subagentType?: string;
+		ascii?: boolean;
 	},
 ): string {
 	if (contentWidth <= 0) return '';
@@ -238,22 +239,21 @@ export function formatTool(
 
 	const category = options.category ?? 'neutral';
 	const palette = resolvePillPalette(category, options.subagentType);
-	if (contentWidth < 6) {
+	if (contentWidth < 8) {
 		return chalk.hex(palette.dot)(fitImpl(toolColumn, contentWidth));
 	}
 
-	// Fixed-width pill: all tool rows use the same width within the TOOL column.
-	// Layout: "• " + "[ label ]" + trailing plain padding.
-	// Keeping trailing padding uncolored prevents same-color rows from visually
-	// fusing into one vertical block while preserving column alignment.
-	const pillWidth = contentWidth - 2; // remove dot + spacer
-	const labelWidth = Math.max(1, pillWidth - 2); // inner text between spaces
-	const fitted = fitImpl(toolColumn, labelWidth);
-	const label = fitted.trimEnd();
-	const trailingPad = ' '.repeat(Math.max(0, labelWidth - label.length));
-	const dot = chalk.hex(palette.dot)('\u2022');
-	const pill = chalk.bgHex(palette.bg).hex(palette.fg)(` ${label} `);
-	return `${dot} ${pill}${trailingPad}`;
+	// Fixed-width pill without bracket caps. Keep plain trailing padding so
+	// adjacent rows don't visually fuse into a single vertical block.
+	const maxLabelWidth = Math.max(1, contentWidth - 7); // keep at least 2 plain cols
+	const fitted = fitImpl(toolColumn, maxLabelWidth).trimEnd();
+	const pillLabel = fitted;
+	const visiblePillWidth = 5 + pillLabel.length; // left gap + dot+spacer + padded pill
+	const trailingPad = ' '.repeat(Math.max(0, contentWidth - visiblePillWidth));
+	const toolGlyphs = getGlyphs(options.ascii ?? false);
+	const dot = chalk.hex(palette.dot)(toolGlyphs['tool.bullet']);
+	const pill = chalk.bgHex(palette.bg).hex(palette.fg)(` ${pillLabel} `);
+	return ` ${dot} ${pill}${trailingPad}`;
 }
 
 export function formatResult(
@@ -281,18 +281,12 @@ export function formatResult(
 
 export function formatSuffix(
 	expandable: boolean,
-	expanded: boolean,
+	_expanded: boolean,
 	_ascii: boolean,
-	theme: Theme,
+	_theme: Theme,
 ): string {
 	if (!expandable) return '  ';
-	// Use ASCII glyphs in the far-right suffix column to avoid
-	// font-dependent width anomalies that can corrupt the frame border.
-	const g = getGlyphs(true);
-	if (expanded) {
-		return ' ' + chalk.hex(theme.status.success)(g['feed.expandExpanded']);
-	}
-	return ' ' + chalk.hex(theme.accent)(g['feed.expandCollapsed']);
+	return '  ';
 }
 
 export function buildDetailsPrefix(
