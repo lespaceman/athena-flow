@@ -37,9 +37,7 @@ export default function SessionPicker({
 				setFocusIndex(i => Math.max(i - 1, 0));
 			} else if (key.return) {
 				const session = sessions[focusIndex];
-				if (session) {
-					onSelect(session.sessionId);
-				}
+				if (session) onSelect(session.sessionId);
 			} else if (key.escape) {
 				onCancel();
 			}
