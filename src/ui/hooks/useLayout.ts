@@ -4,7 +4,6 @@ import {type UseTodoPanelResult} from './useTodoPanel';
 
 const HEADER_ROWS = 1;
 const FRAME_BORDER_ROWS = 4;
-const TODO_PANEL_MAX_ROWS = 8;
 const RUN_OVERLAY_MAX_ROWS = 6;
 
 export type UseLayoutOptions = {
@@ -52,22 +51,18 @@ export function useLayout({
 			(inputRows - 1),
 	);
 
-	const todoRowsTarget = todoPanel.todoVisible
-		? Math.min(TODO_PANEL_MAX_ROWS, 2 + todoPanel.visibleTodoItems.length)
-		: 0;
 	const runOverlayRowsTarget = showRunOverlay
 		? Math.min(RUN_OVERLAY_MAX_ROWS, 1 + Math.max(1, runSummaries.length))
 		: 0;
-
-	let remainingRows = bodyHeight;
-	const todoRows = Math.min(todoRowsTarget, Math.max(0, remainingRows - 1));
-	remainingRows -= todoRows;
-	const runOverlayRows = Math.min(
-		runOverlayRowsTarget,
-		Math.max(0, remainingRows - 1),
-	);
-	remainingRows -= runOverlayRows;
-	const baseFeedRows = Math.max(1, remainingRows);
+	const maxRunOverlayRows = Math.max(0, bodyHeight - 1);
+	const runOverlayRows = Math.min(runOverlayRowsTarget, maxRunOverlayRows);
+	const rowsForTodoAndFeed = Math.max(1, bodyHeight - runOverlayRows);
+	const todoRowsTarget = todoPanel.todoVisible
+		? 2 + todoPanel.visibleTodoItems.length
+		: 0;
+	const maxTodoRows = Math.floor(rowsForTodoAndFeed / 2);
+	const todoRows = Math.min(todoRowsTarget, maxTodoRows);
+	const baseFeedRows = Math.max(1, rowsForTodoAndFeed - todoRows);
 	const feedHeaderRows = baseFeedRows > 1 ? 1 : 0;
 	const baseFeedContentRows = Math.max(0, baseFeedRows - feedHeaderRows);
 	const feedContentRows = baseFeedContentRows;

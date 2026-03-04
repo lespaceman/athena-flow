@@ -71,3 +71,17 @@ describe('buildBodyLines — Bug #6: todo hasScrollDown with scroll-up affordanc
 		expect(allText).toMatch(/\+\d+ more/);
 	});
 });
+
+describe('buildBodyLines — tiny todo panel row budget', () => {
+	it('never emits more lines than actualTodoRows when panel is very small', () => {
+		const items = Array.from({length: 6}, (_, i) => makeTodoItem(String(i)));
+		const result = buildTodoOnly(items, 3, 2);
+		expect(result).toHaveLength(3);
+	});
+
+	it('renders only the status header when only one todo row is available', () => {
+		const items = Array.from({length: 3}, (_, i) => makeTodoItem(String(i)));
+		const result = buildTodoOnly(items, 1, 0);
+		expect(result).toHaveLength(1);
+	});
+});

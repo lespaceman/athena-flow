@@ -2,7 +2,6 @@ import {useState, useCallback, useRef} from 'react';
 import {computeInputRows} from '../../shared/utils/format';
 import {parseInput} from '../commands/parser';
 import {type TimelineEntry} from '../../core/feed/timeline';
-import {type UseFeedNavigationResult} from '../../ui/hooks/useFeedNavigation';
 import type {FocusMode, InputMode} from './types';
 
 function deriveInputMode(value: string): InputMode {
@@ -31,7 +30,8 @@ export type UseShellInputOptions = {
 	submitPromptOrSlashCommand: (value: string) => void;
 	filteredEntriesRef: React.RefObject<TimelineEntry[]>;
 	staticHwmRef: React.RefObject<number>;
-	feedNav: Pick<UseFeedNavigationResult, 'setFeedCursor' | 'setTailFollow'>;
+	setFeedCursorRef: React.MutableRefObject<(cursor: number) => void>;
+	setTailFollowRef: React.MutableRefObject<(follow: boolean) => void>;
 	setSearchMatchPos: React.Dispatch<React.SetStateAction<number>>;
 };
 
@@ -53,7 +53,8 @@ export function useShellInput({
 	submitPromptOrSlashCommand,
 	filteredEntriesRef,
 	staticHwmRef,
-	feedNav,
+	setFeedCursorRef,
+	setTailFollowRef,
 	setSearchMatchPos,
 }: UseShellInputOptions): UseShellInputResult {
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
@@ -103,8 +104,8 @@ export function useShellInput({
 							staticHwmRef.current,
 						);
 						if (firstIdx >= 0) {
-							feedNav.setFeedCursor(firstIdx);
-							feedNav.setTailFollow(false);
+							setFeedCursorRef.current(firstIdx);
+							setTailFollowRef.current(false);
 							setSearchMatchPos(0);
 						}
 					}
@@ -126,7 +127,8 @@ export function useShellInput({
 			setSearchQuery,
 			filteredEntriesRef,
 			staticHwmRef,
-			feedNav,
+			setFeedCursorRef,
+			setTailFollowRef,
 			setSearchMatchPos,
 		],
 	);

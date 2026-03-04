@@ -74,68 +74,96 @@ export function buildBodyLines({
 			fitAnsi(`${leadGlyph} ${coloredStatus}${stats}`, innerWidth),
 		);
 
-		const itemSlots = actualTodoRows - 2; // minus header and divider
-		const totalItems = items.length;
-		const hasScrollUp = tScroll > 0;
+		// For ultra-small layouts, render only what fits in the assigned rows.
+		if (actualTodoRows > 1) {
+			const itemSlots = Math.max(0, actualTodoRows - 2); // minus header and divider
+			const totalItems = items.length;
+			const hasScrollUp = tScroll > 0;
 
-		// Two-pass affordance calculation: deduct scroll-up first,
-		// then check scroll-down against the reduced slot count.
-		let renderSlots = itemSlots;
-		if (hasScrollUp) renderSlots--;
-		const hasScrollDown = tScroll + renderSlots < totalItems;
-		if (hasScrollDown) renderSlots--;
+			// Two-pass affordance calculation: deduct scroll-up first,
+			// then check scroll-down against the reduced slot count.
+			let renderSlots = itemSlots;
+			if (hasScrollUp) renderSlots--;
+			const hasScrollDown = tScroll + renderSlots < totalItems;
+			if (hasScrollDown) renderSlots--;
+			renderSlots = Math.max(0, renderSlots);
+			let showScrollUp = hasScrollUp;
+			let showScrollDown = hasScrollDown;
 
-		if (hasScrollUp) {
-			const aboveCount = tScroll;
-			bodyLines.push(fitAnsi(`${g.scrollUp}  +${aboveCount} more`, innerWidth));
-		}
-
-		for (let i = 0; i < renderSlots; i++) {
-			const item = items[tScroll + i];
-			if (!item) {
-				bodyLines.push(fitAnsi('', innerWidth));
-				continue;
+			// Never emit more content rows than `itemSlots`.
+			while (
+				(showScrollUp ? 1 : 0) + (showScrollDown ? 1 : 0) + renderSlots >
+				itemSlots
+			) {
+				if (renderSlots > 0) {
+					renderSlots--;
+					continue;
+				}
+				if (showScrollDown) {
+					showScrollDown = false;
+					continue;
+				}
+				if (showScrollUp) {
+					showScrollUp = false;
+					continue;
+				}
+				break;
 			}
-			const isFocused = todoFocus === 'todo' && tCursor === tScroll + i;
-			const caret = isFocused ? g.caret : ' ';
-			const row = g.styledRow(item);
 
-			const glyphStr = row.glyph;
-			const suffixStr = row.suffix;
-			const elapsedStr = item.elapsed ? row.elapsed(item.elapsed) : '';
-
-			// Layout: [caret] [glyph]  [text...] [suffix] [elapsed]
-			const fixedWidth = 4; // caret + space + glyph + 2 spaces
-			const suffixWidth = suffixStr ? stripAnsi(suffixStr).length + 1 : 0;
-			const elapsedWidth = elapsedStr ? stripAnsi(elapsedStr).length + 1 : 0;
-			const maxTitleWidth = Math.max(
-				1,
-				innerWidth - fixedWidth - suffixWidth - elapsedWidth,
-			);
-			const title = row.text(fitAnsi(item.text, maxTitleWidth).trimEnd());
-
-			let line = `${caret} ${glyphStr}  ${title}`;
-			if (suffixStr) line += ` ${suffixStr}`;
-			if (elapsedStr) {
-				const currentLen = stripAnsi(line).length;
-				const pad = Math.max(
-					1,
-					innerWidth - currentLen - stripAnsi(elapsedStr).length,
+			if (showScrollUp) {
+				const aboveCount = tScroll;
+				bodyLines.push(
+					fitAnsi(`${g.scrollUp}  +${aboveCount} more`, innerWidth),
 				);
-				line += ' '.repeat(pad) + elapsedStr;
 			}
-			bodyLines.push(fitAnsi(line, innerWidth));
-		}
 
-		if (hasScrollDown) {
-			const moreCount = totalItems - (tScroll + renderSlots);
-			bodyLines.push(
-				fitAnsi(`${g.scrollDown}  +${moreCount} more`, innerWidth),
-			);
-		}
+			for (let i = 0; i < renderSlots; i++) {
+				const item = items[tScroll + i];
+				if (!item) {
+					bodyLines.push(fitAnsi('', innerWidth));
+					continue;
+				}
+				const isFocused = todoFocus === 'todo' && tCursor === tScroll + i;
+				const caret = isFocused ? g.caret : ' ';
+				const row = g.styledRow(item);
 
-		// Divider line
-		bodyLines.push(fitAnsi(g.dividerChar.repeat(innerWidth), innerWidth));
+				const glyphStr = row.glyph;
+				const suffixStr = row.suffix;
+				const elapsedStr = item.elapsed ? row.elapsed(item.elapsed) : '';
+
+				// Layout: [caret] [glyph]  [text...] [suffix] [elapsed]
+				const fixedWidth = 4; // caret + space + glyph + 2 spaces
+				const suffixWidth = suffixStr ? stripAnsi(suffixStr).length + 1 : 0;
+				const elapsedWidth = elapsedStr ? stripAnsi(elapsedStr).length + 1 : 0;
+				const maxTitleWidth = Math.max(
+					1,
+					innerWidth - fixedWidth - suffixWidth - elapsedWidth,
+				);
+				const title = row.text(fitAnsi(item.text, maxTitleWidth).trimEnd());
+
+				let line = `${caret} ${glyphStr}  ${title}`;
+				if (suffixStr) line += ` ${suffixStr}`;
+				if (elapsedStr) {
+					const currentLen = stripAnsi(line).length;
+					const pad = Math.max(
+						1,
+						innerWidth - currentLen - stripAnsi(elapsedStr).length,
+					);
+					line += ' '.repeat(pad) + elapsedStr;
+				}
+				bodyLines.push(fitAnsi(line, innerWidth));
+			}
+
+			if (showScrollDown) {
+				const moreCount = totalItems - (tScroll + renderSlots);
+				bodyLines.push(
+					fitAnsi(`${g.scrollDown}  +${moreCount} more`, innerWidth),
+				);
+			}
+
+			// Divider line
+			bodyLines.push(fitAnsi(g.dividerChar.repeat(innerWidth), innerWidth));
+		}
 	}
 
 	if (actualRunOverlayRows > 0) {

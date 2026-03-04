@@ -7,7 +7,7 @@ import React, {
 	useEffect,
 	useMemo,
 } from 'react';
-import {Box, Static, Text, useApp, useInput, useStdout} from 'ink';
+import {Box, Text, useApp, useInput, useStdout} from 'ink';
 import PermissionDialog from '../../ui/components/PermissionDialog';
 import QuestionDialog from '../../ui/components/QuestionDialog';
 import ErrorBoundary from '../../ui/components/ErrorBoundary';
@@ -20,7 +20,6 @@ import {
 	useInputHistory,
 } from '../../ui/hooks/useInputHistory';
 import {useFeedNavigation} from '../../ui/hooks/useFeedNavigation';
-import {useStaticFeed} from '../../ui/hooks/useStaticFeed';
 import {useTodoPanel} from '../../ui/hooks/useTodoPanel';
 import {useFeedKeyboard} from '../../ui/hooks/useFeedKeyboard';
 import {useTodoKeyboard} from '../../ui/hooks/useTodoKeyboard';
@@ -31,8 +30,6 @@ import {usePager} from '../../ui/hooks/usePager';
 import {useFrameChrome} from '../../ui/hooks/useFrameChrome';
 import {buildBodyLines} from '../../ui/layout/buildBodyLines';
 import {FeedGrid} from '../../ui/components/FeedGrid';
-import {formatFeedRowLine} from '../../ui/components/FeedRow';
-import {type TimelineEntry} from '../../core/feed/timeline';
 import {FrameRow} from '../../ui/components/FrameRow';
 import {MultiLineInput} from '../../ui/components/MultiLineInput';
 import {useFeedColumns} from '../../ui/hooks/useFeedColumns';
@@ -91,7 +88,6 @@ type Props = {
 	showSessionPicker?: boolean;
 	workflowRef?: string;
 	workflow?: WorkflowConfig;
-	workflowFlag?: string;
 	pluginFlags?: string[];
 	isolationPreset: IsolationPreset;
 	ascii?: boolean;
@@ -150,7 +146,6 @@ function AppContent({
 	| 'showSessionPicker'
 	| 'showSetup'
 	| 'theme'
-	| 'workflowFlag'
 	| 'pluginFlags'
 	| 'isolationPreset'
 	| 'version'
@@ -300,30 +295,9 @@ function AppContent({
 		}
 	}, [focusMode, todoPanel.todoVisible, todoPanel.visibleTodoItems.length]);
 
-	const estimatedTodoRows = todoPanel.todoVisible
-		? Math.min(8, 2 + todoPanel.visibleTodoItems.length)
-		: 0;
-	const estimatedRunRows = showRunOverlay
-		? Math.min(6, 1 + Math.max(1, runSummaries.length))
-		: 0;
-	// Static scrollback: compute high-water mark from previous render's viewport,
-	// then feed it as a floor constraint into navigation.
 	const staticHwmRef = useRef(0);
-	const feedNav = useFeedNavigation({
-		filteredEntries,
-		feedContentRows: Math.max(
-			1,
-			terminalRows - 10 - estimatedTodoRows - estimatedRunRows,
-		),
-		staticFloor: staticHwmRef.current,
-	});
-
-	const staticHighWaterMark = useStaticFeed({
-		filteredEntries,
-		feedViewportStart: feedNav.feedViewportStart,
-		tailFollow: feedNav.tailFollow,
-	});
-	staticHwmRef.current = staticHighWaterMark;
+	const setFeedCursorRef = useRef<(cursor: number) => void>(() => {});
+	const setTailFollowRef = useRef<(follow: boolean) => void>(() => {});
 
 	const frameWidth = safeTerminalWidth;
 	const innerWidth = frameWidth - 2;
@@ -418,7 +392,8 @@ function AppContent({
 		submitPromptOrSlashCommand,
 		filteredEntriesRef,
 		staticHwmRef,
-		feedNav,
+		setFeedCursorRef,
+		setTailFollowRef,
 		setSearchMatchPos,
 	});
 
@@ -430,6 +405,8 @@ function AppContent({
 	);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const stableGetInputValue = useCallback(() => inputValueRef.current, []);
+	const staticHighWaterMark = 0;
+	staticHwmRef.current = staticHighWaterMark;
 
 	const {
 		frame,
@@ -474,6 +451,13 @@ function AppContent({
 		actualRunOverlayRows,
 		pageStep,
 	} = layout;
+	const feedNav = useFeedNavigation({
+		filteredEntries,
+		feedContentRows: Math.max(1, feedContentRows),
+		staticFloor: 0,
+	});
+	setFeedCursorRef.current = feedNav.setFeedCursor;
+	setTailFollowRef.current = feedNav.setTailFollow;
 
 	const visibleTodoItemsRef = useRef(todoPanel.visibleTodoItems);
 	visibleTodoItemsRef.current = todoPanel.visibleTodoItems;
@@ -542,7 +526,7 @@ function AppContent({
 	}, []);
 
 	const yankAtCursor = useCallback(() => {
-		const entry = filteredEntriesRef.current[feedNav.feedCursor];
+		const entry = filteredEntriesRef.current.at(feedNav.feedCursor);
 		if (!entry) return;
 		const content = extractYankContent(entry);
 		copyToClipboard(content);
@@ -701,27 +685,6 @@ function AppContent({
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 
-	const dynamicEntries = useMemo(
-		() => filteredEntries.slice(staticHighWaterMark),
-		[filteredEntries, staticHighWaterMark],
-	);
-	const adjustedSearchMatchSet = useMemo(() => {
-		if (staticHighWaterMark === 0) return searchMatchSet;
-		const adjusted = new Set<number>();
-		for (const idx of searchMatchSet) {
-			if (idx >= staticHighWaterMark) {
-				adjusted.add(idx - staticHighWaterMark);
-			}
-		}
-		return adjusted;
-	}, [searchMatchSet, staticHighWaterMark]);
-	// Only recompute when HWM advances — Static already rendered previous items.
-	// Using filteredEntriesRef avoids re-slicing on every new event.
-	const staticEntries = useMemo(
-		() => filteredEntriesRef.current.slice(0, staticHighWaterMark),
-		[staticHighWaterMark],
-	);
-
 	const {inputPrefix, badgeText, inputContentWidth, textInputPlaceholder} =
 		useInputLayout({
 			innerWidth,
@@ -739,27 +702,6 @@ function AppContent({
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
-			{staticHighWaterMark > 0 && (
-				<Static items={staticEntries}>
-					{(entry: TimelineEntry) => (
-						<Text key={entry.id}>
-							{frameLine(
-								formatFeedRowLine({
-									entry,
-									cols: feedCols,
-									focused: false,
-									expanded: false,
-									matched: false,
-									isDuplicateActor: entry.duplicateActor,
-									ascii: useAscii,
-									theme,
-									innerWidth,
-								}),
-							)}
-						</Text>
-					)}
-				</Static>
-			)}
 			<Text>{topBorder}</Text>
 			<Text>{frameLine(headerLine1)}</Text>
 			<Text>{sectionBorder}</Text>
@@ -769,11 +711,11 @@ function AppContent({
 			<FeedGrid
 				feedHeaderRows={feedHeaderRows}
 				feedContentRows={feedContentRows}
-				feedViewportStart={feedNav.feedViewportStart - staticHighWaterMark}
-				filteredEntries={dynamicEntries}
-				feedCursor={feedNav.feedCursor - staticHighWaterMark}
+				feedViewportStart={feedNav.feedViewportStart}
+				filteredEntries={filteredEntries}
+				feedCursor={feedNav.feedCursor}
 				focusMode={focusMode}
-				searchMatchSet={adjustedSearchMatchSet}
+				searchMatchSet={searchMatchSet}
 				ascii={useAscii}
 				theme={theme}
 				innerWidth={innerWidth}
@@ -874,7 +816,6 @@ export default function App({
 	showSetup,
 	workflowRef,
 	workflow,
-	workflowFlag,
 	pluginFlags,
 	isolationPreset,
 	ascii,
@@ -988,7 +929,6 @@ export default function App({
 				const refreshed = bootstrapRuntimeConfig({
 					projectDir,
 					showSetup: false,
-					workflowFlag,
 					pluginFlags,
 					isolationPreset,
 					verbose,
@@ -1009,7 +949,7 @@ export default function App({
 			}
 			setPhase({type: 'main'});
 		},
-		[projectDir, workflowFlag, pluginFlags, isolationPreset, verbose],
+		[projectDir, pluginFlags, isolationPreset, verbose],
 	);
 
 	if (phase.type === 'setup') {

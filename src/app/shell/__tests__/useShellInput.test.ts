@@ -31,10 +31,8 @@ function makeOptions(
 		submitPromptOrSlashCommand: vi.fn(),
 		filteredEntriesRef: {current: []},
 		staticHwmRef: {current: 0},
-		feedNav: {
-			setFeedCursor: vi.fn(),
-			setTailFollow: vi.fn(),
-		},
+		setFeedCursorRef: {current: vi.fn()},
+		setTailFollowRef: {current: vi.fn()},
 		setSearchMatchPos: vi.fn(),
 		...overrides,
 	};
@@ -97,7 +95,8 @@ describe('useShellInput', () => {
 		const opts = makeOptions({
 			inputMode: 'search',
 			setSearchQuery,
-			feedNav: {setFeedCursor, setTailFollow},
+			setFeedCursorRef: {current: setFeedCursor},
+			setTailFollowRef: {current: setTailFollow},
 			filteredEntriesRef: {current: entries},
 			setSearchMatchPos,
 		});

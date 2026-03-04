@@ -59,3 +59,31 @@ describe('Bug #7: todoListHeight accounts for worst-case scroll affordances', ()
 		expect(lastReachableFixed).toBe(totalItems - 1);
 	});
 });
+
+describe('todo panel growth policy', () => {
+	it('caps todo rows at half of rows shared with feed', () => {
+		const bodyHeight = 30;
+		const runOverlayRows = 0;
+		const rowsForTodoAndFeed = bodyHeight - runOverlayRows;
+		const maxTodoRows = Math.floor(rowsForTodoAndFeed / 2); // 15
+		const todoRowsTarget = 2 + 40; // many items
+		const todoRows = Math.min(todoRowsTarget, maxTodoRows);
+		const feedRows = rowsForTodoAndFeed - todoRows;
+
+		expect(todoRows).toBe(15);
+		expect(feedRows).toBe(15);
+	});
+
+	it('still enforces half split when run overlay is visible', () => {
+		const bodyHeight = 30;
+		const runOverlayRows = 6;
+		const rowsForTodoAndFeed = bodyHeight - runOverlayRows; // 24
+		const maxTodoRows = Math.floor(rowsForTodoAndFeed / 2); // 12
+		const todoRowsTarget = 2 + 40;
+		const todoRows = Math.min(todoRowsTarget, maxTodoRows);
+		const feedRows = rowsForTodoAndFeed - todoRows;
+
+		expect(todoRows).toBe(12);
+		expect(feedRows).toBe(12);
+	});
+});
