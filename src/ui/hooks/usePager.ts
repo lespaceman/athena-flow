@@ -2,6 +2,8 @@ import process from 'node:process';
 import {useState, useCallback, useRef, useEffect} from 'react';
 import {useInput} from 'ink';
 import chalk from 'chalk';
+import stripAnsi from 'strip-ansi';
+import {copyToClipboard} from '../../shared/utils/clipboard';
 import {
 	renderDetailLines,
 	renderMarkdownToLines,
@@ -64,7 +66,8 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 		const end = Math.min(scroll + contentRows, total);
 		const pos = total > 0 ? `${scroll + 1}-${end}/${total}` : '0/0';
 		process.stdout.write(
-			margin + chalk.dim(`${pos}  ↑/↓ j/k scroll  PgUp/PgDn page  q exit`),
+			margin +
+				chalk.dim(`${pos}  ↑/↓ j/k scroll  PgUp/PgDn page  y copy  q exit`),
 		);
 	}, []);
 
@@ -117,6 +120,24 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 	// Pager keyboard handler: scroll + exit
 	useInput(
 		(input, key) => {
+			if (input === 'y' || input === 'Y') {
+				const content = pagerLinesRef.current
+					.map(line => stripAnsi(line).trimEnd())
+					.join('\n');
+				copyToClipboard(content);
+				// Flash "Copied!" in pager footer
+				const margin = ' '.repeat(PAGER_MARGIN);
+				const rows = process.stdout.rows ?? 24;
+				process.stdout.write(`\x1B[${rows};1H`);
+				process.stdout.write(
+					margin + chalk.bold.green('Copied to clipboard!') + '\x1B[K',
+				);
+				setTimeout(() => {
+					paintPager();
+				}, 1500);
+				return;
+			}
+
 			if (key.escape || input === 'q' || input === 'Q') {
 				pagerLinesRef.current = [];
 				pagerScrollRef.current = 0;

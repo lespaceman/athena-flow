@@ -22,7 +22,16 @@ vi.mock('../../layout/renderDetailLines', () => ({
 }));
 
 vi.mock('chalk', () => ({
-	default: {dim: (s: string) => s},
+	default: {dim: (s: string) => s, bold: {green: (s: string) => s}},
+}));
+
+vi.mock('strip-ansi', () => ({
+	// eslint-disable-next-line no-control-regex
+	default: (s: string) => s.replace(/\x1B\[[^m]*m/g, ''),
+}));
+
+vi.mock('../../../shared/utils/clipboard', () => ({
+	copyToClipboard: vi.fn(),
 }));
 
 import {usePager} from '../usePager';
@@ -174,6 +183,30 @@ describe('usePager', () => {
 		}
 
 		expect(result2.current.pagerActive).toBe(false);
+	});
+
+	it('pressing y copies pager content to clipboard', async () => {
+		const {copyToClipboard} = await import('../../../shared/utils/clipboard');
+		const entries = [
+			makeEntry({expandable: true, feedEvent: {type: 'tool_use'} as never}),
+		];
+		const ref = {current: entries};
+
+		inputHandlers.length = 0;
+		const {result} = renderHook(() =>
+			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+		);
+		act(() => {
+			result.current.handleExpandForPager();
+		});
+
+		const activeHandler = inputHandlers.find(h => h.opts.isActive);
+		if (activeHandler) {
+			act(() => {
+				activeHandler.handler('y', {escape: false});
+			});
+			expect(copyToClipboard).toHaveBeenCalled();
+		}
 	});
 
 	it('expand with cursor beyond entries is a no-op', () => {
