@@ -2,22 +2,33 @@ import {useState} from 'react';
 import {Box, Text, useInput} from 'ink';
 import {type SessionEntry} from '../../shared/types/session';
 import {formatRelativeTime} from '../../shared/utils/formatters';
+import {compactText} from '../../shared/utils/format';
 import {useTheme} from '../theme/index';
 import {startInputMeasure} from '../../shared/utils/perf';
 
 type Props = {
 	sessions: SessionEntry[];
+	loading?: boolean;
 	onSelect: (sessionId: string) => void;
 	onCancel: () => void;
 };
 
 const VISIBLE_COUNT = 15;
 
-export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
+export default function SessionPicker({
+	sessions,
+	loading,
+	onSelect,
+	onCancel,
+}: Props) {
 	const theme = useTheme();
 	const [focusIndex, setFocusIndex] = useState(0);
 
 	useInput((input, key) => {
+		if (loading) {
+			if (key.escape) onCancel();
+			return;
+		}
 		const done = startInputMeasure('session.picker', input, key);
 		try {
 			if (key.downArrow) {
@@ -36,6 +47,19 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 			done();
 		}
 	});
+
+	if (loading) {
+		return (
+			<Box flexDirection="column" padding={1}>
+				<Box marginBottom={1}>
+					<Text bold color={theme.accent}>
+						Sessions
+					</Text>
+				</Box>
+				<Text dimColor>Loading sessions…</Text>
+			</Box>
+		);
+	}
 
 	if (sessions.length === 0) {
 		return (
@@ -68,13 +92,14 @@ export default function SessionPicker({sessions, onSelect, onCancel}: Props) {
 				const branch = session.gitBranch || 'no branch';
 				const time = formatRelativeTime(session.modified);
 				const meta = `${branch} · ${time} · ${session.messageCount} messages`;
+				const title = compactText(session.summary || session.firstPrompt, 60);
 
 				return (
 					<Box key={session.sessionId} flexDirection="column">
 						<Box>
 							<Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
 								{isFocused ? '> ' : '  '}
-								{session.summary || session.firstPrompt}
+								{title}
 							</Text>
 						</Box>
 						<Box paddingLeft={2}>

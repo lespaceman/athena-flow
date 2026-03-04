@@ -174,6 +174,45 @@ describe('SessionPicker', () => {
 		expect(frame).toContain('Select');
 		expect(frame).toContain('Cancel');
 	});
+
+	it('shows loading state when loading prop is true', () => {
+		const {lastFrame} = render(
+			<SessionPicker
+				sessions={[]}
+				loading={true}
+				onSelect={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('Loading sessions');
+		expect(frame).toContain('Sessions');
+	});
+
+	it('truncates long titles with compactText', () => {
+		const longSessions: SessionEntry[] = [
+			{
+				sessionId: 'ddd',
+				summary:
+					'This is an extremely long session summary that should be truncated by compactText utility',
+				firstPrompt: 'long prompt',
+				modified: new Date().toISOString(),
+				created: new Date().toISOString(),
+				gitBranch: '',
+				messageCount: 5,
+			},
+		];
+		const {lastFrame} = render(
+			<SessionPicker
+				sessions={longSessions}
+				onSelect={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('...');
+		expect(frame).not.toContain('compactText utility');
+	});
 });
 
 describe('formatRelativeTime', () => {

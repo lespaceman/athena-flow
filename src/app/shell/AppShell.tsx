@@ -14,6 +14,7 @@ import ErrorBoundary from '../../ui/components/ErrorBoundary';
 import {HookProvider} from '../providers/RuntimeProvider';
 import {useHarnessProcess} from '../process/useHarnessProcess';
 import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
+import {useTerminalTitle} from '../../ui/hooks/useTerminalTitle';
 import {useAppMode} from '../../ui/hooks/useAppMode';
 import {
 	type InputHistory,
@@ -236,6 +237,7 @@ function AppContent({
 	const initialSessionRef = useRef(initialSessionId);
 
 	const metrics = useHeaderMetrics(feedEvents);
+	useTerminalTitle(feedEvents, isHarnessRunning);
 	const appMode = useAppMode(
 		isHarnessRunning,
 		currentPermissionRequest,
@@ -961,20 +963,33 @@ export default function App({
 	const handleShowSetup = useCallback(() => {
 		setPhase({type: 'setup'});
 	}, []);
-	const sessions = useMemo((): SessionEntry[] => {
-		if (phase.type !== 'session-select') return [];
-		// Use athena sessions, mapped to SessionEntry format for the picker
-		const athenaSessions = listSessions(projectDir);
-		return athenaSessions.map(s => ({
-			sessionId: s.id,
-			summary: s.label ?? '',
-			firstPrompt: `Session ${s.id.slice(0, 8)}`,
-			modified: new Date(s.updatedAt).toISOString(),
-			created: new Date(s.createdAt).toISOString(),
-			gitBranch: '',
-			messageCount: s.eventCount ?? s.adapterSessionIds.length,
-		}));
-	}, [projectDir, phase]);
+	const [sessions, setSessions] = useState<SessionEntry[]>([]);
+	const [sessionsLoading, setSessionsLoading] = useState(false);
+
+	useEffect(() => {
+		if (phase.type !== 'session-select') {
+			setSessions([]);
+			return;
+		}
+		setSessionsLoading(true);
+		// Defer heavy DB reads so the picker renders immediately with a spinner.
+		const timer = setTimeout(() => {
+			const athenaSessions = listSessions(projectDir);
+			setSessions(
+				athenaSessions.map(s => ({
+					sessionId: s.id,
+					summary: s.label ?? '',
+					firstPrompt: s.firstPrompt ?? `Session ${s.id.slice(0, 8)}`,
+					modified: new Date(s.updatedAt).toISOString(),
+					created: new Date(s.createdAt).toISOString(),
+					gitBranch: '',
+					messageCount: s.eventCount ?? s.adapterSessionIds.length,
+				})),
+			);
+			setSessionsLoading(false);
+		}, 0);
+		return () => clearTimeout(timer);
+	}, [projectDir, phase.type]);
 
 	const handleSetupComplete = useCallback(
 		(setupResult: import('../../setup/SetupWizard').SetupResult) => {
@@ -1041,6 +1056,7 @@ export default function App({
 				>
 					<SessionPicker
 						sessions={sessions}
+						loading={sessionsLoading}
 						onSelect={handleSessionSelect}
 						onCancel={handleSessionCancel}
 					/>

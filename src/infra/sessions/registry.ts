@@ -47,6 +47,18 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			.prepare('SELECT session_id FROM adapter_sessions ORDER BY started_at')
 			.all() as {session_id: string}[];
 
+		let firstPrompt: string | undefined;
+		if (!row.label) {
+			const promptRow = db
+				.prepare(
+					`SELECT json_extract(payload, '$.data.prompt') as prompt FROM runtime_events WHERE hook_name = 'UserPromptSubmit' ORDER BY seq ASC LIMIT 1`,
+				)
+				.get() as {prompt: string} | undefined;
+			if (promptRow?.prompt) {
+				firstPrompt = promptRow.prompt;
+			}
+		}
+
 		return {
 			id: row.id,
 			projectDir: row.project_dir,
@@ -54,6 +66,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			updatedAt: row.updated_at,
 			label: row.label ?? undefined,
 			eventCount: row.event_count ?? 0,
+			firstPrompt,
 			adapterSessionIds: adapters.map(a => a.session_id),
 		};
 	} catch {

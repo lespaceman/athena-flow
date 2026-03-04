@@ -8,6 +8,7 @@ export type AthenaSession = {
 	updatedAt: number;
 	label?: string;
 	eventCount?: number;
+	firstPrompt?: string;
 	adapterSessionIds: string[];
 };
 
