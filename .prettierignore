@@ -3,3 +3,4 @@ dist
 .athena
 .worktrees
 node_modules
+CHANGELOG.md
