@@ -158,12 +158,12 @@ describe('useFrameChrome', () => {
 	});
 
 	describe('footerRows', () => {
-		it('returns 2 when footerHelp is present', () => {
+		it('returns 3 when footerHelp is present (hints + gap + input base)', () => {
 			// Our mock returns footerHelp when focusMode === 'feed'
 			const {result} = renderHook(() =>
 				useFrameChrome(makeOptions({focusMode: 'feed'})),
 			);
-			expect(result.current.footerRows).toBe(2);
+			expect(result.current.footerRows).toBe(3);
 		});
 
 		it('returns 1 when footerHelp is null', () => {

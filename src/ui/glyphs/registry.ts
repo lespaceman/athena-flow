@@ -57,6 +57,7 @@ export type GlyphKey =
 	// Progress
 	| 'progress.filled'
 	| 'progress.empty'
+	| 'progress.track'
 	// Message
 	| 'message.user'
 	| 'message.agent'
@@ -146,6 +147,7 @@ export const GLYPH_REGISTRY: Record<
 	// Progress
 	'progress.filled': {unicode: '█', ascii: '='},
 	'progress.empty': {unicode: '░', ascii: '-'},
+	'progress.track': {unicode: '█', ascii: '-'},
 
 	// Message
 	'message.user': {unicode: '❯', ascii: '>'},

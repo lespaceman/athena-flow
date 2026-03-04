@@ -31,7 +31,12 @@ type ToolPalette = {
 
 type BuiltInSubagentType = 'explore' | 'plan' | 'general-purpose' | 'bash';
 
-export type ToolPillCategory = 'safe' | 'mutating' | 'neutral' | 'subagent';
+export type ToolPillCategory =
+	| 'safe'
+	| 'mutating'
+	| 'neutral'
+	| 'skill'
+	| 'subagent';
 
 const TOOL_PILL_PALETTES: Record<
 	Exclude<ToolPillCategory, 'subagent'>,
@@ -51,6 +56,11 @@ const TOOL_PILL_PALETTES: Record<
 		dot: '#6b7280',
 		bg: '#1b2533',
 		fg: '#9ca3af',
+	},
+	skill: {
+		dot: '#f472b6',
+		bg: '#3d1229',
+		fg: '#f9a8d4',
 	},
 };
 
@@ -106,7 +116,6 @@ const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
 	'AskUser',
 	'Task',
 	'TaskOut',
-	'Skill',
 ]);
 
 const MUTATING_TOOL_LABELS = new Set([
@@ -132,6 +141,7 @@ const MUTATING_TOOL_LABELS = new Set([
 export function resolveToolPillCategoryForLabel(
 	label: string,
 ): Exclude<ToolPillCategory, 'subagent'> {
+	if (label === 'Skill') return 'skill';
 	if (MUTATING_TOOL_LABELS.has(label)) return 'mutating';
 	if (NON_DESTRUCTIVE_TOOL_LABELS.has(label)) return 'safe';
 	return 'neutral';
@@ -139,7 +149,10 @@ export function resolveToolPillCategoryForLabel(
 
 function normalizeSubagentType(type: string | undefined): string {
 	if (!type) return '';
-	return type.trim().toLowerCase().replace(/[_\s]+/g, '-');
+	return type
+		.trim()
+		.toLowerCase()
+		.replace(/[_\s]+/g, '-');
 }
 
 function resolvePillPalette(
@@ -205,18 +218,15 @@ export function formatActor(
 	duplicate: boolean,
 	contentWidth: number,
 	theme: Theme,
-	actorId: string,
+	_actorId: string,
 ): string {
 	if (contentWidth <= 0) return '';
 	if (duplicate) {
 		// Left-aligned dot matching fit('·', width) behavior in old path
 		const text = fitImpl('\u00B7', contentWidth);
-		return chalk.dim.hex(theme.textMuted)(text);
+		return chalk.hex(theme.textMuted)(text);
 	}
-	const fitted = fitImpl(actor, contentWidth);
-	if (actorId === 'system') return chalk.dim.hex(theme.textMuted)(fitted);
-	if (actorId === 'user') return chalk.dim.hex(theme.userMessage.text)(fitted);
-	return chalk.dim.hex(theme.text)(fitted);
+	return chalk.hex(theme.textMuted)(fitImpl(actor, contentWidth));
 }
 
 export function formatTool(

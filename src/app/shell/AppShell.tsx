@@ -226,8 +226,9 @@ function AppContent({
 	const {stdout} = useStdout();
 	const terminalWidth = stdout.columns;
 	const terminalRows = stdout.rows;
-	// Avoid writing into the terminal's last column, which can trigger
-	// auto-wrap artifacts on some terminals/fonts and break right borders.
+	// Reserve 1 column to prevent terminal auto-wrap: writing the last column
+	// causes many terminals to move the cursor to the next line, consuming an
+	// extra row and breaking the layout.
 	const safeTerminalWidth = Math.max(4, terminalWidth - 1);
 
 	// Hold initialSessionId as intent — consumed on first user prompt submission.
@@ -449,11 +450,18 @@ function AppContent({
 		feedContentRows,
 		actualTodoRows,
 		actualRunOverlayRows,
-		pageStep,
 	} = layout;
+	// FeedGrid subtracts 1 from feedContentRows for the header divider line.
+	// The navigation viewport must match the actual visible data rows.
+	const showFeedHeaderDivider = feedHeaderRows > 0 && feedContentRows > 1;
+	const visibleFeedContentRows = Math.max(
+		1,
+		feedContentRows - (showFeedHeaderDivider ? 1 : 0),
+	);
+	const pageStep = Math.max(1, Math.floor(visibleFeedContentRows / 2));
 	const feedNav = useFeedNavigation({
 		filteredEntries,
-		feedContentRows: Math.max(1, feedContentRows),
+		feedContentRows: visibleFeedContentRows,
 		staticFloor: 0,
 	});
 	setFeedCursorRef.current = feedNav.setFeedCursor;
@@ -757,15 +765,18 @@ function AppContent({
 			/>
 			<Text>{border(sectionBorder)}</Text>
 			{frame.footerHelp !== null && (
-				<Text>
-					{withBorderEdges(
-						frameLine(
-							toastMessage
-								? chalk.bold.green(toastMessage)
-								: fit(frame.footerHelp, innerWidth),
-						),
-					)}
-				</Text>
+				<>
+					<Text>
+						{withBorderEdges(
+							frameLine(
+								toastMessage
+									? chalk.bold.green(toastMessage)
+									: fit(frame.footerHelp, innerWidth),
+							),
+						)}
+					</Text>
+					<Text>{withBorderEdges(frameLine(''))}</Text>
+				</>
 			)}
 			<FrameRow
 				innerWidth={innerWidth}

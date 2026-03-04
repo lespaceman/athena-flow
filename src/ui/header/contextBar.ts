@@ -29,6 +29,10 @@ const DEFAULT_PALETTE: ContextBarPalette = {
 	high: '#f97316',
 };
 
+const MIN_BAR_WIDTH = 7;
+const MEDIUM_THRESHOLD = 0.6;
+const HIGH_THRESHOLD = 0.8;
+
 export function renderContextBar(
 	used: number | null,
 	max: number,
@@ -40,7 +44,9 @@ export function renderContextBar(
 	const usedStr = formatTokenCount(used);
 	const maxStr = formatTokenCount(max);
 	const rawPct =
-		used !== null && max > 0 ? Math.round((Math.max(0, used) / max) * 100) : null;
+		used !== null && max > 0
+			? Math.round((Math.max(0, used) / max) * 100)
+			: null;
 	const pct = rawPct === null ? null : Math.max(0, Math.min(999, rawPct));
 	const label = 'Context';
 	const countText = `${usedStr} / ${maxStr}`;
@@ -49,21 +55,26 @@ export function renderContextBar(
 	const bracketOverhead = hasColor ? 0 : 2;
 	const numbersWidth = 1 + countText.length + pctText.length;
 	const barWidth = Math.max(
-		5,
+		MIN_BAR_WIDTH,
 		width - label.length - 1 - numbersWidth - bracketOverhead,
 	);
 
-	const ratio = used !== null ? Math.min(1, Math.max(0, used / max)) : 0;
+	const ratio =
+		used !== null && max > 0 ? Math.min(1, Math.max(0, used / max)) : 0;
 	const filled = Math.round(ratio * barWidth);
 	const empty = barWidth - filled;
 
 	let bar: string;
 	if (hasColor) {
-		// Terminal UIs cannot set pixel height directly; use a thicker glyph
-		// so the bar visually matches a ~12px loader in common monospace fonts.
-		const filledStr = '▆'.repeat(filled);
-		const emptyStr = '▆'.repeat(empty);
-		const fillColor = ratio > 0.8 ? colors.high : ratio > 0.6 ? colors.medium : colors.low;
+		const pg = progressGlyphs(false);
+		const filledStr = pg.filled.repeat(filled);
+		const emptyStr = pg.track.repeat(empty);
+		const fillColor =
+			ratio > HIGH_THRESHOLD
+				? colors.high
+				: ratio > MEDIUM_THRESHOLD
+					? colors.medium
+					: colors.low;
 		bar = chalk.hex(fillColor)(filledStr) + chalk.hex(colors.track)(emptyStr);
 	} else {
 		const pg = progressGlyphs(true);

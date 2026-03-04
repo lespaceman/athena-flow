@@ -54,4 +54,10 @@ describe('renderContextBar', () => {
 		expect(result).toContain('250k / 200k');
 		expect(result).toContain('125%');
 	});
+
+	it('renders an empty bar when max is non-positive', () => {
+		const result = renderContextBar(1000, 0, 30, false);
+		expect(result).toContain('1k / 0');
+		expect(result).not.toContain('=');
+	});
 });

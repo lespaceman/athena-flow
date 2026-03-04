@@ -57,6 +57,10 @@ describe('resolveToolPillCategoryForLabel', () => {
 		expect(resolveToolPillCategoryForLabel('Find')).toBe('safe');
 	});
 
+	test('classifies Skill as a dedicated skill category', () => {
+		expect(resolveToolPillCategoryForLabel('Skill')).toBe('skill');
+	});
+
 	test('classifies mutating tools as mutating', () => {
 		expect(resolveToolPillCategoryForLabel('Edit')).toBe('mutating');
 		expect(resolveToolPillCategoryForLabel('Write')).toBe('mutating');

@@ -63,7 +63,10 @@ const BUILTIN_SUBAGENT_LABELS: Record<string, string> = {
 };
 
 function normalizeSubagentType(type: string): string {
-	return type.trim().toLowerCase().replace(/[_\s]+/g, '-');
+	return type
+		.trim()
+		.toLowerCase()
+		.replace(/[_\s]+/g, '-');
 }
 
 function canonicalSubagentLabel(type: string): string {
@@ -221,12 +224,15 @@ function lineParts({
 	})();
 	const isToolRow =
 		entry.opTag.startsWith('tool.') || entry.opTag === 'perm.req';
-	const isSubagentRow = entry.opTag === 'sub.start' || entry.opTag === 'sub.stop';
+	const isSubagentRow =
+		entry.opTag === 'sub.start' || entry.opTag === 'sub.stop';
 	const syntheticLabel =
-		entry.toolColumn.length === 0 ? defaultEventPillLabel(entry.opTag) : undefined;
+		entry.toolColumn.length === 0
+			? defaultEventPillLabel(entry.opTag)
+			: undefined;
 	const toolText = isSubagentRow
 		? canonicalSubagentLabel(entry.toolColumn)
-		: (entry.toolColumn || syntheticLabel || '');
+		: entry.toolColumn || syntheticLabel || '';
 	const hasSyntheticPill = syntheticLabel !== undefined;
 	const toolCategory: ToolPillCategory = (() => {
 		if (isSubagentRow) {
@@ -258,16 +264,22 @@ function lineParts({
 		formatEvent(entry.op, 12, theme, entry.opTag),
 		eventOverrideColor,
 	);
-	const actor = cell(
-		formatActor(entry.actor, isDuplicateActor, 10, theme, entry.actorId),
+	const actor = formatActor(
+		entry.actor,
+		isDuplicateActor,
+		10,
+		theme,
+		entry.actorId,
+	);
+	const tool = cell(
+		formatTool(toolText, cols.toolW, theme, {
+			pill: isToolRow || isSubagentRow || hasSyntheticPill,
+			category: toolCategory,
+			subagentType: isSubagentRow ? entry.toolColumn : undefined,
+			ascii,
+		}),
 		rowTextOverrideColor,
 	);
-	const tool = formatTool(toolText, cols.toolW, theme, {
-		pill: isToolRow || isSubagentRow || hasSyntheticPill,
-		category: toolCategory,
-		subagentType: isSubagentRow ? entry.toolColumn : undefined,
-		ascii,
-	});
 
 	const detailSummaryInfo = trimVerbPrefix(entry);
 
@@ -283,11 +295,14 @@ function lineParts({
 		}),
 		focused ? theme.text : theme.textMuted,
 	);
-	const result = formatResult(
-		entry.summaryOutcome,
-		entry.summaryOutcomeZero,
-		cols.resultW,
-		theme,
+	const result = cell(
+		formatResult(
+			entry.summaryOutcome,
+			entry.summaryOutcomeZero,
+			cols.resultW,
+			theme,
+		),
+		rowTextOverrideColor,
 	);
 	return {
 		gutter,
