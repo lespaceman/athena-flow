@@ -58,11 +58,12 @@ export function buildBodyLines({
 		const g = todoGlyphs(todo.ascii, todo.colors);
 
 		const isWorking = todo.appMode === 'working';
-		const idleGlyph = todo.ascii ? '*' : '\u25C7';
+		const idleGlyph = todo.ascii ? '*' : '\u25CF';
 		const rawLeadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
-		const leadGlyph = chalk.hex(theme.status.info)(rawLeadGlyph);
+		const leadColor = isWorking ? theme.status.warning : theme.status.success;
+		const leadGlyph = chalk.hex(leadColor)(rawLeadGlyph);
 		const statusWord = isWorking ? 'WORKING' : 'IDLE';
-		const statusColor = isWorking ? todo.colors?.doing : todo.colors?.default;
+		const statusColor = isWorking ? todo.colors?.doing : theme.status.success;
 		const coloredStatus = statusColor
 			? chalk.hex(statusColor)(statusWord)
 			: statusWord;

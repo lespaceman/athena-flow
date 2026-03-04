@@ -1,7 +1,8 @@
 import chalk from 'chalk';
 import stringWidth from 'string-width';
+import type {Theme} from '../theme/types';
 import type {HeaderModel} from './model';
-import {renderContextBar} from './contextBar';
+import {renderContextBar, type ContextBarPalette} from './contextBar';
 
 export function truncateSessionId(id: string, maxWidth: number): string {
 	if (id.length <= maxWidth) return id;
@@ -17,61 +18,138 @@ export function renderHeaderLines(
 	model: HeaderModel,
 	width: number,
 	hasColor: boolean,
+	theme?: Theme,
 ): [string] {
-	const SEP = '   ';
-	const athena = hasColor ? chalk.bold('ATHENA FLOW') : 'ATHENA FLOW';
-
-	const wfLabel = hasColor ? chalk.dim('Workflow: ') : 'Workflow: ';
-	const hLabel = hasColor ? chalk.dim('Harness: ') : 'Harness: ';
+	const SEP = '  ';
+	const MIN_GAP = 2;
+	const palette = resolveHeaderPalette(theme);
+	const style = (text: string, color: string, bold = false): string => {
+		if (!hasColor) return text;
+		const painter = chalk.hex(color);
+		return bold ? painter.bold(text) : painter(text);
+	};
+	const athena = style('ATHENA FLOW', palette.brand, true);
+	const divider = style('\u2502', palette.divider);
 
 	// Context bar (visual progress)
-	const ctxBarWidth = 20;
+	const ctxBarWidth = Math.max(30, Math.min(46, Math.floor(width * 0.36)));
 	const ctxText = renderContextBar(
 		model.context.used,
 		model.context.max,
 		ctxBarWidth,
 		hasColor,
+		palette.context,
 	);
 
 	// Truncated session ID
 	const sid = truncateSessionId(model.session_id, 8);
-	const sidLabel = hasColor ? chalk.dim('S: ') : 'S: ';
+	const sidLabel = style('S: ', palette.label);
+	const sidValue = style(sid, palette.value);
 	const sidScope =
 		model.session_total > 0
 			? ` (${model.session_index ?? model.session_total}/${model.session_total})`
 			: '';
-	const sidText = `${sidLabel}${sid}${sidScope}`;
+	const sidText = `${sidLabel}${sidValue}${style(sidScope, palette.label)}`;
+	const wfText = `${style('Workflow: ', palette.label)}${style(model.workflow, palette.value)}`;
+	const harnessText = `${style('Harness: ', palette.label)}${style(model.harness, palette.value)}`;
 
 	type Token = {text: string; priority: number};
-	const tokens: Token[] = [
+	const leftTokens: Token[] = [
 		{text: athena, priority: 100},
+		{text: divider, priority: 95},
 		{text: sidText, priority: 90},
-		{text: `${wfLabel}${model.workflow}`, priority: 70},
-		{text: `${hLabel}${model.harness}`, priority: 60},
-		{text: ctxText, priority: 50},
+		{text: wfText, priority: 70},
+		{text: harnessText, priority: 60},
 	];
 
-	function buildLine(ts: Token[]): string {
+	const buildLine = (ts: Token[]): string => {
 		return ts.map(t => t.text).join(SEP);
-	}
+	};
 
-	const current = [...tokens];
-	const totalTarget = width - 1;
+	const currentLeft = [...leftTokens];
+	const totalTarget = Math.max(1, width - 1);
 
-	while (current.length > 1 && stringWidth(buildLine(current)) > totalTarget) {
+	while (
+		currentLeft.length > 1 &&
+		stringWidth(buildLine(currentLeft)) + MIN_GAP + stringWidth(ctxText) > totalTarget
+	) {
 		let minIdx = 1;
-		let minPri = current[1]!.priority;
-		for (let i = 2; i < current.length; i++) {
-			if (current[i]!.priority < minPri) {
-				minPri = current[i]!.priority;
+		let minPri = currentLeft[1]!.priority;
+		for (let i = 2; i < currentLeft.length; i++) {
+			if (currentLeft[i]!.priority < minPri) {
+				minPri = currentLeft[i]!.priority;
 				minIdx = i;
 			}
 		}
-		current.splice(minIdx, 1);
+		currentLeft.splice(minIdx, 1);
 	}
 
-	const line = buildLine(current);
-	const vw = stringWidth(line);
-	const padded = vw < totalTarget ? line + ' '.repeat(totalTarget - vw) : line;
+	const left = buildLine(currentLeft);
+	const usedWidth = stringWidth(left) + stringWidth(ctxText);
+	const gapWidth = Math.max(MIN_GAP, totalTarget - usedWidth);
+	const line = `${left}${' '.repeat(gapWidth)}${ctxText}`;
+	const lineWidth = stringWidth(line);
+	const padded =
+		lineWidth < totalTarget ? line + ' '.repeat(totalTarget - lineWidth) : line;
 	return [padded];
+}
+
+type HeaderPalette = {
+	brand: string;
+	divider: string;
+	label: string;
+	value: string;
+	context: Partial<ContextBarPalette>;
+};
+
+function resolveHeaderPalette(theme?: Theme): HeaderPalette {
+	if (theme?.name === 'light') {
+		return {
+			brand: theme.text,
+			divider: theme.textMuted,
+			label: theme.textMuted,
+			value: theme.status.neutral,
+			context: {
+				label: theme.textMuted,
+				numbers: theme.status.neutral,
+				percent: theme.textMuted,
+				track: '#d0d7de',
+				low: theme.contextBar.low,
+				medium: theme.contextBar.medium,
+				high: theme.contextBar.high,
+			},
+		};
+	}
+	if (theme?.name === 'high-contrast') {
+		return {
+			brand: theme.text,
+			divider: theme.textMuted,
+			label: theme.textMuted,
+			value: theme.status.neutral,
+			context: {
+				label: theme.textMuted,
+				numbers: theme.status.neutral,
+				percent: theme.textMuted,
+				track: '#3d444d',
+				low: theme.contextBar.low,
+				medium: theme.contextBar.medium,
+				high: theme.contextBar.high,
+			},
+		};
+	}
+	return {
+		brand: '#e6edf3',
+		divider: '#30363d',
+		label: '#484f58',
+		value: '#6e7681',
+		context: {
+			label: '#484f58',
+			numbers: '#6e7681',
+			percent: '#484f58',
+			track: '#1e2a38',
+			low: '#3fb950',
+			medium: '#fbbf24',
+			high: '#f97316',
+		},
+	};
 }

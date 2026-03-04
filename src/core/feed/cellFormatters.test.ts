@@ -10,6 +10,7 @@ import {
 	formatActor,
 	formatTool,
 	formatSuffix,
+	resolveToolPillCategoryForLabel,
 	buildDetailsPrefix,
 	layoutTargetAndOutcome,
 	formatDetails,
@@ -35,7 +36,7 @@ describe('opCategoryColor', () => {
 	test('tool.fail returns error color', () => {
 		expect(opCategoryColor('tool.fail', theme)).toBe(theme.status.error);
 	});
-	test('tool.ok returns textMuted', () => {
+	test('tool.ok returns muted color by default', () => {
 		expect(opCategoryColor('tool.ok', theme)).toBe(theme.textMuted);
 	});
 	test('perm.* returns accentSecondary', () => {
@@ -46,6 +47,24 @@ describe('opCategoryColor', () => {
 	});
 	test('unknown returns undefined', () => {
 		expect(opCategoryColor('unknown', theme)).toBeUndefined();
+	});
+});
+
+describe('resolveToolPillCategoryForLabel', () => {
+	test('classifies non-destructive tools as safe', () => {
+		expect(resolveToolPillCategoryForLabel('Read')).toBe('safe');
+		expect(resolveToolPillCategoryForLabel('Grep')).toBe('safe');
+		expect(resolveToolPillCategoryForLabel('Find')).toBe('safe');
+	});
+
+	test('classifies mutating tools as mutating', () => {
+		expect(resolveToolPillCategoryForLabel('Edit')).toBe('mutating');
+		expect(resolveToolPillCategoryForLabel('Write')).toBe('mutating');
+		expect(resolveToolPillCategoryForLabel('Click')).toBe('mutating');
+	});
+
+	test('falls back to neutral for unknown labels', () => {
+		expect(resolveToolPillCategoryForLabel('CustomTool')).toBe('neutral');
 	});
 });
 
@@ -323,6 +342,24 @@ describe('formatDetails', () => {
 			opTag: 'agent.msg',
 		});
 		expect(stripAnsi(r)).toContain('some fallback text');
+	});
+
+	test('normalizes leading ellipsis path prefix in details', () => {
+		const r = formatDetails({
+			segments: [
+				{text: '…/tests/', role: 'target'},
+				{text: 'subscription-list.spec.ts', role: 'filename'},
+			],
+			summary: '…/tests/subscription-list.spec.ts',
+			mode: 'full',
+			contentWidth: 60,
+			theme,
+			opTag: 'tool.ok',
+		});
+		const plain = stripAnsi(r);
+		expect(plain).toContain('/tests/subscription-list.spec.ts');
+		expect(plain).not.toContain('…/');
+		expect(plain).not.toContain('.../');
 	});
 
 	test('outcomeZero gets distinct styling', () => {

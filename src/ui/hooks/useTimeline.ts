@@ -25,21 +25,9 @@ import {
 import {startPerfMeasure} from '../../shared/utils/perf';
 
 function subagentActorLabel(agentType?: string, agentId?: string): string {
-	if (agentType) {
-		const tail = agentType.includes(':')
-			? (agentType.split(':').at(-1) ?? agentType)
-			: agentType;
-		const normalized =
-			tail
-				.replace(/[^a-zA-Z0-9]+/g, '-')
-				.replace(/^-+|-+$/g, '')
-				.toLowerCase() || tail.toLowerCase();
-		return `SA:${compactText(normalized, 7)}`;
-	}
-	if (agentId) {
-		return `SA#${compactText(agentId, 6)}`;
-	}
-	return 'SUB-AGENT';
+	void agentType;
+	void agentId;
+	return 'SUB AGENT';
 }
 
 function buildSubagentTypeMap(feedEvents: FeedEvent[]): Map<string, string> {

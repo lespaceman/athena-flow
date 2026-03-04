@@ -18,9 +18,11 @@ describe('renderHeaderLines', () => {
 	it('renders context bar with progress characters (X1)', () => {
 		const [line] = renderHeaderLines(model, 120, true);
 		const plain = stripAnsi(line);
+		expect(plain).toContain('ATHENA FLOW  │');
 		// Should contain "Context" label and token counts, NOT plain "Ctx:"
 		expect(plain).toContain('Context');
-		expect(plain).toContain('50k/200k');
+		expect(plain).toContain('50k / 200k');
+		expect(plain).toContain('25%');
 		expect(plain).not.toContain('Ctx:');
 		expect(plain).toContain('S: abc123 (2/5)');
 	});
@@ -29,6 +31,14 @@ describe('renderHeaderLines', () => {
 		const [line] = renderHeaderLines(model, 120, false);
 		// ASCII bar uses brackets
 		expect(line).toContain('[');
-		expect(line).toContain('50k/200k');
+		expect(line).toContain('50k / 200k');
+	});
+
+	it('right-aligns context section to the trailing edge', () => {
+		const [line] = renderHeaderLines(model, 120, false);
+		const contextIndex = line.indexOf('Context');
+		const harnessIndex = line.indexOf('Harness: Claude Code');
+		expect(contextIndex).toBeGreaterThan(harnessIndex);
+		expect(line.trimEnd().endsWith('25%')).toBe(true);
 	});
 });

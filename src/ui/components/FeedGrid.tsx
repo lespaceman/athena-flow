@@ -1,5 +1,6 @@
 import React from 'react';
 import {Text} from 'ink';
+import chalk from 'chalk';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
 import {frameGlyphs} from '../glyphs/index';
@@ -37,8 +38,9 @@ function FeedGridImpl({
 	const rows: React.ReactNode[] = [];
 	const fr = frameGlyphs(ascii);
 	const blankLine = spaces(innerWidth);
+	const border = chalk.hex(theme.border).dim;
 	const frameLine = (content: string): string =>
-		`${fr.vertical}${content}${fr.vertical}`;
+		`${border(fr.vertical)}${content}${border(fr.vertical)}`;
 
 	// Header row
 	if (feedHeaderRows > 0) {
@@ -68,8 +70,7 @@ function FeedGridImpl({
 
 	while (feedLinesEmitted < feedContentRows) {
 		const idx = feedViewportStart + entryOffset;
-		const entry = filteredEntries[idx];
-		if (!entry) {
+		if (idx >= filteredEntries.length) {
 			// Pad remaining rows
 			while (feedLinesEmitted < feedContentRows) {
 				rows.push(
@@ -81,6 +82,7 @@ function FeedGridImpl({
 			}
 			break;
 		}
+		const entry = filteredEntries[idx]!;
 
 		const isDuplicateActor = entry.duplicateActor;
 

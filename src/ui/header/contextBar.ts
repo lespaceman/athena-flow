@@ -9,21 +9,48 @@ export function formatTokenCount(value: number | null): string {
 	return `${parseFloat(k.toFixed(1))}k`;
 }
 
+export type ContextBarPalette = {
+	label: string;
+	numbers: string;
+	percent: string;
+	track: string;
+	low: string;
+	medium: string;
+	high: string;
+};
+
+const DEFAULT_PALETTE: ContextBarPalette = {
+	label: '#484f58',
+	numbers: '#6e7681',
+	percent: '#484f58',
+	track: '#1e2a38',
+	low: '#3fb950',
+	medium: '#fbbf24',
+	high: '#f97316',
+};
+
 export function renderContextBar(
 	used: number | null,
 	max: number,
 	width: number,
 	hasColor: boolean,
+	palette?: Partial<ContextBarPalette>,
 ): string {
+	const colors = {...DEFAULT_PALETTE, ...palette};
 	const usedStr = formatTokenCount(used);
 	const maxStr = formatTokenCount(max);
-	const label = 'Context ';
-	const numbers = ` ${usedStr}/${maxStr}`;
+	const rawPct =
+		used !== null && max > 0 ? Math.round((Math.max(0, used) / max) * 100) : null;
+	const pct = rawPct === null ? null : Math.max(0, Math.min(999, rawPct));
+	const label = 'Context';
+	const countText = `${usedStr} / ${maxStr}`;
+	const pctText = pct !== null ? ` · ${pct}%` : '';
 
 	const bracketOverhead = hasColor ? 0 : 2;
+	const numbersWidth = 1 + countText.length + pctText.length;
 	const barWidth = Math.max(
-		6,
-		width - label.length - numbers.length - bracketOverhead,
+		8,
+		width - label.length - 1 - numbersWidth - bracketOverhead,
 	);
 
 	const ratio = used !== null ? Math.min(1, Math.max(0, used / max)) : 0;
@@ -32,13 +59,10 @@ export function renderContextBar(
 
 	let bar: string;
 	if (hasColor) {
-		const pg = progressGlyphs();
-		const filledStr = pg.filled.repeat(filled);
-		const emptyStr = pg.empty.repeat(empty);
-		const pct = used !== null ? used / max : 0;
-		const colorFn =
-			pct > 0.9 ? chalk.red : pct > 0.7 ? chalk.yellow : chalk.green;
-		bar = colorFn(filledStr) + chalk.dim(emptyStr);
+		const filledStr = ' '.repeat(filled);
+		const emptyStr = ' '.repeat(empty);
+		const fillColor = ratio > 0.8 ? colors.high : ratio > 0.6 ? colors.medium : colors.low;
+		bar = chalk.bgHex(fillColor)(filledStr) + chalk.bgHex(colors.track)(emptyStr);
 	} else {
 		const pg = progressGlyphs(true);
 		const filledStr = pg.filled.repeat(filled);
@@ -47,7 +71,10 @@ export function renderContextBar(
 	}
 
 	if (hasColor) {
-		return `${chalk.dim(label)}${bar}${numbers}`;
+		const labelStyled = chalk.hex(colors.label)(label);
+		const countsStyled = chalk.hex(colors.numbers)(` ${countText}`);
+		const pctStyled = pctText ? chalk.hex(colors.percent)(pctText) : '';
+		return `${labelStyled} ${bar}${countsStyled}${pctStyled}`;
 	}
-	return `${label}${bar}${numbers}`;
+	return `${label} ${bar} ${countText}${pctText}`;
 }

@@ -4,12 +4,15 @@ import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
+import {parseToolName} from '../../shared/utils/toolNameParser';
 import {
 	formatGutter,
 	formatTime,
 	formatEvent,
 	formatActor,
 	formatTool,
+	type ToolPillCategory,
+	resolveToolPillCategoryForLabel,
 	formatResult,
 	formatDetails,
 	formatSuffix,
@@ -52,6 +55,34 @@ const detailSummaryCache = new WeakMap<
 >();
 const themeIdCache = new WeakMap<Theme, number>();
 let nextThemeId = 1;
+
+const BUILTIN_SUBAGENT_LABELS: Record<string, string> = {
+	explore: 'Explore',
+	plan: 'Plan',
+	'general-purpose': 'General Purpose',
+	bash: 'Bash',
+};
+
+function normalizeSubagentType(type: string): string {
+	return type.trim().toLowerCase().replace(/[_\s]+/g, '-');
+}
+
+function canonicalSubagentLabel(type: string): string {
+	return BUILTIN_SUBAGENT_LABELS[normalizeSubagentType(type)] ?? type;
+}
+
+function defaultEventPillLabel(opTag: string): string | undefined {
+	switch (opTag) {
+		case 'agent.msg':
+		case 'msg.agent':
+			return 'Agent';
+		case 'msg.user':
+		case 'prompt':
+			return 'User';
+		default:
+			return undefined;
+	}
+}
 
 function getThemeId(theme: Theme): number {
 	const cached = themeIdCache.get(theme);
@@ -157,7 +188,7 @@ function buildLineCacheKey({
 	].join('|');
 }
 
-/** Strip ANSI and re-color when row is focused. */
+/** Optionally strip ANSI and apply a single color override to a cell. */
 function cell(content: string, overrideColor?: string): string {
 	if (!overrideColor) return content;
 	return chalk.hex(overrideColor)(stripAnsi(content));
@@ -183,7 +214,39 @@ function lineParts({
 	suffix: string;
 } {
 	const isUserBorder = entry.opTag === 'prompt' || entry.opTag === 'msg.user';
-	const overrideColor = focused ? theme.text : undefined;
+	const rowTextOverrideColor = focused ? theme.text : undefined;
+	const eventOverrideColor = (() => {
+		if (!focused) return undefined;
+		if (entry.opTag === 'tool.ok') return theme.status.success;
+		if (entry.opTag === 'tool.fail') return theme.status.error;
+		return theme.text;
+	})();
+	const isToolRow =
+		entry.opTag.startsWith('tool.') || entry.opTag === 'perm.req';
+	const isSubagentRow = entry.opTag === 'sub.start' || entry.opTag === 'sub.stop';
+	const syntheticLabel =
+		entry.toolColumn.length === 0 ? defaultEventPillLabel(entry.opTag) : undefined;
+	const toolText = isSubagentRow
+		? canonicalSubagentLabel(entry.toolColumn)
+		: (entry.toolColumn || syntheticLabel || '');
+	const hasSyntheticPill = syntheticLabel !== undefined;
+	const toolCategory: ToolPillCategory = (() => {
+		if (isSubagentRow) {
+			return 'subagent';
+		}
+		if (!isToolRow || !entry.feedEvent) return 'neutral';
+		if (
+			entry.feedEvent.kind === 'tool.pre' ||
+			entry.feedEvent.kind === 'tool.post' ||
+			entry.feedEvent.kind === 'tool.failure' ||
+			entry.feedEvent.kind === 'permission.request'
+		) {
+			const parsed = parseToolName(entry.feedEvent.data.tool_name);
+			const label = parsed.isMcp ? entry.toolColumn : parsed.displayName;
+			return resolveToolPillCategoryForLabel(label);
+		}
+		return resolveToolPillCategoryForLabel(toolText);
+	})();
 
 	const gutter = formatGutter({
 		focused,
@@ -192,19 +255,20 @@ function lineParts({
 		ascii,
 		theme,
 	});
-	const time = cell(formatTime(entry.ts, 5, theme), overrideColor);
+	const time = cell(formatTime(entry.ts, 5, theme), rowTextOverrideColor);
 	const event = cell(
 		formatEvent(entry.op, 12, theme, entry.opTag),
-		overrideColor,
+		eventOverrideColor,
 	);
 	const actor = cell(
 		formatActor(entry.actor, isDuplicateActor, 10, theme, entry.actorId),
-		overrideColor,
+		rowTextOverrideColor,
 	);
-	const tool = cell(
-		formatTool(entry.toolColumn ?? '', cols.toolW, theme),
-		overrideColor,
-	);
+	const tool = formatTool(toolText, cols.toolW, theme, {
+		pill: isToolRow || isSubagentRow || hasSyntheticPill,
+		category: toolCategory,
+		subagentType: isSubagentRow ? entry.toolColumn : undefined,
+	});
 
 	const detailSummaryInfo = trimVerbPrefix(entry);
 
@@ -218,20 +282,17 @@ function lineParts({
 			opTag: entry.opTag,
 			isError: entry.error,
 		}),
-		overrideColor,
+		focused ? theme.text : theme.textMuted,
 	);
-	const result = cell(
-		formatResult(
-			entry.summaryOutcome,
-			entry.summaryOutcomeZero,
-			cols.resultW,
-			theme,
-		),
-		overrideColor,
+	const result = formatResult(
+		entry.summaryOutcome,
+		entry.summaryOutcomeZero,
+		cols.resultW,
+		theme,
 	);
 	const suffix = cell(
 		fitAnsi(formatSuffix(entry.expandable, expanded, ascii, theme), 3),
-		overrideColor,
+		rowTextOverrideColor,
 	);
 
 	return {
@@ -278,14 +339,17 @@ export function formatFeedRowLine({
 
 	line += spaces(gapW) + parts.suffix;
 	const formatted = fitAnsi(line, innerWidth);
-	cachedLines.set(cacheKey, formatted);
+	const focusedFormatted = props.focused
+		? fitAnsi(chalk.bgHex('#1b2a3f')(formatted), innerWidth)
+		: formatted;
+	cachedLines.set(cacheKey, focusedFormatted);
 	if (cachedLines.size > ROW_LINE_CACHE_MAX_VARIANTS) {
 		const oldestKey = cachedLines.keys().next().value;
 		if (oldestKey !== undefined) {
 			cachedLines.delete(oldestKey);
 		}
 	}
-	return formatted;
+	return focusedFormatted;
 }
 
 function FeedRowImpl({

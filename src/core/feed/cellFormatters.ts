@@ -9,7 +9,8 @@ export {fit} from '../../shared/utils/format';
 
 export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
-	if (op === 'tool.ok' || op.startsWith('tool.')) return theme.textMuted;
+	if (op === 'tool.ok') return theme.textMuted;
+	if (op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
 	if (op === 'agent.msg') return theme.status.info;
 	if (
@@ -20,6 +21,139 @@ export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	)
 		return theme.textMuted;
 	return undefined;
+}
+
+type ToolPalette = {
+	dot: string;
+	bg: string;
+	fg: string;
+};
+
+type BuiltInSubagentType = 'explore' | 'plan' | 'general-purpose' | 'bash';
+
+export type ToolPillCategory = 'safe' | 'mutating' | 'neutral' | 'subagent';
+
+const TOOL_PILL_PALETTES: Record<
+	Exclude<ToolPillCategory, 'subagent'>,
+	ToolPalette
+> = {
+	safe: {
+		dot: '#38bdf8',
+		bg: '#0f3b5f',
+		fg: '#7dd3fc',
+	},
+	mutating: {
+		dot: '#f59e0b',
+		bg: '#402a06',
+		fg: '#fbbf24',
+	},
+	neutral: {
+		dot: '#6b7280',
+		bg: '#1f2937',
+		fg: '#9ca3af',
+	},
+};
+
+const SUBAGENT_PILL_PALETTES: Record<BuiltInSubagentType, ToolPalette> = {
+	explore: {
+		dot: '#22d3ee',
+		bg: '#083344',
+		fg: '#67e8f9',
+	},
+	plan: {
+		dot: '#a78bfa',
+		bg: '#2e1065',
+		fg: '#c4b5fd',
+	},
+	'general-purpose': {
+		dot: '#34d399',
+		bg: '#064e3b',
+		fg: '#6ee7b7',
+	},
+	bash: {
+		dot: '#fb923c',
+		bg: '#431407',
+		fg: '#fdba74',
+	},
+};
+
+const FALLBACK_SUBAGENT_PILL: ToolPalette = {
+	dot: '#93c5fd',
+	bg: '#1e3a5f',
+	fg: '#bfdbfe',
+};
+
+const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
+	'Read',
+	'Grep',
+	'Glob',
+	'WebFetch',
+	'WebSearch',
+	'Find',
+	'Inspect',
+	'Screenshot',
+	'Snapshot',
+	'FormScan',
+	'FieldCtx',
+	'ListPages',
+	'Ping',
+	'Resolve',
+	'QueryDocs',
+	'Navigate',
+	'Reload',
+	'Back',
+	'Forward',
+	'AskUser',
+	'Task',
+	'TaskOut',
+	'Skill',
+]);
+
+const MUTATING_TOOL_LABELS = new Set([
+	'Write',
+	'Edit',
+	'Notebook',
+	'Bash',
+	'TodoWrite',
+	'TaskStop',
+	'PlanMode',
+	'Worktree',
+	'Click',
+	'Type',
+	'Press',
+	'Select',
+	'Hover',
+	'Scroll',
+	'ScrollTo',
+	'Close',
+	'ClosePage',
+]);
+
+export function resolveToolPillCategoryForLabel(
+	label: string,
+): Exclude<ToolPillCategory, 'subagent'> {
+	if (MUTATING_TOOL_LABELS.has(label)) return 'mutating';
+	if (NON_DESTRUCTIVE_TOOL_LABELS.has(label)) return 'safe';
+	return 'neutral';
+}
+
+function normalizeSubagentType(type: string | undefined): string {
+	if (!type) return '';
+	return type.trim().toLowerCase().replace(/[_\s]+/g, '-');
+}
+
+function resolvePillPalette(
+	category: ToolPillCategory,
+	subagentType?: string,
+): ToolPalette {
+	if (category === 'subagent') {
+		const normalized = normalizeSubagentType(subagentType);
+		if (normalized in SUBAGENT_PILL_PALETTES) {
+			return SUBAGENT_PILL_PALETTES[normalized as BuiltInSubagentType];
+		}
+		return FALLBACK_SUBAGENT_PILL;
+	}
+	return TOOL_PILL_PALETTES[category];
 }
 
 export type FormatGutterOpts = {
@@ -41,8 +175,7 @@ export function formatGutter(opts: FormatGutterOpts): string {
 		return chalk.hex(theme.accent)(g['feed.searchMatch']);
 	}
 	if (isUserBorder) {
-		const borderColor = theme.userMessage.border ?? theme.accent;
-		return chalk.hex(borderColor)(g['feed.userBorder']);
+		return chalk.hex(theme.userMessage.border)(g['feed.userBorder']);
 	}
 	return ' ';
 }
@@ -90,9 +223,37 @@ export function formatTool(
 	toolColumn: string,
 	contentWidth: number,
 	theme: Theme,
+	options?: {
+		pill?: boolean;
+		category?: ToolPillCategory;
+		subagentType?: string;
+	},
 ): string {
 	if (contentWidth <= 0) return '';
-	return chalk.hex(theme.text)(fitImpl(toolColumn, contentWidth));
+	if (!toolColumn) return fitImpl('', contentWidth);
+
+	if (!options || options.pill !== true) {
+		return chalk.hex(theme.textMuted)(fitImpl(toolColumn, contentWidth));
+	}
+
+	const category = options.category ?? 'neutral';
+	const palette = resolvePillPalette(category, options.subagentType);
+	if (contentWidth < 6) {
+		return chalk.hex(palette.dot)(fitImpl(toolColumn, contentWidth));
+	}
+
+	// Fixed-width pill: all tool rows use the same width within the TOOL column.
+	// Layout: "• " + "[ label ]" + trailing plain padding.
+	// Keeping trailing padding uncolored prevents same-color rows from visually
+	// fusing into one vertical block while preserving column alignment.
+	const pillWidth = contentWidth - 2; // remove dot + spacer
+	const labelWidth = Math.max(1, pillWidth - 2); // inner text between spaces
+	const fitted = fitImpl(toolColumn, labelWidth);
+	const label = fitted.trimEnd();
+	const trailingPad = ' '.repeat(Math.max(0, labelWidth - label.length));
+	const dot = chalk.hex(palette.dot)('\u2022');
+	const pill = chalk.bgHex(palette.bg).hex(palette.fg)(` ${label} `);
+	return `${dot} ${pill}${trailingPad}`;
 }
 
 export function formatResult(
@@ -103,9 +264,19 @@ export function formatResult(
 ): string {
 	if (contentWidth <= 0) return '';
 	if (!outcome) return fitImpl('', contentWidth);
-	const fitted = fitImpl(outcome, contentWidth);
+
+	const label = outcome.trim();
+	const badgeLen = label.length + 2; // surrounding spaces
+	if (badgeLen <= contentWidth) {
+		const badge = outcomeZero
+			? chalk.bgHex('#4a3a0c').hex('#fde047')(` ${label} `)
+			: chalk.bgHex('#10321d').hex('#3fb950')(` ${label} `);
+		return badge + ' '.repeat(contentWidth - badgeLen);
+	}
+
+	const fitted = fitImpl(label, contentWidth);
 	if (outcomeZero) return chalk.hex(theme.status.warning)(fitted);
-	return chalk.hex(theme.textMuted)(fitted);
+	return chalk.hex(theme.status.success)(fitted);
 }
 
 export function formatSuffix(
@@ -186,8 +357,10 @@ function renderSegments(
 	isError: boolean,
 ): string {
 	if (width <= 0) return '';
+	const normalizePathPrefix = (text: string): string =>
+		text.replace(/(^|\s)(?:\u2026\/|\.{3}\/)/g, '$1/');
 	if (segments.length === 0) {
-		return fitImpl(summary, width);
+		return fitImpl(normalizePathPrefix(summary), width);
 	}
 
 	const isAgentMsg = opTag === 'agent.msg';
@@ -215,8 +388,11 @@ function renderSegments(
 	for (const seg of segments) {
 		if (usedWidth >= width) break;
 		const remaining = width - usedWidth;
+		const normalizedText = normalizePathPrefix(seg.text);
 		const text =
-			seg.text.length > remaining ? seg.text.slice(0, remaining) : seg.text;
+			normalizedText.length > remaining
+				? normalizedText.slice(0, remaining)
+				: normalizedText;
 		result += chalk.hex(roleColor(seg.role))(text);
 		usedWidth += text.length;
 	}

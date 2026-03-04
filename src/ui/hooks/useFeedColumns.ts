@@ -27,7 +27,7 @@ export function useFeedColumns(
 		let maxToolLen = 0;
 		let maxResultLen = 0;
 		for (const e of entries) {
-			const len = (e.toolColumn ?? '').length;
+			const len = e.toolColumn.length;
 			if (len > maxToolLen) maxToolLen = len;
 			const outcomeLen = (e.summaryOutcome ?? '').length;
 			if (outcomeLen > maxResultLen) maxResultLen = outcomeLen;
@@ -36,7 +36,9 @@ export function useFeedColumns(
 		// Keep TIME visually separated from EVENT, while other gaps stay compact.
 		const timeEventGapW = innerWidth >= 120 ? 2 : 1;
 		const gapW = innerWidth >= 200 ? 2 : 1;
-		const toolW = Math.min(16, Math.max(8, maxToolLen));
+		// Pill rendering adds visual overhead ("• " + padded chip), so reserve
+		// a wider TOOL column to avoid truncating labels like "General Purpose".
+		const toolW = Math.min(22, Math.max(10, maxToolLen + 4));
 		const resultMaxW =
 			innerWidth >= 240
 				? 48

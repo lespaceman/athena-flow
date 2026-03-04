@@ -621,7 +621,7 @@ function AppContent({
 			sessionTotal: sessionScope.total,
 			harness,
 		});
-		return renderHeaderLines(headerModel, innerWidth, hasColor)[0];
+		return renderHeaderLines(headerModel, innerWidth, hasColor, theme)[0];
 	}, [
 		session,
 		sessionId,
@@ -640,6 +640,7 @@ function AppContent({
 		harness,
 		innerWidth,
 		hasColor,
+		theme,
 	]);
 
 	const prefixBodyLines = useMemo(
@@ -695,6 +696,23 @@ function AppContent({
 			dialogType: appMode.type,
 		});
 	inputContentWidthRef.current = inputContentWidth;
+	const border = useMemo(() => chalk.hex(theme.border).dim, [theme.border]);
+	const runBadgeStyled = isHarnessRunning
+		? chalk.bgHex('#4a3a0c').hex('#fbbf24')(' RUN ')
+		: chalk.bgHex('#10321d').hex('#3fb950')(' IDLE ');
+	const searchBadgeStyled =
+		inputMode === 'search'
+			? chalk.bgHex('#1b2a3f').hex(theme.accent)(' SEARCH ')
+			: '';
+	const withBorderEdges = useCallback(
+		(line: string): string => {
+			if (line.length < 2) return line;
+			const first = line.charAt(0);
+			const last = line.charAt(line.length - 1);
+			return `${border(first)}${line.slice(1, -1)}${border(last)}`;
+		},
+		[border],
+	);
 
 	if (pagerActive) {
 		return <Box />;
@@ -702,11 +720,11 @@ function AppContent({
 
 	return (
 		<Box flexDirection="column" width={frameWidth}>
-			<Text>{topBorder}</Text>
-			<Text>{frameLine(headerLine1)}</Text>
-			<Text>{sectionBorder}</Text>
+			<Text>{border(topBorder)}</Text>
+			<Text>{withBorderEdges(frameLine(headerLine1))}</Text>
+			<Text>{border(sectionBorder)}</Text>
 			{prefixBodyLines.map((line, index) => (
-				<Text key={`body-${index}`}>{frameLine(line)}</Text>
+				<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
 			))}
 			<FeedGrid
 				feedHeaderRows={feedHeaderRows}
@@ -721,17 +739,24 @@ function AppContent({
 				innerWidth={innerWidth}
 				cols={feedCols}
 			/>
-			<Text>{sectionBorder}</Text>
+			<Text>{border(sectionBorder)}</Text>
 			{frame.footerHelp !== null && (
 				<Text>
-					{frameLine(
-						toastMessage
-							? chalk.bold.green(toastMessage)
-							: fit(frame.footerHelp, innerWidth),
+					{withBorderEdges(
+						frameLine(
+							toastMessage
+								? chalk.bold.green(toastMessage)
+								: fit(frame.footerHelp, innerWidth),
+						),
 					)}
 				</Text>
 			)}
-			<FrameRow innerWidth={innerWidth} ascii={useAscii} height={inputRows}>
+			<FrameRow
+				innerWidth={innerWidth}
+				ascii={useAscii}
+				borderColor={theme.border}
+				height={inputRows}
+			>
 				<Box width={inputPrefix.length} flexShrink={0}>
 					<Text color={theme.inputPrompt}>{inputPrefix}</Text>
 				</Box>
@@ -748,10 +773,10 @@ function AppContent({
 					/>
 				</Box>
 				<Box width={badgeText.length} flexShrink={0}>
-					<Text>{badgeText}</Text>
+					<Text>{runBadgeStyled + searchBadgeStyled}</Text>
 				</Box>
 			</FrameRow>
-			<Text>{bottomBorder}</Text>
+			<Text>{border(bottomBorder)}</Text>
 			{appMode.type === 'permission' && currentPermissionRequest && (
 				<ErrorBoundary
 					fallback={
