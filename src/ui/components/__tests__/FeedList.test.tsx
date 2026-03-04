@@ -104,7 +104,7 @@ describe('FeedList', () => {
 		expect(lastFrame()).toContain('▾');
 	});
 
-	it('does not show cursor indicator on non-expandable rows', () => {
+	it('shows cursor indicator on focused rows (all feed events are expandable)', () => {
 		const events = [stubFeedEvent('E1', 'tool.post', 'ok')];
 		const {lastFrame} = render(
 			<FeedList
@@ -114,6 +114,6 @@ describe('FeedList', () => {
 				dialogActive={false}
 			/>,
 		);
-		expect(lastFrame()).not.toContain('›');
+		expect(lastFrame()).toContain('›');
 	});
 });

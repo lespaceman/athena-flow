@@ -71,7 +71,8 @@ export function renderHeaderLines(
 
 	while (
 		currentLeft.length > 1 &&
-		stringWidth(buildLine(currentLeft)) + MIN_GAP + stringWidth(ctxText) > totalTarget
+		stringWidth(buildLine(currentLeft)) + MIN_GAP + stringWidth(ctxText) >
+			totalTarget
 	) {
 		let minIdx = 1;
 		let minPri = currentLeft[1]!.priority;

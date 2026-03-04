@@ -1,11 +1,9 @@
 import type {TimelineEntry} from '../../core/feed/timeline';
-import type {FeedEvent} from '../../core/feed/types';
 import {
 	renderDetailLines,
 	renderMarkdownToLines,
 } from '../layout/renderDetailLines';
 import stripAnsi from 'strip-ansi';
-import {parseToolName} from '../../shared/utils/toolNameParser';
 
 /**
  * Extract copyable rich detail content from a timeline entry.
@@ -26,36 +24,5 @@ function renderYankLines(entry: TimelineEntry, width: number): string[] {
 		return renderMarkdownToLines(entry.details || entry.summary, width);
 	}
 
-	if (
-		isToolRequestEvent(event) &&
-		entry.pairedPostEvent &&
-		isToolTerminalEvent(entry.pairedPostEvent)
-	) {
-		// Built-in merged detail views hide request payload when a response exists.
-		// For yank, preserve request+response for built-ins while avoiding duplicated
-		// request/header blocks for MCP tools.
-		if (parseToolName(event.data.tool_name).isMcp) {
-			return renderDetailLines(event, width, entry.pairedPostEvent).lines;
-		}
-		const requestLines = renderDetailLines(event, width).lines;
-		const responseLines = renderDetailLines(entry.pairedPostEvent, width).lines;
-		return [...requestLines, '', ...responseLines];
-	}
-
 	return renderDetailLines(event, width, entry.pairedPostEvent).lines;
-}
-
-function isToolRequestEvent(
-	event: FeedEvent,
-): event is Extract<
-	FeedEvent,
-	{kind: 'tool.pre'} | {kind: 'permission.request'}
-> {
-	return event.kind === 'tool.pre' || event.kind === 'permission.request';
-}
-
-function isToolTerminalEvent(
-	event: FeedEvent,
-): event is Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}> {
-	return event.kind === 'tool.post' || event.kind === 'tool.failure';
 }

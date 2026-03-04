@@ -84,10 +84,10 @@ export function useInputLayout(opts: {
 	}, [
 		innerWidth,
 		inputMode,
-			isHarnessRunning,
-			lastRunStatus,
-			dialogActive,
-			dialogType,
-			ascii,
-		]);
+		isHarnessRunning,
+		lastRunStatus,
+		dialogActive,
+		dialogType,
+		ascii,
+	]);
 }

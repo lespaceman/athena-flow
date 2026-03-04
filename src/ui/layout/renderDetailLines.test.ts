@@ -185,9 +185,10 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(event, 80);
 		const text = result.lines.join('\n');
-		expect(text).toContain('Namespace: mcp');
-		expect(text).toContain('Server:    agent-web-interface');
-		expect(text).toContain('Action:    scroll_element_into_view');
+		expect(text).toContain('Tool Call');
+		expect(text).toContain('agent-web-interface');
+		expect(text).toContain('Session ID: S1');
+		expect(text).toContain('Event ID: E1');
 	});
 
 	it('shows standard header for built-in tool.pre', () => {
@@ -216,11 +217,13 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(event, 80);
 		const text = result.lines.join('\n');
-		expect(text).toContain('Server:    agent-web-interface');
-		expect(text).toContain('Action:    navigate');
+		expect(text).toContain('Tool Result');
+		expect(text).toContain('agent-web-interface');
+		expect(text).toContain('Request');
+		expect(text).toContain('Response');
 	});
 
-	it('hides request payload for merged built-in tool details', () => {
+	it('shows request and response sections for merged built-in tool details', () => {
 		const pre = makeEvent({
 			kind: 'tool.pre',
 			data: {
@@ -240,11 +243,10 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(pre, 80, post);
 		const text = result.lines.join('\n');
-		expect(text).not.toContain('Request');
-		expect(text).not.toContain('Response');
-		expect(text).not.toContain('Tool: Read');
-		expect(text).not.toContain('file_path');
-		expect(text).not.toContain('────────');
+		expect(text).toContain('Request');
+		expect(text).toContain('Response');
+		expect(text).toContain('file_path');
+		expect(text).toContain('const x = 1;');
 	});
 
 	it('keeps request payload for merged MCP tool details', () => {
@@ -269,10 +271,11 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(pre, 80, post);
 		const text = result.lines.join('\n');
-		expect(text).toContain('Namespace: mcp');
+		expect(text).toContain('Tool Result');
+		expect(text).toContain('agent-web-interface');
 		expect(text).toContain('"kind"');
 		expect(text).toContain('"button"');
-		expect(text).toContain('────────');
+		expect(text).toContain('Response');
 	});
 
 	it('hides request payload for merged built-in Bash tool details', () => {
@@ -295,8 +298,114 @@ describe('renderDetailLines', () => {
 		});
 		const result = renderDetailLines(pre, 80, post);
 		const text = result.lines.join('\n');
-		expect(text).not.toContain('"command"');
+		expect(text).toContain('"command"');
 		expect(text).toContain('hello world');
+	});
+
+	it('hides request section for merged Write tool details', () => {
+		const pre = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Write',
+				tool_input: {
+					file_path: '/tmp/out.md',
+					content: '# Title\n\nlong body',
+				},
+				tool_use_id: 'write-1',
+			},
+		});
+		const post = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name: 'Write',
+				tool_input: {
+					file_path: '/tmp/out.md',
+					content: '# Title\n\nlong body',
+				},
+				tool_response: 'File created successfully',
+				tool_use_id: 'write-1',
+			},
+		});
+		const result = renderDetailLines(pre, 80, post);
+		const text = stripAnsi(result.lines.join('\n'));
+		expect(text).not.toContain('\nRequest\n');
+		expect(text).toContain('Response');
+		expect(text).toContain('File created successfully');
+	});
+
+	it('hides request section for merged Edit tool details and keeps diff', () => {
+		const pre = makeEvent({
+			kind: 'tool.pre',
+			data: {
+				tool_name: 'Edit',
+				tool_input: {
+					file_path: '/tmp/out.ts',
+					old_string: 'foo',
+					new_string: 'bar',
+				},
+				tool_use_id: 'edit-1',
+			},
+		});
+		const post = makeEvent({
+			kind: 'tool.post',
+			data: {
+				tool_name: 'Edit',
+				tool_input: {
+					file_path: '/tmp/out.ts',
+					old_string: 'foo',
+					new_string: 'bar',
+				},
+				tool_response: {success: true},
+				tool_use_id: 'edit-1',
+			},
+		});
+		const result = renderDetailLines(pre, 80, post);
+		const text = stripAnsi(result.lines.join('\n'));
+		expect(text).not.toContain('\nRequest\n');
+		expect(text).toContain('Response');
+		expect(text).toContain('- foo');
+		expect(text).toContain('+ bar');
+	});
+
+	it('renders subagent prompt and response as markdown sections', () => {
+		const stop = makeEvent({
+			kind: 'subagent.stop',
+			data: {
+				agent_id: 'sa-77',
+				agent_type: 'Explore',
+				stop_hook_active: false,
+				description: 'Investigate **failed** tests',
+				last_assistant_message: '- fixed flaky selector\n- updated test waits',
+			},
+		});
+		const result = renderDetailLines(stop, 100);
+		const text = stripAnsi(result.lines.join('\n'));
+		expect(text).toContain('Subagent Stop · Explore');
+		expect(text).toContain('Prompt');
+		expect(text).toContain('Response');
+		expect(text).toContain('Investigate failed tests');
+		expect(text).toContain('fixed flaky selector');
+	});
+
+	it('shows full IDs in detail header without truncation', () => {
+		const event = makeEvent({
+			event_id: 'evt_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+			session_id: 'sess_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+			run_id: 'run_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+			kind: 'user.prompt',
+			data: {prompt: 'hello'},
+		});
+		const result = renderDetailLines(event, 120);
+		const text = stripAnsi(result.lines.join('\n'));
+		expect(text).toContain(
+			'Event ID: evt_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+		);
+		expect(text).toContain(
+			'Session ID: sess_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+		);
+		expect(text).toContain(
+			'Run ID: run_very_long_id_abcdefghijklmnopqrstuvwxyz_0123456789',
+		);
 	});
 
 	it('splits multiline tool.failure error into individual lines', () => {

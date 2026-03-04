@@ -89,16 +89,27 @@ export default function SessionPicker({
 			{visible.map((session, vi) => {
 				const realIndex = scrollStart + vi;
 				const isFocused = realIndex === focusIndex;
-				const branch = session.gitBranch || 'no branch';
+
+				const shortId = session.sessionId.slice(0, 8);
+				const hasBranch =
+					session.gitBranch && session.gitBranch !== 'no branch';
+				const branch = hasBranch ? ` · ⎇ ${session.gitBranch}` : '';
 				const time = formatRelativeTime(session.modified);
-				const meta = `${branch} · ${time} · ${session.messageCount} messages`;
-				const title = compactText(session.summary || session.firstPrompt, 60);
+				const msgs =
+					session.messageCount > 0
+						? ` · ≡ ${session.messageCount} messages`
+						: ' · 0 messages';
+				const meta = `${shortId}${branch} · ${time}${msgs}`;
+
+				const titleRaw =
+					session.summary || session.firstPrompt || `Session ${shortId}`;
+				const title = compactText(titleRaw.replace(/\n/g, ' ').trim(), 60);
 
 				return (
-					<Box key={session.sessionId} flexDirection="column">
+					<Box key={session.sessionId} flexDirection="column" marginBottom={1}>
 						<Box>
 							<Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
-								{isFocused ? '> ' : '  '}
+								{isFocused ? '❯ ' : '  '}
 								{title}
 							</Text>
 						</Box>
@@ -110,7 +121,7 @@ export default function SessionPicker({
 			})}
 
 			<Box marginTop={1}>
-				<Text dimColor>up/down Navigate Enter Select Esc Cancel</Text>
+				<Text dimColor>↑/↓ Navigate · Enter Select · Esc Cancel</Text>
 			</Box>
 		</Box>
 	);

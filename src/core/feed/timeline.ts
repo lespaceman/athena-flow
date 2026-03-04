@@ -522,16 +522,8 @@ export function isEventError(event: FeedEvent): boolean {
 }
 
 export function isEventExpandable(event: FeedEvent): boolean {
-	return (
-		event.kind === 'tool.pre' ||
-		event.kind === 'tool.post' ||
-		event.kind === 'tool.failure' ||
-		event.kind === 'permission.request' ||
-		event.kind === 'subagent.stop' ||
-		event.kind === 'run.end' ||
-		event.kind === 'notification' ||
-		event.kind === 'agent.message'
-	);
+	void event;
+	return true;
 }
 
 export function deriveRunTitle(

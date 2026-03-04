@@ -11,6 +11,21 @@ import OptionList from './OptionList';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+async function waitForFrameContains(
+	lastFrame: () => string | undefined,
+	needle: string,
+	timeoutMs = 400,
+): Promise<void> {
+	const intervalMs = 25;
+	for (let waited = 0; waited <= timeoutMs; waited += intervalMs) {
+		if ((lastFrame() ?? '').includes(needle)) {
+			return;
+		}
+		await delay(intervalMs);
+	}
+	throw new Error(`Timed out waiting for frame to include: ${needle}`);
+}
+
 const options = [
 	{
 		label: 'Concise & minimal',
@@ -106,11 +121,11 @@ describe('OptionList', () => {
 
 	it('calls onSelect with correct value after navigating', async () => {
 		const onSelect = vi.fn();
-		const {stdin} = render(
+		const {lastFrame, stdin} = render(
 			<OptionList options={options} onSelect={onSelect} />,
 		);
 		stdin.write('\x1B[B');
-		await delay(50);
+		await waitForFrameContains(lastFrame, 'Long names, many comments');
 		stdin.write('\r');
 		expect(onSelect).toHaveBeenCalledWith('verbose');
 	});

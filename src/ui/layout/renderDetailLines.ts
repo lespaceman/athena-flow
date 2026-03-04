@@ -4,11 +4,13 @@ import {
 	parseToolName,
 	extractFriendlyServerName,
 } from '../../shared/utils/toolNameParser';
+import {resolveToolColumn} from '../../core/feed/toolDisplay';
 import {highlight} from 'cli-highlight';
 import chalk from 'chalk';
 import {createMarkedInstance} from '../../shared/utils/markedFactory';
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
+import {actorLabel, formatClock} from '../../shared/utils/format';
 
 export type DetailRenderResult = {
 	lines: string[];
@@ -16,6 +18,13 @@ export type DetailRenderResult = {
 };
 
 const MAX_HIGHLIGHT_SIZE = 50_000;
+const DETAIL_TITLE_COLOR = '#c9d1d9';
+const DETAIL_META_COLOR = '#8b949e';
+const REQUEST_HIDDEN_WHEN_RESPONSE_TOOLS = new Set([
+	'Write',
+	'Edit',
+	'NotebookEdit',
+]);
 
 function wrapAnsiLine(line: string, maxWidth: number): string[] {
 	if (maxWidth <= 0) return [''];
@@ -95,39 +104,15 @@ function renderList(
 	);
 }
 
-function buildToolHeader(toolName: string): string[] {
-	const parsed = parseToolName(toolName);
-	if (!parsed.isMcp || !parsed.mcpServer || !parsed.mcpAction) {
-		return [];
-	}
-	const friendlyServer = extractFriendlyServerName(parsed.mcpServer);
-	const divider = '─'.repeat(40);
-	return [
-		chalk.bold.cyan('Tool'),
-		chalk.dim(divider),
-		`Namespace: ${chalk.cyan('mcp')}`,
-		`Server:    ${chalk.cyan(friendlyServer)}`,
-		`Action:    ${chalk.cyan(parsed.mcpAction)}`,
-	];
-}
-
 type ToolSection = {
 	lines: string[];
 	showLineNumbers: boolean;
 };
 
-function shouldShowRequestPayload(
-	toolName: string,
-	hasResponse: boolean,
-): boolean {
-	const parsed = parseToolName(toolName);
-	if (parsed.isMcp) return true;
-	if (!hasResponse) return true;
-	return false;
-}
-
 function sectionDivider(width: number): string {
-	return chalk.dim('─'.repeat(Math.min(40, Math.max(8, width - 2))));
+	return chalk.hex(DETAIL_META_COLOR)(
+		'─'.repeat(Math.min(40, Math.max(8, width - 2))),
+	);
 }
 
 function renderToolRequestSection(
@@ -136,6 +121,15 @@ function renderToolRequestSection(
 ): ToolSection {
 	const json = JSON.stringify(toolInput, null, 2);
 	return {lines: highlightCode(json, width, 'json'), showLineNumbers: true};
+}
+
+function shouldShowToolRequestSection(
+	toolName: string,
+	hasResponse: boolean,
+): boolean {
+	if (!hasResponse) return true;
+	const parsed = parseToolName(toolName);
+	return !REQUEST_HIDDEN_WHEN_RESPONSE_TOOLS.has(parsed.displayName);
 }
 
 function renderToolResponseSection(
@@ -183,33 +177,230 @@ function renderToolResponseSection(
 	}
 }
 
-function composeToolDetailView(
-	toolName: string,
+type DetailSection = {
+	title: string;
+	lines: string[];
+	showLineNumbers: boolean;
+};
+
+function detailKindLabel(
+	event: FeedEvent,
+	pairedPostEvent?: FeedEvent,
+): string {
+	if (event.kind === 'tool.pre' && pairedPostEvent) {
+		if (pairedPostEvent.kind === 'tool.failure') return 'Tool Failure';
+		if (pairedPostEvent.kind === 'tool.post') return 'Tool Result';
+	}
+	switch (event.kind) {
+		case 'agent.message':
+			return event.data.scope === 'subagent'
+				? 'Subagent Response'
+				: 'Agent Response';
+		case 'user.prompt':
+			return 'User Prompt';
+		case 'tool.pre':
+			return 'Tool Call';
+		case 'tool.post':
+			return 'Tool Result';
+		case 'tool.failure':
+			return 'Tool Failure';
+		case 'permission.request':
+			return 'Permission Request';
+		case 'permission.decision':
+			return 'Permission Decision';
+		case 'subagent.start':
+			return 'Subagent Start';
+		case 'subagent.stop':
+			return 'Subagent Stop';
+		case 'run.start':
+			return 'Run Start';
+		case 'run.end':
+			return 'Run End';
+		case 'stop.request':
+			return 'Stop Request';
+		case 'stop.decision':
+			return 'Stop Decision';
+		case 'session.start':
+			return 'Session Start';
+		case 'session.end':
+			return 'Session End';
+		case 'notification':
+			return 'Notification';
+		case 'compact.pre':
+			return 'Compaction';
+		case 'setup':
+			return 'Setup';
+		case 'unknown.hook':
+			return 'Hook Event';
+		case 'todo.add':
+			return 'Todo Added';
+		case 'todo.update':
+			return 'Todo Updated';
+		case 'todo.done':
+			return 'Todo Completed';
+		case 'teammate.idle':
+			return 'Teammate Idle';
+		case 'task.completed':
+			return 'Task Completed';
+		case 'config.change':
+			return 'Config Change';
+		default:
+			return 'Event';
+	}
+}
+
+function toolSubject(toolName: string): string {
+	const parsed = parseToolName(toolName);
+	const display = resolveToolColumn(toolName);
+	if (parsed.isMcp && parsed.mcpServer) {
+		const server = extractFriendlyServerName(parsed.mcpServer);
+		return `[${server}] ${display}`;
+	}
+	return display;
+}
+
+function detailSubject(event: FeedEvent): string | undefined {
+	switch (event.kind) {
+		case 'tool.pre':
+		case 'tool.post':
+		case 'tool.failure':
+		case 'permission.request':
+			return toolSubject(event.data.tool_name);
+		case 'subagent.start':
+		case 'subagent.stop':
+			return event.data.agent_type;
+		case 'run.start':
+			return event.data.trigger.prompt_preview?.trim() || undefined;
+		case 'run.end':
+			return event.data.status;
+		case 'permission.decision':
+			return event.data.decision_type;
+		case 'stop.decision':
+			return event.data.decision_type;
+		case 'notification':
+			return event.data.notification_type || event.data.title;
+		case 'unknown.hook':
+			return event.data.hook_event_name;
+		case 'todo.add':
+		case 'todo.update':
+		case 'todo.done':
+			return event.data.todo_id;
+		case 'task.completed':
+			return event.data.task_subject;
+		case 'config.change':
+		case 'session.start':
+			return event.data.source;
+		case 'session.end':
+			return event.data.reason;
+		case 'agent.message':
+			return event.data.scope === 'subagent' ? event.actor_id : undefined;
+		default:
+			return undefined;
+	}
+}
+
+function actorHeaderValue(actorId: string | undefined): string {
+	if (!actorId) return 'UNKNOWN';
+	return actorLabel(actorId).replace(/-/g, ' ');
+}
+
+function toolUseId(event: FeedEvent): string | undefined {
+	switch (event.kind) {
+		case 'tool.pre':
+		case 'tool.post':
+		case 'tool.failure':
+		case 'permission.request':
+			return event.data.tool_use_id;
+		default:
+			return undefined;
+	}
+}
+
+function headerMetaLines(
+	event: FeedEvent,
+	pairedPostEvent?: FeedEvent,
+): string[] {
+	const meta: Array<[label: string, value: string | undefined]> = [
+		['Time', formatClock(event.ts)],
+		['Actor', actorHeaderValue(event.actor_id)],
+		['Session ID', event.session_id],
+		['Run ID', event.run_id],
+		['Event ID', event.event_id],
+		[
+			'Tool Use ID',
+			toolUseId(event) ??
+				(pairedPostEvent ? toolUseId(pairedPostEvent) : undefined),
+		],
+	];
+
+	if (event.kind === 'subagent.start' || event.kind === 'subagent.stop') {
+		meta.push(['Subagent ID', event.data.agent_id]);
+	}
+	if (event.cause?.hook_request_id) {
+		meta.push(['Hook Request ID', event.cause.hook_request_id]);
+	}
+	if (event.cause?.parent_event_id) {
+		meta.push(['Parent Event ID', event.cause.parent_event_id]);
+	}
+	if (event.cause?.tool_use_id) {
+		meta.push(['Cause Tool Use ID', event.cause.tool_use_id]);
+	}
+
+	const lines: string[] = [];
+	for (const [label, value] of meta) {
+		if (!value) continue;
+		lines.push(`${label}: ${value}`);
+	}
+	return lines;
+}
+
+function buildDetailHeader(
+	event: FeedEvent,
 	width: number,
-	sections: {
-		request?: ToolSection;
-		response?: ToolSection;
-	},
+	pairedPostEvent?: FeedEvent,
+): string[] {
+	const subject = detailSubject(event);
+	const title = subject
+		? `${detailKindLabel(event, pairedPostEvent)} · ${subject}`
+		: detailKindLabel(event, pairedPostEvent);
+	const lines: string[] = [];
+	lines.push(
+		...wrapAnsiLines([chalk.bold.hex(DETAIL_TITLE_COLOR)(title)], width),
+	);
+	for (const metaLine of headerMetaLines(event, pairedPostEvent)) {
+		lines.push(
+			...wrapAnsiLines([chalk.hex(DETAIL_META_COLOR)(metaLine)], width),
+		);
+	}
+	lines.push(sectionDivider(width));
+	return lines;
+}
+
+function composeDetailView(
+	event: FeedEvent,
+	width: number,
+	sections: DetailSection[],
+	pairedPostEvent?: FeedEvent,
 ): DetailRenderResult {
-	const lines: string[] = [...buildToolHeader(toolName)];
-	const {request, response} = sections;
-	const hasHeader = lines.length > 0;
-
-	if (request) {
-		if (hasHeader) lines.push('');
-		lines.push(...request.lines);
+	const visibleSections = sections.filter(section => section.lines.length > 0);
+	const lines = buildDetailHeader(event, width, pairedPostEvent);
+	if (visibleSections.length > 0) {
+		lines.push('');
 	}
-	if (response) {
-		if (lines.length > 0) lines.push('');
-		if (request) lines.push(sectionDivider(width), '');
-		lines.push(...response.lines);
+	for (let i = 0; i < visibleSections.length; i++) {
+		const section = visibleSections[i]!;
+		lines.push(chalk.bold.hex(DETAIL_META_COLOR)(section.title));
+		lines.push(...section.lines);
+		if (i < visibleSections.length - 1) {
+			lines.push('', sectionDivider(width), '');
+		}
 	}
-
 	return {
 		lines,
-		// Tool detail views mix metadata + payload + result; fixed line numbers
-		// across the whole block are visually noisy.
-		showLineNumbers: false,
+		showLineNumbers:
+			visibleSections.length === 1 &&
+			visibleSections[0]!.title === 'Payload' &&
+			visibleSections[0]!.showLineNumbers,
 	};
 }
 
@@ -217,14 +408,24 @@ function renderToolPost(
 	event: Extract<FeedEvent, {kind: 'tool.post'} | {kind: 'tool.failure'}>,
 	width: number,
 ): DetailRenderResult {
-	const request = shouldShowRequestPayload(event.data.tool_name, true)
+	const request = shouldShowToolRequestSection(event.data.tool_name, true)
 		? renderToolRequestSection(event.data.tool_input, width)
 		: undefined;
 	const response = renderToolResponseSection(event, width);
-	return composeToolDetailView(event.data.tool_name, width, {
-		request,
-		response,
+	const sections: DetailSection[] = [];
+	if (request) {
+		sections.push({
+			title: 'Request',
+			lines: request.lines,
+			showLineNumbers: request.showLineNumbers,
+		});
+	}
+	sections.push({
+		title: event.kind === 'tool.failure' ? 'Failure' : 'Response',
+		lines: response.lines,
+		showLineNumbers: response.showLineNumbers,
 	});
+	return composeDetailView(event, width, sections);
 }
 
 function renderToolPre(
@@ -232,7 +433,13 @@ function renderToolPre(
 	width: number,
 ): DetailRenderResult {
 	const request = renderToolRequestSection(event.data.tool_input, width);
-	return composeToolDetailView(event.data.tool_name, width, {request});
+	return composeDetailView(event, width, [
+		{
+			title: 'Request',
+			lines: request.lines,
+			showLineNumbers: request.showLineNumbers,
+		},
+	]);
 }
 
 export function renderDetailLines(
@@ -242,26 +449,22 @@ export function renderDetailLines(
 ): DetailRenderResult {
 	switch (event.kind) {
 		case 'agent.message':
-			return {
-				lines: [
-					chalk.bold.cyan(
-						`${event.data.scope === 'subagent' ? 'Subagent' : 'Agent'} response`,
-					),
-					'',
-					...renderMarkdownToLines(event.data.message, width - 2),
-				],
-				showLineNumbers: false,
-			};
+			return composeDetailView(event, width, [
+				{
+					title: 'Message',
+					lines: renderMarkdownToLines(event.data.message, width),
+					showLineNumbers: false,
+				},
+			]);
 
 		case 'user.prompt':
-			return {
-				lines: [
-					chalk.bold.magenta('User prompt'),
-					'',
-					...renderMarkdownToLines(event.data.prompt, width - 2),
-				],
-				showLineNumbers: false,
-			};
+			return composeDetailView(event, width, [
+				{
+					title: 'Request',
+					lines: renderMarkdownToLines(event.data.prompt, width),
+					showLineNumbers: false,
+				},
+			]);
 
 		case 'tool.post':
 		case 'tool.failure':
@@ -276,33 +479,88 @@ export function renderDetailLines(
 					pairedPostEvent.kind === 'tool.failure')
 			) {
 				const response = renderToolResponseSection(pairedPostEvent, width);
-				const request = shouldShowRequestPayload(event.data.tool_name, true)
+				const request = shouldShowToolRequestSection(event.data.tool_name, true)
 					? renderToolRequestSection(event.data.tool_input, width)
 					: undefined;
-				return composeToolDetailView(event.data.tool_name, width, {
-					request,
-					response,
+				const sections: DetailSection[] = [];
+				if (request) {
+					sections.push({
+						title: 'Request',
+						lines: request.lines,
+						showLineNumbers: request.showLineNumbers,
+					});
+				}
+				sections.push({
+					title:
+						pairedPostEvent.kind === 'tool.failure' ? 'Failure' : 'Response',
+					lines: response.lines,
+					showLineNumbers: response.showLineNumbers,
 				});
+				return composeDetailView(event, width, sections, pairedPostEvent);
 			}
 			return preResult;
 		}
 
+		case 'subagent.start': {
+			const prompt = event.data.description?.trim();
+			return composeDetailView(event, width, [
+				{
+					title: 'Prompt',
+					lines: prompt
+						? renderMarkdownToLines(prompt, width)
+						: ['(no subagent prompt captured)'],
+					showLineNumbers: false,
+				},
+			]);
+		}
+
+		case 'subagent.stop': {
+			const sections: DetailSection[] = [];
+			const prompt = event.data.description?.trim();
+			const response = event.data.last_assistant_message?.trim();
+			if (prompt) {
+				sections.push({
+					title: 'Prompt',
+					lines: renderMarkdownToLines(prompt, width),
+					showLineNumbers: false,
+				});
+			}
+			if (response) {
+				sections.push({
+					title: 'Response',
+					lines: renderMarkdownToLines(response, width),
+					showLineNumbers: false,
+				});
+			}
+			if (sections.length === 0) {
+				const fallback = JSON.stringify(event.data, null, 2) ?? '{}';
+				sections.push({
+					title: 'Payload',
+					lines: highlightCode(fallback, width, 'json'),
+					showLineNumbers: true,
+				});
+			}
+			return composeDetailView(event, width, sections);
+		}
+
 		case 'notification':
-			return {
-				lines: [
-					chalk.bold.yellow('Notification'),
-					'',
-					...renderMarkdownToLines(event.data.message, width - 2),
-				],
-				showLineNumbers: false,
-			};
+			return composeDetailView(event, width, [
+				{
+					title: 'Message',
+					lines: renderMarkdownToLines(event.data.message, width),
+					showLineNumbers: false,
+				},
+			]);
 
 		default: {
-			const json = JSON.stringify(event.raw ?? event.data, null, 2);
-			return {
-				lines: highlightCode(json, width, 'json'),
-				showLineNumbers: true,
-			};
+			const json = JSON.stringify(event.raw ?? event.data, null, 2) ?? '{}';
+			return composeDetailView(event, width, [
+				{
+					title: 'Payload',
+					lines: highlightCode(json, width, 'json'),
+					showLineNumbers: true,
+				},
+			]);
 		}
 	}
 }

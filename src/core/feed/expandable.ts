@@ -1,13 +1,6 @@
-import type {FeedEvent, FeedEventKind} from './types';
-
-const EXPANDABLE_KINDS: ReadonlySet<FeedEventKind> = new Set([
-	'tool.pre',
-	'permission.request',
-	'subagent.start',
-	'run.start',
-	'stop.request',
-]);
+import type {FeedEvent} from './types';
 
 export function isExpandable(event: FeedEvent): boolean {
-	return EXPANDABLE_KINDS.has(event.kind);
+	void event;
+	return true;
 }

@@ -39,7 +39,7 @@ describe('extractYankContent', () => {
 		} as FeedEvent;
 		const entry = makeEntry({feedEvent: event});
 		const result = extractYankContent(entry);
-		expect(result).toContain('Agent response');
+		expect(result).toContain('Agent Response');
 		expect(result).toContain('Hello');
 		expect(result).toContain('World');
 	});
@@ -89,7 +89,7 @@ describe('extractYankContent', () => {
 		expect(result).toContain('File not found');
 	});
 
-	it('does not duplicate headers/request blocks for paired MCP rows', () => {
+	it('does not duplicate request/response sections for paired MCP rows', () => {
 		const toolName =
 			'mcp__plugin_web-testing-toolkit_agent-web-interface__find_elements';
 		const preEvent = {
@@ -111,7 +111,8 @@ describe('extractYankContent', () => {
 		} as FeedEvent;
 		const entry = makeEntry({feedEvent: preEvent, pairedPostEvent: postEvent});
 		const result = extractYankContent(entry);
-		expect(countOccurrences(result, 'Namespace: mcp')).toBe(1);
+		expect(countOccurrences(result, 'Request')).toBe(1);
+		expect(countOccurrences(result, 'Response')).toBe(1);
 		expect(countOccurrences(result, '"kind": "button"')).toBe(1);
 	});
 
@@ -159,7 +160,7 @@ describe('extractYankContent', () => {
 		expect(/\x1B\[[0-9;]*m/.test(result)).toBe(false);
 	});
 
-	it('preserves leading indentation in first copied line', () => {
+	it('starts copied output with the unified detail title', () => {
 		const event = {
 			kind: 'tool.post' as const,
 			data: {
@@ -170,6 +171,6 @@ describe('extractYankContent', () => {
 		} as FeedEvent;
 		const entry = makeEntry({feedEvent: event});
 		const result = extractYankContent(entry);
-		expect(result.startsWith('  ')).toBe(true);
+		expect(result.startsWith('Tool Result')).toBe(true);
 	});
 });

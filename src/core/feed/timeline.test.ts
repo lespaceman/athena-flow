@@ -1060,14 +1060,21 @@ describe('isEventError', () => {
 });
 
 describe('isEventExpandable', () => {
-	it('returns true for expandable kinds', () => {
+	it('returns true for all event kinds', () => {
 		for (const kind of [
 			'tool.pre',
 			'tool.post',
 			'tool.failure',
 			'permission.request',
+			'permission.decision',
+			'subagent.start',
 			'subagent.stop',
+			'run.start',
 			'run.end',
+			'user.prompt',
+			'session.start',
+			'session.end',
+			'setup',
 			'notification',
 		] as const) {
 			const ev = {
@@ -1076,22 +1083,6 @@ describe('isEventExpandable', () => {
 				data: {} as Record<string, unknown>,
 			} as FeedEvent;
 			expect(isEventExpandable(ev)).toBe(true);
-		}
-	});
-
-	it('returns false for non-expandable kinds', () => {
-		for (const kind of [
-			'run.start',
-			'user.prompt',
-			'session.start',
-			'setup',
-		] as const) {
-			const ev = {
-				...base({kind}),
-				kind,
-				data: {} as Record<string, unknown>,
-			} as FeedEvent;
-			expect(isEventExpandable(ev)).toBe(false);
 		}
 	});
 });

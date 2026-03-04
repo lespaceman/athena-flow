@@ -82,7 +82,7 @@ describe('SessionPicker', () => {
 		expect(frame).toContain('20 messages');
 	});
 
-	it('shows "no branch" for empty gitBranch', () => {
+	it('omits branch indicator for empty gitBranch', () => {
 		const {lastFrame} = render(
 			<SessionPicker
 				sessions={sessions}
@@ -91,7 +91,8 @@ describe('SessionPicker', () => {
 			/>,
 		);
 		const frame = lastFrame() ?? '';
-		expect(frame).toContain('no branch');
+		expect(frame).not.toContain('⎇ ccc');
+		expect(frame).toContain('ccc · '); // It should still have other metadata
 	});
 
 	it('shows empty state message when no sessions', () => {

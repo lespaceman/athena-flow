@@ -60,9 +60,7 @@ describe('useTerminalTitle', () => {
 		);
 		mockWrite.mockClear();
 		rerender({running: false});
-		expect(mockWrite).toHaveBeenCalledWith(
-			'\x1b]0;Athena Flow - fix it\x07',
-		);
+		expect(mockWrite).toHaveBeenCalledWith('\x1b]0;Athena Flow - fix it\x07');
 	});
 
 	it('truncates long prompts', () => {
