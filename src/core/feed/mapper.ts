@@ -313,6 +313,22 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		const eventKind = event.kind;
 		const results: FeedEvent[] = [];
 
+		// Extract new assistant messages from transcript BEFORE processing the
+		// hook event so that agent.message gets a lower seq than tool.pre etc.
+		// Skip stop events — they use last_assistant_message to avoid flush-timing dupes.
+		const transcriptPath = event.context.transcriptPath;
+		const isStopEvent =
+			eventKind === 'stop.request' || eventKind === 'subagent.stop';
+		if (transcriptPath && !isStopEvent) {
+			const transcriptMsgs = emitTranscriptMessages(
+				transcriptPath,
+				event,
+				resolveToolActor(),
+				activeSubagentStack.length > 0 ? 'subagent' : 'root',
+			);
+			results.push(...transcriptMsgs);
+		}
+
 		switch (eventKind) {
 			case 'session.start': {
 				const source = readString(d['source']) ?? 'startup';
@@ -727,23 +743,6 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 					parentEvt ? {parent_event_id: parentEvt.event_id} : undefined,
 				),
 			);
-		}
-
-		// Extract new assistant messages from transcript on every hook event.
-		// Skip stop events — they use last_assistant_message as the authoritative
-		// source to avoid duplicates caused by transcript flush timing.
-		const transcriptPath = event.context.transcriptPath;
-		const isStopEvent =
-			eventKind === 'stop.request' || eventKind === 'subagent.stop';
-		if (transcriptPath && !isStopEvent) {
-			const transcriptMsgs = emitTranscriptMessages(
-				transcriptPath,
-				event,
-				resolveToolActor(),
-				activeSubagentStack.length > 0 ? 'subagent' : 'root',
-			);
-			// Insert transcript messages before the main event(s) for correct ordering
-			results.unshift(...transcriptMsgs);
 		}
 
 		// Stop events: use last_assistant_message directly (always available in payload).
