@@ -31,25 +31,27 @@ beforeEach(() => {
 
 describe('useCommandSuggestions', () => {
 	it('shows all commands for bare /', () => {
-		const {result} = renderHook(() => useCommandSuggestions('/', true));
+		const ref = {current: '/'};
+		const {result} = renderHook(() => useCommandSuggestions(ref, true));
 		expect(result.current.showSuggestions).toBe(true);
 		expect(result.current.filteredCommands.length).toBe(3);
 	});
 
 	it('filters by prefix', () => {
-		const {result} = renderHook(() => useCommandSuggestions('/cl', true));
-		expect(result.current.filteredCommands.map(c => c.name)).toEqual([
-			'clear',
-		]);
+		const ref = {current: '/cl'};
+		const {result} = renderHook(() => useCommandSuggestions(ref, true));
+		expect(result.current.filteredCommands.map(c => c.name)).toEqual(['clear']);
 	});
 
 	it('hides when not active', () => {
-		const {result} = renderHook(() => useCommandSuggestions('/', false));
+		const ref = {current: '/'};
+		const {result} = renderHook(() => useCommandSuggestions(ref, false));
 		expect(result.current.showSuggestions).toBe(false);
 	});
 
 	it('navigates with moveUp/moveDown', () => {
-		const {result} = renderHook(() => useCommandSuggestions('/', true));
+		const ref = {current: '/'};
+		const {result} = renderHook(() => useCommandSuggestions(ref, true));
 		act(() => result.current.moveDown());
 		expect(result.current.selectedIndex).toBe(1);
 		act(() => result.current.moveUp());
@@ -57,8 +59,38 @@ describe('useCommandSuggestions', () => {
 	});
 
 	it('wraps around at boundaries', () => {
-		const {result} = renderHook(() => useCommandSuggestions('/', true));
+		const ref = {current: '/'};
+		const {result} = renderHook(() => useCommandSuggestions(ref, true));
 		act(() => result.current.moveUp());
 		expect(result.current.selectedIndex).toBe(2); // wraps to last
+	});
+
+	it('resets selectedIndex synchronously when prefix changes', () => {
+		const ref = {current: '/'};
+		const {result, rerender} = renderHook(() =>
+			useCommandSuggestions(ref, true),
+		);
+		// Navigate to index 1
+		act(() => result.current.moveDown());
+		expect(result.current.selectedIndex).toBe(1);
+
+		// Change the ref prefix and rerender — should reset to 0 synchronously
+		// (no useEffect cascade needed)
+		ref.current = '/cl';
+		rerender();
+		expect(result.current.selectedIndex).toBe(0);
+	});
+
+	it('reads from ref (not reactive state) to avoid re-render cascades', () => {
+		const ref = {current: '/'};
+		const {result, rerender} = renderHook(() =>
+			useCommandSuggestions(ref, true),
+		);
+		expect(result.current.filteredCommands.length).toBe(3);
+
+		// Mutate ref and rerender — should pick up the new value
+		ref.current = '/q';
+		rerender();
+		expect(result.current.filteredCommands.map(c => c.name)).toEqual(['quit']);
 	});
 });

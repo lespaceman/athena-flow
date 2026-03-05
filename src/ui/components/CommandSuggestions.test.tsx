@@ -25,11 +25,7 @@ describe('CommandSuggestions', () => {
 
 	it('returns null when commands list is empty', () => {
 		const {lastFrame} = render(
-			<CommandSuggestions
-				commands={[]}
-				selectedIndex={0}
-				{...defaultProps}
-			/>,
+			<CommandSuggestions commands={[]} selectedIndex={0} {...defaultProps} />,
 		);
 		expect(lastFrame()).toBe('');
 	});

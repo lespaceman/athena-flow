@@ -41,7 +41,6 @@ export type UseShellInputOptions = {
 
 export type UseShellInputResult = {
 	inputRows: number;
-	inputValue: string;
 	inputValueRef: React.RefObject<string>;
 	setInputValueRef: React.RefObject<(value: string) => void>;
 	inputContentWidthRef: React.RefObject<number>;
@@ -66,7 +65,6 @@ export function useShellInput({
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
 	const inputValueRef = useRef('');
 	const [inputRows, setInputRows] = useState(1);
-	const [inputValue, setInputValueState] = useState('');
 
 	const syncInputModeFromValue = useCallback(
 		(value: string) => {
@@ -85,7 +83,6 @@ export function useShellInput({
 		(setValue: (value: string) => void) => {
 			setInputValueRef.current = (value: string) => {
 				inputValueRef.current = value;
-				setInputValueState(value);
 				syncInputModeFromValue(value);
 				setValue(value);
 				setInputRows(computeInputRows(value, inputContentWidthRef.current));
@@ -129,7 +126,6 @@ export function useShellInput({
 			}
 
 			setInputValueRef.current('');
-			setInputValueState('');
 			setInputMode('normal');
 			setFocusMode('feed');
 			setInputRows(1);
@@ -152,7 +148,6 @@ export function useShellInput({
 	const handleMainInputChange = useCallback(
 		(value: string) => {
 			inputValueRef.current = value;
-			setInputValueState(value);
 			syncInputModeFromValue(value);
 			setInputRows(computeInputRows(value, inputContentWidthRef.current));
 		},
@@ -161,7 +156,6 @@ export function useShellInput({
 
 	return {
 		inputRows,
-		inputValue,
 		inputValueRef,
 		setInputValueRef,
 		inputContentWidthRef,

@@ -1,4 +1,4 @@
-import {useState, useMemo, useEffect} from 'react';
+import {useState, useMemo, useRef} from 'react';
 import * as registry from '../../app/commands/registry';
 import type {Command} from '../../app/commands/types';
 
@@ -14,11 +14,12 @@ export type UseCommandSuggestionsResult = {
 };
 
 export function useCommandSuggestions(
-	inputValue: string,
+	inputValueRef: React.RefObject<string>,
 	isActive: boolean,
 ): UseCommandSuggestionsResult {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
+	const inputValue = inputValueRef.current;
 	const isCommandMode =
 		isActive && inputValue.startsWith('/') && !inputValue.includes(' ');
 	const prefix = isCommandMode ? inputValue.slice(1) : '';
@@ -34,15 +35,22 @@ export function useCommandSuggestions(
 			.slice(0, MAX_SUGGESTIONS);
 	}, [isCommandMode, prefix]);
 
+	// Inline prefix tracking — resets selectedIndex synchronously during render
+	// instead of via useEffect (which would cause an extra render cycle)
+	const prevPrefixRef = useRef(prefix);
+	let effectiveIndex = selectedIndex;
+	if (prevPrefixRef.current !== prefix) {
+		prevPrefixRef.current = prefix;
+		effectiveIndex = 0;
+		if (selectedIndex !== 0) {
+			setSelectedIndex(0);
+		}
+	}
+
 	const showSuggestions = filteredCommands.length > 0;
 	const safeIndex = showSuggestions
-		? Math.min(selectedIndex, filteredCommands.length - 1)
+		? Math.min(effectiveIndex, filteredCommands.length - 1)
 		: 0;
-
-	// Reset selection when the filter prefix changes
-	useEffect(() => {
-		setSelectedIndex(0);
-	}, [prefix]);
 
 	const moveUp = () =>
 		setSelectedIndex(i => (i <= 0 ? filteredCommands.length - 1 : i - 1));

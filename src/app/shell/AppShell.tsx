@@ -387,7 +387,6 @@ function AppContent({
 
 	const {
 		inputRows,
-		inputValue,
 		inputValueRef,
 		setInputValueRef,
 		inputContentWidthRef,
@@ -409,7 +408,7 @@ function AppContent({
 	});
 
 	const commandSuggestions = useCommandSuggestions(
-		inputValue,
+		inputValueRef,
 		inputMode === 'command',
 	);
 	getSelectedCommandRef.current = commandSuggestions.getSelectedCommand;
