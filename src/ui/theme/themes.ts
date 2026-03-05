@@ -5,7 +5,7 @@ export const darkTheme: Theme = {
 
 	// ── Text hierarchy ──────────────────────────────────────
 	text: '#c9d1d9', // Primary text. Warm gray, not pure white.
-	textMuted: '#484f58', // Dim text. Paths, labels, happy-path events.
+	textMuted: '#6e7681', // Dim text. Paths, labels, happy-path events.
 	textInverse: '#0d1117', // Text on colored backgrounds.
 
 	// ── Accent ──────────────────────────────────────────────
@@ -42,7 +42,7 @@ export const darkTheme: Theme = {
 
 	// ── Feed ────────────────────────────────────────────────
 	feed: {
-		headerLabel: '#30363d',
+		headerLabel: '#484f58',
 		stripeBackground: '#070e16',
 	},
 

@@ -106,14 +106,14 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 	if (ctx.inputMode === 'search') {
 		inputPlaceholder = '/search';
 	} else if (ctx.lastRunStatus === 'completed') {
-		inputPlaceholder = 'Run complete \u2014 type a follow-up';
+		inputPlaceholder = 'Done \u2014 send a follow-up';
 	} else if (
 		ctx.lastRunStatus === 'failed' ||
 		ctx.lastRunStatus === 'aborted'
 	) {
-		inputPlaceholder = 'Run failed \u2014 type a follow-up';
+		inputPlaceholder = 'Run failed \u2014 retry or adjust prompt';
 	} else {
-		inputPlaceholder = 'Type a prompt or /command';
+		inputPlaceholder = 'Type a prompt to begin';
 	}
 
 	const contentLines = ctx.dialogActive
