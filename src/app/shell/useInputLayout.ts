@@ -11,11 +11,10 @@ export function deriveInputPlaceholder(
 	const dash = ascii ? '-' : '\u2014';
 	if (inputMode === 'search') return ':search';
 	if (inputMode === 'command') return '/command';
-	if (lastRunStatus === 'completed')
-		return `Run complete ${dash} type a follow-up`;
+	if (lastRunStatus === 'completed') return `Done ${dash} send a follow-up`;
 	if (lastRunStatus === 'failed' || lastRunStatus === 'aborted')
-		return `Run failed ${dash} type a follow-up`;
-	return 'Type a prompt or /command';
+		return `Run failed ${dash} retry or adjust prompt`;
+	return 'Type a prompt to begin';
 }
 
 export function deriveTextInputPlaceholder(
