@@ -8,6 +8,7 @@
 import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {cleanupStaleSockets} from './cleanupStaleSockets';
 import type {HookResultEnvelope} from '../protocol/envelope';
 import {isValidHookEventEnvelope} from '../protocol/envelope';
 import type {HookEventEnvelope} from '../protocol/envelope';
@@ -103,6 +104,8 @@ export function createServer(opts: ServerOptions) {
 			} catch {
 				/* exists */
 			}
+			// Sweep stale sockets from previous crashed processes
+			cleanupStaleSockets(socketDir);
 			try {
 				fs.unlinkSync(socketPath);
 			} catch {

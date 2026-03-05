@@ -146,6 +146,28 @@ describe('createClaudeHookRuntime', () => {
 		client.end();
 	});
 
+	it('cleans up stale socket files on start', async () => {
+		const projectDir = makeTmpDir();
+		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
+
+		// Create the run directory and plant a stale socket
+		const runDir = path.join(projectDir, '.claude', 'run');
+		fs.mkdirSync(runDir, {recursive: true});
+		const staleSock = path.join(runDir, 'ink-999999999.sock');
+		fs.writeFileSync(staleSock, '');
+
+		const runtime = createClaudeHookRuntime({projectDir, instanceId: 77});
+		runtime.start();
+		cleanup.push(() => runtime.stop());
+
+		await new Promise(r => setTimeout(r, 100));
+
+		// Stale socket should be gone; only the new one should remain
+		const remaining = fs.readdirSync(runDir);
+		expect(remaining).toEqual(['ink-77.sock']);
+		expect(fs.existsSync(staleSock)).toBe(false);
+	});
+
 	it('stops cleanly', async () => {
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
