@@ -33,7 +33,10 @@ import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
 import {usePager} from '../../ui/hooks/usePager';
 import {useFrameChrome} from '../../ui/hooks/useFrameChrome';
-import {buildBodyLines, buildTodoHeaderLine} from '../../ui/layout/buildBodyLines';
+import {
+	buildBodyLines,
+	buildTodoHeaderLine,
+} from '../../ui/layout/buildBodyLines';
 import {FeedGrid} from '../../ui/components/FeedGrid';
 import {FrameRow} from '../../ui/components/FrameRow';
 import {MultiLineInput} from '../../ui/components/MultiLineInput';
@@ -626,9 +629,9 @@ function AppContent({
 	const useAscii = !!ascii;
 	const spinnerFrame = useSpinner(
 		appMode.type === 'working' &&
-		todoPanel.todoVisible &&
-		!pagerActive &&
-		filteredEntries.length < 500,
+			todoPanel.todoVisible &&
+			!pagerActive &&
+			filteredEntries.length < 500,
 	);
 
 	const todoColors = useMemo(
@@ -826,7 +829,9 @@ function AppContent({
 			<Text>{withBorderEdges(frameLine(headerLine1))}</Text>
 			<Text>{border(sectionBorder)}</Text>
 			{todoHeaderLine !== null && (
-				<Text key="todo-header">{withBorderEdges(frameLine(todoHeaderLine))}</Text>
+				<Text key="todo-header">
+					{withBorderEdges(frameLine(todoHeaderLine))}
+				</Text>
 			)}
 			{prefixBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>

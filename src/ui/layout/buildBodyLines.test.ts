@@ -88,27 +88,43 @@ describe('buildBodyLines — tiny todo panel row budget', () => {
 
 describe('buildTodoHeaderLine', () => {
 	it('shows IDLE with dot glyph when not working', () => {
-		const line = buildTodoHeaderLine(80, {
-			ascii: true,
-			appMode: 'idle',
-			spinnerFrame: '',
-			doneCount: 2,
-			totalCount: 5,
-		}, defaultTheme);
+		const line = buildTodoHeaderLine(
+			80,
+			{
+				ascii: true,
+				appMode: 'idle',
+				spinnerFrame: '',
+				doneCount: 2,
+				totalCount: 5,
+			},
+			defaultTheme,
+		);
 		const plain = stripAnsi(line);
 		expect(plain).toContain('IDLE');
 		expect(plain).toContain('2/5');
 	});
 
 	it('shows WORKING with spinner glyph when working', () => {
-		const line = buildTodoHeaderLine(80, {
-			ascii: false,
-			appMode: 'working',
-			spinnerFrame: '\u280B',
-			colors: {doing: '#facc15', done: '#888', failed: '#f00', blocked: '#facc15', text: '#fff', textMuted: '#888', default: '#888'},
-			doneCount: 1,
-			totalCount: 3,
-		}, defaultTheme);
+		const line = buildTodoHeaderLine(
+			80,
+			{
+				ascii: false,
+				appMode: 'working',
+				spinnerFrame: '\u280B',
+				colors: {
+					doing: '#facc15',
+					done: '#888',
+					failed: '#f00',
+					blocked: '#facc15',
+					text: '#fff',
+					textMuted: '#888',
+					default: '#888',
+				},
+				doneCount: 1,
+				totalCount: 3,
+			},
+			defaultTheme,
+		);
 		const plain = stripAnsi(line);
 		expect(plain).toContain('WORKING');
 		expect(plain).toContain('\u280B');

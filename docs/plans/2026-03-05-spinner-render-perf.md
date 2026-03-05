@@ -13,6 +13,7 @@
 ### Task 1: Reduce spinner interval from 200ms to 500ms
 
 **Files:**
+
 - Modify: `src/ui/hooks/useSpinner.ts:4`
 - Modify: `src/ui/hooks/useSpinner.test.ts:24-46`
 
@@ -23,19 +24,19 @@ In `src/ui/hooks/useSpinner.test.ts`, change the test that validates timing:
 ```typescript
 // Change test name and timing assertions
 it('cycles through braille frames at 500ms intervals', () => {
-    const {result} = renderHook(() => useSpinner(true));
+	const {result} = renderHook(() => useSpinner(true));
 
-    expect(result.current).toBe('\u280B');
+	expect(result.current).toBe('\u280B');
 
-    act(() => {
-        vi.advanceTimersByTime(500);
-    });
-    expect(result.current).toBe('\u2819');
+	act(() => {
+		vi.advanceTimersByTime(500);
+	});
+	expect(result.current).toBe('\u2819');
 
-    act(() => {
-        vi.advanceTimersByTime(500);
-    });
-    expect(result.current).toBe('\u2839');
+	act(() => {
+		vi.advanceTimersByTime(500);
+	});
+	expect(result.current).toBe('\u2839');
 });
 ```
 
@@ -43,13 +44,13 @@ Also update the wrap-around test:
 
 ```typescript
 it('wraps around after last frame', () => {
-    const {result} = renderHook(() => useSpinner(true));
+	const {result} = renderHook(() => useSpinner(true));
 
-    // Advance through all 10 frames (10 * 500ms = 5000ms)
-    act(() => {
-        vi.advanceTimersByTime(5000);
-    });
-    expect(result.current).toBe('\u280B'); // Back to first
+	// Advance through all 10 frames (10 * 500ms = 5000ms)
+	act(() => {
+		vi.advanceTimersByTime(5000);
+	});
+	expect(result.current).toBe('\u280B'); // Back to first
 });
 ```
 
@@ -91,6 +92,7 @@ git commit -m "perf: reduce spinner interval from 200ms to 500ms"
 This is the highest-impact fix. Currently `spinnerFrame` is a dependency of the `prefixBodyLines` useMemo in `AppContent` (`src/app/shell/AppShell.tsx:696-735`). Every 500ms tick invalidates the entire memo, recomputing `buildBodyLines` which calls `fitAnsi`/`stringWidth` on every todo row. We'll split the todo header line (the one containing the spinner) into a separate memo so the expensive todo-item lines aren't recomputed on spinner ticks.
 
 **Files:**
+
 - Modify: `src/ui/layout/buildBodyLines.ts`
 - Modify: `src/ui/layout/buildBodyLines.test.ts`
 - Modify: `src/app/shell/AppShell.tsx`
@@ -105,25 +107,28 @@ Add a new exported function that builds only the todo status header line (the on
  * Separated so the spinner glyph can update independently of todo item rows.
  */
 export function buildTodoHeaderLine(
-    innerWidth: number,
-    todo: Pick<TodoViewState, 'ascii' | 'appMode' | 'spinnerFrame' | 'colors' | 'doneCount' | 'totalCount'>,
-    theme: Theme,
+	innerWidth: number,
+	todo: Pick<
+		TodoViewState,
+		'ascii' | 'appMode' | 'spinnerFrame' | 'colors' | 'doneCount' | 'totalCount'
+	>,
+	theme: Theme,
 ): string {
-    const isWorking = todo.appMode === 'working';
-    const idleGlyph = todo.ascii ? '*' : '\u25CF';
-    const rawLeadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
-    const leadColor = isWorking ? theme.status.warning : theme.status.success;
-    const leadGlyph = chalk.hex(leadColor)(rawLeadGlyph);
-    const statusWord = isWorking ? 'WORKING' : 'IDLE';
-    const statusColor = isWorking ? todo.colors?.doing : theme.status.success;
-    const coloredStatus = statusColor
-        ? chalk.hex(statusColor)(statusWord)
-        : statusWord;
-    const stats =
-        todo.totalCount > 0
-            ? `  ${chalk.hex(theme.text)(`${todo.doneCount}/${todo.totalCount}`)} ${chalk.hex(theme.textMuted)('tasks done')}`
-            : '';
-    return fitAnsi(`${leadGlyph} ${coloredStatus}${stats}`, innerWidth);
+	const isWorking = todo.appMode === 'working';
+	const idleGlyph = todo.ascii ? '*' : '\u25CF';
+	const rawLeadGlyph = isWorking ? todo.spinnerFrame : idleGlyph;
+	const leadColor = isWorking ? theme.status.warning : theme.status.success;
+	const leadGlyph = chalk.hex(leadColor)(rawLeadGlyph);
+	const statusWord = isWorking ? 'WORKING' : 'IDLE';
+	const statusColor = isWorking ? todo.colors?.doing : theme.status.success;
+	const coloredStatus = statusColor
+		? chalk.hex(statusColor)(statusWord)
+		: statusWord;
+	const stats =
+		todo.totalCount > 0
+			? `  ${chalk.hex(theme.text)(`${todo.doneCount}/${todo.totalCount}`)} ${chalk.hex(theme.textMuted)('tasks done')}`
+			: '';
+	return fitAnsi(`${leadGlyph} ${coloredStatus}${stats}`, innerWidth);
 }
 ```
 
@@ -133,9 +138,9 @@ Replace lines 60-76 in `buildBodyLines` with a call to the new function:
 
 ```typescript
 if (actualTodoRows > 0) {
-    // ... destructuring stays the same ...
-    bodyLines.push(buildTodoHeaderLine(innerWidth, todo, theme));
-    // ... rest of the function (item rows, scroll indicators, divider) unchanged ...
+	// ... destructuring stays the same ...
+	bodyLines.push(buildTodoHeaderLine(innerWidth, todo, theme));
+	// ... rest of the function (item rows, scroll indicators, divider) unchanged ...
 }
 ```
 
@@ -148,32 +153,48 @@ import {buildBodyLines, buildTodoHeaderLine} from './buildBodyLines';
 // ... existing imports ...
 
 describe('buildTodoHeaderLine', () => {
-    it('shows IDLE with dot glyph when not working', () => {
-        const line = buildTodoHeaderLine(80, {
-            ascii: true,
-            appMode: 'idle',
-            spinnerFrame: '',
-            doneCount: 2,
-            totalCount: 5,
-        }, defaultTheme);
-        const plain = stripAnsi(line);
-        expect(plain).toContain('IDLE');
-        expect(plain).toContain('2/5');
-    });
+	it('shows IDLE with dot glyph when not working', () => {
+		const line = buildTodoHeaderLine(
+			80,
+			{
+				ascii: true,
+				appMode: 'idle',
+				spinnerFrame: '',
+				doneCount: 2,
+				totalCount: 5,
+			},
+			defaultTheme,
+		);
+		const plain = stripAnsi(line);
+		expect(plain).toContain('IDLE');
+		expect(plain).toContain('2/5');
+	});
 
-    it('shows WORKING with spinner glyph when working', () => {
-        const line = buildTodoHeaderLine(80, {
-            ascii: false,
-            appMode: 'working',
-            spinnerFrame: '\u280B',
-            colors: {doing: '#facc15', done: '#888', failed: '#f00', blocked: '#facc15', text: '#fff', textMuted: '#888', default: '#888'},
-            doneCount: 1,
-            totalCount: 3,
-        }, defaultTheme);
-        const plain = stripAnsi(line);
-        expect(plain).toContain('WORKING');
-        expect(plain).toContain('\u280B');
-    });
+	it('shows WORKING with spinner glyph when working', () => {
+		const line = buildTodoHeaderLine(
+			80,
+			{
+				ascii: false,
+				appMode: 'working',
+				spinnerFrame: '\u280B',
+				colors: {
+					doing: '#facc15',
+					done: '#888',
+					failed: '#f00',
+					blocked: '#facc15',
+					text: '#fff',
+					textMuted: '#888',
+					default: '#888',
+				},
+				doneCount: 1,
+				totalCount: 3,
+			},
+			defaultTheme,
+		);
+		const plain = stripAnsi(line);
+		expect(plain).toContain('WORKING');
+		expect(plain).toContain('\u280B');
+	});
 });
 ```
 
@@ -187,7 +208,10 @@ Expected: PASS
 In `src/app/shell/AppShell.tsx`, add import:
 
 ```typescript
-import {buildBodyLines, buildTodoHeaderLine} from '../../ui/layout/buildBodyLines';
+import {
+	buildBodyLines,
+	buildTodoHeaderLine,
+} from '../../ui/layout/buildBodyLines';
 ```
 
 Replace the single `prefixBodyLines` useMemo (lines 696-735) with two memos:
@@ -195,69 +219,73 @@ Replace the single `prefixBodyLines` useMemo (lines 696-735) with two memos:
 ```typescript
 // Memo 1: Todo header line (depends on spinnerFrame — updates every 500ms)
 const todoHeaderLine = useMemo(
-    () =>
-        actualTodoRows > 0
-            ? buildTodoHeaderLine(innerWidth, {
-                    ascii: useAscii,
-                    appMode: appMode.type,
-                    spinnerFrame,
-                    colors: todoColors,
-                    doneCount: todoPanel.doneCount,
-                    totalCount: todoPanel.todoItems.length,
-                }, theme)
-            : null,
-    [
-        actualTodoRows,
-        innerWidth,
-        useAscii,
-        appMode.type,
-        spinnerFrame,
-        todoColors,
-        todoPanel.doneCount,
-        todoPanel.todoItems.length,
-        theme,
-    ],
+	() =>
+		actualTodoRows > 0
+			? buildTodoHeaderLine(
+					innerWidth,
+					{
+						ascii: useAscii,
+						appMode: appMode.type,
+						spinnerFrame,
+						colors: todoColors,
+						doneCount: todoPanel.doneCount,
+						totalCount: todoPanel.todoItems.length,
+					},
+					theme,
+				)
+			: null,
+	[
+		actualTodoRows,
+		innerWidth,
+		useAscii,
+		appMode.type,
+		spinnerFrame,
+		todoColors,
+		todoPanel.doneCount,
+		todoPanel.todoItems.length,
+		theme,
+	],
 );
 
 // Memo 2: Remaining body lines (does NOT depend on spinnerFrame)
 const prefixBodyLines = useMemo(
-    () =>
-        buildBodyLines({
-            innerWidth,
-            todo: {
-                actualTodoRows,
-                todoPanel: {
-                    todoScroll: todoPanel.todoScroll,
-                    todoCursor: todoPanel.todoCursor,
-                    visibleTodoItems: todoPanel.visibleTodoItems,
-                },
-                focusMode,
-                ascii: useAscii,
-                colors: todoColors,
-                appMode: appMode.type,
-                doneCount: todoPanel.doneCount,
-                totalCount: todoPanel.todoItems.length,
-                spinnerFrame: '', // placeholder — header line rendered separately
-            },
-            runOverlay: {actualRunOverlayRows, runSummaries, runFilter: 'all'},
-            theme,
-        }),
-    [
-        innerWidth,
-        actualTodoRows,
-        todoPanel.todoScroll,
-        todoPanel.todoCursor,
-        todoPanel.visibleTodoItems,
-        focusMode,
-        useAscii,
-        todoColors,
-        appMode.type,
-        todoPanel.doneCount,
-        todoPanel.todoItems.length,
-        actualRunOverlayRows,
-        runSummaries,
-        theme,
-    ],
+	() =>
+		buildBodyLines({
+			innerWidth,
+			todo: {
+				actualTodoRows,
+				todoPanel: {
+					todoScroll: todoPanel.todoScroll,
+					todoCursor: todoPanel.todoCursor,
+					visibleTodoItems: todoPanel.visibleTodoItems,
+				},
+				focusMode,
+				ascii: useAscii,
+				colors: todoColors,
+				appMode: appMode.type,
+				doneCount: todoPanel.doneCount,
+				totalCount: todoPanel.todoItems.length,
+				spinnerFrame: '', // placeholder — header line rendered separately
+			},
+			runOverlay: {actualRunOverlayRows, runSummaries, runFilter: 'all'},
+			theme,
+		}),
+	[
+		innerWidth,
+		actualTodoRows,
+		todoPanel.todoScroll,
+		todoPanel.todoCursor,
+		todoPanel.visibleTodoItems,
+		focusMode,
+		useAscii,
+		todoColors,
+		appMode.type,
+		todoPanel.doneCount,
+		todoPanel.todoItems.length,
+		actualRunOverlayRows,
+		runSummaries,
+		theme,
+	],
 );
 ```
 
@@ -266,20 +294,26 @@ const prefixBodyLines = useMemo(
 In the JSX (around line 793), change:
 
 ```tsx
-{prefixBodyLines.map((line, index) => (
-    <Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
-))}
+{
+	prefixBodyLines.map((line, index) => (
+		<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
+	));
+}
 ```
 
 To:
 
 ```tsx
-{todoHeaderLine !== null && (
-    <Text key="todo-header">{withBorderEdges(frameLine(todoHeaderLine))}</Text>
-)}
-{prefixBodyLines.map((line, index) => (
-    <Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
-))}
+{
+	todoHeaderLine !== null && (
+		<Text key="todo-header">{withBorderEdges(frameLine(todoHeaderLine))}</Text>
+	);
+}
+{
+	prefixBodyLines.map((line, index) => (
+		<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
+	));
+}
 ```
 
 **Step 7: Skip the header line in `buildBodyLines` when `spinnerFrame` is empty placeholder**
@@ -290,8 +324,8 @@ In `buildBodyLines.ts`, add to `TodoViewState`:
 
 ```typescript
 export type TodoViewState = {
-    // ... existing fields ...
-    skipHeader?: boolean;
+	// ... existing fields ...
+	skipHeader?: boolean;
 };
 ```
 
@@ -299,11 +333,11 @@ Then in `buildBodyLines`, wrap the header push:
 
 ```typescript
 if (actualTodoRows > 0) {
-    // ... destructuring ...
-    if (!todo.skipHeader) {
-        bodyLines.push(buildTodoHeaderLine(innerWidth, todo, theme));
-    }
-    // ... rest unchanged ...
+	// ... destructuring ...
+	if (!todo.skipHeader) {
+		bodyLines.push(buildTodoHeaderLine(innerWidth, todo, theme));
+	}
+	// ... rest unchanged ...
 }
 ```
 
@@ -337,6 +371,7 @@ git commit -m "perf: isolate spinner line from prefixBodyLines memo"
 When there are many feed entries, each Ink render cycle is more expensive because FeedGrid produces more `<Text>` nodes. Disable the spinner animation (show a static glyph) when the feed is large.
 
 **Files:**
+
 - Modify: `src/app/shell/AppShell.tsx:627-629`
 
 **Step 1: Add feed size threshold to spinner activation**
@@ -345,10 +380,10 @@ In `src/app/shell/AppShell.tsx`, change the `useSpinner` call (line 627-629):
 
 ```typescript
 const spinnerFrame = useSpinner(
-    appMode.type === 'working' &&
-    todoPanel.todoVisible &&
-    !pagerActive &&
-    filteredEntries.length < 500,
+	appMode.type === 'working' &&
+		todoPanel.todoVisible &&
+		!pagerActive &&
+		filteredEntries.length < 500,
 );
 ```
 
@@ -360,8 +395,10 @@ In `buildTodoHeaderLine`, change the glyph fallback so that when working but spi
 
 ```typescript
 const rawLeadGlyph = isWorking
-    ? (todo.spinnerFrame || (todo.ascii ? '*' : '\u25CF'))
-    : (todo.ascii ? '*' : '\u25CF');
+	? todo.spinnerFrame || (todo.ascii ? '*' : '\u25CF')
+	: todo.ascii
+		? '*'
+		: '\u25CF';
 ```
 
 This ensures we still show WORKING status with a static glyph when animation is disabled.
@@ -385,6 +422,7 @@ git commit -m "perf: disable spinner animation for large feeds (>500 entries)"
 `TaskList` is not imported anywhere except its own test file. It contains its own `useSpinner` call which would be another render source if it were ever mounted. Remove it to prevent accidental reuse.
 
 **Files:**
+
 - Delete: `src/ui/components/TaskList.tsx`
 - Delete: `src/ui/components/TaskList.test.tsx`
 
@@ -444,6 +482,7 @@ npm run build && node dist/cli.js
 ```
 
 Verify:
+
 - Spinner animates at a visibly slower cadence (~500ms)
 - Todo panel header updates without visible jank
 - CPU usage during idle working state is noticeably lower than before
@@ -452,12 +491,12 @@ Verify:
 
 ## Summary of changes
 
-| File | Change | Impact |
-|------|--------|--------|
-| `src/ui/hooks/useSpinner.ts` | 200ms → 500ms | 2.5x fewer renders/sec |
-| `src/ui/layout/buildBodyLines.ts` | Extract `buildTodoHeaderLine`, add `skipHeader` | Spinner ticks skip expensive todo-item recomputation |
-| `src/app/shell/AppShell.tsx` | Split `prefixBodyLines` into two memos; add feed size threshold | Spinner-only updates are cheap; large feeds disable animation |
-| `src/ui/components/TaskList.tsx` | Deleted (unused) | Remove dead code with redundant spinner |
-| `src/ui/components/TaskList.test.tsx` | Deleted | Remove dead test |
+| File                                  | Change                                                          | Impact                                                        |
+| ------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| `src/ui/hooks/useSpinner.ts`          | 200ms → 500ms                                                   | 2.5x fewer renders/sec                                        |
+| `src/ui/layout/buildBodyLines.ts`     | Extract `buildTodoHeaderLine`, add `skipHeader`                 | Spinner ticks skip expensive todo-item recomputation          |
+| `src/app/shell/AppShell.tsx`          | Split `prefixBodyLines` into two memos; add feed size threshold | Spinner-only updates are cheap; large feeds disable animation |
+| `src/ui/components/TaskList.tsx`      | Deleted (unused)                                                | Remove dead code with redundant spinner                       |
+| `src/ui/components/TaskList.test.tsx` | Deleted                                                         | Remove dead test                                              |
 
 **Expected CPU reduction:** From ~93% down to ~15-25% during working state. The combination of 2.5x fewer ticks, each tick only recomputing a single header line (not the full body), and disabling animation for large feeds addresses all three bottleneck layers (render frequency, render cost per frame, worst-case scaling).

@@ -45,14 +45,15 @@ export type BuildBodyLinesOptions = {
  */
 export function buildTodoHeaderLine(
 	innerWidth: number,
-	todo: Pick<TodoViewState, 'ascii' | 'appMode' | 'spinnerFrame' | 'colors' | 'doneCount' | 'totalCount'>,
+	todo: Pick<
+		TodoViewState,
+		'ascii' | 'appMode' | 'spinnerFrame' | 'colors' | 'doneCount' | 'totalCount'
+	>,
 	theme: Theme,
 ): string {
 	const isWorking = todo.appMode === 'working';
 	const idleGlyph = todo.ascii ? '*' : '\u25CF';
-	const rawLeadGlyph = isWorking
-		? (todo.spinnerFrame || idleGlyph)
-		: idleGlyph;
+	const rawLeadGlyph = isWorking ? todo.spinnerFrame || idleGlyph : idleGlyph;
 	const leadColor = isWorking ? theme.status.warning : theme.status.success;
 	const leadGlyph = chalk.hex(leadColor)(rawLeadGlyph);
 	const statusWord = isWorking ? 'WORKING' : 'IDLE';
