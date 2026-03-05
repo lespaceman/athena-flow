@@ -28,10 +28,11 @@ export function createTranscriptReader(): TranscriptReader {
 	): TranscriptMessage[] {
 		const offset = offsets.get(transcriptPath) ?? 0;
 
-		// Quick stat check to avoid opening the file when nothing new was appended
+		// Quick stat to avoid opening the file when nothing new was appended
+		let fileSize: number;
 		try {
-			const stat = fs.statSync(transcriptPath);
-			if (stat.size <= offset) return [];
+			fileSize = fs.statSync(transcriptPath).size;
+			if (fileSize <= offset) return [];
 		} catch {
 			return [];
 		}
@@ -44,10 +45,7 @@ export function createTranscriptReader(): TranscriptReader {
 		}
 
 		try {
-			const stat = fs.fstatSync(fd);
-			if (stat.size <= offset) return [];
-
-			const buf = Buffer.alloc(stat.size - offset);
+			const buf = Buffer.alloc(fileSize - offset);
 			const bytesRead = fs.readSync(fd, buf, 0, buf.length, offset);
 			offsets.set(transcriptPath, offset + bytesRead);
 
@@ -71,7 +69,7 @@ export function createTranscriptReader(): TranscriptReader {
 					}
 
 					// content is an array — extract text blocks
-					const textParts = (content as TranscriptTextContent[])
+					const textParts = content
 						.filter((c): c is TranscriptTextContent => c.type === 'text')
 						.map(c => c.text)
 						.filter(t => t.trim().length > 0);

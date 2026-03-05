@@ -313,6 +313,32 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		const eventKind = event.kind;
 		const results: FeedEvent[] = [];
 
+		// Fallback: emit agent.message from last_assistant_message when transcript yields nothing
+		function emitFallbackMessage(
+			parentKind: FeedEventKind,
+			actorId: string,
+			scope: 'root' | 'subagent',
+		): void {
+			if (results.some(r => r.kind === 'agent.message')) return;
+			const msg = readString(d['last_assistant_message']);
+			if (!msg) return;
+			const parentEvt = results.find(r => r.kind === parentKind);
+			results.push(
+				makeEvent(
+					'agent.message',
+					'info',
+					actorId,
+					{
+						message: msg,
+						source: 'hook',
+						scope,
+					} satisfies import('./types').AgentMessageData,
+					event,
+					parentEvt ? {parent_event_id: parentEvt.event_id} : undefined,
+				),
+			);
+		}
+
 		// Extract new assistant messages from transcript BEFORE processing the
 		// hook event so that agent.message gets a lower seq than tool.pre etc.
 		// Skip stop events — they use last_assistant_message to avoid flush-timing dupes.
@@ -717,32 +743,6 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				results.push(unknownEvt);
 				break;
 			}
-		}
-
-		// Fallback: emit agent.message from last_assistant_message when transcript yields nothing
-		function emitFallbackMessage(
-			parentKind: FeedEventKind,
-			actorId: string,
-			scope: 'root' | 'subagent',
-		): void {
-			if (results.some(r => r.kind === 'agent.message')) return;
-			const msg = readString(d['last_assistant_message']);
-			if (!msg) return;
-			const parentEvt = results.find(r => r.kind === parentKind);
-			results.push(
-				makeEvent(
-					'agent.message',
-					'info',
-					actorId,
-					{
-						message: msg,
-						source: 'hook',
-						scope,
-					} satisfies import('./types').AgentMessageData,
-					event,
-					parentEvt ? {parent_event_id: parentEvt.event_id} : undefined,
-				),
-			);
 		}
 
 		// Stop events: use last_assistant_message directly (always available in payload).
