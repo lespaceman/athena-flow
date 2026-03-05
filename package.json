@@ -3,11 +3,11 @@
 	"description": "Workflow runtime for Claude Code with hooks, plugins, and interactive terminal observability",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/lespaceman/athena-flow.git"
+		"url": "git+https://github.com/lespaceman/athena-flow-cli.git"
 	},
-	"homepage": "https://github.com/lespaceman/athena-flow#readme",
+	"homepage": "https://github.com/lespaceman/athena-flow-cli#readme",
 	"bugs": {
-		"url": "https://github.com/lespaceman/athena-flow/issues"
+		"url": "https://github.com/lespaceman/athena-flow-cli/issues"
 	},
 	"keywords": [
 		"cli",
