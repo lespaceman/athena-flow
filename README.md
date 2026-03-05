@@ -7,7 +7,7 @@ The harness architecture is expanding: Codex support will run through `codex-app
 ## Install
 
 ```bash
-npm install -g athena-flow-cli
+npm install -g @athenaflow/cli
 ```
 
 Requires Node.js >= 20.
