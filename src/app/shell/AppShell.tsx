@@ -15,8 +15,10 @@ import {HookProvider} from '../providers/RuntimeProvider';
 import {useHarnessProcess} from '../process/useHarnessProcess';
 import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
 import {useTerminalTitle} from '../../ui/hooks/useTerminalTitle';
-import {useCommandSuggestions} from '../../ui/hooks/useCommandSuggestions';
-import CommandSuggestions from '../../ui/components/CommandSuggestions';
+import {
+	CommandSuggestionPanel,
+	type CommandSuggestionPanelHandle,
+} from '../../ui/components/CommandSuggestionPanel';
 import {useAppMode} from '../../ui/hooks/useAppMode';
 import {
 	type InputHistory,
@@ -31,7 +33,10 @@ import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
 import {usePager} from '../../ui/hooks/usePager';
 import {useFrameChrome} from '../../ui/hooks/useFrameChrome';
-import {buildBodyLines} from '../../ui/layout/buildBodyLines';
+import {
+	buildBodyLines,
+	buildTodoHeaderLine,
+} from '../../ui/layout/buildBodyLines';
 import {FeedGrid} from '../../ui/components/FeedGrid';
 import {FrameRow} from '../../ui/components/FrameRow';
 import {MultiLineInput} from '../../ui/components/MultiLineInput';
@@ -407,11 +412,20 @@ function AppContent({
 		getSelectedCommand: () => getSelectedCommandRef.current(),
 	});
 
-	const commandSuggestions = useCommandSuggestions(
-		inputValueRef,
-		inputMode === 'command',
+	const suggestionPanelRef = useRef<CommandSuggestionPanelHandle>(null);
+	getSelectedCommandRef.current = () =>
+		suggestionPanelRef.current?.getSelectedCommand();
+
+	// Wrap onChange to notify the suggestion panel (isolated re-render).
+	// The panel's notifyInputChanged only triggers a re-render of the panel
+	// component — not the entire AppContent tree.
+	const handleInputChange = useCallback(
+		(value: string) => {
+			handleMainInputChange(value);
+			suggestionPanelRef.current?.notifyInputChanged();
+		},
+		[handleMainInputChange],
 	);
-	getSelectedCommandRef.current = commandSuggestions.getSelectedCommand;
 
 	const {back: handleHistoryBack, forward: handleHistoryForward} = inputHistory;
 
@@ -541,11 +555,11 @@ function AppContent({
 			setInputValue: stableSetInputValue,
 			inputMode,
 			commandSuggestions: {
-				visible: commandSuggestions.showSuggestions,
-				moveUp: commandSuggestions.moveUp,
-				moveDown: commandSuggestions.moveDown,
+				visible: () => suggestionPanelRef.current?.showSuggestions ?? false,
+				moveUp: () => suggestionPanelRef.current?.moveUp(),
+				moveDown: () => suggestionPanelRef.current?.moveDown(),
 				tab: () => {
-					const cmd = commandSuggestions.getSelectedCommand();
+					const cmd = suggestionPanelRef.current?.getSelectedCommand();
 					if (cmd) stableSetInputValue(`/${cmd.name} `);
 				},
 			},
@@ -614,7 +628,10 @@ function AppContent({
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
 	const spinnerFrame = useSpinner(
-		appMode.type === 'working' && todoPanel.todoVisible && !pagerActive,
+		appMode.type === 'working' &&
+			todoPanel.todoVisible &&
+			!pagerActive &&
+			filteredEntries.length < 500,
 	);
 
 	const todoColors = useMemo(
@@ -682,6 +699,37 @@ function AppContent({
 		theme,
 	]);
 
+	// Memo 1: Todo header line — depends on spinnerFrame, updates every 500ms
+	const todoHeaderLine = useMemo(
+		() =>
+			actualTodoRows > 0
+				? buildTodoHeaderLine(
+						innerWidth,
+						{
+							ascii: useAscii,
+							appMode: appMode.type,
+							spinnerFrame,
+							colors: todoColors,
+							doneCount: todoPanel.doneCount,
+							totalCount: todoPanel.todoItems.length,
+						},
+						theme,
+					)
+				: null,
+		[
+			actualTodoRows,
+			innerWidth,
+			useAscii,
+			appMode.type,
+			spinnerFrame,
+			todoColors,
+			todoPanel.doneCount,
+			todoPanel.todoItems.length,
+			theme,
+		],
+	);
+
+	// Memo 2: Remaining body lines — does NOT depend on spinnerFrame
 	const prefixBodyLines = useMemo(
 		() =>
 			buildBodyLines({
@@ -699,7 +747,8 @@ function AppContent({
 					appMode: appMode.type,
 					doneCount: todoPanel.doneCount,
 					totalCount: todoPanel.todoItems.length,
-					spinnerFrame,
+					spinnerFrame: '',
+					skipHeader: true,
 				},
 				runOverlay: {actualRunOverlayRows, runSummaries, runFilter: 'all'},
 				theme,
@@ -716,7 +765,6 @@ function AppContent({
 			appMode.type,
 			todoPanel.doneCount,
 			todoPanel.todoItems.length,
-			spinnerFrame,
 			actualRunOverlayRows,
 			runSummaries,
 			theme,
@@ -765,6 +813,12 @@ function AppContent({
 		[border],
 	);
 
+	// Stable callback for CommandSuggestionPanel — composes frameLine + border edges.
+	const wrapFrameLine = useCallback(
+		(line: string) => withBorderEdges(frameLine(line)),
+		[withBorderEdges, frameLine],
+	);
+
 	if (pagerActive) {
 		return <Box />;
 	}
@@ -774,6 +828,11 @@ function AppContent({
 			<Text>{border(topBorder)}</Text>
 			<Text>{withBorderEdges(frameLine(headerLine1))}</Text>
 			<Text>{border(sectionBorder)}</Text>
+			{todoHeaderLine !== null && (
+				<Text key="todo-header">
+					{withBorderEdges(frameLine(todoHeaderLine))}
+				</Text>
+			)}
 			{prefixBodyLines.map((line, index) => (
 				<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
 			))}
@@ -805,14 +864,13 @@ function AppContent({
 					<Text>{withBorderEdges(frameLine(''))}</Text>
 				</>
 			)}
-			{commandSuggestions.showSuggestions && (
-				<CommandSuggestions
-					commands={commandSuggestions.filteredCommands}
-					selectedIndex={commandSuggestions.selectedIndex}
-					innerWidth={innerWidth}
-					wrapLine={(line: string) => withBorderEdges(frameLine(line))}
-				/>
-			)}
+			<CommandSuggestionPanel
+				ref={suggestionPanelRef}
+				inputValueRef={inputValueRef}
+				isActive={inputMode === 'command'}
+				innerWidth={innerWidth}
+				wrapLine={wrapFrameLine}
+			/>
 			<FrameRow
 				innerWidth={innerWidth}
 				ascii={useAscii}
@@ -829,11 +887,11 @@ function AppContent({
 						textColor={theme.text}
 						placeholderColor={inputPlaceholderColor}
 						isActive={focusMode === 'input' && !dialogActive}
-						onChange={handleMainInputChange}
+						onChange={handleInputChange}
 						onSubmit={handleInputSubmit}
 						onHistoryBack={handleHistoryBack}
 						onHistoryForward={handleHistoryForward}
-						suppressArrows={commandSuggestions.showSuggestions}
+						suppressArrows={inputMode === 'command'}
 						setValueRef={handleSetValueRef}
 					/>
 				</Box>

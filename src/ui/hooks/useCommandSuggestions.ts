@@ -1,6 +1,7 @@
-import {useState, useMemo, useRef} from 'react';
+import {useState, useMemo, useRef, useCallback} from 'react';
 import * as registry from '../../app/commands/registry';
 import type {Command} from '../../app/commands/types';
+import {isCommandPrefix} from '../../shared/utils/format';
 
 const MAX_SUGGESTIONS = 6;
 
@@ -11,6 +12,8 @@ export type UseCommandSuggestionsResult = {
 	moveUp: () => void;
 	moveDown: () => void;
 	getSelectedCommand: () => Command | undefined;
+	/** Call from onChange to trigger suggestion re-filter (only fires in command mode) */
+	notifyInputChanged: () => void;
 };
 
 export function useCommandSuggestions(
@@ -18,10 +21,16 @@ export function useCommandSuggestions(
 	isActive: boolean,
 ): UseCommandSuggestionsResult {
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [, setFilterTick] = useState(0);
+
+	const notifyInputChanged = useCallback(() => {
+		if (isCommandPrefix(inputValueRef.current)) {
+			setFilterTick(t => t + 1);
+		}
+	}, [inputValueRef]);
 
 	const inputValue = inputValueRef.current;
-	const isCommandMode =
-		isActive && inputValue.startsWith('/') && !inputValue.includes(' ');
+	const isCommandMode = isActive && isCommandPrefix(inputValue);
 	const prefix = isCommandMode ? inputValue.slice(1) : '';
 
 	const filteredCommands = useMemo(() => {
@@ -66,5 +75,6 @@ export function useCommandSuggestions(
 		moveUp,
 		moveDown,
 		getSelectedCommand,
+		notifyInputChanged,
 	};
 }
