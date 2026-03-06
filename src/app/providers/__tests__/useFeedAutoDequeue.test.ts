@@ -67,7 +67,10 @@ function makePermissionEvent(requestId: string): RuntimeEvent {
 
 function makeTodoWriteEvent(
 	requestId: string,
-	todos: Array<{content: string; status: 'pending' | 'in_progress' | 'completed'}>,
+	todos: Array<{
+		content: string;
+		status: 'pending' | 'in_progress' | 'completed';
+	}>,
 ): RuntimeEvent {
 	return {
 		id: requestId,

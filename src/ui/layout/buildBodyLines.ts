@@ -176,7 +176,10 @@ export function buildBodyLines({
 					innerWidth - fixedWidth - suffixWidth - elapsedWidth,
 				);
 				const title = row.text(
-					fitAnsi(typeof item.text === 'string' ? item.text : '', maxTitleWidth).trimEnd(),
+					fitAnsi(
+						typeof item.text === 'string' ? item.text : '',
+						maxTitleWidth,
+					).trimEnd(),
 				);
 
 				let line = `${caret} ${glyphStr}  ${title}`;
