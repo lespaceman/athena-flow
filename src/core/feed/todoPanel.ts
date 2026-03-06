@@ -15,6 +15,8 @@ export type TodoPanelItem = {
 	linkedEventId?: string;
 	owner?: string;
 	localOnly?: boolean;
+	startedAtMs?: number;
+	completedAtMs?: number;
 	elapsed?: string;
 };
 

@@ -29,6 +29,7 @@ import {useTodoPanel} from '../../ui/hooks/useTodoPanel';
 import {useFeedKeyboard} from '../../ui/hooks/useFeedKeyboard';
 import {useTodoKeyboard} from '../../ui/hooks/useTodoKeyboard';
 import {useSpinner} from '../../ui/hooks/useSpinner';
+import {useTodoDisplayItems} from '../../ui/hooks/useTodoDisplayItems';
 import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
 import {usePager} from '../../ui/hooks/usePager';
@@ -649,13 +650,6 @@ function AppContent({
 
 	const hasColor = !process.env['NO_COLOR'];
 	const useAscii = !!ascii;
-	const spinnerFrame = useSpinner(
-		appMode.type === 'working' &&
-			todoPanel.todoVisible &&
-			!pagerActive &&
-			filteredEntries.length < 500,
-	);
-
 	const todoColors = useMemo(
 		() => ({
 			doing: theme.status.warning,
@@ -720,78 +714,6 @@ function AppContent({
 		hasColor,
 		theme,
 	]);
-
-	// Memo 1: Todo header line — depends on spinnerFrame, updates every 500ms
-	const todoHeaderLine = useMemo(
-		() =>
-			actualTodoRows > 0
-				? buildTodoHeaderLine(
-						innerWidth,
-						{
-							ascii: useAscii,
-							appMode: appMode.type,
-							spinnerFrame,
-							colors: todoColors,
-							doneCount: todoPanel.doneCount,
-							totalCount: todoPanel.todoItems.length,
-						},
-						theme,
-					)
-				: null,
-		[
-			actualTodoRows,
-			innerWidth,
-			useAscii,
-			appMode.type,
-			spinnerFrame,
-			todoColors,
-			todoPanel.doneCount,
-			todoPanel.todoItems.length,
-			theme,
-		],
-	);
-
-	// Memo 2: Remaining body lines — does NOT depend on spinnerFrame
-	const prefixBodyLines = useMemo(
-		() =>
-			buildBodyLines({
-				innerWidth,
-				todo: {
-					actualTodoRows,
-					todoPanel: {
-						todoScroll: todoPanel.todoScroll,
-						todoCursor: todoPanel.todoCursor,
-						visibleTodoItems: todoPanel.visibleTodoItems,
-					},
-					focusMode,
-					ascii: useAscii,
-					colors: todoColors,
-					appMode: appMode.type,
-					doneCount: todoPanel.doneCount,
-					totalCount: todoPanel.todoItems.length,
-					spinnerFrame: '',
-					skipHeader: true,
-				},
-				runOverlay: {actualRunOverlayRows, runSummaries, runFilter: 'all'},
-				theme,
-			}),
-		[
-			innerWidth,
-			actualTodoRows,
-			todoPanel.todoScroll,
-			todoPanel.todoCursor,
-			todoPanel.visibleTodoItems,
-			focusMode,
-			useAscii,
-			todoColors,
-			appMode.type,
-			todoPanel.doneCount,
-			todoPanel.todoItems.length,
-			actualRunOverlayRows,
-			runSummaries,
-			theme,
-		],
-	);
 
 	const feedCols = useFeedColumns(filteredEntries, innerWidth);
 
@@ -863,24 +785,53 @@ function AppContent({
 				id="app.main.todo-header"
 				onRender={handleSectionProfilerRender}
 			>
-				<>
-					{todoHeaderLine !== null && (
-						<Text key="todo-header">
-							{withBorderEdges(frameLine(todoHeaderLine))}
-						</Text>
-					)}
-				</>
+				<TodoHeaderSection
+					actualTodoRows={actualTodoRows}
+					innerWidth={innerWidth}
+					useAscii={useAscii}
+					appModeType={appMode.type}
+					todoColors={todoColors}
+					doneCount={todoPanel.doneCount}
+					totalCount={todoPanel.todoItems.length}
+					theme={theme}
+					withBorderEdges={withBorderEdges}
+					frameLine={frameLine}
+					spinnerActive={
+						appMode.type === 'working' &&
+						todoPanel.todoVisible &&
+						!pagerActive &&
+						filteredEntries.length < 500
+					}
+				/>
 			</MaybeProfiler>
 			<MaybeProfiler
 				enabled={perfEnabled}
 				id="app.main.body-prefix"
 				onRender={handleSectionProfilerRender}
 			>
-				<>
-					{prefixBodyLines.map((line, index) => (
-						<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
-					))}
-				</>
+				<TodoBodySection
+					innerWidth={innerWidth}
+					actualTodoRows={actualTodoRows}
+					todoScroll={todoPanel.todoScroll}
+					todoCursor={todoPanel.todoCursor}
+					visibleTodoItems={todoPanel.visibleTodoItems}
+					focusMode={focusMode}
+					useAscii={useAscii}
+					todoColors={todoColors}
+					appModeType={appMode.type}
+					doneCount={todoPanel.doneCount}
+					totalCount={todoPanel.todoItems.length}
+					actualRunOverlayRows={actualRunOverlayRows}
+					runSummaries={runSummaries}
+					theme={theme}
+					withBorderEdges={withBorderEdges}
+					frameLine={frameLine}
+					isWorking={appMode.type === 'working'}
+					pausedAtMs={todoPanel.pausedAtMs}
+					todoTickActive={
+						actualTodoRows > 0 && todoPanel.todoVisible && !pagerActive
+					}
+				/>
 			</MaybeProfiler>
 			<MaybeProfiler
 				enabled={perfEnabled}
@@ -1024,6 +975,183 @@ function MaybeProfiler({
 		</Profiler>
 	);
 }
+
+const TodoHeaderSection = React.memo(function TodoHeaderSection({
+	actualTodoRows,
+	innerWidth,
+	useAscii,
+	appModeType,
+	todoColors,
+	doneCount,
+	totalCount,
+	theme,
+	withBorderEdges,
+	frameLine,
+	spinnerActive,
+}: {
+	actualTodoRows: number;
+	innerWidth: number;
+	useAscii: boolean;
+	appModeType: 'idle' | 'working' | 'permission' | 'question';
+	todoColors: {
+		doing: string;
+		done: string;
+		failed: string;
+		blocked: string;
+		text: string;
+		textMuted: string;
+		default: string;
+	};
+	doneCount: number;
+	totalCount: number;
+	theme: Theme;
+	withBorderEdges: (line: string) => string;
+	frameLine: (content: string) => string;
+	spinnerActive: boolean;
+}) {
+	const spinnerFrame = useSpinner(spinnerActive);
+	const todoHeaderLine = useMemo(
+		() =>
+			actualTodoRows > 0
+				? buildTodoHeaderLine(
+						innerWidth,
+						{
+							ascii: useAscii,
+							appMode: appModeType,
+							spinnerFrame,
+							colors: todoColors,
+							doneCount,
+							totalCount,
+						},
+						theme,
+					)
+				: null,
+		[
+			actualTodoRows,
+			innerWidth,
+			useAscii,
+			appModeType,
+			spinnerFrame,
+			todoColors,
+			doneCount,
+			totalCount,
+			theme,
+		],
+	);
+
+	return (
+		<>
+			{todoHeaderLine !== null && (
+				<Text key="todo-header">{withBorderEdges(frameLine(todoHeaderLine))}</Text>
+			)}
+		</>
+	);
+});
+
+const TodoBodySection = React.memo(function TodoBodySection({
+	innerWidth,
+	actualTodoRows,
+	todoScroll,
+	todoCursor,
+	visibleTodoItems,
+	focusMode,
+	useAscii,
+	todoColors,
+	appModeType,
+	doneCount,
+	totalCount,
+	actualRunOverlayRows,
+	runSummaries,
+	theme,
+	withBorderEdges,
+	frameLine,
+	isWorking,
+	pausedAtMs,
+	todoTickActive,
+}: {
+	innerWidth: number;
+	actualTodoRows: number;
+	todoScroll: number;
+	todoCursor: number;
+	visibleTodoItems: import('../../core/feed/todoPanel').TodoPanelItem[];
+	focusMode: string;
+	useAscii: boolean;
+	todoColors: {
+		doing: string;
+		done: string;
+		failed: string;
+		blocked: string;
+		text: string;
+		textMuted: string;
+		default: string;
+	};
+	appModeType: 'idle' | 'working' | 'permission' | 'question';
+	doneCount: number;
+	totalCount: number;
+	actualRunOverlayRows: number;
+	runSummaries: import('../../core/feed/timeline').RunSummary[];
+	theme: Theme;
+	withBorderEdges: (line: string) => string;
+	frameLine: (content: string) => string;
+	isWorking: boolean;
+	pausedAtMs: number | null;
+	todoTickActive: boolean;
+}) {
+	const displayTodoItems = useTodoDisplayItems({
+		items: visibleTodoItems,
+		isWorking,
+		pausedAtMs,
+		active: todoTickActive,
+	});
+	const prefixBodyLines = useMemo(
+		() =>
+			buildBodyLines({
+				innerWidth,
+				todo: {
+					actualTodoRows,
+					todoPanel: {
+						todoScroll,
+						todoCursor,
+						visibleTodoItems: displayTodoItems,
+					},
+					focusMode,
+					ascii: useAscii,
+					colors: todoColors,
+					appMode: appModeType,
+					doneCount,
+					totalCount,
+					spinnerFrame: '',
+					skipHeader: true,
+				},
+				runOverlay: {actualRunOverlayRows, runSummaries, runFilter: 'all'},
+				theme,
+			}),
+		[
+			innerWidth,
+			actualTodoRows,
+			todoScroll,
+			todoCursor,
+			displayTodoItems,
+			focusMode,
+			useAscii,
+			todoColors,
+			appModeType,
+			doneCount,
+			totalCount,
+			actualRunOverlayRows,
+			runSummaries,
+			theme,
+		],
+	);
+
+	return (
+		<>
+			{prefixBodyLines.map((line, index) => (
+				<Text key={`body-${index}`}>{withBorderEdges(frameLine(line))}</Text>
+			))}
+		</>
+	);
+});
 
 const FooterSection = React.memo(function FooterSection({
 	border,

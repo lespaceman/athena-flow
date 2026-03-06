@@ -29,6 +29,7 @@ export type UseTodoPanelResult = {
 	openCount: number;
 	failedCount: number;
 	remainingCount: number;
+	pausedAtMs: number | null;
 	setTodoVisible: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoShowDone: React.Dispatch<React.SetStateAction<boolean>>;
 	setTodoCursor: React.Dispatch<React.SetStateAction<number>>;
@@ -56,11 +57,8 @@ export function useTodoPanel({
 	const startedAtRef = useRef<Map<string, number>>(new Map());
 	const completedAtRef = useRef<Map<string, number>>(new Map());
 	const pausedAtRef = useRef<number | null>(null);
-	const [tickCounter, setTickCounter] = useState(0);
 
-	const todoItems = useMemo((): TodoPanelItem[] => {
-		// tickCounter forces re-evaluation every second while items are active
-		void tickCounter;
+	const todoItems = ((): TodoPanelItem[] => {
 		const fromTasks = tasks.map((task, index) => ({
 			id: `task-${index}-${task.content.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16)}`,
 			text: task.content,
@@ -78,6 +76,13 @@ export function useTodoPanel({
 		// On resume, shift all timestamps forward by idle gap so idle time
 		// doesn't count toward elapsed.
 		const now = Date.now();
+		const currentIds = new Set(merged.map(todo => todo.id));
+		for (const id of startedAtRef.current.keys()) {
+			if (!currentIds.has(id)) startedAtRef.current.delete(id);
+		}
+		for (const id of completedAtRef.current.keys()) {
+			if (!currentIds.has(id)) completedAtRef.current.delete(id);
+		}
 		if (!isWorking && pausedAtRef.current === null) {
 			pausedAtRef.current = now;
 		} else if (isWorking && pausedAtRef.current !== null) {
@@ -107,18 +112,21 @@ export function useTodoPanel({
 			) {
 				completedAt.set(todo.id, effectiveNow);
 			}
+			const startedAtMs = startedAt.get(todo.id);
+			const completedAtMs = completedAt.get(todo.id);
 			let elapsed: string | undefined;
-			const hasElapsed =
-				todo.status === 'doing' ||
-				todo.status === 'done' ||
-				todo.status === 'failed';
-			if (hasElapsed && startedAt.has(todo.id)) {
-				const end = completedAt.get(todo.id) ?? effectiveNow;
-				elapsed = formatElapsed(end - startedAt.get(todo.id)!);
+			if (
+				startedAtMs !== undefined &&
+				(todo.status === 'doing' ||
+					todo.status === 'done' ||
+					todo.status === 'failed')
+			) {
+				const end = completedAtMs ?? effectiveNow;
+				elapsed = formatElapsed(Math.max(0, end - startedAtMs));
 			}
-			return {...todo, elapsed};
+			return {...todo, startedAtMs, completedAtMs, elapsed};
 		});
-	}, [tasks, extraTodos, todoStatusOverrides, tickCounter, isWorking]);
+	})();
 
 	const sortedItems = useMemo(() => {
 		return todoShowDone
@@ -170,14 +178,6 @@ export function useTodoPanel({
 			remainingCount: todoItems.length - done,
 		};
 	}, [todoItems]);
-
-	// Tick interval to refresh elapsed times while items are active, working,
-	// and the panel is visible. Skips when hidden to avoid wasted re-renders.
-	useEffect(() => {
-		if (doingCount === 0 || !isWorking || !todoVisible) return;
-		const id = setInterval(() => setTickCounter(c => c + 1), 1000);
-		return () => clearInterval(id);
-	}, [doingCount, isWorking, todoVisible]);
 
 	// Clamp cursor when items shrink
 	useEffect(() => {
@@ -242,6 +242,7 @@ export function useTodoPanel({
 		openCount,
 		failedCount,
 		remainingCount,
+		pausedAtMs: pausedAtRef.current,
 		setTodoVisible,
 		setTodoShowDone,
 		setTodoCursor,

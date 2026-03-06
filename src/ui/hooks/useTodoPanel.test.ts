@@ -27,13 +27,17 @@ describe('useTodoPanel', () => {
 	describe('elapsed times', () => {
 		it('doing items produce elapsed after tick', () => {
 			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
+			const {result, rerender} = renderHook(
+				({tasks, isWorking}: HookProps) => useTodoPanel({tasks, isWorking}),
+				{initialProps: {tasks, isWorking: true}},
+			);
 
 			expect(result.current.todoItems[0]!.elapsed).toBe('0s');
 
 			act(() => {
 				vi.advanceTimersByTime(5000);
 			});
+			rerender({tasks, isWorking: true});
 
 			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
 		});
@@ -48,6 +52,7 @@ describe('useTodoPanel', () => {
 			act(() => {
 				vi.advanceTimersByTime(10_000);
 			});
+			rerender({tasks, isWorking: true});
 
 			const completedTasks = makeTasks(['completed']);
 			rerender({tasks: completedTasks, isWorking: true});
@@ -72,6 +77,7 @@ describe('useTodoPanel', () => {
 			act(() => {
 				vi.advanceTimersByTime(5000);
 			});
+			rerender({tasks, isWorking: true});
 			rerender({tasks: makeTasks(['completed']), isWorking: true});
 			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
 
@@ -80,6 +86,7 @@ describe('useTodoPanel', () => {
 			act(() => {
 				vi.advanceTimersByTime(3000);
 			});
+			rerender({tasks: makeTasks(['in_progress']), isWorking: true});
 			expect(result.current.todoItems[0]!.elapsed).toBe('8s');
 		});
 
@@ -93,6 +100,7 @@ describe('useTodoPanel', () => {
 			act(() => {
 				vi.advanceTimersByTime(5000);
 			});
+			rerender({tasks, isWorking: true});
 			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
 
 			// Go idle
@@ -111,55 +119,24 @@ describe('useTodoPanel', () => {
 			act(() => {
 				vi.advanceTimersByTime(2000);
 			});
+			rerender({tasks, isWorking: true});
 			expect(result.current.todoItems[0]!.elapsed).toBe('7s');
 		});
 	});
 
-	describe('tick gating', () => {
-		it('does not tick when panel is hidden', () => {
+	describe('paused time state', () => {
+		it('captures pausedAtMs when work becomes idle', () => {
 			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
+			const {result, rerender} = renderHook(
+				({tasks, isWorking}: HookProps) => useTodoPanel({tasks, isWorking}),
+				{initialProps: {tasks, isWorking: true}},
+			);
 
-			// Hide the panel
-			act(() => {
-				result.current.setTodoVisible(false);
-			});
+			expect(result.current.pausedAtMs).toBeNull();
 
-			const elapsedBefore = result.current.todoItems[0]!.elapsed;
+			rerender({tasks, isWorking: false});
 
-			// Advance 5 seconds — tick should NOT fire because panel is hidden
-			act(() => {
-				vi.advanceTimersByTime(5000);
-			});
-
-			expect(result.current.todoItems[0]!.elapsed).toBe(elapsedBefore);
-		});
-
-		it('resumes ticking when panel becomes visible again', () => {
-			const tasks = makeTasks(['in_progress']);
-			const {result} = renderHook(() => useTodoPanel({tasks, isWorking: true}));
-
-			expect(result.current.todoItems[0]!.elapsed).toBe('0s');
-
-			// Hide, wait, show
-			act(() => {
-				result.current.setTodoVisible(false);
-			});
-			act(() => {
-				vi.advanceTimersByTime(3000);
-			});
-			act(() => {
-				result.current.setTodoVisible(true);
-			});
-
-			// After re-showing, ticking should resume
-			act(() => {
-				vi.advanceTimersByTime(2000);
-			});
-
-			// Elapsed should reflect time after re-show (the 3s hidden gap
-			// still counts in Date.now, so elapsed = 5s total)
-			expect(result.current.todoItems[0]!.elapsed).toBe('5s');
+			expect(result.current.pausedAtMs).toBeTypeOf('number');
 		});
 	});
 
