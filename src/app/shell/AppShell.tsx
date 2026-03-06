@@ -176,6 +176,7 @@ function AppContent({
 	const messagesRef = useRef(messages);
 	messagesRef.current = messages;
 	const perfEnabled = isPerfEnabled();
+	usePerfRenderLog(perfEnabled, 'app.main.content.render');
 	const handleSectionProfilerRender = useCallback(
 		(
 			id: string,
@@ -1294,6 +1295,7 @@ export default function App({
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const perfEnabled = isPerfEnabled();
+	usePerfRenderLog(perfEnabled, 'app.main.render');
 	const [athenaSessionId, setAthenaSessionId] = useState(
 		initialAthenaSessionId,
 	);
@@ -1481,40 +1483,47 @@ export default function App({
 	}
 
 	return (
-		<MaybeProfiler
-			enabled={perfEnabled}
-			id="app.main"
-			onRender={handleProfilerRender}
-		>
-			<ThemeProvider value={activeTheme}>
-				<HookProvider
+		<ThemeProvider value={activeTheme}>
+			<HookProvider
+				projectDir={projectDir}
+				instanceId={instanceId}
+				harness={runtimeState.harness}
+				allowedTools={runtimeState.isolation?.allowedTools}
+				athenaSessionId={athenaSessionId}
+			>
+				<AppContent
+					key={clearCount}
 					projectDir={projectDir}
 					instanceId={instanceId}
 					harness={runtimeState.harness}
-					allowedTools={runtimeState.isolation?.allowedTools}
+					isolation={runtimeState.isolation}
+					verbose={verbose}
+					pluginMcpConfig={runtimeState.pluginMcpConfig}
+					modelName={runtimeState.modelName}
 					athenaSessionId={athenaSessionId}
-				>
-					<AppContent
-						key={clearCount}
-						projectDir={projectDir}
-						instanceId={instanceId}
-						harness={runtimeState.harness}
-						isolation={runtimeState.isolation}
-						verbose={verbose}
-						pluginMcpConfig={runtimeState.pluginMcpConfig}
-						modelName={runtimeState.modelName}
-						athenaSessionId={athenaSessionId}
-						initialSessionId={phase.initialSessionId}
-						onClear={() => setClearCount(c => c + 1)}
-						onShowSessions={handleShowSessions}
-						onShowSetup={handleShowSetup}
-						inputHistory={inputHistory}
-						workflowRef={runtimeState.workflowRef}
-						workflow={runtimeState.workflow}
-						ascii={ascii}
-					/>
-				</HookProvider>
-			</ThemeProvider>
-		</MaybeProfiler>
+					initialSessionId={phase.initialSessionId}
+					onClear={() => setClearCount(c => c + 1)}
+					onShowSessions={handleShowSessions}
+					onShowSetup={handleShowSetup}
+					inputHistory={inputHistory}
+					workflowRef={runtimeState.workflowRef}
+					workflow={runtimeState.workflow}
+					ascii={ascii}
+				/>
+			</HookProvider>
+		</ThemeProvider>
 	);
+}
+
+function usePerfRenderLog(enabled: boolean, id: string) {
+	const renderCountRef = useRef(0);
+	renderCountRef.current += 1;
+
+	useEffect(() => {
+		if (!enabled) return;
+		logPerfEvent('react.render', {
+			id,
+			count: renderCountRef.current,
+		});
+	});
 }
