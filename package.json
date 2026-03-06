@@ -46,9 +46,11 @@
 		"test:watch": "vitest",
 		"lint:format": "git ls-files -z | xargs -0 prettier --check --ignore-unknown",
 		"lint:eslint": "eslint .",
+		"lint:staged": "lint-staged",
 		"lint:dead": "knip --strict --exclude dependencies,unlisted,binaries",
 		"lint": "npm run lint:format && npm run lint:eslint",
 		"format": "prettier --write .",
+		"prepare": "simple-git-hooks",
 		"prepublishOnly": "npm run lint && npm run typecheck && npm run lint:dead && npm test && npm run build"
 	},
 	"files": [
@@ -83,13 +85,25 @@
 		"ink-testing-library": "^4.0.0",
 		"jsdom": "^27.4.0",
 		"knip": "^5.85.0",
+		"lint-staged": "^16.3.2",
 		"prettier": "^3.0.0",
 		"react-devtools": "^6.1.5",
 		"react-devtools-core": "^6.1.5",
+		"simple-git-hooks": "^2.13.1",
 		"tsup": "^8.5.1",
 		"typescript": "^5.7.0",
 		"typescript-eslint": "^8.0.0",
 		"vitest": "^3.0.0"
+	},
+	"simple-git-hooks": {
+		"pre-commit": "npm run lint:staged"
+	},
+	"lint-staged": {
+		"*.{js,jsx,ts,tsx,mjs,cjs}": [
+			"eslint --fix",
+			"prettier --write"
+		],
+		"*.{json,md,yml,yaml}": "prettier --write"
 	},
 	"prettier": "@vdemedes/prettier-config"
 }
