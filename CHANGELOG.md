@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.9](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.8...cli-v0.3.9) (2026-03-07)
+
+
+### Bug Fixes
+
+* keep feed contained in viewport ([741b417](https://github.com/lespaceman/athena-flow-cli/commit/741b417a00a1f200c5398eeffbb1802504985b0f))
+
+
+### Performance Improvements
+
+* preserve nav state and harden feed caches ([8047045](https://github.com/lespaceman/athena-flow-cli/commit/8047045ca604a7c813601cfacf7958cad874ffa9))
+* unify shell input rendering ([7b45c90](https://github.com/lespaceman/athena-flow-cli/commit/7b45c90072e499fe80b305a591b7f536ea328533))
+
 ## [0.3.8](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.7...cli-v0.3.8) (2026-03-06)
 
 
