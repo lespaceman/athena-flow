@@ -244,3 +244,59 @@ describe('paintFeedSurface', () => {
 		);
 	});
 });
+
+describe('feedStartRow shift (vertical region move)', () => {
+	test('unchanged content at new feedStartRow must clear old position and repaint at new position', () => {
+		const stdout = mockStdout();
+		const lines = ['HEADER', '---', 'row-0', 'row-1'];
+		const OLD_START = 5;
+		const NEW_START = 8;
+
+		// Simulate what IncrementalFeedSurface does when feedStartRow changes:
+		// 1. Clear all lines at the old position
+		const clearResult = paintFeedSurface(lines, [], OLD_START, stdout);
+		expect(clearResult.linesCleared).toBe(4);
+
+		// 2. Repaint everything at the new position (prev = empty)
+		const repaintResult = paintFeedSurface([], lines, NEW_START, stdout);
+		expect(repaintResult.linesChanged).toBe(4);
+
+		// Verify the clear operations target old rows
+		const clearBuf = stdout.written[0]!;
+		const clearOps = parseOps(clearBuf);
+		for (const op of clearOps) {
+			expect(op.row).toBeGreaterThanOrEqual(OLD_START);
+			expect(op.row).toBeLessThan(OLD_START + lines.length);
+			expect(op.content).toBeNull(); // cleared, no content
+		}
+
+		// Verify the repaint operations target new rows
+		const repaintBuf = stdout.written[1]!;
+		const repaintOps = parseOps(repaintBuf);
+		for (const op of repaintOps) {
+			expect(op.row).toBeGreaterThanOrEqual(NEW_START);
+			expect(op.row).toBeLessThan(NEW_START + lines.length);
+			expect(op.content).not.toBeNull(); // content written
+		}
+	});
+
+	test('partially changed content at new feedStartRow clears old and repaints all at new', () => {
+		const stdout = mockStdout();
+		const prevLines = ['HEADER', '---', 'row-0', 'row-1'];
+		const nextLines = ['HEADER', '---', 'row-0', 'row-1-CHANGED'];
+		const OLD_START = 5;
+		const NEW_START = 8;
+
+		// 1. Clear at old position
+		paintFeedSurface(prevLines, [], OLD_START, stdout);
+
+		// 2. Full repaint at new position (not a diff — everything is "new")
+		const result = paintFeedSurface([], nextLines, NEW_START, stdout);
+		expect(result.linesChanged).toBe(4); // All 4 lines painted, not just the 1 that changed
+
+		const repaintOps = parseOps(stdout.written[1]!);
+		expect(repaintOps).toHaveLength(4);
+		expect(repaintOps[0]!.row).toBe(NEW_START);
+		expect(repaintOps[3]!.row).toBe(NEW_START + 3);
+	});
+});

@@ -37,6 +37,7 @@ function IncrementalFeedSurfaceImpl({
 	stdout = process.stdout,
 }: Props) {
 	const prevLinesRef = React.useRef<readonly string[]>([]);
+	const prevFeedStartRowRef = React.useRef(feedStartRow);
 	const feedStartRowRef = React.useRef(feedStartRow);
 	const stdoutRef = React.useRef(stdout);
 	feedStartRowRef.current = feedStartRow;
@@ -47,10 +48,33 @@ function IncrementalFeedSurfaceImpl({
 	React.useEffect(() => {
 		const prevLines = prevLinesRef.current;
 		const nextLines = surface.allLines;
+		const prevStartRow = prevFeedStartRowRef.current;
+
+		// When the feed region moves vertically (e.g. todo panel toggled,
+		// run overlay shown/hidden), clear all lines at the OLD position
+		// first, then repaint everything at the NEW position. Without this,
+		// unchanged lines would remain ghosted at the previous location.
+		if (prevStartRow !== feedStartRow && prevLines.length > 0) {
+			paintFeedSurface(prevLines, [], prevStartRow, stdout);
+			// Force full repaint at the new position by treating prev as empty.
+			const result = paintFeedSurface([], nextLines, feedStartRow, stdout);
+			prevLinesRef.current = nextLines;
+			prevFeedStartRowRef.current = feedStartRow;
+
+			logFeedSurfaceRender({
+				backend: 'incremental',
+				linesVisible: surface.visibleContentRows,
+				linesRendered: result.linesRendered,
+				linesChanged: result.linesChanged,
+				linesCleared: result.linesCleared,
+			});
+			return;
+		}
 
 		const result = paintFeedSurface(prevLines, nextLines, feedStartRow, stdout);
 
 		prevLinesRef.current = nextLines;
+		prevFeedStartRowRef.current = feedStartRow;
 
 		logFeedSurfaceRender({
 			backend: 'incremental',
