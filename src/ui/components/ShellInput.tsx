@@ -114,7 +114,9 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		if (prefix === '') return all.slice(0, MAX_SUGGESTIONS);
 		return all
 			.filter(cmd =>
-				[cmd.name, ...(cmd.aliases ?? [])].some(name => name.startsWith(prefix)),
+				[cmd.name, ...(cmd.aliases ?? [])].some(name =>
+					name.startsWith(prefix),
+				),
 			)
 			.slice(0, MAX_SUGGESTIONS);
 	}, [isCommandMode, prefix]);
@@ -171,7 +173,8 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 				ctrl: boolean;
 			},
 		) => {
-			const {value: currentValue, cursorOffset: currentCursor} = stateRef.current;
+			const {value: currentValue, cursorOffset: currentCursor} =
+				stateRef.current;
 
 			if (key.ctrl) return;
 			if (suppressArrowsRef.current && (key.upArrow || key.downArrow)) return;
