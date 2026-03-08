@@ -1,4 +1,18 @@
+import {readFileSync} from 'node:fs';
 import {defineConfig} from 'tsup';
+
+// Load .env file if present (for local builds). CI provides env vars directly.
+try {
+	const envFile = readFileSync('.env', 'utf-8');
+	for (const line of envFile.split('\n')) {
+		const match = line.match(/^([A-Z_]+)=(.+)$/);
+		if (match && !process.env[match[1]]) {
+			process.env[match[1]] = match[2].trim();
+		}
+	}
+} catch {
+	// No .env file — that's fine, CI sets env vars directly
+}
 
 export default defineConfig({
 	entry: {

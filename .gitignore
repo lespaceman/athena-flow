@@ -19,3 +19,6 @@ dist
 
 # Performance profiling artifacts
 .profiles/
+
+# Environment variables (contains secrets like POSTHOG_API_KEY)
+.env
