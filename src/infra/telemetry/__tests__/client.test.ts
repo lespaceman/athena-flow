@@ -1,5 +1,10 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {initTelemetry, shutdownTelemetry, isTelemetryEnabled} from '../client';
+import {
+	initTelemetry,
+	shutdownTelemetry,
+	isTelemetryEnabled,
+	capture,
+} from '../client';
 
 // Mock posthog-node at top level
 vi.mock('posthog-node', () => {
@@ -33,5 +38,27 @@ describe('telemetry client', () => {
 		process.env['ATHENA_TELEMETRY_DISABLED'] = '1';
 		initTelemetry({deviceId: 'test-id'});
 		expect(isTelemetryEnabled()).toBe(false);
+	});
+
+	it('capture forwards events to PostHog when enabled', async () => {
+		initTelemetry({deviceId: 'test-device-123'});
+		capture('test.event', {key: 'value'});
+
+		// Access the mock to verify capture was called
+		const {PostHog} = await import('posthog-node');
+		const mockResults = vi.mocked(PostHog).mock.results;
+		const mockInstance = mockResults[mockResults.length - 1]?.value;
+		expect(mockInstance.capture).toHaveBeenCalledWith({
+			distinctId: 'test-device-123',
+			event: 'test.event',
+			properties: {key: 'value'},
+		});
+	});
+
+	it('capture is a no-op when telemetry is disabled', () => {
+		initTelemetry({deviceId: 'test-id', telemetryEnabled: false});
+		// Should not throw, just silently no-op
+		capture('test.event', {key: 'value'});
+		// No PostHog instance created, so nothing to verify except no crash
 	});
 });

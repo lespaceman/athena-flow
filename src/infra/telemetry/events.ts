@@ -40,11 +40,19 @@ export function trackSessionEnded(props: {
 	capture('session.ended', props);
 }
 
+function sanitizeStackTrace(stack: string): string {
+	const home = os.homedir();
+	return stack.replaceAll(home, '~');
+}
+
 export function trackError(props: {
 	errorName: string;
 	stackTrace: string;
 }): void {
-	capture('app.error', props);
+	capture('app.error', {
+		errorName: props.errorName,
+		stackTrace: sanitizeStackTrace(props.stackTrace),
+	});
 }
 
 export function trackTelemetryOptedOut(): void {

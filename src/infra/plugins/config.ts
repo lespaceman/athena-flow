@@ -126,7 +126,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 					? 'openai-codex'
 					: undefined,
 		telemetry: raw.telemetry,
-		deviceId: raw.deviceId as string | undefined,
+		deviceId: raw.deviceId,
 	};
 }
 
