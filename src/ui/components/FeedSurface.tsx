@@ -72,22 +72,19 @@ function FeedSurfaceImpl({
 }: Props) {
 	const backend = resolveFeedBackend(backendProp);
 
-	// Both backends render through Ink's <Text> so that Ink's full-frame
-	// output is always correct.  The incremental backend additionally runs
-	// the incremental painter as a fast-path that writes changed lines
-	// directly to stdout ahead of Ink's slower render cycle.
-	return (
-		<>
-			<InkFullFeedSurface surface={surface} backend={backend} />
-			{backend === 'incremental' && (
-				<IncrementalFeedSurface
-					surface={surface}
-					feedStartRow={feedStartRow ?? 1}
-					stdout={stdout}
-				/>
-			)}
-		</>
-	);
+	// ── Incremental backend: bypass Ink entirely ───────────────────
+	if (backend === 'incremental') {
+		return (
+			<IncrementalFeedSurface
+				surface={surface}
+				feedStartRow={feedStartRow ?? 1}
+				stdout={stdout}
+			/>
+		);
+	}
+
+	// ── ink-full backend: render through Ink's <Text> ─────────────
+	return <InkFullFeedSurface surface={surface} backend={backend} />;
 }
 
 /**

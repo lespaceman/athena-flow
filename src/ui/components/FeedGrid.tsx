@@ -1,4 +1,5 @@
 import React from 'react';
+import {Text} from 'ink';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
 import {type FeedColumnWidths} from './FeedRow';
@@ -58,6 +59,7 @@ function FeedGridImpl({
 	backend: backendProp,
 }: Props) {
 	const backend = resolveFeedBackend(backendProp);
+	const isIncremental = backend === 'incremental';
 	// Delegate all line rendering to the extracted surface model.
 	const surface = React.useMemo(
 		() =>
@@ -175,17 +177,34 @@ function FeedGridImpl({
 		});
 	}, [visibleRowSignatures, feedViewportStart, feedCursor]);
 
-	// Both backends render the actual content through Ink's <Text> so that
-	// Ink's full-frame output is always correct. The incremental backend
-	// additionally paints changed lines directly to stdout as a fast path
-	// that writes ahead of Ink's slower render cycle.
-	return (
-		<FeedSurfaceView
-			surface={surface}
-			backend={backend}
-			feedStartRow={feedStartRow}
-		/>
-	);
+	// ── Incremental backend: render a placeholder to reserve space in Ink ──
+	// The IncrementalFeedSurface renders `null` in Ink's tree and paints
+	// directly to stdout.  Without a placeholder, Ink would collapse the
+	// feed region to 0 rows, shifting footer/input up and causing the
+	// incremental painter to overwrite them.
+	//
+	// The placeholder emits empty lines that occupy exactly the feed's
+	// allocated rows so Ink's layout stays correct.  The incremental
+	// painter writes over this space via ANSI cursor addressing.
+	if (isIncremental) {
+		const totalFeedRows = feedHeaderRows + feedContentRows;
+		// Build placeholder content — empty lines that Ink will render,
+		// reserving the vertical space without visible content.
+		const placeholderLines = '\n'.repeat(Math.max(0, totalFeedRows - 1));
+		return (
+			<>
+				<Text>{placeholderLines}</Text>
+				<FeedSurfaceView
+					surface={surface}
+					backend={backend}
+					feedStartRow={feedStartRow}
+				/>
+			</>
+		);
+	}
+
+	// ── ink-full backend: normal rendering ──────────────────────────
+	return <FeedSurfaceView surface={surface} backend={backend} />;
 }
 
 export const FeedGrid = React.memo(FeedGridImpl);
