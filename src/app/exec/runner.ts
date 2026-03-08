@@ -14,6 +14,7 @@ import {
 import {
 	applyPromptTemplate,
 	buildContinuePrompt,
+	cleanupTrackerFile,
 	createLoopManager,
 	type LoopManager,
 } from '../../core/workflows';
@@ -554,6 +555,7 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 			const continueLoop =
 				fs.existsSync(loopManager.trackerPath) && !loopManager.isTerminal();
 			if (!continueLoop) {
+				cleanupTrackerFile(loopManager.trackerPath);
 				loopManager.deactivate();
 				break;
 			}

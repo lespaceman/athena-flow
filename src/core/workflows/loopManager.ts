@@ -110,6 +110,17 @@ export function createLoopManager(
 }
 
 /**
+ * Best-effort cleanup for tracker files once a loop has stopped.
+ */
+export function cleanupTrackerFile(trackerPath: string): void {
+	try {
+		fs.unlinkSync(trackerPath);
+	} catch {
+		// Fail open: ENOENT or permission errors should not break a completed run.
+	}
+}
+
+/**
  * Build the continuation prompt for loop iterations 2+.
  */
 export function buildContinuePrompt(loop: LoopConfig): string {

@@ -10,6 +10,7 @@ export {installWorkflowPlugins} from './installer';
 export {
 	createLoopManager,
 	buildContinuePrompt,
+	cleanupTrackerFile,
 	type LoopState,
 	type LoopManager,
 } from './loopManager';

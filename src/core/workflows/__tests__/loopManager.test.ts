@@ -10,10 +10,14 @@ vi.mock('node:fs', () => ({
 			if (!(p in files)) throw new Error(`ENOENT: ${p}`);
 			return files[p]!;
 		},
+		unlinkSync: (p: string) => {
+			delete files[p];
+		},
 	},
 }));
 
-const {createLoopManager, buildContinuePrompt} = await import('../loopManager');
+const {createLoopManager, buildContinuePrompt, cleanupTrackerFile} =
+	await import('../loopManager');
 
 beforeEach(() => {
 	for (const key of Object.keys(files)) delete files[key];
@@ -188,5 +192,21 @@ describe('buildContinuePrompt', () => {
 			maxIterations: 5,
 		});
 		expect(result).toContain('tracker.md');
+	});
+});
+
+describe('cleanupTrackerFile', () => {
+	it('removes the tracker file when it exists', () => {
+		files['/project/e2e-tracker.md'] = '# tracker';
+
+		cleanupTrackerFile('/project/e2e-tracker.md');
+
+		expect(files['/project/e2e-tracker.md']).toBeUndefined();
+	});
+
+	it('fails open when the tracker file is missing', () => {
+		expect(() =>
+			cleanupTrackerFile('/project/missing-tracker.md'),
+		).not.toThrow();
 	});
 });

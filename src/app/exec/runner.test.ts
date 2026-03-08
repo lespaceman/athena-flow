@@ -1,5 +1,6 @@
 import {describe, it, expect, vi} from 'vitest';
 import {EventEmitter} from 'node:events';
+import fs from 'node:fs';
 import type {ChildProcess} from 'node:child_process';
 import type {
 	Runtime,
@@ -10,6 +11,7 @@ import type {
 } from '../../core/runtime/types';
 import {runExec} from './runner';
 import {EXEC_EXIT_CODE} from './types';
+import * as workflowsModule from '../../core/workflows';
 
 class MockRuntime implements Runtime {
 	private eventHandlers = new Set<RuntimeEventHandler>();
@@ -396,6 +398,89 @@ describe('runExec', () => {
 			expect(stderr.read()).toContain('timed out');
 		} finally {
 			vi.useRealTimers();
+		}
+	});
+
+	it('removes the tracker file when a workflow loop reaches a terminal state', async () => {
+		const runtime = new MockRuntime();
+		const stdout = createWriteCapture();
+		const stderr = createWriteCapture();
+		const existsSync = vi.spyOn(fs, 'existsSync');
+		const cleanupTrackerFile = vi.spyOn(workflowsModule, 'cleanupTrackerFile');
+		const createLoopManager = vi.spyOn(workflowsModule, 'createLoopManager');
+		const mockLoopManager = {
+			isTerminal: vi.fn().mockReturnValue(true),
+			getState: vi.fn().mockReturnValue({
+				active: true,
+				iteration: 0,
+				maxIterations: 5,
+				completed: true,
+				blocked: false,
+				reachedLimit: false,
+			}),
+			incrementIteration: vi.fn(),
+			deactivate: vi.fn(),
+			trackerPath: '/tmp/tracker.md',
+		};
+
+		createLoopManager.mockReturnValue(
+			mockLoopManager as unknown as ReturnType<
+				typeof workflowsModule.createLoopManager
+			>,
+		);
+
+		existsSync.mockImplementation(pathArg => pathArg === '/tmp/tracker.md');
+
+		const spawnProcess = (opts: SpawnArgs): ChildProcess => {
+			const child = makeChildProcess();
+
+			setImmediate(() => {
+				opts.onStdout?.(
+					JSON.stringify({
+						type: 'message',
+						role: 'assistant',
+						content: [{type: 'text', text: 'done message'}],
+					}) + '\n',
+				);
+				opts.onExit?.(0);
+			});
+
+			return child;
+		};
+
+		try {
+			const result = await runExec({
+				prompt: 'hello',
+				projectDir: '/tmp',
+				harness: 'claude-code',
+				isolationConfig: {},
+				onPermission: 'fail',
+				onQuestion: 'fail',
+				ephemeral: true,
+				stdout: stdout.writer,
+				stderr: stderr.writer,
+				runtimeFactory: () => runtime,
+				spawnProcess,
+				workflow: {
+					name: 'test-loop',
+					plugins: [],
+					promptTemplate: '{input}',
+					loop: {
+						enabled: true,
+						completionMarker: '<!-- DONE -->',
+						maxIterations: 5,
+						trackerPath: 'tracker.md',
+					},
+				},
+			});
+
+			expect(result.success).toBe(true);
+			expect(cleanupTrackerFile).toHaveBeenCalledWith('/tmp/tracker.md');
+			expect(mockLoopManager.deactivate).toHaveBeenCalledTimes(1);
+		} finally {
+			existsSync.mockRestore();
+			cleanupTrackerFile.mockRestore();
+			createLoopManager.mockRestore();
 		}
 	});
 

@@ -26,6 +26,7 @@ vi.mock('../../../core/workflows', () => ({
 	applyPromptTemplate: vi.fn((_tpl: string, prompt: string) => prompt),
 	createLoopManager: vi.fn(),
 	buildContinuePrompt: vi.fn(() => 'Continue the task.'),
+	cleanupTrackerFile: vi.fn(),
 }));
 
 describe('useClaudeProcess', () => {
@@ -1010,6 +1011,104 @@ describe('useClaudeProcess', () => {
 				spawnCountBefore,
 			);
 			expect(mockLoopManager.incrementIteration).not.toHaveBeenCalled();
+		});
+
+		it('removes the tracker file when the loop reaches a terminal state', async () => {
+			const existsSpy = vi
+				.spyOn(fs, 'existsSync')
+				.mockImplementation(p => p === '/tmp/tracker.md');
+			const mockLoopManager = {
+				isTerminal: vi.fn().mockReturnValue(true),
+				getState: vi.fn().mockReturnValue({
+					active: true,
+					iteration: 0,
+					maxIterations: 5,
+					completed: true,
+					blocked: false,
+					reachedLimit: false,
+				}),
+				incrementIteration: vi.fn(),
+				deactivate: vi.fn(),
+				trackerPath: '/tmp/tracker.md',
+			};
+			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
+				mockLoopManager,
+			);
+
+			try {
+				const {result} = renderHook(() =>
+					useClaudeProcess(
+						'/test',
+						TEST_INSTANCE_ID,
+						undefined,
+						undefined,
+						false,
+						loopWorkflow,
+					),
+				);
+
+				await act(async () => {
+					await result.current.spawn('test prompt');
+				});
+
+				await act(async () => {
+					capturedCallbacks.onExit?.(0);
+				});
+
+				expect(workflowModule.cleanupTrackerFile).toHaveBeenCalledWith(
+					'/tmp/tracker.md',
+				);
+				expect(mockLoopManager.deactivate).toHaveBeenCalledTimes(1);
+			} finally {
+				existsSpy.mockRestore();
+			}
+		});
+
+		it('removes the tracker file when the user stops the loop', async () => {
+			const mockLoopManager = {
+				isTerminal: vi.fn().mockReturnValue(false),
+				getState: vi.fn().mockReturnValue({
+					active: true,
+					iteration: 0,
+					maxIterations: 5,
+					completed: false,
+					blocked: false,
+					reachedLimit: false,
+				}),
+				incrementIteration: vi.fn(),
+				deactivate: vi.fn(),
+				trackerPath: '/tmp/tracker.md',
+			};
+			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
+				mockLoopManager,
+			);
+
+			const {result} = renderHook(() =>
+				useClaudeProcess(
+					'/test',
+					TEST_INSTANCE_ID,
+					undefined,
+					undefined,
+					false,
+					loopWorkflow,
+				),
+			);
+
+			await act(async () => {
+				await result.current.spawn('test prompt');
+			});
+
+			await act(async () => {
+				const killPromise = result.current.kill();
+				capturedCallbacks.onExit?.(null);
+				await killPromise;
+			});
+
+			expect(workflowModule.cleanupTrackerFile).toHaveBeenCalledWith(
+				'/tmp/tracker.md',
+			);
+			expect(mockLoopManager.deactivate).toHaveBeenCalledTimes(1);
+			expect(result.current.isRunning).toBe(false);
 		});
 	});
 });

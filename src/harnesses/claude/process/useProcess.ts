@@ -15,6 +15,7 @@ import {
 	applyPromptTemplate,
 	createLoopManager,
 	buildContinuePrompt,
+	cleanupTrackerFile,
 	type LoopManager,
 } from '../../../core/workflows/index';
 import path from 'node:path';
@@ -177,6 +178,8 @@ export function useClaudeProcess(
 			return;
 		}
 
+		const loopManager = loopManagerRef.current;
+
 		// Create promise to wait for process exit
 		const exitPromise = new Promise<void>(resolve => {
 			exitResolverRef.current = resolve;
@@ -190,7 +193,7 @@ export function useClaudeProcess(
 
 		processRef.current.kill();
 
-		loopManagerRef.current?.deactivate();
+		loopManager?.deactivate();
 		loopManagerRef.current = null;
 
 		// Wait for exit or timeout
@@ -198,6 +201,10 @@ export function useClaudeProcess(
 
 		// Clean up timeout to prevent memory leak
 		clearTimeout(timeoutId!);
+
+		if (loopManager) {
+			cleanupTrackerFile(loopManager.trackerPath);
+		}
 
 		// Clean up
 		exitResolverRef.current = null;
@@ -415,6 +422,13 @@ export function useClaudeProcess(
 
 					// Loop reached terminal state — deactivate
 					if (loopManagerRef.current) {
+						if (
+							code === 0 &&
+							fs.existsSync(loopManagerRef.current.trackerPath) &&
+							loopManagerRef.current.isTerminal()
+						) {
+							cleanupTrackerFile(loopManagerRef.current.trackerPath);
+						}
 						loopManagerRef.current.deactivate();
 						loopManagerRef.current = null;
 					}
@@ -460,6 +474,11 @@ export function useClaudeProcess(
 		return () => {
 			abortRef.current.abort();
 			clearTokenUsageTimer();
+			if (loopManagerRef.current) {
+				cleanupTrackerFile(loopManagerRef.current.trackerPath);
+				loopManagerRef.current.deactivate();
+				loopManagerRef.current = null;
+			}
 			if (processRef.current) {
 				processRef.current.kill();
 				processRef.current = null;
