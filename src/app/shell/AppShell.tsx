@@ -101,6 +101,12 @@ import {
 	trackSessionEnded,
 } from '../../infra/telemetry/index';
 import {
+	createPendingStartupDiagnosticsEvent,
+	type PendingStartupDiagnosticsEvent,
+	shouldDismissPendingStartupDiagnostics,
+	shouldTrackStartupDiagnostics,
+} from './startupDiagnostics';
+import {
 	accumulateSessionTelemetryCarry,
 	buildSessionTelemetrySummary,
 	createEmptySessionTelemetryCarry,
@@ -191,12 +197,6 @@ function DiagnosticsConsentErrorFallback({onDismiss}: {onDismiss: () => void}) {
 		</Text>
 	);
 }
-
-type PendingStartupDiagnosticsEvent = {
-	failureStage: 'spawn_error' | 'exit_nonzero' | 'startup_timeout';
-	message: string;
-	exitCode?: number;
-};
 
 type StartupAttemptState = {
 	feedEventCountAtSpawn: number;
@@ -316,6 +316,7 @@ function AppContent({
 	const sessionScope = useSessionScope(athenaSessionId, currentSessionId);
 	const timelineCurrentRun = useTimelineCurrentRun(currentRun);
 	const harnessLabel = detectHarness(harness);
+	const shouldTrackClaudeStartup = shouldTrackStartupDiagnostics(harness);
 
 	const onExitTokens = useCallback(
 		(tokens: import('../../shared/types/headerMetrics').TokenUsage) => {
@@ -344,7 +345,7 @@ function AppContent({
 		) => {
 			const startupAttempt = startupAttemptRef.current;
 			const isStartupFailure =
-				harness === 'claude-code' && startupAttempt !== null;
+				shouldTrackClaudeStartup && startupAttempt !== null;
 
 			if (event.type === 'spawn_error') {
 				emitNotification(
@@ -359,10 +360,11 @@ function AppContent({
 				}
 
 				if (isStartupFailure && isTelemetryEnabled()) {
-					const diagnosticsEvent: PendingStartupDiagnosticsEvent = {
+					const diagnosticsEvent = createPendingStartupDiagnosticsEvent({
 						failureStage: 'spawn_error',
 						message: event.message,
-					};
+						feedEventCount: feedEvents.length,
+					});
 					if (diagnosticsConsent === true) {
 						emitClaudeStartupDiagnostics(diagnosticsEvent);
 					} else if (diagnosticsConsent === undefined) {
@@ -389,11 +391,12 @@ function AppContent({
 				event.type !== 'startup_timeout' &&
 				isTelemetryEnabled()
 			) {
-				const diagnosticsEvent: PendingStartupDiagnosticsEvent = {
+				const diagnosticsEvent = createPendingStartupDiagnosticsEvent({
 					failureStage: 'exit_nonzero',
 					message: event.message,
 					exitCode: event.code,
-				};
+					feedEventCount: feedEvents.length,
+				});
 				if (diagnosticsConsent === true) {
 					emitClaudeStartupDiagnostics(diagnosticsEvent);
 				} else if (diagnosticsConsent === undefined) {
@@ -406,8 +409,9 @@ function AppContent({
 			diagnosticsConsent,
 			emitClaudeStartupDiagnostics,
 			emitNotification,
-			harness,
+			feedEvents.length,
 			harnessLabel,
+			shouldTrackClaudeStartup,
 		],
 	);
 
@@ -474,6 +478,19 @@ function AppContent({
 	}, [feedEvents.length]);
 
 	useEffect(() => {
+		setPendingStartupDiagnostics(current => {
+			if (
+				!current ||
+				!shouldDismissPendingStartupDiagnostics(current, feedEvents.length)
+			) {
+				return current;
+			}
+			return null;
+		});
+	}, [feedEvents.length]);
+
+	useEffect(() => {
+		if (!shouldTrackClaudeStartup) return;
 		const startupAttempt = startupAttemptRef.current;
 		if (!startupAttempt) return;
 
@@ -501,13 +518,11 @@ function AppContent({
 						}
 					: isHarnessRunning
 						? {
-								message:
-									'Claude started but Athena did not receive startup hook events. Hook forwarding may be broken.',
+								message: `${harnessLabel} started but Athena did not receive startup hook events. Hook forwarding may be broken.`,
 								failureCode: 'hook_handshake_timeout',
 							}
 						: {
-								message:
-									'Claude exited before Athena received startup events. Check Claude installation and hook configuration.',
+								message: `${harnessLabel} exited before Athena received startup events. Check ${harnessLabel} installation and hook configuration.`,
 								failureCode: 'hook_handshake_timeout',
 							};
 
@@ -518,10 +533,11 @@ function AppContent({
 			);
 
 			if (isTelemetryEnabled()) {
-				const diagnosticsEvent: PendingStartupDiagnosticsEvent = {
+				const diagnosticsEvent = createPendingStartupDiagnosticsEvent({
 					failureStage: 'startup_timeout',
 					message: derivedFailure.message,
-				};
+					feedEventCount: feedEvents.length,
+				});
 				if (diagnosticsConsent === true) {
 					emitClaudeStartupDiagnostics(diagnosticsEvent);
 				} else if (diagnosticsConsent === undefined) {
@@ -542,6 +558,7 @@ function AppContent({
 		isHarnessRunning,
 		isServerRunning,
 		runtimeError,
+		shouldTrackClaudeStartup,
 	]);
 
 	const addMessage = useCallback(
@@ -655,6 +672,7 @@ function AppContent({
 			inputHistory.push(value);
 			const result = parseInput(value);
 			if (result.type === 'prompt') {
+				setPendingStartupDiagnostics(null);
 				setStartupFailure(null);
 				addMessage('user', result.text);
 				if (!isServerRunning && runtimeError) {
@@ -718,6 +736,7 @@ function AppContent({
 				hook: {args: result.args, feed: hookCommandFeed},
 				prompt: {
 					spawn: (prompt, sessionId, configOverride) => {
+						setPendingStartupDiagnostics(null);
 						setStartupFailure(null);
 						if (!isServerRunning && runtimeError) {
 							setStartupFailure({
