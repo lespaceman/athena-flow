@@ -106,19 +106,18 @@ async function flushTelemetryOptOut(config: {
 }
 
 function inkRenderOptions() {
+	// Ink's incremental diffing corrupts full-frame setup screens when
+	// selection rows grow/shrink and shift surrounding content vertically.
 	if (isPerfEnabled()) {
 		installStdoutWriteMonitor(process.stdout);
 		return {
-			incrementalRendering: true,
 			onRender: ({renderTime}: {renderTime: number}) => {
 				logInkRender(renderTime);
 			},
 		};
 	}
 
-	return {
-		incrementalRendering: true,
-	};
+	return {};
 }
 
 // Register cleanup handlers early to catch all exit scenarios

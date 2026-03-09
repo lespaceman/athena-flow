@@ -264,6 +264,9 @@ describe('cli exec mode', () => {
 		try {
 			expect(runExecMock).not.toHaveBeenCalled();
 			expect(renderMock).toHaveBeenCalledTimes(1);
+			expect(renderMock.mock.calls[0]?.[1]).not.toHaveProperty(
+				'incrementalRendering',
+			);
 			expect(cli.exitSpy).not.toHaveBeenCalled();
 			expect(shouldShowSetupMock).toHaveBeenCalled();
 		} finally {
