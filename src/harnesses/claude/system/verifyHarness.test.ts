@@ -10,6 +10,10 @@ function runVerify(options: Partial<VerifyClaudeHarnessOptions> = {}) {
 		fileExists: () => true,
 		resolveClaudeBinaryFn: () => '/usr/local/bin/claude',
 		detectClaudeVersionFn: () => '2.5.0',
+		runClaudeAuthStatusFn: () => ({
+			ok: true,
+			message: 'Authenticated account (max) via claude.ai',
+		}),
 		runClaudeSmokePromptFn: () => ({
 			ok: true,
 			message: 'Claude replied: ATHENA_SETUP_OK',
@@ -40,6 +44,11 @@ describe('verifyClaudeHarness', () => {
 				label: 'Claude version',
 				status: 'pass',
 				message: 'v2.5.0',
+			},
+			{
+				label: 'Claude auth',
+				status: 'pass',
+				message: 'Authenticated account (max) via claude.ai',
 			},
 			{
 				label: 'Smoke prompt',
@@ -75,10 +84,39 @@ describe('verifyClaudeHarness', () => {
 		});
 		expect(result.checks[1]?.status).toBe('fail');
 		expect(result.checks[2]).toEqual({
-			label: 'Smoke prompt',
+			label: 'Claude auth',
 			status: 'fail',
 			message:
 				'Skipped until Claude is installed and responds to `claude --version`.',
+		});
+		expect(result.checks[3]).toEqual({
+			label: 'Smoke prompt',
+			status: 'fail',
+			message:
+				'Skipped until Claude is installed, authenticated, and responds to `claude --version`.',
+		});
+	});
+
+	it('fails when claude auth is not healthy', () => {
+		const result = runVerify({
+			runClaudeAuthStatusFn: () => ({
+				ok: false,
+				message: 'Claude is not logged in. Run `claude auth login` and retry.',
+			}),
+		});
+
+		expect(result.ok).toBe(false);
+		expect(result.summary).toBe('Claude Code setup needs attention');
+		expect(result.checks[2]).toEqual({
+			label: 'Claude auth',
+			status: 'fail',
+			message: 'Claude is not logged in. Run `claude auth login` and retry.',
+		});
+		expect(result.checks[3]).toEqual({
+			label: 'Smoke prompt',
+			status: 'fail',
+			message:
+				'Skipped until Claude is installed, authenticated, and responds to `claude --version`.',
 		});
 	});
 

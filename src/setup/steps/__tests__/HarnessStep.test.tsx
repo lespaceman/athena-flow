@@ -21,6 +21,11 @@ vi.mock('../../../harnesses/registry', () => ({
 						message: '/usr/local/bin/claude',
 					},
 					{
+						label: 'Claude auth',
+						status: 'pass',
+						message: 'Authenticated account (max) via claude.ai',
+					},
+					{
 						label: 'Smoke prompt',
 						status: 'pass',
 						message: 'Claude replied: ATHENA_SETUP_OK',
@@ -85,6 +90,9 @@ describe('HarnessStep', () => {
 			const frame = lastFrame()!;
 			expect(frame).toContain('Claude Code v2.5.0 detected');
 			expect(frame).toContain('Claude binary: /usr/local/bin/claude');
+			expect(frame).toContain(
+				'Claude auth: Authenticated account (max) via claude.ai',
+			);
 			expect(frame).toContain('Smoke prompt: Claude replied: ATHENA_SETUP_OK');
 			expect(frame).toContain(
 				'Hook forwarder: /usr/local/bin/athena-hook-forwarder',

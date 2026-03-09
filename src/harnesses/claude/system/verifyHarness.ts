@@ -23,23 +23,51 @@ export type VerifyClaudeHarnessOptions = {
 	detectClaudeVersionFn?: typeof detectClaudeVersion;
 	resolveHookForwarderCommandFn?: typeof resolveHookForwarderCommand;
 	fileExists?: (candidatePath: string) => boolean;
+	runClaudeAuthStatusFn?: typeof runClaudeAuthStatus;
 	runClaudeSmokePromptFn?: typeof runClaudeSmokePrompt;
 };
 
 const SETUP_SMOKE_PROMPT = 'Reply with exactly: ATHENA_SETUP_OK';
 
+type ClaudeAuthStatus = {
+	loggedIn?: boolean;
+	authMethod?: string;
+	apiProvider?: string;
+	subscriptionType?: string;
+};
+
+function readExecStream(error: unknown, key: 'stdout' | 'stderr'): string {
+	if (!(error instanceof Error) || !(key in error)) {
+		return '';
+	}
+
+	const value = (
+		error as Error & Partial<Record<'stdout' | 'stderr', unknown>>
+	)[key];
+	if (typeof value === 'string') {
+		return value;
+	}
+	if (Buffer.isBuffer(value)) {
+		return value.toString('utf8');
+	}
+	return '';
+}
+
 function formatExecFailure(error: unknown): string {
 	if (error instanceof Error) {
-		const stderr =
-			'stderr' in error && typeof error.stderr === 'string'
-				? error.stderr
-				: 'stderr' in error && Buffer.isBuffer(error.stderr)
-					? error.stderr.toString('utf8')
-					: '';
+		const stderr = readExecStream(error, 'stderr');
 		const detail = stderr.trim();
 		return detail.length > 0 ? detail : error.message;
 	}
 	return String(error);
+}
+
+function parseClaudeAuthStatusOutput(output: string): ClaudeAuthStatus | null {
+	try {
+		return JSON.parse(output) as ClaudeAuthStatus;
+	} catch {
+		return null;
+	}
 }
 
 export function runClaudeSmokePrompt(claudeBinary: string): {
@@ -86,6 +114,59 @@ export function runClaudeSmokePrompt(claudeBinary: string): {
 	}
 }
 
+export function runClaudeAuthStatus(claudeBinary: string): {
+	ok: boolean;
+	message: string;
+} {
+	try {
+		const output = execFileSync(claudeBinary, ['auth', 'status'], {
+			timeout: 10000,
+			encoding: 'utf-8',
+			stdio: ['ignore', 'pipe', 'pipe'],
+		}).trim();
+
+		const parsed = parseClaudeAuthStatusOutput(output);
+		if (!parsed) {
+			return {
+				ok: false,
+				message: 'Unable to parse `claude auth status` output.',
+			};
+		}
+
+		if (!parsed.loggedIn) {
+			return {
+				ok: false,
+				message: 'Claude is not logged in. Run `claude auth login` and retry.',
+			};
+		}
+
+		const authMethod = parsed.authMethod ?? 'unknown auth';
+		const subscription = parsed.subscriptionType
+			? ` (${parsed.subscriptionType})`
+			: '';
+
+		return {
+			ok: true,
+			message: `Authenticated account${subscription} via ${authMethod}`,
+		};
+	} catch (error) {
+		const parsed = parseClaudeAuthStatusOutput(
+			readExecStream(error, 'stdout').trim(),
+		);
+		if (parsed && !parsed.loggedIn) {
+			return {
+				ok: false,
+				message: 'Claude is not logged in. Run `claude auth login` and retry.',
+			};
+		}
+
+		return {
+			ok: false,
+			message: `Auth status failed: ${formatExecFailure(error)}`,
+		};
+	}
+}
+
 function canExecute(candidatePath: string): boolean {
 	try {
 		fs.accessSync(candidatePath, fs.constants.X_OK);
@@ -119,12 +200,14 @@ export function verifyClaudeHarness(
 		options.resolveHookForwarderCommandFn ?? resolveHookForwarderCommand;
 	const pathValue = options.pathValue ?? process.env['PATH'] ?? '';
 	const fileExists = options.fileExists ?? canExecute;
+	const runAuthStatusFn = options.runClaudeAuthStatusFn ?? runClaudeAuthStatus;
 	const runSmokePromptFn =
 		options.runClaudeSmokePromptFn ?? runClaudeSmokePrompt;
 
 	const checks: HarnessVerificationCheck[] = [];
 	const claudeBinary = resolveBinaryFn();
 	const version = claudeBinary ? detectVersionFn() : null;
+	const authStatus = claudeBinary ? runAuthStatusFn(claudeBinary) : null;
 	const hookForwarder = resolveForwarderFn();
 
 	if (claudeBinary) {
@@ -157,7 +240,22 @@ export function verifyClaudeHarness(
 		});
 	}
 
-	if (claudeBinary && version) {
+	if (authStatus) {
+		checks.push({
+			label: 'Claude auth',
+			status: authStatus.ok ? 'pass' : 'fail',
+			message: authStatus.message,
+		});
+	} else {
+		checks.push({
+			label: 'Claude auth',
+			status: 'fail',
+			message:
+				'Skipped until Claude is installed and responds to `claude --version`.',
+		});
+	}
+
+	if (claudeBinary && version && authStatus?.ok) {
 		const smokePrompt = runSmokePromptFn(claudeBinary);
 		checks.push({
 			label: 'Smoke prompt',
@@ -169,7 +267,7 @@ export function verifyClaudeHarness(
 			label: 'Smoke prompt',
 			status: 'fail',
 			message:
-				'Skipped until Claude is installed and responds to `claude --version`.',
+				'Skipped until Claude is installed, authenticated, and responds to `claude --version`.',
 		});
 	}
 
