@@ -15,17 +15,17 @@
 **Files:**
 
 - Create: `src/setup/components/StepDots.tsx`
-- Test: `src/setup/__tests__/StepDots.test.tsx`
+- Test: `src/setup/components/__tests__/StepDots.test.tsx`
 
 **Step 1: Write the failing test**
 
 ```tsx
-// src/setup/__tests__/StepDots.test.tsx
+// src/setup/components/__tests__/StepDots.test.tsx
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import StepDots from '../components/StepDots';
-import {ThemeProvider, darkTheme} from '../../ui/theme/index';
+import StepDots from '../StepDots';
+import {ThemeProvider, darkTheme} from '../../../ui/theme/index';
 
 function renderWithTheme(ui: React.ReactElement) {
 	return render(<ThemeProvider value={darkTheme}>{ui}</ThemeProvider>);
@@ -79,7 +79,7 @@ describe('StepDots', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/setup/__tests__/StepDots.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/StepDots.test.tsx`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
@@ -140,13 +140,13 @@ export default function StepDots({steps, currentIndex, completedSteps}: Props) {
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/setup/__tests__/StepDots.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/StepDots.test.tsx`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/setup/components/StepDots.tsx src/setup/__tests__/StepDots.test.tsx
+git add src/setup/components/StepDots.tsx src/setup/components/__tests__/StepDots.test.tsx
 git commit -m "feat(setup): add StepDots component for wizard progress indicator"
 ```
 
@@ -157,17 +157,17 @@ git commit -m "feat(setup): add StepDots component for wizard progress indicator
 **Files:**
 
 - Create: `src/setup/components/WizardHints.tsx`
-- Test: `src/setup/__tests__/WizardHints.test.tsx`
+- Test: `src/setup/components/__tests__/WizardHints.test.tsx`
 
 **Step 1: Write the failing test**
 
 ```tsx
-// src/setup/__tests__/WizardHints.test.tsx
+// src/setup/components/__tests__/WizardHints.test.tsx
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
-import WizardHints from '../components/WizardHints';
-import {ThemeProvider, darkTheme} from '../../ui/theme/index';
+import WizardHints from '../WizardHints';
+import {ThemeProvider, darkTheme} from '../../../ui/theme/index';
 
 function renderWithTheme(ui: React.ReactElement) {
 	return render(<ThemeProvider value={darkTheme}>{ui}</ThemeProvider>);
@@ -217,7 +217,7 @@ describe('WizardHints', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/setup/__tests__/WizardHints.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/WizardHints.test.tsx`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
@@ -263,13 +263,13 @@ export default function WizardHints({stepState, stepIndex}: Props) {
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/setup/__tests__/WizardHints.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/WizardHints.test.tsx`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/setup/components/WizardHints.tsx src/setup/__tests__/WizardHints.test.tsx
+git add src/setup/components/WizardHints.tsx src/setup/components/__tests__/WizardHints.test.tsx
 git commit -m "feat(setup): add WizardHints component for contextual keybindings"
 ```
 
@@ -280,18 +280,18 @@ git commit -m "feat(setup): add WizardHints component for contextual keybindings
 **Files:**
 
 - Create: `src/setup/components/WizardFrame.tsx`
-- Test: `src/setup/__tests__/WizardFrame.test.tsx`
+- Test: `src/setup/components/__tests__/WizardFrame.test.tsx`
 
 **Step 1: Write the failing test**
 
 ```tsx
-// src/setup/__tests__/WizardFrame.test.tsx
+// src/setup/components/__tests__/WizardFrame.test.tsx
 import React from 'react';
 import {render} from 'ink-testing-library';
 import {describe, it, expect} from 'vitest';
 import {Text} from 'ink';
-import WizardFrame from '../components/WizardFrame';
-import {ThemeProvider, darkTheme} from '../../ui/theme/index';
+import WizardFrame from '../WizardFrame';
+import {ThemeProvider, darkTheme} from '../../../ui/theme/index';
 
 function renderWithTheme(ui: React.ReactElement) {
 	return render(<ThemeProvider value={darkTheme}>{ui}</ThemeProvider>);
@@ -332,7 +332,7 @@ describe('WizardFrame', () => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/setup/__tests__/WizardFrame.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/WizardFrame.test.tsx`
 Expected: FAIL — module not found
 
 **Step 3: Write minimal implementation**
@@ -405,13 +405,13 @@ export default function WizardFrame({title, header, footer, children}: Props) {
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/setup/__tests__/WizardFrame.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/WizardFrame.test.tsx`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/setup/components/WizardFrame.tsx src/setup/__tests__/WizardFrame.test.tsx
+git add src/setup/components/WizardFrame.tsx src/setup/components/__tests__/WizardFrame.test.tsx
 git commit -m "feat(setup): add WizardFrame component for box-drawing layout"
 ```
 
@@ -422,74 +422,52 @@ git commit -m "feat(setup): add WizardFrame component for box-drawing layout"
 **Files:**
 
 - Modify: `src/setup/components/StepSelector.tsx`
-- Test: `src/setup/__tests__/StepSelector.test.tsx` (create — no existing test file)
+- Test: `src/setup/components/__tests__/StepSelector.test.tsx` (extend existing file)
 
-**Step 1: Write the failing test**
+**Step 1: Add failing tests to existing test file**
+
+Add the following tests to the existing `describe('StepSelector')` block in `src/setup/components/__tests__/StepSelector.test.tsx`:
 
 ```tsx
-// src/setup/__tests__/StepSelector.test.tsx
-import React from 'react';
-import {render} from 'ink-testing-library';
-import {describe, it, expect, vi} from 'vitest';
-import StepSelector from '../components/StepSelector';
-import {ThemeProvider, darkTheme} from '../../ui/theme/index';
+// Add to existing src/setup/components/__tests__/StepSelector.test.tsx
 
-function renderWithTheme(ui: React.ReactElement) {
-	return render(<ThemeProvider value={darkTheme}>{ui}</ThemeProvider>);
-}
+it('renders focused item with > prefix', () => {
+	const {lastFrame} = render(
+		<StepSelector
+			options={[
+				{label: 'Alpha', value: 'a'},
+				{label: 'Beta', value: 'b'},
+			]}
+			onSelect={() => {}}
+		/>,
+	);
+	const frame = lastFrame()!;
+	expect(frame).toContain('>');
+	expect(frame).toContain('Alpha');
+	expect(frame).toContain('Beta');
+});
 
-describe('StepSelector', () => {
-	it('renders options with focused item using > prefix', () => {
-		const {lastFrame} = renderWithTheme(
-			<StepSelector
-				options={[
-					{label: 'Alpha', value: 'a'},
-					{label: 'Beta', value: 'b'},
-				]}
-				onSelect={() => {}}
-			/>,
-		);
-		const frame = lastFrame()!;
-		expect(frame).toContain('>');
-		expect(frame).toContain('Alpha');
-		expect(frame).toContain('Beta');
-	});
-
-	it('renders description for focused item when provided', () => {
-		const {lastFrame} = renderWithTheme(
-			<StepSelector
-				options={[
-					{label: 'Alpha', value: 'a', description: 'First letter'},
-					{label: 'Beta', value: 'b', description: 'Second letter'},
-				]}
-				onSelect={() => {}}
-			/>,
-		);
-		const frame = lastFrame()!;
-		// Description of focused item (Alpha) should show
-		expect(frame).toContain('First letter');
-		// Description of non-focused (Beta) should not show
-		expect(frame).not.toContain('Second letter');
-	});
-
-	it('dims disabled options', () => {
-		const {lastFrame} = renderWithTheme(
-			<StepSelector
-				options={[
-					{label: 'Enabled', value: 'e'},
-					{label: 'Disabled', value: 'd', disabled: true},
-				]}
-				onSelect={() => {}}
-			/>,
-		);
-		expect(lastFrame()!).toContain('Disabled');
-	});
+it('renders description for focused item when provided', () => {
+	const {lastFrame} = render(
+		<StepSelector
+			options={[
+				{label: 'Alpha', value: 'a', description: 'First letter'},
+				{label: 'Beta', value: 'b', description: 'Second letter'},
+			]}
+			onSelect={() => {}}
+		/>,
+	);
+	const frame = lastFrame()!;
+	// Description of focused item (Alpha) should show
+	expect(frame).toContain('First letter');
+	// Description of non-focused (Beta) should not show
+	expect(frame).not.toContain('Second letter');
 });
 ```
 
 **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run src/setup/__tests__/StepSelector.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/StepSelector.test.tsx`
 Expected: FAIL — description test fails (description not rendered yet)
 
 **Step 3: Update StepSelector implementation**
@@ -641,13 +619,13 @@ export default function StepSelector({
 
 **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run src/setup/__tests__/StepSelector.test.tsx`
+Run: `npx vitest run src/setup/components/__tests__/StepSelector.test.tsx`
 Expected: PASS
 
 **Step 5: Commit**
 
 ```bash
-git add src/setup/components/StepSelector.tsx src/setup/__tests__/StepSelector.test.tsx
+git add src/setup/components/StepSelector.tsx src/setup/components/__tests__/StepSelector.test.tsx
 git commit -m "feat(setup): enhance StepSelector with inverse highlight and descriptions"
 ```
 
@@ -669,6 +647,7 @@ Replace the raw `<Box>` wrapper and progress bar with the new components. The ke
 4. Import and render `WizardHints` in the footer zone
 5. Track completed steps via a `Set<number>` derived from `stepIndex`
 6. Remove the old hardcoded hints `<Text>` at the bottom
+7. Remove the now-unused `totalSteps`, `activeStep`, and `bar` variables (lines 213-217)
 
 ```tsx
 // src/setup/SetupWizard.tsx — updated render section
@@ -737,7 +716,6 @@ return (
 				key={retryCount}
 				onComplete={handleWorkflowComplete}
 				onError={() => markError()}
-				onSkip={handleWorkflowSkip}
 			/>
 		)}
 		{stepIndex === 3 && !isComplete && (
@@ -784,14 +762,12 @@ git commit -m "feat(setup): wire WizardFrame, StepDots, WizardHints into SetupWi
 
 **Step 1: Update assertions to match new visual output**
 
-The key changes in test assertions:
+Two tests need changes. The rest (`completes setup`, `save error`, `skip and back`, `MCP options`, `persists active workflow`) are unaffected since they don't assert on the progress bar or hint format.
 
-- `'Up/Down move'` → `'move'` (hints are now glyph-based: `↑↓ move`)
-- `'Step 1 of 4'` → check for `◉` and step dots instead
-- `'Select harness'` and `'Choose your display theme'` → unchanged (step headings didn't change)
+Change 1 — the first test (line 62-71) asserts `'Up/Down move'`. Replace with `'move'` and add `'ATHENA SETUP'`:
 
 ```tsx
-// Update the first test:
+// Update existing test "renders the first step (theme selection)":
 it('renders the first step (theme selection)', () => {
 	const {lastFrame} = render(
 		<ThemeProvider value={darkTheme}>
@@ -803,8 +779,12 @@ it('renders the first step (theme selection)', () => {
 	expect(lastFrame()!).toContain('ATHENA SETUP');
 	expect(lastFrame()!).toContain('move');
 });
+```
 
-// Update the progress bar test:
+Change 2 — rename and update the progress bar test (line 138-145). It currently asserts `'Step 1 of 4'`. Replace with step dots assertions:
+
+```tsx
+// Rename from 'shows 4 steps in progress bar' to 'shows step dots indicator':
 it('shows step dots indicator', () => {
 	const {lastFrame} = render(
 		<ThemeProvider value={darkTheme}>
@@ -850,13 +830,12 @@ options={[
 ]}
 ```
 
-WorkflowStep — add descriptions:
+WorkflowStep — add descriptions to the existing two options (do NOT add a "None" option — skip is handled by the `s` shortcut in SetupWizard):
 
 ```tsx
 options={[
 	{label: 'e2e-test-builder', value: 'e2e-test-builder', description: 'Playwright-based browser test generation'},
 	{label: 'bug-triage (coming soon)', value: 'bug-triage', disabled: true, description: 'Automated bug classification'},
-	{label: 'None - configure later', value: 'none', description: 'Skip workflow installation for now'},
 ]}
 ```
 
