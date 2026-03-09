@@ -12,13 +12,43 @@ import {
 	sessionsDir,
 } from './registry';
 import type {RuntimeEvent} from '../../core/runtime/types';
+import type {FeedEvent} from '../../core/feed/types';
 import {mapLegacyHookNameToRuntimeKind} from '../../core/runtime/events';
+
+let dummySeq = 0;
+
+function makeDummyEvent(id: string, adapterId: string): RuntimeEvent {
+	return {
+		id,
+		timestamp: Date.now(),
+		kind: mapLegacyHookNameToRuntimeKind('SessionStart'),
+		data: {hook_event_name: 'SessionStart', session_id: adapterId},
+		hookName: 'SessionStart',
+		sessionId: adapterId,
+		context: {cwd: '/project', transcriptPath: '/tmp/t.jsonl'},
+		interaction: {expectsDecision: false},
+		payload: {hook_event_name: 'SessionStart', session_id: adapterId},
+	};
+}
+
+function makeDummyFeedEvent(eventId: string): FeedEvent {
+	dummySeq++;
+	return {
+		event_id: eventId,
+		seq: dummySeq,
+		kind: 'session_start',
+		run_id: 'run-1',
+		actor_id: 'agent',
+		ts: Date.now(),
+	} as FeedEvent;
+}
 
 describe('session registry', () => {
 	let tmpDir: string;
 	let originalHome: string;
 
 	beforeEach(() => {
+		dummySeq = 0;
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-sessions-'));
 		originalHome = process.env['HOME']!;
 		// Override HOME so sessionsDir() resolves to our tmpDir
@@ -33,12 +63,15 @@ describe('session registry', () => {
 	});
 
 	it('lists sessions from disk', () => {
-		// Create two sessions via store
+		// Create two sessions via store and give them events so they appear
 		const s1 = createSessionStore({
 			sessionId: 'sess-1',
 			projectDir: '/proj/a',
 			dbPath: path.join(sessionsDir(), 'sess-1', 'session.db'),
 		});
+		s1.recordEvent(makeDummyEvent('ev-1', 'adapter-1'), [
+			makeDummyFeedEvent('fe-1'),
+		]);
 		s1.close();
 
 		const s2 = createSessionStore({
@@ -46,6 +79,9 @@ describe('session registry', () => {
 			projectDir: '/proj/b',
 			dbPath: path.join(sessionsDir(), 'sess-2', 'session.db'),
 		});
+		s2.recordEvent(makeDummyEvent('ev-2', 'adapter-2'), [
+			makeDummyFeedEvent('fe-2'),
+		]);
 		s2.close();
 
 		const sessions = listSessions();
@@ -54,12 +90,40 @@ describe('session registry', () => {
 		expect(sessions.map(s => s.id)).toContain('sess-2');
 	});
 
+	it('excludes sessions with zero events', () => {
+		// Session with events — should appear
+		const s1 = createSessionStore({
+			sessionId: 'sess-with-events',
+			projectDir: '/proj/a',
+			dbPath: path.join(sessionsDir(), 'sess-with-events', 'session.db'),
+		});
+		s1.recordEvent(makeDummyEvent('ev-1', 'adapter-1'), [
+			makeDummyFeedEvent('fe-1'),
+		]);
+		s1.close();
+
+		// Session without events — should NOT appear
+		const s2 = createSessionStore({
+			sessionId: 'sess-empty',
+			projectDir: '/proj/a',
+			dbPath: path.join(sessionsDir(), 'sess-empty', 'session.db'),
+		});
+		s2.close();
+
+		const sessions = listSessions();
+		expect(sessions).toHaveLength(1);
+		expect(sessions[0]!.id).toBe('sess-with-events');
+	});
+
 	it('filters sessions by projectDir', () => {
 		const s1 = createSessionStore({
 			sessionId: 'sess-a',
 			projectDir: '/proj/a',
 			dbPath: path.join(sessionsDir(), 'sess-a', 'session.db'),
 		});
+		s1.recordEvent(makeDummyEvent('ev-a', 'adapter-a'), [
+			makeDummyFeedEvent('fe-a'),
+		]);
 		s1.close();
 
 		const s2 = createSessionStore({
@@ -67,6 +131,9 @@ describe('session registry', () => {
 			projectDir: '/proj/b',
 			dbPath: path.join(sessionsDir(), 'sess-b', 'session.db'),
 		});
+		s2.recordEvent(makeDummyEvent('ev-b', 'adapter-b'), [
+			makeDummyFeedEvent('fe-b'),
+		]);
 		s2.close();
 
 		const filtered = listSessions('/proj/a');
@@ -112,6 +179,9 @@ describe('session registry', () => {
 			projectDir: '/proj',
 			dbPath: path.join(sessionsDir(), 'old', 'session.db'),
 		});
+		s1.recordEvent(makeDummyEvent('ev-old', 'adapter-old'), [
+			makeDummyFeedEvent('fe-old'),
+		]);
 		s1.close();
 
 		// Ensure s2 is newer
@@ -120,6 +190,9 @@ describe('session registry', () => {
 			projectDir: '/proj',
 			dbPath: path.join(sessionsDir(), 'new', 'session.db'),
 		});
+		s2.recordEvent(makeDummyEvent('ev-new', 'adapter-new'), [
+			makeDummyFeedEvent('fe-new'),
+		]);
 		s2.close();
 
 		const recent = getMostRecentAthenaSession('/proj');

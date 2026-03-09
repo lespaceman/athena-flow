@@ -1,8 +1,9 @@
 import {useState} from 'react';
-import {Box, Text, useInput} from 'ink';
+import {Box, Text, useInput, useStdout} from 'ink';
 import {type SessionEntry} from '../../shared/types/session';
 import {formatRelativeTime} from '../../shared/utils/formatters';
 import {compactText} from '../../shared/utils/format';
+import {termRows} from '../../shared/utils/terminal';
 import {useTheme} from '../theme/index';
 import {startInputMeasure} from '../../shared/utils/perf';
 
@@ -13,7 +14,16 @@ type Props = {
 	onCancel: () => void;
 };
 
-const VISIBLE_COUNT = 15;
+const PICKER_CHROME_ROWS = 5;
+const ROWS_PER_SESSION = 3;
+
+function resolveVisibleCount(terminalRows?: number): number {
+	const rows = terminalRows ?? termRows();
+	return Math.max(
+		1,
+		Math.floor((rows - PICKER_CHROME_ROWS) / ROWS_PER_SESSION),
+	);
+}
 
 export default function SessionPicker({
 	sessions,
@@ -22,7 +32,9 @@ export default function SessionPicker({
 	onCancel,
 }: Props) {
 	const theme = useTheme();
+	const {stdout} = useStdout();
 	const [focusIndex, setFocusIndex] = useState(0);
+	const visibleCount = resolveVisibleCount(stdout.rows);
 
 	useInput((input, key) => {
 		if (loading) {
@@ -70,11 +82,11 @@ export default function SessionPicker({
 	const scrollStart = Math.max(
 		0,
 		Math.min(
-			focusIndex - Math.floor(VISIBLE_COUNT / 2),
-			sessions.length - VISIBLE_COUNT,
+			focusIndex - Math.floor(visibleCount / 2),
+			sessions.length - visibleCount,
 		),
 	);
-	const visible = sessions.slice(scrollStart, scrollStart + VISIBLE_COUNT);
+	const visible = sessions.slice(scrollStart, scrollStart + visibleCount);
 
 	return (
 		<Box flexDirection="column" padding={1}>
@@ -104,7 +116,11 @@ export default function SessionPicker({
 				const title = compactText(titleRaw.replace(/\n/g, ' ').trim(), 60);
 
 				return (
-					<Box key={session.sessionId} flexDirection="column" marginBottom={1}>
+					<Box
+						key={session.sessionId}
+						flexDirection="column"
+						marginBottom={vi === visible.length - 1 ? 0 : 1}
+					>
 						<Box>
 							<Text color={isFocused ? 'cyan' : undefined} bold={isFocused}>
 								{isFocused ? '❯ ' : '  '}

@@ -48,7 +48,7 @@ function readSessionFromDb(dbPath: string): AthenaSession | null {
 			.all() as {session_id: string}[];
 
 		let firstPrompt: string | undefined;
-		if (!row.label) {
+		if (!row.label && (row.event_count ?? 0) > 0) {
 			const promptRow = db
 				.prepare(
 					`SELECT json_extract(payload, '$.data.prompt') as prompt FROM runtime_events WHERE hook_name = 'UserPromptSubmit' ORDER BY seq ASC LIMIT 1`,
@@ -87,7 +87,7 @@ export function listSessions(projectDir?: string): AthenaSession[] {
 		if (!entry.isDirectory()) continue;
 		const dbPath = path.join(dir, entry.name, 'session.db');
 		const session = readSessionFromDb(dbPath);
-		if (session) {
+		if (session && (session.eventCount ?? 0) > 0) {
 			if (!projectDir || session.projectDir === projectDir) {
 				sessions.push(session);
 			}

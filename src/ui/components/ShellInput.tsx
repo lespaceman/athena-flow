@@ -117,8 +117,10 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [commandPaletteActive, setCommandPaletteActive] = useState(false);
 	const previousValueRef = useRef(value);
+	const previousSuggestionsEnabledRef = useRef(commandSuggestionsEnabled);
 	useEffect(() => {
 		const previousValue = previousValueRef.current;
+		const previousSuggestionsEnabled = previousSuggestionsEnabledRef.current;
 		const isProgrammatic = programmaticChangeRef.current;
 		const isSlashPrefix = isCommandPrefix(value);
 
@@ -131,12 +133,16 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 			if (commandPaletteActive !== shouldActivate) {
 				setCommandPaletteActive(shouldActivate);
 			}
-		} else if (previousValue.length === 0) {
+		} else if (
+			previousValue.length === 0 ||
+			(previousSuggestionsEnabled === false && value === '/')
+		) {
 			if (!commandPaletteActive) setCommandPaletteActive(true);
 		}
 
 		programmaticChangeRef.current = false;
 		previousValueRef.current = value;
+		previousSuggestionsEnabledRef.current = commandSuggestionsEnabled;
 	}, [commandPaletteActive, commandSuggestionsEnabled, value]);
 
 	const isCommandMode =

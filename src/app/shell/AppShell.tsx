@@ -100,6 +100,7 @@ import {
 	trackSessionStarted,
 	trackSessionEnded,
 } from '../../infra/telemetry/index';
+import {toSessionPickerEntries} from './sessionPickerEntries';
 import {
 	createPendingStartupDiagnosticsEvent,
 	deriveStartupTimeoutFailure,
@@ -1932,17 +1933,7 @@ export default function App({
 		// Defer heavy DB reads so the picker renders immediately with a spinner.
 		const timer = setTimeout(() => {
 			const athenaSessions = listSessions(projectDir);
-			setSessions(
-				athenaSessions.map(s => ({
-					sessionId: s.id,
-					summary: s.label ?? '',
-					firstPrompt: s.firstPrompt ?? `Session ${s.id.slice(0, 8)}`,
-					modified: new Date(s.updatedAt).toISOString(),
-					created: new Date(s.createdAt).toISOString(),
-					gitBranch: '',
-					messageCount: s.eventCount ?? s.adapterSessionIds.length,
-				})),
-			);
+			setSessions(toSessionPickerEntries(athenaSessions));
 			setSessionsLoading(false);
 		}, 0);
 		return () => clearTimeout(timer);

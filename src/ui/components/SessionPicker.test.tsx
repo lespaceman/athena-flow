@@ -5,13 +5,14 @@ vi.hoisted(() => {
 });
 
 import React from 'react';
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, beforeEach, afterEach} from 'vitest';
 import {render} from 'ink-testing-library';
 import SessionPicker from './SessionPicker';
 import {type SessionEntry} from '../../shared/types/session';
 import {formatRelativeTime} from '../../shared/utils/formatters';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+const originalRows = process.stdout.rows;
 
 const sessions: SessionEntry[] = [
 	{
@@ -43,7 +44,33 @@ const sessions: SessionEntry[] = [
 	},
 ];
 
+function makeSession(index: number): SessionEntry {
+	return {
+		sessionId: `session-${index.toString().padStart(3, '0')}`,
+		summary: `Session ${index}`,
+		firstPrompt: `prompt ${index}`,
+		modified: new Date(Date.now() - index * 60_000).toISOString(),
+		created: new Date(Date.now() - index * 60_000).toISOString(),
+		gitBranch: '',
+		messageCount: index,
+	};
+}
+
 describe('SessionPicker', () => {
+	beforeEach(() => {
+		Object.defineProperty(process.stdout, 'rows', {
+			value: originalRows ?? 24,
+			configurable: true,
+		});
+	});
+
+	afterEach(() => {
+		Object.defineProperty(process.stdout, 'rows', {
+			value: originalRows,
+			configurable: true,
+		});
+	});
+
 	it('renders session summaries', () => {
 		const {lastFrame} = render(
 			<SessionPicker
@@ -213,6 +240,60 @@ describe('SessionPicker', () => {
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('...');
 		expect(frame).not.toContain('compactText utility');
+	});
+
+	it('limits visible sessions to the terminal height', () => {
+		Object.defineProperty(process.stdout, 'rows', {
+			value: 14,
+			configurable: true,
+		});
+		const shortViewportSessions = Array.from({length: 8}, (_, index) =>
+			makeSession(index),
+		);
+
+		const {lastFrame} = render(
+			<SessionPicker
+				sessions={shortViewportSessions}
+				onSelect={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+		const frame = lastFrame() ?? '';
+
+		expect(frame).toContain('Session 0');
+		expect(frame).toContain('Session 1');
+		expect(frame).toContain('Session 2');
+		expect(frame).not.toContain('Session 3');
+	});
+
+	it('scrolls the visible window as the focused session moves', async () => {
+		Object.defineProperty(process.stdout, 'rows', {
+			value: 14,
+			configurable: true,
+		});
+		const shortViewportSessions = Array.from({length: 8}, (_, index) =>
+			makeSession(index),
+		);
+
+		const {stdin, lastFrame} = render(
+			<SessionPicker
+				sessions={shortViewportSessions}
+				onSelect={vi.fn()}
+				onCancel={vi.fn()}
+			/>,
+		);
+
+		for (let i = 0; i < 5; i++) {
+			stdin.write('\x1B[B');
+			await delay(20);
+		}
+
+		const frame = lastFrame() ?? '';
+		expect(frame).toContain('Session 4');
+		expect(frame).toContain('Session 5');
+		expect(frame).toContain('Session 6');
+		expect(frame).not.toContain('Session 0');
+		expect(frame).toContain('❯ Session 5');
 	});
 });
 

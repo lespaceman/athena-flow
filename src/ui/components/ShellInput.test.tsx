@@ -85,6 +85,54 @@ describe('ShellInput', () => {
 		expect(output).toContain('/commit');
 	});
 
+	it('shows command suggestions after the parent flips into command mode', async () => {
+		function Harness() {
+			const [commandSuggestionsEnabled, setCommandSuggestionsEnabled] =
+				React.useState(false);
+
+			return (
+				<ShellInput
+					innerWidth={60}
+					useAscii={false}
+					borderColor="#666666"
+					inputRows={1}
+					inputPrefix="input> "
+					inputPromptStyled="input> "
+					inputContentWidth={46}
+					textInputPlaceholder="/command"
+					textColor="#ffffff"
+					inputPlaceholderColor="#999999"
+					isInputActive={true}
+					onChange={value => {
+						setCommandSuggestionsEnabled(value.startsWith('/'));
+					}}
+					onSubmit={noop}
+					onHistoryBack={() => undefined}
+					onHistoryForward={() => undefined}
+					suppressArrows={commandSuggestionsEnabled}
+					setValueRef={noop}
+					badgeText="[IDLE][CMD]"
+					runBadgeStyled=" RUN "
+					modeBadgeStyled=" CMD "
+					border={(text: string) => text}
+					bottomBorder="└────────────────────────────────────────────────────────────┘"
+					commandSuggestionsEnabled={commandSuggestionsEnabled}
+					wrapSuggestionLine={(line: string) => line}
+				/>
+			);
+		}
+
+		const {stdin, lastFrame} = render(<Harness />);
+
+		stdin.write('/');
+		await delay(50);
+
+		const output = lastFrame() ?? '';
+		expect(output).toContain('/help');
+		expect(output).toContain('/clear');
+		expect(output).toContain('/commit');
+	});
+
 	it('filters commands from the local input value', async () => {
 		const {stdin, lastFrame} = renderShellInput();
 
