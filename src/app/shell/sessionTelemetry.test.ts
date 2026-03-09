@@ -6,9 +6,7 @@ import {
 	createEmptySessionTelemetryCarry,
 } from './sessionTelemetry';
 
-function makeMetrics(
-	overrides: Partial<SessionMetrics> = {},
-): SessionMetrics {
+function makeMetrics(overrides: Partial<SessionMetrics> = {}): SessionMetrics {
 	return {
 		modelName: null,
 		toolCallCount: 0,
@@ -43,7 +41,12 @@ describe('session telemetry helpers', () => {
 				denied: 1,
 			},
 			subagentMetrics: [
-				{agentId: 'subagent-1', agentType: 'worker', toolCallCount: 1, tokenCount: null},
+				{
+					agentId: 'subagent-1',
+					agentType: 'worker',
+					toolCallCount: 1,
+					tokenCount: null,
+				},
 			],
 		});
 		const secondSegment = makeMetrics({
@@ -53,7 +56,12 @@ describe('session telemetry helpers', () => {
 				denied: 0,
 			},
 			subagentMetrics: [
-				{agentId: 'subagent-2', agentType: 'worker', toolCallCount: 2, tokenCount: null},
+				{
+					agentId: 'subagent-2',
+					agentType: 'worker',
+					toolCallCount: 2,
+					tokenCount: null,
+				},
 			],
 		});
 
@@ -75,13 +83,23 @@ describe('session telemetry helpers', () => {
 		const segmentBeforeClear = makeMetrics({
 			totalToolCallCount: 1,
 			subagentMetrics: [
-				{agentId: 'subagent-1', agentType: 'worker', toolCallCount: 1, tokenCount: null},
+				{
+					agentId: 'subagent-1',
+					agentType: 'worker',
+					toolCallCount: 1,
+					tokenCount: null,
+				},
 			],
 		});
 		const segmentAfterClear = makeMetrics({
 			totalToolCallCount: 2,
 			subagentMetrics: [
-				{agentId: 'subagent-1', agentType: 'worker', toolCallCount: 2, tokenCount: null},
+				{
+					agentId: 'subagent-1',
+					agentType: 'worker',
+					toolCallCount: 2,
+					tokenCount: null,
+				},
 			],
 		});
 

@@ -77,7 +77,7 @@ export type GeneratedHookSettings = {
 };
 
 export function quoteShellArg(value: string): string {
-	return `'${value.replace(/'/g, `'\"'\"'`)}'`;
+	return `'${value.replace(/'/g, `'"'"'`)}'`;
 }
 
 export function formatHookForwarderCommand(

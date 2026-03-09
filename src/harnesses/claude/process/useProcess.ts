@@ -448,11 +448,7 @@ export function useClaudeProcess(
 					if (trackOutputRef.current && code !== 0 && code !== null) {
 						setOutput(prev => [...prev, `[exit code: ${code}]`]);
 					}
-					if (
-						code !== null &&
-						code !== 0 &&
-						!reportedFailureRef.current
-					) {
+					if (code !== null && code !== 0 && !reportedFailureRef.current) {
 						reportedFailureRef.current = true;
 						const stderrDetail = lastStderrRef.current
 							? ` Stderr: ${lastStderrRef.current}`

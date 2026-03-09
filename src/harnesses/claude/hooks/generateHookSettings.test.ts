@@ -166,7 +166,7 @@ describe('generateHookSettings', () => {
 		expect(
 			formatHookForwarderCommand(
 				'/opt/homebrew/bin/node',
-				"/Users/test/Athena Dev/dist/hook-forwarder.js",
+				'/Users/test/Athena Dev/dist/hook-forwarder.js',
 			),
 		).toBe(
 			`'/opt/homebrew/bin/node' '/Users/test/Athena Dev/dist/hook-forwarder.js'`,

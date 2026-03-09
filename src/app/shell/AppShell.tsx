@@ -197,15 +197,15 @@ function AppContent({
 	| 'pluginFlags'
 	| 'isolationPreset'
 	| 'version'
-	> & {
-		initialSessionId?: string;
-		onClear: () => void;
-		onShowSessions: () => void;
-		onShowSetup: () => void;
-		inputHistory: InputHistory;
-		sessionTelemetryMetricsRef: React.MutableRefObject<SessionMetrics>;
-		onSessionTelemetrySnapshot: (metrics: SessionMetrics) => void;
-	}) {
+> & {
+	initialSessionId?: string;
+	onClear: () => void;
+	onShowSessions: () => void;
+	onShowSetup: () => void;
+	inputHistory: InputHistory;
+	sessionTelemetryMetricsRef: React.MutableRefObject<SessionMetrics>;
+	onSessionTelemetrySnapshot: (metrics: SessionMetrics) => void;
+}) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
 	const [uiState, setUiState] = useState(initialSessionUiState);
 	const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -1459,7 +1459,9 @@ export default function App({
 		initialPhase = {type: 'main', initialSessionId};
 	}
 	const [phase, setPhase] = useState<AppPhase>(initialPhase);
-	const sessionTelemetryMetricsRef = useRef<SessionMetrics>(EMPTY_SESSION_METRICS);
+	const sessionTelemetryMetricsRef = useRef<SessionMetrics>(
+		EMPTY_SESSION_METRICS,
+	);
 	const sessionTelemetryCarryRef = useRef(createEmptySessionTelemetryCarry());
 
 	useEffect(() => {
@@ -1503,7 +1505,13 @@ export default function App({
 				permissionsDenied: summary.permissionsDenied,
 			});
 		};
-	}, [phase.type, athenaSessionId, runtimeState.harness, runtimeState.modelName, runtimeState.workflowRef]);
+	}, [
+		phase.type,
+		athenaSessionId,
+		runtimeState.harness,
+		runtimeState.modelName,
+		runtimeState.workflowRef,
+	]);
 
 	const handleProfilerRender = useCallback(
 		(
@@ -1656,8 +1664,8 @@ export default function App({
 				allowedTools={runtimeState.isolation?.allowedTools}
 				athenaSessionId={athenaSessionId}
 			>
-					<AppContent
-						key={clearCount}
+				<AppContent
+					key={clearCount}
 					projectDir={projectDir}
 					instanceId={instanceId}
 					harness={runtimeState.harness}
@@ -1669,20 +1677,19 @@ export default function App({
 					initialSessionId={phase.initialSessionId}
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
-						onShowSetup={handleShowSetup}
-						inputHistory={inputHistory}
-						sessionTelemetryMetricsRef={sessionTelemetryMetricsRef}
-						onSessionTelemetrySnapshot={metrics => {
-							sessionTelemetryCarryRef.current =
-								accumulateSessionTelemetryCarry(
-									sessionTelemetryCarryRef.current,
-									metrics,
-								);
-						}}
-						workflowRef={runtimeState.workflowRef}
-						workflow={runtimeState.workflow}
-						ascii={ascii}
-					/>
+					onShowSetup={handleShowSetup}
+					inputHistory={inputHistory}
+					sessionTelemetryMetricsRef={sessionTelemetryMetricsRef}
+					onSessionTelemetrySnapshot={metrics => {
+						sessionTelemetryCarryRef.current = accumulateSessionTelemetryCarry(
+							sessionTelemetryCarryRef.current,
+							metrics,
+						);
+					}}
+					workflowRef={runtimeState.workflowRef}
+					workflow={runtimeState.workflow}
+					ascii={ascii}
+				/>
 			</HookProvider>
 		</ThemeProvider>
 	);
