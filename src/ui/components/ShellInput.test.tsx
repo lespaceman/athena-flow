@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import React, {createRef} from 'react';
-import {describe, it, expect, beforeEach, afterEach} from 'vitest';
+import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest';
 import {render} from 'ink-testing-library';
 import * as registry from '../../app/commands/registry';
 import {ShellInput, type ShellInputHandle} from './ShellInput';
@@ -107,5 +107,55 @@ describe('ShellInput', () => {
 		ref.current?.moveDown();
 		await delay(20);
 		expect(ref.current?.getSelectedCommand()?.name).toBe('clear');
+	});
+
+	it('keeps recalled slash history entries out of command suggestion mode', async () => {
+		const onHistoryBack = vi
+			.fn()
+			.mockReturnValueOnce('/clear')
+			.mockReturnValueOnce('plain prompt');
+		const {stdin, lastFrame} = render(
+			<ShellInput
+				innerWidth={60}
+				useAscii={false}
+				borderColor="#666666"
+				inputRows={1}
+				inputPrefix="input> "
+				inputPromptStyled="input> "
+				inputContentWidth={46}
+				textInputPlaceholder="/command"
+				textColor="#ffffff"
+				inputPlaceholderColor="#999999"
+				isInputActive={true}
+				onChange={noop}
+				onSubmit={noop}
+				onHistoryBack={onHistoryBack}
+				onHistoryForward={() => undefined}
+				suppressArrows={true}
+				setValueRef={noop}
+				badgeText="[IDLE][CMD]"
+				runBadgeStyled=" RUN "
+				modeBadgeStyled=" CMD "
+				border={(text: string) => text}
+				bottomBorder="└────────────────────────────────────────────────────────────┘"
+				commandSuggestionsEnabled={true}
+				wrapSuggestionLine={(line: string) => line}
+			/>,
+		);
+
+		stdin.write('x');
+		await delay(50);
+		stdin.write('\x1B[A');
+		await delay(50);
+
+		expect(onHistoryBack).toHaveBeenNthCalledWith(1, 'x');
+		expect(lastFrame() ?? '').toContain('/clear');
+		expect(lastFrame() ?? '').not.toContain('/help');
+
+		stdin.write('\x1B[A');
+		await delay(50);
+
+		expect(onHistoryBack).toHaveBeenNthCalledWith(2, '/clear');
+		expect(lastFrame() ?? '').toContain('plain prompt');
 	});
 });

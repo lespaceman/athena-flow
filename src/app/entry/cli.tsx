@@ -100,6 +100,8 @@ async function flushTelemetryOptOut(config: {
 	initTelemetry({
 		deviceId,
 		telemetryEnabled: config.telemetry,
+		appVersion: version,
+		os: `${os.platform()}-${os.arch()}`,
 	});
 	trackTelemetryOptedOut();
 	await shutdownTelemetry();
@@ -379,6 +381,8 @@ async function main(): Promise<void> {
 	initTelemetry({
 		deviceId: resolvedDeviceId,
 		telemetryEnabled: globalConfig.telemetry,
+		appVersion: version,
+		os: `${os.platform()}-${os.arch()}`,
 	});
 	trackAppLaunched({version, harness: runtimeConfig.harness});
 

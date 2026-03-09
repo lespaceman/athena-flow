@@ -90,11 +90,20 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		isActive: isInputActive,
 	});
 
+	const programmaticChangeRef = useRef(false);
+	const applyProgrammaticValue = useCallback(
+		(nextValue: string) => {
+			programmaticChangeRef.current = true;
+			setValue(nextValue);
+		},
+		[setValue],
+	);
+
 	const setValueRefCb = useRef(setValueRef);
 	setValueRefCb.current = setValueRef;
 	useEffect(() => {
-		setValueRefCb.current?.(setValue);
-	}, [setValue]);
+		setValueRefCb.current?.(applyProgrammaticValue);
+	}, [applyProgrammaticValue]);
 
 	const stateRef = useRef({value, cursorOffset});
 	stateRef.current = {value, cursorOffset};
@@ -106,7 +115,32 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 	suppressArrowsRef.current = suppressArrows;
 
 	const [selectedIndex, setSelectedIndex] = useState(0);
-	const isCommandMode = commandSuggestionsEnabled && isCommandPrefix(value);
+	const [commandPaletteActive, setCommandPaletteActive] = useState(false);
+	const previousValueRef = useRef(value);
+	useEffect(() => {
+		const previousValue = previousValueRef.current;
+		const isProgrammatic = programmaticChangeRef.current;
+		const isSlashPrefix = isCommandPrefix(value);
+
+		if (!commandSuggestionsEnabled || !isSlashPrefix) {
+			if (commandPaletteActive) setCommandPaletteActive(false);
+		} else if (isProgrammatic) {
+			// Programmatic '/': fresh command-open from feed. Other recalled
+			// slash values should stay in normal history navigation mode.
+			const shouldActivate = value === '/';
+			if (commandPaletteActive !== shouldActivate) {
+				setCommandPaletteActive(shouldActivate);
+			}
+		} else if (previousValue.length === 0) {
+			if (!commandPaletteActive) setCommandPaletteActive(true);
+		}
+
+		programmaticChangeRef.current = false;
+		previousValueRef.current = value;
+	}, [commandPaletteActive, commandSuggestionsEnabled, value]);
+
+	const isCommandMode =
+		commandSuggestionsEnabled && commandPaletteActive && isCommandPrefix(value);
 	const prefix = isCommandMode ? value.slice(1) : '';
 	const filteredCommands = useMemo(() => {
 		if (!isCommandMode) return [];
@@ -177,7 +211,13 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 				stateRef.current;
 
 			if (key.ctrl) return;
-			if (suppressArrowsRef.current && (key.upArrow || key.downArrow)) return;
+			if (
+				suppressArrowsRef.current &&
+				showSuggestions &&
+				(key.upArrow || key.downArrow)
+			) {
+				return;
+			}
 
 			if (key.upArrow) {
 				const {line: cursorLine} = cursorToVisualPosition(
@@ -187,7 +227,7 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 				);
 				if (cursorLine === 0) {
 					const recalled = historyBackRef.current?.(currentValue);
-					if (recalled !== undefined) setValue(recalled);
+					if (recalled !== undefined) applyProgrammaticValue(recalled);
 				} else {
 					dispatch({type: 'move-up', width: inputContentWidth});
 				}
@@ -202,13 +242,13 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 				);
 				if (cursorLine >= totalLines - 1) {
 					const recalled = historyForwardRef.current?.();
-					if (recalled !== undefined) setValue(recalled);
+					if (recalled !== undefined) applyProgrammaticValue(recalled);
 				} else {
 					dispatch({type: 'move-down', width: inputContentWidth});
 				}
 			}
 		},
-		[inputContentWidth, setValue, dispatch],
+		[applyProgrammaticValue, dispatch, inputContentWidth, showSuggestions],
 	);
 
 	useInput(handleArrows, {isActive: isInputActive});

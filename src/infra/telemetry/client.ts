@@ -13,10 +13,13 @@ declare const __POSTHOG_API_KEY__: string | undefined;
 let client: PostHog | null = null;
 let deviceId: string | null = null;
 let enabled = false;
+let superProperties: Record<string, unknown> = {};
 
 export type TelemetryInitOptions = {
 	deviceId: string;
 	telemetryEnabled?: boolean;
+	appVersion?: string;
+	os?: string;
 };
 
 export function initTelemetry(options: TelemetryInitOptions): void {
@@ -29,6 +32,14 @@ export function initTelemetry(options: TelemetryInitOptions): void {
 	}
 
 	deviceId = options.deviceId;
+	superProperties = {};
+	if (options.appVersion) {
+		superProperties['app_version'] = options.appVersion;
+	}
+	if (options.os) {
+		superProperties['os'] = options.os;
+	}
+
 	client = new PostHog(POSTHOG_API_KEY, {
 		host: POSTHOG_HOST,
 		disableGeoip: true,
@@ -44,6 +55,7 @@ export function isTelemetryEnabled(): boolean {
 export function disableTelemetry(): Promise<void> {
 	enabled = false;
 	deviceId = null;
+	superProperties = {};
 	if (!client) {
 		return Promise.resolve();
 	}
@@ -64,7 +76,7 @@ export function capture(
 	client.capture({
 		distinctId: deviceId,
 		event,
-		properties,
+		properties: {...superProperties, ...properties},
 	});
 }
 
@@ -75,4 +87,5 @@ export async function shutdownTelemetry(): Promise<void> {
 	}
 	deviceId = null;
 	enabled = false;
+	superProperties = {};
 }
