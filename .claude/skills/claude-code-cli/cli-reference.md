@@ -8,17 +8,24 @@
 
 ## CLI commands
 
-| Command                         | Description                                            | Example                                           |
-| :------------------------------ | :----------------------------------------------------- | :------------------------------------------------ |
-| `claude`                        | Start interactive REPL                                 | `claude`                                          |
-| `claude "query"`                | Start REPL with initial prompt                         | `claude "explain this project"`                   |
-| `claude -p "query"`             | Query via SDK, then exit                               | `claude -p "explain this function"`               |
-| `cat file \| claude -p "query"` | Process piped content                                  | `cat logs.txt \| claude -p "explain"`             |
-| `claude -c`                     | Continue most recent conversation in current directory | `claude -c`                                       |
-| `claude -c -p "query"`          | Continue via SDK                                       | `claude -c -p "Check for type errors"`            |
-| `claude -r "<session>" "query"` | Resume session by ID or name                           | `claude -r "auth-refactor" "Finish this PR"`      |
-| `claude update`                 | Update to latest version                               | `claude update`                                   |
-| `claude mcp`                    | Configure Model Context Protocol (MCP) servers         | See the [Claude Code MCP documentation](/en/mcp). |
+You can start sessions, pipe content, resume conversations, and manage updates with these commands:
+
+| Command                         | Description                                                                                                                                                                            | Example                                            |
+| :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
+| `claude`                        | Start interactive session                                                                                                                                                              | `claude`                                           |
+| `claude "query"`                | Start interactive session with initial prompt                                                                                                                                          | `claude "explain this project"`                    |
+| `claude -p "query"`             | Query via SDK, then exit                                                                                                                                                               | `claude -p "explain this function"`                |
+| `cat file \| claude -p "query"` | Process piped content                                                                                                                                                                  | `cat logs.txt \| claude -p "explain"`              |
+| `claude -c`                     | Continue most recent conversation in current directory                                                                                                                                 | `claude -c`                                        |
+| `claude -c -p "query"`          | Continue via SDK                                                                                                                                                                       | `claude -c -p "Check for type errors"`             |
+| `claude -r "<session>" "query"` | Resume session by ID or name                                                                                                                                                           | `claude -r "auth-refactor" "Finish this PR"`       |
+| `claude update`                 | Update to latest version                                                                                                                                                               | `claude update`                                    |
+| `claude auth login`             | Sign in to your Anthropic account. Use `--email` to pre-fill your email address and `--sso` to force SSO authentication                                                                | `claude auth login --email user@example.com --sso` |
+| `claude auth logout`            | Log out from your Anthropic account                                                                                                                                                    | `claude auth logout`                               |
+| `claude auth status`            | Show authentication status as JSON. Use `--text` for human-readable output. Exits with code 0 if logged in, 1 if not                                                                   | `claude auth status`                               |
+| `claude agents`                 | List all configured [subagents](/en/sub-agents), grouped by source                                                                                                                     | `claude agents`                                    |
+| `claude mcp`                    | Configure Model Context Protocol (MCP) servers                                                                                                                                         | See the [Claude Code MCP documentation](/en/mcp).  |
+| `claude remote-control`         | Start a [Remote Control session](/en/remote-control) to control Claude Code from Claude.ai or the Claude app while running locally. See [Remote Control](/en/remote-control) for flags | `claude remote-control`                            |
 
 ## CLI flags
 
@@ -31,14 +38,14 @@ Customize Claude Code's behavior with these command-line flags:
 | `--agents`                             | Define custom [subagents](/en/sub-agents) dynamically via JSON (see below for format)                                                                                                                     | `claude --agents '{"reviewer":{"description":"Reviews code","prompt":"You are a code reviewer"}}'` |
 | `--allow-dangerously-skip-permissions` | Enable permission bypassing as an option without immediately activating it. Allows composing with `--permission-mode` (use with caution)                                                                  | `claude --permission-mode plan --allow-dangerously-skip-permissions`                               |
 | `--allowedTools`                       | Tools that execute without prompting for permission. See [permission rule syntax](/en/settings#permission-rule-syntax) for pattern matching. To restrict which tools are available, use `--tools` instead | `"Bash(git log *)" "Bash(git diff *)" "Read"`                                                      |
-| `--append-system-prompt`               | Append custom text to the end of the default system prompt (works in both interactive and print modes)                                                                                                    | `claude --append-system-prompt "Always use TypeScript"`                                            |
-| `--append-system-prompt-file`          | Load additional system prompt text from a file and append to the default prompt (print mode only)                                                                                                         | `claude -p --append-system-prompt-file ./extra-rules.txt "query"`                                  |
+| `--append-system-prompt`               | Append custom text to the end of the default system prompt                                                                                                                                                | `claude --append-system-prompt "Always use TypeScript"`                                            |
+| `--append-system-prompt-file`          | Load additional system prompt text from a file and append to the default prompt                                                                                                                           | `claude --append-system-prompt-file ./extra-rules.txt`                                             |
 | `--betas`                              | Beta headers to include in API requests (API key users only)                                                                                                                                              | `claude --betas interleaved-thinking`                                                              |
 | `--chrome`                             | Enable [Chrome browser integration](/en/chrome) for web automation and testing                                                                                                                            | `claude --chrome`                                                                                  |
 | `--continue`, `-c`                     | Load the most recent conversation in the current directory                                                                                                                                                | `claude --continue`                                                                                |
 | `--dangerously-skip-permissions`       | Skip all permission prompts (use with caution)                                                                                                                                                            | `claude --dangerously-skip-permissions`                                                            |
 | `--debug`                              | Enable debug mode with optional category filtering (for example, `"api,hooks"` or `"!statsig,!file"`)                                                                                                     | `claude --debug "api,mcp"`                                                                         |
-| `--disable-slash-commands`             | Disable all skills and slash commands for this session                                                                                                                                                    | `claude --disable-slash-commands`                                                                  |
+| `--disable-slash-commands`             | Disable all skills and commands for this session                                                                                                                                                          | `claude --disable-slash-commands`                                                                  |
 | `--disallowedTools`                    | Tools that are removed from the model's context and cannot be used                                                                                                                                        | `"Bash(git log *)" "Bash(git diff *)" "Edit"`                                                      |
 | `--fallback-model`                     | Enable automatic fallback to specified model when default model is overloaded (print mode only)                                                                                                           | `claude -p --fallback-model sonnet "query"`                                                        |
 | `--fork-session`                       | When resuming, create a new session ID instead of reusing the original (use with `--resume` or `--continue`)                                                                                              | `claude --resume abc123 --fork-session`                                                            |
@@ -53,7 +60,7 @@ Customize Claude Code's behavior with these command-line flags:
 | `--max-budget-usd`                     | Maximum dollar amount to spend on API calls before stopping (print mode only)                                                                                                                             | `claude -p --max-budget-usd 5.00 "query"`                                                          |
 | `--max-turns`                          | Limit the number of agentic turns (print mode only). Exits with an error when the limit is reached. No limit by default                                                                                   | `claude -p --max-turns 3 "query"`                                                                  |
 | `--mcp-config`                         | Load MCP servers from JSON files or strings (space-separated)                                                                                                                                             | `claude --mcp-config ./mcp.json`                                                                   |
-| `--model`                              | Sets the model for the current session with an alias for the latest model (`sonnet` or `opus`) or a model's full name                                                                                     | `claude --model claude-sonnet-4-5-20250929`                                                        |
+| `--model`                              | Sets the model for the current session with an alias for the latest model (`sonnet` or `opus`) or a model's full name                                                                                     | `claude --model claude-sonnet-4-6`                                                                 |
 | `--no-chrome`                          | Disable [Chrome browser integration](/en/chrome) for this session                                                                                                                                         | `claude --no-chrome`                                                                               |
 | `--no-session-persistence`             | Disable session persistence so sessions are not saved to disk and cannot be resumed (print mode only)                                                                                                     | `claude -p --no-session-persistence "query"`                                                       |
 | `--output-format`                      | Specify output format for print mode (options: `text`, `json`, `stream-json`)                                                                                                                             | `claude -p "query" --output-format json`                                                           |
@@ -67,12 +74,14 @@ Customize Claude Code's behavior with these command-line flags:
 | `--setting-sources`                    | Comma-separated list of setting sources to load (`user`, `project`, `local`)                                                                                                                              | `claude --setting-sources user,project`                                                            |
 | `--settings`                           | Path to a settings JSON file or a JSON string to load additional settings from                                                                                                                            | `claude --settings ./settings.json`                                                                |
 | `--strict-mcp-config`                  | Only use MCP servers from `--mcp-config`, ignoring all other MCP configurations                                                                                                                           | `claude --strict-mcp-config --mcp-config ./mcp.json`                                               |
-| `--system-prompt`                      | Replace the entire system prompt with custom text (works in both interactive and print modes)                                                                                                             | `claude --system-prompt "You are a Python expert"`                                                 |
-| `--system-prompt-file`                 | Load system prompt from a file, replacing the default prompt (print mode only)                                                                                                                            | `claude -p --system-prompt-file ./custom-prompt.txt "query"`                                       |
+| `--system-prompt`                      | Replace the entire system prompt with custom text                                                                                                                                                         | `claude --system-prompt "You are a Python expert"`                                                 |
+| `--system-prompt-file`                 | Load system prompt from a file, replacing the default prompt                                                                                                                                              | `claude --system-prompt-file ./custom-prompt.txt`                                                  |
 | `--teleport`                           | Resume a [web session](/en/claude-code-on-the-web) in your local terminal                                                                                                                                 | `claude --teleport`                                                                                |
-| `--tools`                              | Restrict which built-in tools Claude can use (works in both interactive and print modes). Use `""` to disable all, `"default"` for all, or tool names like `"Bash,Edit,Read"`                             | `claude --tools "Bash,Edit,Read"`                                                                  |
-| `--verbose`                            | Enable verbose logging, shows full turn-by-turn output (helpful for debugging in both print and interactive modes)                                                                                        | `claude --verbose`                                                                                 |
+| `--teammate-mode`                      | Set how [agent team](/en/agent-teams) teammates display: `auto` (default), `in-process`, or `tmux`. See [set up agent teams](/en/agent-teams#set-up-agent-teams)                                          | `claude --teammate-mode in-process`                                                                |
+| `--tools`                              | Restrict which built-in tools Claude can use. Use `""` to disable all, `"default"` for all, or tool names like `"Bash,Edit,Read"`                                                                         | `claude --tools "Bash,Edit,Read"`                                                                  |
+| `--verbose`                            | Enable verbose logging, shows full turn-by-turn output                                                                                                                                                    | `claude --verbose`                                                                                 |
 | `--version`, `-v`                      | Output the version number                                                                                                                                                                                 | `claude -v`                                                                                        |
+| `--worktree`, `-w`                     | Start Claude in an isolated [git worktree](/en/common-workflows#run-parallel-claude-code-sessions-with-git-worktrees) at `<repo>/.claude/worktrees/<name>`. If no name is given, one is auto-generated    | `claude -w feature-auth`                                                                           |
 
 <Tip>
   The `--output-format json` flag is particularly useful for scripting and
@@ -83,16 +92,20 @@ Customize Claude Code's behavior with these command-line flags:
 
 The `--agents` flag accepts a JSON object that defines one or more custom subagents. Each subagent requires a unique name (as the key) and a definition object with the following fields:
 
-| Field         | Required | Description                                                                                                                         |
-| :------------ | :------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| `description` | Yes      | Natural language description of when the subagent should be invoked                                                                 |
-| `prompt`      | Yes      | The system prompt that guides the subagent's behavior                                                                               |
-| `tools`       | No       | Array of specific tools the subagent can use (for example, `["Read", "Edit", "Bash"]`). If omitted, inherits all tools              |
-| `model`       | No       | Model alias to use: `sonnet`, `opus`, `haiku`, or `inherit`. If omitted, defaults to `inherit` (uses the main conversation's model) |
+| Field             | Required | Description                                                                                                                                                                                                         |
+| :---------------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `description`     | Yes      | Natural language description of when the subagent should be invoked                                                                                                                                                 |
+| `prompt`          | Yes      | The system prompt that guides the subagent's behavior                                                                                                                                                               |
+| `tools`           | No       | Array of specific tools the subagent can use, for example `["Read", "Edit", "Bash"]`. If omitted, inherits all tools. Supports [`Agent(agent_type)`](/en/sub-agents#restrict-which-subagents-can-be-spawned) syntax |
+| `disallowedTools` | No       | Array of tool names to explicitly deny for this subagent                                                                                                                                                            |
+| `model`           | No       | Model alias to use: `sonnet`, `opus`, `haiku`, or `inherit`. If omitted, defaults to `inherit`                                                                                                                      |
+| `skills`          | No       | Array of [skill](/en/skills) names to preload into the subagent's context                                                                                                                                           |
+| `mcpServers`      | No       | Array of [MCP servers](/en/mcp) for this subagent. Each entry is a server name string or a `{name: config}` object                                                                                                  |
+| `maxTurns`        | No       | Maximum number of agentic turns before the subagent stops                                                                                                                                                           |
 
 Example:
 
-```bash  theme={null}
+```bash theme={null}
 claude --agents '{
   "code-reviewer": {
     "description": "Expert code reviewer. Use proactively after code changes.",
@@ -111,35 +124,35 @@ For more details on creating and using subagents, see the [subagents documentati
 
 ### System prompt flags
 
-Claude Code provides four flags for customizing the system prompt, each serving a different purpose:
+Claude Code provides four flags for customizing the system prompt. All four work in both interactive and non-interactive modes.
 
-| Flag                          | Behavior                                    | Modes               | Use Case                                                             |
-| :---------------------------- | :------------------------------------------ | :------------------ | :------------------------------------------------------------------- |
-| `--system-prompt`             | **Replaces** entire default prompt          | Interactive + Print | Complete control over Claude's behavior and instructions             |
-| `--system-prompt-file`        | **Replaces** with file contents             | Print only          | Load prompts from files for reproducibility and version control      |
-| `--append-system-prompt`      | **Appends** to default prompt               | Interactive + Print | Add specific instructions while keeping default Claude Code behavior |
-| `--append-system-prompt-file` | **Appends** file contents to default prompt | Print only          | Load additional instructions from files while keeping defaults       |
+| Flag                          | Behavior                                    | Use case                                                             |
+| :---------------------------- | :------------------------------------------ | :------------------------------------------------------------------- |
+| `--system-prompt`             | **Replaces** entire default prompt          | Complete control over Claude's behavior and instructions             |
+| `--system-prompt-file`        | **Replaces** with file contents             | Load prompts from files for reproducibility and version control      |
+| `--append-system-prompt`      | **Appends** to default prompt               | Add specific instructions while keeping default Claude Code behavior |
+| `--append-system-prompt-file` | **Appends** file contents to default prompt | Load additional instructions from files while keeping defaults       |
 
 **When to use each:**
 
-* **`--system-prompt`**: Use when you need complete control over Claude's system prompt. This removes all default Claude Code instructions, giving you a blank slate.
-  ```bash  theme={null}
+* **`--system-prompt`**: use when you need complete control over Claude's system prompt. This removes all default Claude Code instructions, giving you a blank slate.
+  ```bash theme={null}
   claude --system-prompt "You are a Python expert who only writes type-annotated code"
   ```
 
-* **`--system-prompt-file`**: Use when you want to load a custom prompt from a file, useful for team consistency or version-controlled prompt templates.
-  ```bash  theme={null}
-  claude -p --system-prompt-file ./prompts/code-review.txt "Review this PR"
+* **`--system-prompt-file`**: use when you want to load a custom prompt from a file, useful for team consistency or version-controlled prompt templates.
+  ```bash theme={null}
+  claude --system-prompt-file ./prompts/code-review.txt
   ```
 
-* **`--append-system-prompt`**: Use when you want to add specific instructions while keeping Claude Code's default capabilities intact. This is the safest option for most use cases.
-  ```bash  theme={null}
+* **`--append-system-prompt`**: use when you want to add specific instructions while keeping Claude Code's default capabilities intact. This is the safest option for most use cases.
+  ```bash theme={null}
   claude --append-system-prompt "Always use TypeScript and include JSDoc comments"
   ```
 
-* **`--append-system-prompt-file`**: Use when you want to append instructions from a file while keeping Claude Code's defaults. Useful for version-controlled additions.
-  ```bash  theme={null}
-  claude -p --append-system-prompt-file ./prompts/style-rules.txt "Review this PR"
+* **`--append-system-prompt-file`**: use when you want to append instructions from a file while keeping Claude Code's defaults. Useful for version-controlled additions.
+  ```bash theme={null}
+  claude --append-system-prompt-file ./prompts/style-rules.txt
   ```
 
 `--system-prompt` and `--system-prompt-file` are mutually exclusive. The append flags can be used together with either replacement flag.
