@@ -16,7 +16,7 @@ export default function WizardFrame({title, header, footer, children}: Props) {
 	const theme = useTheme();
 	const g = getGlyphs();
 	const {stdout} = useStdout();
-	const columns = stdout?.columns ?? 80;
+	const columns = stdout.columns;
 	const frameWidth = Math.min(columns - 4, MAX_WIDTH);
 	const h = g['frame.horizontal'];
 
