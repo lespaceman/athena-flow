@@ -102,6 +102,7 @@ import {
 } from '../../infra/telemetry/index';
 import {
 	createPendingStartupDiagnosticsEvent,
+	deriveStartupTimeoutFailure,
 	type PendingStartupDiagnosticsEvent,
 	shouldDismissPendingStartupDiagnostics,
 	shouldTrackStartupDiagnostics,
@@ -502,29 +503,17 @@ function AppContent({
 				return;
 			}
 
-			const derivedFailure: StartupFailureState = runtimeError
-				? {
-						message: runtimeError.message,
-						failureCode:
-							runtimeError.code === 'socket_path_too_long'
-								? 'socket_path_too_long'
-								: 'hook_server_unavailable',
-					}
-				: !isServerRunning
-					? {
-							message:
-								'Athena hook server is not running. Check socket path length and restart from the real project path.',
-							failureCode: 'hook_server_unavailable',
-						}
-					: isHarnessRunning
-						? {
-								message: `${harnessLabel} started but Athena did not receive startup hook events. Hook forwarding may be broken.`,
-								failureCode: 'hook_handshake_timeout',
-							}
-						: {
-								message: `${harnessLabel} exited before Athena received startup events. Check ${harnessLabel} installation and hook configuration.`,
-								failureCode: 'hook_handshake_timeout',
-							};
+			const derivedFailure = deriveStartupTimeoutFailure({
+				runtimeError,
+				isServerRunning,
+				isHarnessRunning,
+				harnessLabel,
+			});
+
+			if (!derivedFailure) {
+				startupAttemptRef.current = null;
+				return;
+			}
 
 			setStartupFailure(derivedFailure);
 			emitNotification(

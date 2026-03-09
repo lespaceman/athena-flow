@@ -41,11 +41,39 @@ const MAX_UNIX_SOCKET_PATH_BYTES = {
 	default: 107,
 } as const;
 
+const SIMULATED_STARTUP_FAILURE_ENV = 'ATHENA_SIMULATE_HOOK_SERVER_FAILURE';
+
 function makeStartupError(
 	code: RuntimeStartupErrorCode,
 	message: string,
 ): RuntimeStartupError {
 	return {code, message};
+}
+
+function getSimulatedStartupFailure(): {
+	code: RuntimeStartupErrorCode;
+	message: string;
+} | null {
+	const raw = process.env[SIMULATED_STARTUP_FAILURE_ENV];
+	switch (raw) {
+		case 'socket_path_too_long':
+			return {
+				code: 'socket_path_too_long',
+				message: `Simulated hook server startup failure via ${SIMULATED_STARTUP_FAILURE_ENV}=socket_path_too_long`,
+			};
+		case 'socket_dir_unavailable':
+			return {
+				code: 'socket_dir_unavailable',
+				message: `Simulated hook server startup failure via ${SIMULATED_STARTUP_FAILURE_ENV}=socket_dir_unavailable`,
+			};
+		case 'socket_bind_failed':
+			return {
+				code: 'socket_bind_failed',
+				message: `Simulated hook server startup failure via ${SIMULATED_STARTUP_FAILURE_ENV}=socket_bind_failed`,
+			};
+		default:
+			return null;
+	}
 }
 
 function getSocketPathLimit(): number {
@@ -128,6 +156,19 @@ export function createServer(opts: ServerOptions) {
 			const socketDir = path.join(projectDir, '.claude', 'run');
 			socketPath = path.join(socketDir, `ink-${instanceId}.sock`);
 			lastError = null;
+
+			const simulatedFailure = getSimulatedStartupFailure();
+			if (simulatedFailure) {
+				status = 'stopped';
+				lastError = makeStartupError(
+					simulatedFailure.code,
+					simulatedFailure.message,
+				);
+				console.error(
+					`[athena] hook server failed to start on ${socketPath}: ${lastError.message}`,
+				);
+				return Promise.resolve();
+			}
 
 			if (Buffer.byteLength(socketPath) > getSocketPathLimit()) {
 				status = 'stopped';

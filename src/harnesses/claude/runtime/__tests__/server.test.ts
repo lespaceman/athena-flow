@@ -18,6 +18,7 @@ describe('createClaudeHookRuntime', () => {
 	let cleanup: (() => void)[] = [];
 
 	afterEach(() => {
+		delete process.env['ATHENA_SIMULATE_HOOK_SERVER_FAILURE'];
 		cleanup.forEach(fn => fn());
 		cleanup = [];
 	});
@@ -188,6 +189,21 @@ describe('createClaudeHookRuntime', () => {
 		expect(runtime.getLastError()).toEqual({
 			code: 'socket_path_too_long',
 			message: expect.stringContaining('Socket path is too long'),
+		});
+	});
+
+	it('can simulate hook server startup failures via env for manual testing', async () => {
+		process.env['ATHENA_SIMULATE_HOOK_SERVER_FAILURE'] = 'socket_bind_failed';
+		const projectDir = makeTmpDir();
+		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
+
+		const runtime = createClaudeHookRuntime({projectDir, instanceId: 56});
+		await runtime.start();
+
+		expect(runtime.getStatus()).toBe('stopped');
+		expect(runtime.getLastError()).toEqual({
+			code: 'socket_bind_failed',
+			message: expect.stringContaining('Simulated hook server startup failure'),
 		});
 	});
 });
