@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.3.11](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.10...cli-v0.3.11) (2026-03-09)
+
+
+### Features
+
+* add device ID generation and telemetry config fields ([1ac4bca](https://github.com/lespaceman/athena-flow-cli/commit/1ac4bca89d86bc2b4db01f2597aefdc5d3b35cf7))
+* add diagnostics consent for Claude startup failures ([b7dd39f](https://github.com/lespaceman/athena-flow-cli/commit/b7dd39f7eace221ac9e5b8346e075923d9884854))
+* add incremental feed renderer ([a640d72](https://github.com/lespaceman/athena-flow-cli/commit/a640d72c4cd3ff85e51ff6871c8b062414aecd54))
+* add telemetry CLI command for enable/disable/status ([b555b66](https://github.com/lespaceman/athena-flow-cli/commit/b555b6612b2bdd269ba41a8a20ec58922287b013))
+* add telemetry client with PostHog integration and opt-out support ([cf1ec74](https://github.com/lespaceman/athena-flow-cli/commit/cf1ec74e73b0e8e4a560029c7ae9800260a273c3))
+* add telemetry event tracking functions ([6cccb80](https://github.com/lespaceman/athena-flow-cli/commit/6cccb80419b91ded6613e4a9d78e0a0e47586250))
+* define Ink and feed painter coexistence ([df4dfba](https://github.com/lespaceman/athena-flow-cli/commit/df4dfba9c247b75655bbd231ba688c81287e71ef))
+* inject PostHog API key at build time via env var ([86343e3](https://github.com/lespaceman/athena-flow-cli/commit/86343e3f7da80a01e34eebf3c2fcd9379491f967))
+* integrate telemetry into app bootstrap with first-run notice ([c16876c](https://github.com/lespaceman/athena-flow-cli/commit/c16876cec5faf8216bde85c5b6191bf230e4c88d))
+* load PostHog key from .env for local builds ([22cdd9e](https://github.com/lespaceman/athena-flow-cli/commit/22cdd9e621d5d350e211cb845cef4734e78db1fb))
+* **setup:** add descriptions to step selector options ([3a2b941](https://github.com/lespaceman/athena-flow-cli/commit/3a2b941f65ba7394961fe98bd3093906e02533a3))
+* **setup:** add StepDots component for wizard progress indicator ([72f91ce](https://github.com/lespaceman/athena-flow-cli/commit/72f91ce1b78ae08bdbf28e761aced333abf78664))
+* **setup:** add WizardFrame component for box-drawing layout ([d00377f](https://github.com/lespaceman/athena-flow-cli/commit/d00377fa41002371b9a716546567d04432ecfefb))
+* **setup:** add WizardHints component for contextual keybindings ([90a6c87](https://github.com/lespaceman/athena-flow-cli/commit/90a6c87450bb68ff9641a7a58c4e603e76d0bbca))
+* **setup:** enhance StepSelector with inverse highlight and descriptions ([cbc69c8](https://github.com/lespaceman/athena-flow-cli/commit/cbc69c8db92e548e07fb0f4db711761991e67cc1))
+* **setup:** wire WizardFrame, StepDots, WizardHints into SetupWizard ([ba78b42](https://github.com/lespaceman/athena-flow-cli/commit/ba78b42db0c2c227b0543d31f7fdcaf259f77368))
+* track session start/end telemetry events ([165d7b8](https://github.com/lespaceman/athena-flow-cli/commit/165d7b869f4ca1d9852bcb0fc245455c9fb1a654))
+* verify claude auth during setup ([2ee388d](https://github.com/lespaceman/athena-flow-cli/commit/2ee388d79dd29daba4af5953047d6d58dbfba72b))
+* verify claude harness during setup ([659cf3e](https://github.com/lespaceman/athena-flow-cli/commit/659cf3e124b66fe0a132ebd6d4b16a9d63347073))
+
+
+### Bug Fixes
+
+* add tracker file cleanup, fix telemetry flush, and add posthog-node dependency ([38c592c](https://github.com/lespaceman/athena-flow-cli/commit/38c592caecd4542a71a0a923a54c3f025cc3690d))
+* align CLI telemetry status with runtime opt-out checks ([9b5a782](https://github.com/lespaceman/athena-flow-cli/commit/9b5a782702c4bf93020bfdeded22ce7f1d0dcf16))
+* clear stale feed lines when feed region moves vertically ([1222b48](https://github.com/lespaceman/athena-flow-cli/commit/1222b48c0b6205b1e36c3db8ef41db1f90561248))
+* disable ink incremental rendering for setup ([4bafddd](https://github.com/lespaceman/athena-flow-cli/commit/4bafddd47ebb1434d6165c387d25b31953bc2038))
+* rename feedSurface.ts to feedSurfaceModel.ts ([0304725](https://github.com/lespaceman/athena-flow-cli/commit/0304725bcdc119719145b2119512d33b8426d928))
+* render feed through Ink for both backends ([ce38431](https://github.com/lespaceman/athena-flow-cli/commit/ce384317e5ce0d11e9ae08f9247fc56143ea5b0c))
+* **runtime:** preflight hook server startup ([2acaa79](https://github.com/lespaceman/athena-flow-cli/commit/2acaa79920ea197a7339455f126a0116d2864147))
+* sanitize stack traces and improve telemetry test coverage ([2965dd1](https://github.com/lespaceman/athena-flow-cli/commit/2965dd1f5add3ed1964d1c16f84c46ce8be9a5d8))
+* **sessions:** exclude empty sessions from session picker ([8363047](https://github.com/lespaceman/athena-flow-cli/commit/836304704521c795edeb51f43ae777fd87da68c8))
+* **shell:** avoid false startup timeout errors ([1a4ce39](https://github.com/lespaceman/athena-flow-cli/commit/1a4ce39aef4f3c22807b936da97dc7d42c559f10))
+* **shell:** report hook startup diagnostics with consent ([b4d2e97](https://github.com/lespaceman/athena-flow-cli/commit/b4d2e97315d617b8f736e20d6b716205d9ae80c5))
+* **shell:** tighten startup diagnostics consent flow ([2f3e9c3](https://github.com/lespaceman/athena-flow-cli/commit/2f3e9c31cc40352b9589b3910c98ff0a79bf69a2))
+* suppress eslint warning for mount-only telemetry effect ([8228bc0](https://github.com/lespaceman/athena-flow-cli/commit/8228bc0a92ab25aac9e6598fc6a48038f459c2de))
+* surface startup failures before idle fallback ([e5f3a88](https://github.com/lespaceman/athena-flow-cli/commit/e5f3a88c69bbe62e9b941b74d61a1f760df08346))
+
+
+### Performance Improvements
+
+* add feed surface instrumentation ([3e332c8](https://github.com/lespaceman/athena-flow-cli/commit/3e332c82629e5937850e7e7093ade00ce2e1f754))
+
 ## [0.3.10](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.9...cli-v0.3.10) (2026-03-07)
 
 
