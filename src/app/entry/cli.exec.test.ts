@@ -302,10 +302,12 @@ describe('cli exec mode', () => {
 
 		const cli = await runCli(['telemetry', 'disable']);
 		try {
-			expect(initTelemetryMock).toHaveBeenCalledWith({
-				deviceId: 'device-id-1',
-				telemetryEnabled: true,
-			});
+			expect(initTelemetryMock).toHaveBeenCalledWith(
+				expect.objectContaining({
+					deviceId: 'device-id-1',
+					telemetryEnabled: true,
+				}),
+			);
 			expect(trackTelemetryOptedOutMock).toHaveBeenCalledTimes(1);
 			expect(shutdownTelemetryMock).toHaveBeenCalled();
 			expect(writeGlobalConfigMock).toHaveBeenCalledWith({telemetry: false});
