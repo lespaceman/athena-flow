@@ -49,6 +49,7 @@ const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
 
 function extractFailureCode(
@@ -91,7 +92,8 @@ function tokenUsageEquals(a: TokenUsage, b: TokenUsage): boolean {
 		a.cacheRead === b.cacheRead &&
 		a.cacheWrite === b.cacheWrite &&
 		a.total === b.total &&
-		a.contextSize === b.contextSize
+		a.contextSize === b.contextSize &&
+		a.contextWindowSize === b.contextWindowSize
 	);
 }
 

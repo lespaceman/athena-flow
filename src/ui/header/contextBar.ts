@@ -35,7 +35,7 @@ const HIGH_THRESHOLD = 0.8;
 
 export function renderContextBar(
 	used: number | null,
-	max: number,
+	max: number | null,
 	width: number,
 	hasColor: boolean,
 	palette?: Partial<ContextBarPalette>,
@@ -44,13 +44,22 @@ export function renderContextBar(
 	const usedStr = formatTokenCount(used);
 	const maxStr = formatTokenCount(max);
 	const rawPct =
-		used !== null && max > 0
+		used !== null && max !== null && max > 0
 			? Math.round((Math.max(0, used) / max) * 100)
 			: null;
 	const pct = rawPct === null ? null : Math.max(0, Math.min(999, rawPct));
 	const label = 'Context';
-	const countText = `${usedStr} / ${maxStr}`;
+	const countText = max === null ? `${usedStr}` : `${usedStr} / ${maxStr}`;
 	const pctText = pct !== null ? ` · ${pct}%` : '';
+
+	if (used === null || max === null) {
+		if (hasColor) {
+			const labelStyled = chalk.hex(colors.label)(label);
+			const countsStyled = chalk.hex(colors.numbers)(` ${countText}`);
+			return `${labelStyled}${countsStyled}`;
+		}
+		return `${label} ${countText}`;
+	}
 
 	const bracketOverhead = hasColor ? 0 : 2;
 	const numbersWidth = 1 + countText.length + pctText.length;
@@ -59,8 +68,7 @@ export function renderContextBar(
 		width - label.length - 1 - numbersWidth - bracketOverhead,
 	);
 
-	const ratio =
-		used !== null && max > 0 ? Math.min(1, Math.max(0, used / max)) : 0;
+	const ratio = max > 0 ? Math.min(1, Math.max(0, used / max)) : 0;
 	const filled = Math.round(ratio * barWidth);
 	const empty = barWidth - filled;
 

@@ -8,6 +8,7 @@ export const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
 
 function fromBreakdown(
@@ -16,10 +17,12 @@ function fromBreakdown(
 		| CodexThreadTokenUsage['last']
 		| null
 		| undefined,
+	contextWindowSize: number | null,
 ): TokenUsage {
 	if (!breakdown) {
 		return {
 			...NULL_TOKENS,
+			contextWindowSize,
 		};
 	}
 
@@ -32,6 +35,7 @@ function fromBreakdown(
 		// Codex reports the model window separately (`modelContextWindow`), but it
 		// does not expose the current in-context occupancy in this payload.
 		contextSize: null,
+		contextWindowSize,
 	};
 }
 
@@ -39,14 +43,14 @@ export function getCodexUsageTotals(
 	usage: CodexThreadTokenUsage | null | undefined,
 ): TokenUsage {
 	if (!usage) return {...NULL_TOKENS};
-	return fromBreakdown(usage.total);
+	return fromBreakdown(usage.total, usage.modelContextWindow);
 }
 
 export function getCodexUsageDelta(
 	usage: CodexThreadTokenUsage | null | undefined,
 ): TokenUsage {
 	if (!usage) return {...NULL_TOKENS};
-	return fromBreakdown(usage.last);
+	return fromBreakdown(usage.last, usage.modelContextWindow);
 }
 
 export function readTokenUsage(value: unknown): TokenUsage {
@@ -64,8 +68,10 @@ export function readTokenUsage(value: unknown): TokenUsage {
 			typeof record['cacheWrite'] === 'number' ? record['cacheWrite'] : null,
 		total: typeof record['total'] === 'number' ? record['total'] : null,
 		contextSize:
-			typeof record['contextSize'] === 'number'
-				? record['contextSize']
+			typeof record['contextSize'] === 'number' ? record['contextSize'] : null,
+		contextWindowSize:
+			typeof record['contextWindowSize'] === 'number'
+				? record['contextWindowSize']
 				: null,
 	};
 }

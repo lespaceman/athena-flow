@@ -9,7 +9,7 @@ export interface HeaderModel {
 	session_total: number;
 	workflow: string;
 	harness: string;
-	context: {used: number | null; max: number};
+	context: {used: number | null; max: number | null};
 	engine?: string;
 	progress?: {done: number; total: number};
 	status: HeaderStatus;
@@ -36,7 +36,7 @@ export interface HeaderModelInput {
 	workflowRef?: string;
 	harness?: string;
 	contextUsed?: number | null;
-	contextMax?: number;
+	contextMax?: number | null;
 	sessionIndex?: number | null;
 	sessionTotal?: number;
 	errorReason?: string;
@@ -86,7 +86,7 @@ export function buildHeaderModel(input: HeaderModelInput): HeaderModel {
 		session_total: sessionTotal,
 		workflow: workflowRef ?? 'default',
 		harness: detectHarness(input.harness),
-		context: {used: input.contextUsed ?? null, max: input.contextMax ?? 200000},
+		context: {used: input.contextUsed ?? null, max: input.contextMax ?? null},
 		engine: session?.agent_type,
 		progress:
 			todoPanel.todoItems.length > 0

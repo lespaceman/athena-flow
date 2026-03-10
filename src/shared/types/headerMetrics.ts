@@ -9,6 +9,7 @@ export type TokenUsage = {
 	cacheWrite: number | null;
 	total: number | null;
 	contextSize: number | null;
+	contextWindowSize: number | null;
 };
 
 export type SubagentMetrics = {

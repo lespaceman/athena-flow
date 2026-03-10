@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function initSchema(db: Database.Database): void {
 	db.exec('PRAGMA journal_mode = WAL');
@@ -51,7 +51,8 @@ export function initSchema(db: Database.Database): void {
 			tokens_output INTEGER,
 			tokens_cache_read INTEGER,
 			tokens_cache_write INTEGER,
-			tokens_context_size INTEGER
+			tokens_context_size INTEGER,
+			tokens_context_window_size INTEGER
 		);
 	`);
 
@@ -94,7 +95,14 @@ export function initSchema(db: Database.Database): void {
 				ALTER TABLE adapter_sessions ADD COLUMN tokens_cache_read INTEGER;
 				ALTER TABLE adapter_sessions ADD COLUMN tokens_cache_write INTEGER;
 				ALTER TABLE adapter_sessions ADD COLUMN tokens_context_size INTEGER;
-				UPDATE schema_version SET version = 3;
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_context_window_size INTEGER;
+				UPDATE schema_version SET version = 4;
+			`);
+		}
+		if (existing.version === 3) {
+			db.exec(`
+				ALTER TABLE adapter_sessions ADD COLUMN tokens_context_window_size INTEGER;
+				UPDATE schema_version SET version = 4;
 			`);
 		}
 	}

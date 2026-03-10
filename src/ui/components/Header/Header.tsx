@@ -18,7 +18,7 @@ type Props = {
 	spinnerFrame: string;
 	toolCallCount: number;
 	contextSize: number | null;
-	contextMax?: number;
+	contextMax?: number | null;
 	isServerRunning: boolean;
 };
 
@@ -57,7 +57,7 @@ export default function Header({
 				<Text>
 					{renderContextBar(
 						contextSize,
-						contextMax ?? 200_000,
+						contextMax ?? null,
 						20,
 						chalk.level > 0,
 					)}

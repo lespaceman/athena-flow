@@ -28,6 +28,7 @@ describe('Codex token usage mapping', () => {
 			cacheWrite: null,
 			total: 258_400,
 			contextSize: null,
+			contextWindowSize: 200_000,
 		});
 	});
 
@@ -57,6 +58,7 @@ describe('Codex token usage mapping', () => {
 			cacheWrite: null,
 			total: 1_500,
 			contextSize: null,
+			contextWindowSize: 400_000,
 		});
 	});
 });

@@ -12,6 +12,7 @@ const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
 
 /**

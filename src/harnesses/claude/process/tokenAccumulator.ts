@@ -127,6 +127,7 @@ export function createTokenAccumulator() {
 					cacheWrite: null,
 					total: null,
 					contextSize: null,
+					contextWindowSize: null,
 				};
 			}
 			return {
@@ -136,6 +137,7 @@ export function createTokenAccumulator() {
 				cacheWrite,
 				total,
 				contextSize: contextSize > 0 ? contextSize : null,
+				contextWindowSize: null,
 			};
 		},
 

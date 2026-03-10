@@ -73,7 +73,6 @@ import {fit} from '../../shared/utils/format';
 import {copyToClipboard} from '../../shared/utils/clipboard';
 import {extractYankContent} from '../../ui/utils/yankContent';
 import {detectHarness} from '../../shared/utils/detectHarness';
-import {inferCodexContextWindow} from '../../shared/utils/contextWindow';
 import type {WorkflowConfig, WorkflowPlan} from '../../core/workflows';
 import SetupWizard from '../../setup/SetupWizard';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
@@ -1130,13 +1129,6 @@ function AppContent({
 
 	const sessionId = session?.session_id;
 	const sessionAgentType = session?.agent_type;
-	const effectiveModelName = metrics.modelName || modelName;
-	const contextUsed =
-		harness === 'openai-codex' ? null : tokenUsage.contextSize;
-	const contextMax =
-		harness === 'openai-codex'
-			? inferCodexContextWindow(effectiveModelName) ?? 200_000
-			: 200_000;
 	const headerLine1 = useMemo(() => {
 		const headerModel = buildHeaderModel({
 			session: session
@@ -1159,8 +1151,8 @@ function AppContent({
 			tailFollow: feedNav.tailFollow,
 			now: 0,
 			workflowRef,
-			contextUsed,
-			contextMax,
+			contextUsed: tokenUsage.contextSize,
+			contextMax: tokenUsage.contextWindowSize,
 			sessionIndex: sessionScope.current,
 			sessionTotal: sessionScope.total,
 			harness,
@@ -1180,8 +1172,8 @@ function AppContent({
 		todoPanel.todoItems.length,
 		feedNav.tailFollow,
 		workflowRef,
-		contextUsed,
-		contextMax,
+		tokenUsage.contextSize,
+		tokenUsage.contextWindowSize,
 		sessionScope,
 		harness,
 		startupFailure?.message,

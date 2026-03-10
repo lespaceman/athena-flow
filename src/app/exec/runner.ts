@@ -15,14 +15,15 @@ import {
 	prepareWorkflowTurn,
 	shouldContinueWorkflowRun,
 } from '../../core/workflows/sessionPlan';
-import {createSessionStore, sessionsDir, type SessionStore} from '../../infra/sessions';
+import {
+	createSessionStore,
+	sessionsDir,
+	type SessionStore,
+} from '../../infra/sessions';
 import {resolveHarnessAdapter} from '../../harnesses/registry';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
 import {createRuntime} from '../runtime/createRuntime';
-import {
-	findLastMappedAgentMessage,
-	resolveFinalMessage,
-} from './finalMessage';
+import {findLastMappedAgentMessage, resolveFinalMessage} from './finalMessage';
 import {createExecOutputWriter} from './output';
 import {resolvePermissionPolicy} from './policies';
 import {resolveQuestionPolicy, type PolicyResolution} from './policies';
@@ -36,6 +37,7 @@ const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
 
 function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
@@ -57,6 +59,7 @@ function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
 		return {
 			...NULL_TOKENS,
 			contextSize: next.contextSize ?? base.contextSize,
+			contextWindowSize: next.contextWindowSize ?? base.contextWindowSize,
 		};
 	}
 
@@ -67,6 +70,7 @@ function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
 		cacheWrite,
 		total: input + output + cacheRead + cacheWrite,
 		contextSize: next.contextSize ?? base.contextSize,
+		contextWindowSize: next.contextWindowSize ?? base.contextWindowSize,
 	};
 }
 
