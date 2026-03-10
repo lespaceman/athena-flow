@@ -8,7 +8,6 @@ export type FeedColumns = {
 	resultW: number;
 	gapW: number;
 	detailsResultGapW: number;
-	timeEventGapW: number;
 };
 
 function areFeedColumnsEqual(left: FeedColumns, right: FeedColumns): boolean {
@@ -17,20 +16,18 @@ function areFeedColumnsEqual(left: FeedColumns, right: FeedColumns): boolean {
 		left.detailsW === right.detailsW &&
 		left.resultW === right.resultW &&
 		left.gapW === right.gapW &&
-		left.detailsResultGapW === right.detailsResultGapW &&
-		left.timeEventGapW === right.timeEventGapW
+		left.detailsResultGapW === right.detailsResultGapW
 	);
 }
 
 const GUTTER_W = 1;
 const TIME_W = 5;
-const EVENT_W = 12;
 const ACTOR_W = 10;
 // Suffix glyph column removed (no chevrons in table rows).
 const SUFFIX_W = 0;
-/** Fixed non-gap overhead: gutter + time + event + actor + suffix. */
-const BASE_FIXED = GUTTER_W + TIME_W + EVENT_W + ACTOR_W + SUFFIX_W;
-const GAP_COUNT = 4;
+/** Fixed non-gap overhead: gutter + time + actor + suffix. */
+const BASE_FIXED = GUTTER_W + TIME_W + ACTOR_W + SUFFIX_W;
+const GAP_COUNT = 3;
 
 export function computeFeedColumns(
 	entries: TimelineEntry[],
@@ -45,8 +42,6 @@ export function computeFeedColumns(
 		if (outcomeLen > maxResultLen) maxResultLen = outcomeLen;
 	}
 
-	// Keep TIME visually separated from EVENT, while other gaps stay compact.
-	const timeEventGapW = innerWidth >= 120 ? 2 : 1;
 	const gapW = innerWidth >= 120 ? 2 : 1;
 	// Pill rendering adds visual overhead ("• " + "(label)"), so reserve
 	// a wider TOOL column to avoid truncating labels like "General Purpose".
@@ -68,7 +63,6 @@ export function computeFeedColumns(
 		BASE_FIXED +
 		toolW +
 		(resultW > 0 ? resultW : 0) +
-		timeEventGapW +
 		GAP_COUNT * gapW +
 		detailsResultGapW;
 	const availableForDetails = Math.max(0, innerWidth - fixedWithoutDetails);
@@ -78,7 +72,6 @@ export function computeFeedColumns(
 		resultW,
 		gapW,
 		detailsResultGapW,
-		timeEventGapW,
 	};
 }
 
@@ -87,7 +80,6 @@ export function stabilizeFeedColumns(
 	next: FeedColumns,
 	innerWidth: number,
 ): FeedColumns {
-	const timeEventGapW = Math.max(previous.timeEventGapW, next.timeEventGapW);
 	const gapW = Math.max(previous.gapW, next.gapW);
 	const toolW = Math.max(previous.toolW, next.toolW);
 	const resultW = Math.max(previous.resultW, next.resultW);
@@ -99,7 +91,6 @@ export function stabilizeFeedColumns(
 		BASE_FIXED +
 		toolW +
 		(resultW > 0 ? resultW : 0) +
-		timeEventGapW +
 		GAP_COUNT * gapW +
 		detailsResultGapW;
 	const stabilized = {
@@ -108,7 +99,6 @@ export function stabilizeFeedColumns(
 		resultW,
 		gapW,
 		detailsResultGapW,
-		timeEventGapW,
 	};
 	return areFeedColumnsEqual(previous, stabilized) ? previous : stabilized;
 }

@@ -168,17 +168,6 @@ export function formatTime(
 	return chalk.hex(theme.textMuted)(fitImpl(clock, contentWidth));
 }
 
-export function formatEvent(
-	opLabel: string,
-	contentWidth: number,
-	theme: Theme,
-	opTag?: string,
-): string {
-	const fitted = fitImpl(opLabel, contentWidth);
-	const color = opTag ? opCategoryColor(opTag, theme) : undefined;
-	return color ? chalk.hex(color)(fitted) : chalk.hex(theme.text)(fitted);
-}
-
 export function formatActor(
 	actor: string,
 	duplicate: boolean,

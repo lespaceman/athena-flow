@@ -10,7 +10,7 @@ const MOCK_EVENT: RuntimeEvent = {
 	id: 'codex-req-5',
 	timestamp: Date.now(),
 	kind: 'permission.request',
-	data: {tool_name: 'command_execution'},
+	data: {tool_name: 'Bash'},
 	hookName: 'item/commandExecution/requestApproval',
 	sessionId: 'test',
 	context: {cwd: '/tmp', transcriptPath: ''},

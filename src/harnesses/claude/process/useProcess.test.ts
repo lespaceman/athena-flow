@@ -516,6 +516,43 @@ describe('useClaudeProcess', () => {
 		expect(result.current.isRunning).toBe(false);
 	});
 
+	it('reports first stderr as root cause when multiple stderr chunks arrive before exit', async () => {
+		const onLifecycleEvent = vi.fn();
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				undefined,
+				undefined,
+				false,
+				undefined,
+				{
+					trackOutput: false,
+					onLifecycleEvent,
+				},
+			),
+		);
+
+		const {spawnPromise} = await startSpawn(result, 'test');
+
+		await act(async () => {
+			capturedCallbacks.onStderr?.('API authentication failed');
+			capturedCallbacks.onStderr?.(
+				"SessionEnd hook ['node' 'hook-forwarder.js'] failed: Hook cancelled",
+			);
+			capturedCallbacks.onExit?.(1);
+			await spawnPromise;
+		});
+
+		expect(onLifecycleEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'exit_nonzero',
+				code: 1,
+				message: 'Claude exited with code 1. Stderr: API authentication failed',
+			}),
+		);
+	});
+
 	it('should not log zero exit code', async () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),

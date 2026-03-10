@@ -27,6 +27,28 @@ describe('evaluateEscapeInterruptGate', () => {
 		expect(result).toEqual({shouldInterrupt: true, nextLastEscapeAtMs: null});
 	});
 
+	it('arms on first escape from running input focus', () => {
+		const result = evaluateEscapeInterruptGate({
+			keyEscape: true,
+			isHarnessRunning: true,
+			focusMode: 'input',
+			lastEscapeAtMs: null,
+			nowMs: 1000,
+		});
+		expect(result).toEqual({shouldInterrupt: false, nextLastEscapeAtMs: 1000});
+	});
+
+	it('interrupts on second escape within the window before focus settles', () => {
+		const result = evaluateEscapeInterruptGate({
+			keyEscape: true,
+			isHarnessRunning: true,
+			focusMode: 'input',
+			lastEscapeAtMs: 1000,
+			nowMs: 1000 + DOUBLE_ESCAPE_INTERRUPT_WINDOW_MS,
+		});
+		expect(result).toEqual({shouldInterrupt: true, nextLastEscapeAtMs: null});
+	});
+
 	it('does not interrupt after the window and rearms', () => {
 		const result = evaluateEscapeInterruptGate({
 			keyEscape: true,
@@ -52,10 +74,10 @@ describe('evaluateEscapeInterruptGate', () => {
 		expect(result).toEqual({shouldInterrupt: false, nextLastEscapeAtMs: null});
 	});
 
-	it('never interrupts outside feed focus', () => {
+	it('never interrupts when the harness is idle', () => {
 		const result = evaluateEscapeInterruptGate({
 			keyEscape: true,
-			isHarnessRunning: true,
+			isHarnessRunning: false,
 			focusMode: 'input',
 			lastEscapeAtMs: 1000,
 			nowMs: 1200,

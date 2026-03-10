@@ -53,7 +53,6 @@ const defaultCols: FeedColumnWidths = {
 	resultW: 8,
 	gapW: 1,
 	detailsResultGapW: 1,
-	timeEventGapW: 1,
 };
 
 function defaultParams(

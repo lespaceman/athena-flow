@@ -397,7 +397,11 @@ export function useClaudeProcess(
 						},
 						onStderr: (data: string) => {
 							if (abortRef.current.signal.aborted) return;
-							lastStderrRef.current = data.trim() || lastStderrRef.current;
+							// Keep the first stderr chunk as the root cause.
+							// Later chunks (e.g. "Hook cancelled") are cascading failures.
+							if (!lastStderrRef.current) {
+								lastStderrRef.current = data.trim();
+							}
 							if (!trackOutputRef.current) return;
 							setOutput(prev => {
 								const updated = [...prev, `[stderr] ${data}`];
