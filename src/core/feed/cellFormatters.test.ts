@@ -64,7 +64,13 @@ describe('resolveToolPillCategoryForLabel', () => {
 	test('classifies mutating tools as mutating', () => {
 		expect(resolveToolPillCategoryForLabel('Edit')).toBe('mutating');
 		expect(resolveToolPillCategoryForLabel('Write')).toBe('mutating');
-		expect(resolveToolPillCategoryForLabel('Click')).toBe('mutating');
+		expect(resolveToolPillCategoryForLabel('Bash')).toBe('mutating');
+	});
+
+	test('classifies browser tools as browser', () => {
+		expect(resolveToolPillCategoryForLabel('Click')).toBe('browser');
+		expect(resolveToolPillCategoryForLabel('Navigate')).toBe('browser');
+		expect(resolveToolPillCategoryForLabel('Type')).toBe('browser');
 	});
 
 	test('falls back to neutral for unknown labels', () => {

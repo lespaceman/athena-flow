@@ -77,9 +77,6 @@ function canonicalSubagentLabel(type: string): string {
 
 function defaultEventPillLabel(opTag: string): string | undefined {
 	switch (opTag) {
-		case 'agent.msg':
-		case 'msg.agent':
-			return 'Agent';
 		case 'msg.user':
 		case 'prompt':
 			return 'User';
@@ -218,12 +215,6 @@ function lineParts({
 } {
 	const isUserBorder = entry.opTag === 'prompt' || entry.opTag === 'msg.user';
 	const rowTextOverrideColor = focused ? theme.text : undefined;
-	const eventOverrideColor = (() => {
-		if (!focused) return undefined;
-		if (entry.opTag === 'tool.ok') return theme.status.success;
-		if (entry.opTag === 'tool.fail') return theme.status.error;
-		return theme.text;
-	})();
 	const isToolRow =
 		entry.opTag.startsWith('tool.') || entry.opTag === 'perm.req';
 	const isSubagentRow =
@@ -238,7 +229,7 @@ function lineParts({
 	const hasSyntheticPill = syntheticLabel !== undefined;
 	const toolCategory: ToolPillCategory = (() => {
 		if (isSubagentRow) {
-			return 'subagent';
+			return entry.opTag === 'sub.stop' ? 'subagent.return' : 'subagent.spawn';
 		}
 		if (!isToolRow || !entry.feedEvent) return 'neutral';
 		if (
@@ -264,47 +255,34 @@ function lineParts({
 	const time = cell(formatTime(entry.ts, 5, theme), rowTextOverrideColor);
 	const event = cell(
 		formatEvent(entry.op, 12, theme, entry.opTag),
-		eventOverrideColor,
-	);
-	const actor = formatActor(
-		entry.actor,
-		isDuplicateActor,
-		10,
-		theme,
-		entry.actorId,
-	);
-	const tool = cell(
-		formatTool(toolText, cols.toolW, theme, {
-			pill: isToolRow || isSubagentRow || hasSyntheticPill,
-			category: toolCategory,
-			subagentType: isSubagentRow ? entry.toolColumn : undefined,
-			ascii,
-		}),
 		rowTextOverrideColor,
 	);
+	const actor = cell(
+		formatActor(entry.actor, isDuplicateActor, 10, theme, entry.actorId),
+		rowTextOverrideColor,
+	);
+	const tool = formatTool(toolText, cols.toolW, theme, {
+		pill: isToolRow || isSubagentRow || hasSyntheticPill,
+		category: toolCategory,
+		ascii,
+	});
 
 	const detailSummaryInfo = trimVerbPrefix(entry);
 
-	const detail = cell(
-		formatDetails({
-			segments: detailSummaryInfo.segments,
-			summary: detailSummaryInfo.summary,
-			mode: 'full',
-			contentWidth: cols.detailsW,
-			theme,
-			opTag: entry.opTag,
-			isError: entry.error,
-		}),
-		focused ? theme.text : theme.textMuted,
-	);
-	const result = cell(
-		formatResult(
-			entry.summaryOutcome,
-			entry.summaryOutcomeZero,
-			cols.resultW,
-			theme,
-		),
-		rowTextOverrideColor,
+	const detail = formatDetails({
+		segments: detailSummaryInfo.segments,
+		summary: detailSummaryInfo.summary,
+		mode: 'full',
+		contentWidth: cols.detailsW,
+		theme,
+		opTag: entry.opTag,
+	});
+	const result = formatResult(
+		entry.summaryOutcome,
+		entry.summaryOutcomeZero,
+		entry.error,
+		cols.resultW,
+		theme,
 	);
 	return {
 		gutter,
