@@ -1,5 +1,10 @@
 # athena-flow
 
+[![npm version](https://img.shields.io/npm/v/@athenaflow/cli)](https://www.npmjs.com/package/@athenaflow/cli)
+[![license](https://img.shields.io/npm/l/@athenaflow/cli)](https://github.com/lespaceman/athena-flow-cli/blob/main/LICENSE)
+[![CI](https://github.com/lespaceman/athena-flow-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/lespaceman/athena-flow-cli/actions/workflows/ci.yml)
+[![node](https://img.shields.io/node/v/@athenaflow/cli)](https://nodejs.org)
+
 Athena is a workflow runtime for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 Today it runs on Claude Code hooks, orchestrates workflow and plugin execution, and provides an interactive terminal runtime for observability and control.
 The harness architecture is expanding: Codex support will run through `codex-app-server`, with more harness integrations coming.
