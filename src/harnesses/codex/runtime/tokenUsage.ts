@@ -32,9 +32,8 @@ function fromBreakdown(
 		cacheRead: breakdown.cachedInputTokens,
 		cacheWrite: null,
 		total: breakdown.totalTokens,
-		// Codex reports the model window separately (`modelContextWindow`), but it
-		// does not expose the current in-context occupancy in this payload.
-		contextSize: null,
+		// Codex exposes current prompt occupancy via input + cached input tokens.
+		contextSize: breakdown.inputTokens + breakdown.cachedInputTokens,
 		contextWindowSize,
 	};
 }

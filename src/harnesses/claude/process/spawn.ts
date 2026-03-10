@@ -135,6 +135,13 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 
 	// Resolve isolation config (defaults to strict)
 	const isolationConfig = resolveIsolationConfig(isolation);
+	const streamingConfig = {
+		...isolationConfig,
+		// Athena depends on the stream-json event feed for live token/context
+		// updates, so opt in unless a caller explicitly disables it.
+		verbose: isolationConfig.verbose ?? true,
+		includePartialMessages: isolationConfig.includePartialMessages ?? true,
+	};
 
 	// Generate temp settings file with athena's hooks
 	const {settingsPath, cleanup} = generateHookSettings();
@@ -153,19 +160,19 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 
 	// Validate and warn about conflicting flags (non-fatal: conflicts are
 	// logged to stderr but both flags are still passed to Claude's CLI parser)
-	const conflicts = validateConflicts(isolationConfig);
+	const conflicts = validateConflicts(streamingConfig);
 	for (const warning of conflicts) {
 		console.error(`[athena] ${warning}`);
 	}
 
 	// Build isolation flags from declarative registry
-	args.push(...buildIsolationArgs(isolationConfig));
+	args.push(...buildIsolationArgs(streamingConfig));
 
 	// Session management: sessionId takes precedence over continueSession
 	// (handled outside registry since sessionId is from SpawnClaudeOptions, not IsolationConfig)
 	if (sessionId) {
 		args.push('--resume', sessionId);
-	} else if (isolationConfig.continueSession) {
+	} else if (streamingConfig.continueSession) {
 		args.push('--continue');
 	}
 

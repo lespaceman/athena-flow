@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest';
 import {getCodexUsageDelta, getCodexUsageTotals} from './tokenUsage';
 
 describe('Codex token usage mapping', () => {
-	it('keeps total billing tokens but does not invent a current context size', () => {
+	it('maps total billing tokens and derives current context usage', () => {
 		const usage = getCodexUsageTotals({
 			total: {
 				totalTokens: 258_400,
@@ -27,12 +27,12 @@ describe('Codex token usage mapping', () => {
 			cacheRead: 12_000,
 			cacheWrite: null,
 			total: 258_400,
-			contextSize: null,
+			contextSize: 212_000,
 			contextWindowSize: 200_000,
 		});
 	});
 
-	it('maps last-turn deltas without assigning a fake context size', () => {
+	it('maps last-turn deltas with current context occupancy', () => {
 		const usage = getCodexUsageDelta({
 			total: {
 				totalTokens: 0,
@@ -57,7 +57,7 @@ describe('Codex token usage mapping', () => {
 			cacheRead: 100,
 			cacheWrite: null,
 			total: 1_500,
-			contextSize: null,
+			contextSize: 1_000,
 			contextWindowSize: 400_000,
 		});
 	});

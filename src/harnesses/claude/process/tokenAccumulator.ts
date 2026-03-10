@@ -19,6 +19,13 @@ type StreamMessage = {
 	usage?: StreamUsage;
 	/** CLI envelope: {type: "assistant", message: {usage: ...}} */
 	message?: {type?: string; usage?: StreamUsage; [key: string]: unknown};
+	event?: {
+		type?: string;
+		usage?: StreamUsage;
+		message?: {usage?: StreamUsage; [key: string]: unknown};
+		parent_tool_use_id?: string;
+		[key: string]: unknown;
+	};
 	/** Present when this message belongs to a subagent (Task tool) */
 	parent_tool_use_id?: string;
 	[key: string]: unknown;
@@ -39,6 +46,17 @@ export function createTokenAccumulator() {
 	let cacheWrite = 0;
 	let contextSize = 0; // Latest turn's prompt size
 
+	function applyContextUsage(
+		usage: StreamUsage | undefined,
+		isSubagent: boolean,
+	): void {
+		if (!usage || isSubagent) return;
+		contextSize =
+			(usage.input_tokens ?? 0) +
+			(usage.cache_read_input_tokens ?? 0) +
+			(usage.cache_creation_input_tokens ?? 0);
+	}
+
 	function processLine(line: string): void {
 		const trimmed = line.trim();
 		if (!trimmed) return;
@@ -48,6 +66,19 @@ export function createTokenAccumulator() {
 			parsed = JSON.parse(trimmed) as StreamMessage;
 		} catch {
 			return; // Not valid JSON — skip
+		}
+
+		// Partial stream-json mode wraps internal SSE-style events under
+		// `{type: "stream_event", event: ...}`. The earliest root-agent context
+		// snapshot arrives on `message_start`, before the final `message` object.
+		const streamEvent =
+			parsed.type === 'stream_event' && parsed.event ? parsed.event : null;
+		if (streamEvent?.type === 'message_start') {
+			applyContextUsage(
+				streamEvent.message?.usage,
+				parsed.parent_tool_use_id != null ||
+					streamEvent.parent_tool_use_id != null,
+			);
 		}
 
 		// Resolve usage from one of three formats:
@@ -119,7 +150,7 @@ export function createTokenAccumulator() {
 		/** Current accumulated token usage, or null fields if nothing received yet. */
 		getUsage(): TokenUsage {
 			const total = inputTokens + outputTokens + cacheRead + cacheWrite;
-			if (total === 0) {
+			if (total === 0 && contextSize === 0) {
 				return {
 					input: null,
 					output: null,
@@ -131,11 +162,11 @@ export function createTokenAccumulator() {
 				};
 			}
 			return {
-				input: inputTokens,
-				output: outputTokens,
-				cacheRead,
-				cacheWrite,
-				total,
+				input: inputTokens > 0 ? inputTokens : null,
+				output: outputTokens > 0 ? outputTokens : null,
+				cacheRead: cacheRead > 0 ? cacheRead : null,
+				cacheWrite: cacheWrite > 0 ? cacheWrite : null,
+				total: total > 0 ? total : null,
 				contextSize: contextSize > 0 ? contextSize : null,
 				contextWindowSize: null,
 			};

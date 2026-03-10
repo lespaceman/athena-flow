@@ -31,6 +31,10 @@ function resultLine(usage: Record<string, number>): string {
 	return line({type: 'result', usage});
 }
 
+function streamEventLine(event: Record<string, unknown>): string {
+	return line({type: 'stream_event', event});
+}
+
 const USAGE_A = {
 	input_tokens: 100,
 	output_tokens: 50,
@@ -133,6 +137,28 @@ describe('createTokenAccumulator', () => {
 		acc.feed(line({type: 'content_block_delta', delta: {text: 'hello'}}));
 
 		expect(acc.getUsage().total).toBeNull();
+	});
+
+	it('captures root context usage from partial stream events before final message usage arrives', () => {
+		const acc = createTokenAccumulator();
+
+		acc.feed(
+			streamEventLine({
+				type: 'message_start',
+				message: {
+					usage: {
+						input_tokens: 2048,
+						cache_read_input_tokens: 8192,
+						cache_creation_input_tokens: 256,
+					},
+				},
+			}),
+		);
+
+		const usage = acc.getUsage();
+		expect(usage.input).toBeNull();
+		expect(usage.total).toBeNull();
+		expect(usage.contextSize).toBe(2048 + 8192 + 256);
 	});
 
 	it('flush processes remaining buffered data', () => {
@@ -314,6 +340,42 @@ describe('createTokenAccumulator', () => {
 					},
 					{parent_tool_use_id: 'toolu_xyz789'},
 				),
+			);
+			expect(acc.getUsage().contextSize).toBe(100000);
+		});
+
+		it('subagent partial stream events do not overwrite contextSize', () => {
+			const acc = createTokenAccumulator();
+
+			acc.feed(
+				streamEventLine({
+					type: 'message_start',
+					message: {
+						usage: {
+							input_tokens: 100000,
+							cache_read_input_tokens: 0,
+							cache_creation_input_tokens: 0,
+						},
+					},
+				}),
+			);
+			expect(acc.getUsage().contextSize).toBe(100000);
+
+			acc.feed(
+				line({
+					type: 'stream_event',
+					parent_tool_use_id: 'toolu_sub',
+					event: {
+						type: 'message_start',
+						message: {
+							usage: {
+								input_tokens: 1000,
+								cache_read_input_tokens: 500,
+								cache_creation_input_tokens: 0,
+							},
+						},
+					},
+				}),
 			);
 			expect(acc.getUsage().contextSize).toBe(100000);
 		});

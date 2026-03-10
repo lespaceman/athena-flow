@@ -100,6 +100,8 @@ describe('spawnClaude', () => {
 				'Hello, Claude!',
 				'--output-format',
 				'stream-json',
+				'--verbose',
+				'--include-partial-messages',
 				'--settings',
 				'/tmp/mock-settings.json',
 				'--setting-sources',
