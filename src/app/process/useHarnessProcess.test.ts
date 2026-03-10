@@ -19,7 +19,7 @@ describe('useHarnessProcess', () => {
 		useSessionControllerMock.mockReset();
 		resolveHarnessAdapterMock.mockClear();
 		useSessionControllerMock.mockReturnValue({
-			spawn: vi.fn(),
+			startTurn: vi.fn(),
 			isRunning: false,
 			interrupt: vi.fn(),
 			kill: vi.fn().mockResolvedValue(undefined),
@@ -43,7 +43,7 @@ describe('useHarnessProcess', () => {
 			}),
 		);
 
-		expect(typeof result.current.spawn).toBe('function');
+		expect(typeof result.current.startTurn).toBe('function');
 		expect(typeof result.current.interrupt).toBe('function');
 		expect(typeof result.current.kill).toBe('function');
 		expect(typeof result.current.isRunning).toBe('boolean');
@@ -52,7 +52,7 @@ describe('useHarnessProcess', () => {
 
 	it('delegates controller creation to the resolved harness adapter', () => {
 		useSessionControllerMock.mockReturnValue({
-			spawn: vi.fn(),
+			startTurn: vi.fn(),
 			isRunning: true,
 			interrupt: vi.fn(),
 			kill: vi.fn().mockResolvedValue(undefined),

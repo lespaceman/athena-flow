@@ -58,6 +58,7 @@ export function createCodexSessionController(
 							continuation,
 							configOverride,
 							workflowPlan: input.workflowPlan,
+							pluginMcpConfig: input.pluginMcpConfig,
 							ephemeral: input.ephemeral,
 						}),
 					);

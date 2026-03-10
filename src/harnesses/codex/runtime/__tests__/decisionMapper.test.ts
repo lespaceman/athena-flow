@@ -97,4 +97,70 @@ describe('mapDecisionToCodexResult', () => {
 			decision: 'accept',
 		});
 	});
+
+	describe('legacy approval methods', () => {
+		const LEGACY_PATCH_EVENT: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.APPLY_PATCH_APPROVAL,
+		};
+
+		const LEGACY_EXEC_EVENT: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.EXEC_COMMAND_APPROVAL,
+		};
+
+		it('maps passthrough to ReviewDecision "approved" for applyPatchApproval', () => {
+			const decision: RuntimeDecision = {
+				type: 'passthrough',
+				source: 'timeout',
+			};
+			expect(mapDecisionToCodexResult(LEGACY_PATCH_EVENT, decision)).toEqual({
+				decision: 'approved',
+			});
+		});
+
+		it('maps block to ReviewDecision "denied" for applyPatchApproval', () => {
+			const decision: RuntimeDecision = {
+				type: 'block',
+				source: 'user',
+				reason: 'no',
+			};
+			expect(mapDecisionToCodexResult(LEGACY_PATCH_EVENT, decision)).toEqual({
+				decision: 'denied',
+			});
+		});
+
+		it('maps permission_allow to ReviewDecision "approved" for execCommandApproval', () => {
+			const decision: RuntimeDecision = {
+				type: 'json',
+				source: 'user',
+				intent: {kind: 'permission_allow'},
+			};
+			expect(mapDecisionToCodexResult(LEGACY_EXEC_EVENT, decision)).toEqual({
+				decision: 'approved',
+			});
+		});
+
+		it('maps permission_deny to ReviewDecision "denied" for execCommandApproval', () => {
+			const decision: RuntimeDecision = {
+				type: 'json',
+				source: 'user',
+				intent: {kind: 'permission_deny', reason: 'too dangerous'},
+			};
+			expect(mapDecisionToCodexResult(LEGACY_EXEC_EVENT, decision)).toEqual({
+				decision: 'denied',
+			});
+		});
+
+		it('maps stop_block to ReviewDecision "abort" for legacy requests', () => {
+			const decision: RuntimeDecision = {
+				type: 'json',
+				source: 'user',
+				intent: {kind: 'stop_block', reason: 'user stopped'},
+			};
+			expect(mapDecisionToCodexResult(LEGACY_PATCH_EVENT, decision)).toEqual({
+				decision: 'abort',
+			});
+		});
+	});
 });

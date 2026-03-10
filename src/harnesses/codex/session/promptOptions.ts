@@ -1,13 +1,17 @@
 import type {
 	HarnessProcessConfig,
 	HarnessProcessOverride,
+	HarnessProcessPreset,
 	TurnContinuation,
 } from '../../../core/runtime/process';
 import type {WorkflowPlan} from '../../../core/workflows';
 import {
-	resolveCodexWorkflowConfig,
+	resolveCodexMcpConfig,
 	resolveCodexWorkflowSkillRoots,
-} from './workflowArtifacts';
+} from './sessionAssets';
+
+export type CodexApprovalPolicy = 'on-request' | 'auto-edit' | 'full-auto';
+export type CodexSandbox = 'locked-network' | 'workspace-write' | 'off';
 
 export type CodexPromptOptions = {
 	continuation?: TurnContinuation;
@@ -16,6 +20,8 @@ export type CodexPromptOptions = {
 	skillRoots?: string[];
 	config?: Record<string, unknown>;
 	ephemeral?: boolean;
+	approvalPolicy: CodexApprovalPolicy;
+	sandbox: CodexSandbox;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -25,11 +31,27 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 	return null;
 }
 
+function resolveIsolation(preset?: HarnessProcessPreset): {
+	approvalPolicy: CodexApprovalPolicy;
+	sandbox: CodexSandbox;
+} {
+	switch (preset) {
+		case 'strict':
+			return {approvalPolicy: 'on-request', sandbox: 'locked-network'};
+		case 'permissive':
+			return {approvalPolicy: 'auto-edit', sandbox: 'workspace-write'};
+		case 'minimal':
+		case undefined:
+			return {approvalPolicy: 'on-request', sandbox: 'workspace-write'};
+	}
+}
+
 export function buildCodexPromptOptions(input: {
 	processConfig?: HarnessProcessConfig;
 	continuation?: TurnContinuation;
 	configOverride?: HarnessProcessOverride;
 	workflowPlan?: WorkflowPlan;
+	pluginMcpConfig?: string;
 	ephemeral?: boolean;
 }): CodexPromptOptions {
 	const override = asRecord(input.configOverride);
@@ -44,13 +66,16 @@ export function buildCodexPromptOptions(input: {
 			? input.processConfig.model
 			: undefined;
 	const skillRoots = resolveCodexWorkflowSkillRoots(input.workflowPlan);
+	const isolation = resolveIsolation(input.processConfig?.preset);
 
 	return {
 		continuation: input.continuation,
 		model: modelFromOverride ?? modelFromProcess,
 		developerInstructions,
 		skillRoots: skillRoots.length > 0 ? skillRoots : undefined,
-		config: resolveCodexWorkflowConfig(input.workflowPlan),
+		config: resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan),
 		ephemeral: input.ephemeral,
+		approvalPolicy: isolation.approvalPolicy,
+		sandbox: isolation.sandbox,
 	};
 }

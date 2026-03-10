@@ -25,6 +25,7 @@ export function useCodexSessionController(
 	workflowPlan?: WorkflowPlan,
 	ephemeral?: boolean,
 	options?: HarnessProcessOptions,
+	pluginMcpConfig?: string,
 ) {
 	const [isRunning, setIsRunning] = useState(false);
 	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(
@@ -101,6 +102,7 @@ export function useCodexSessionController(
 							continuation,
 							configOverride: _configOverride,
 							workflowPlan,
+							pluginMcpConfig,
 							ephemeral,
 						}),
 					);
@@ -138,7 +140,7 @@ export function useCodexSessionController(
 			activeTurnPromiseRef.current = turnPromise;
 			return await turnPromise;
 		},
-		[codexRuntime, processConfig, workflowPlan, ephemeral],
+		[codexRuntime, processConfig, workflowPlan, pluginMcpConfig, ephemeral],
 	);
 
 	useEffect(() => {
@@ -168,5 +170,5 @@ export function useCodexSessionController(
 		};
 	}, []);
 
-	return {spawn, isRunning, sendInterrupt, kill, tokenUsage};
+	return {startTurn: spawn, isRunning, sendInterrupt, kill, tokenUsage};
 }

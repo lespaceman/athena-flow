@@ -14,10 +14,18 @@ export type HarnessRuntimeFactoryInput = {
 	workflow?: WorkflowConfig;
 };
 
+export type HarnessCapabilities = {
+	conversationModel: 'fresh_per_turn' | 'persistent_thread';
+	killWaitsForTurnSettlement: boolean;
+	supportsEphemeralSessions: boolean;
+	supportsConfigurableIsolation: boolean;
+};
+
 export type HarnessAdapter = {
 	id: AthenaHarness;
 	label: string;
 	enabled: boolean;
+	capabilities: HarnessCapabilities;
 	verify?: () => HarnessVerificationResult;
 	createRuntime: (input: HarnessRuntimeFactoryInput) => Runtime;
 	createSessionController: CreateSessionController;

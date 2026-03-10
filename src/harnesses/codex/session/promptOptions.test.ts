@@ -39,6 +39,8 @@ describe('buildCodexPromptOptions', () => {
 			skillRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
+			approvalPolicy: 'on-request',
+			sandbox: 'workspace-write',
 		});
 	});
 
@@ -55,6 +57,8 @@ describe('buildCodexPromptOptions', () => {
 			skillRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
+			approvalPolicy: 'on-request',
+			sandbox: 'workspace-write',
 		});
 	});
 
@@ -101,6 +105,117 @@ describe('buildCodexPromptOptions', () => {
 				},
 			},
 			ephemeral: undefined,
+			approvalPolicy: 'on-request',
+			sandbox: 'workspace-write',
+		});
+	});
+
+	it('maps isolation preset to Codex approvalPolicy and sandbox', () => {
+		expect(
+			buildCodexPromptOptions({
+				processConfig: {preset: 'strict'},
+			}),
+		).toEqual(
+			expect.objectContaining({
+				approvalPolicy: 'on-request',
+				sandbox: 'locked-network',
+			}),
+		);
+
+		expect(
+			buildCodexPromptOptions({
+				processConfig: {preset: 'permissive'},
+			}),
+		).toEqual(
+			expect.objectContaining({
+				approvalPolicy: 'auto-edit',
+				sandbox: 'workspace-write',
+			}),
+		);
+
+		expect(
+			buildCodexPromptOptions({
+				processConfig: {preset: 'minimal'},
+			}),
+		).toEqual(
+			expect.objectContaining({
+				approvalPolicy: 'on-request',
+				sandbox: 'workspace-write',
+			}),
+		);
+	});
+
+	it('defaults to on-request / workspace-write when no isolation is specified', () => {
+		expect(buildCodexPromptOptions({})).toEqual(
+			expect.objectContaining({
+				approvalPolicy: 'on-request',
+				sandbox: 'workspace-write',
+			}),
+		);
+	});
+
+	it('merges pluginMcpConfig into Codex config alongside workflow MCP config', () => {
+		files['/tmp/plugin-mcp.json'] = JSON.stringify({
+			mcpServers: {
+				'plugin-server': {
+					command: 'node',
+					args: ['server.js'],
+				},
+			},
+		});
+		files['/tmp/workflow-mcp.json'] = JSON.stringify({
+			mcpServers: {
+				'workflow-server': {
+					command: 'npx',
+					args: ['workflow-tool'],
+				},
+			},
+		});
+		const result = buildCodexPromptOptions({
+			pluginMcpConfig: '/tmp/plugin-mcp.json',
+			workflowPlan: {
+				workflow: {
+					name: 'test',
+					plugins: [],
+					promptTemplate: '{input}',
+				},
+				pluginDirs: [],
+				pluginMcpConfig: '/tmp/workflow-mcp.json',
+			},
+		});
+		expect(result.config).toEqual({
+			mcp_servers: {
+				'plugin-server': {
+					command: 'node',
+					args: ['server.js'],
+				},
+				'workflow-server': {
+					command: 'npx',
+					args: ['workflow-tool'],
+				},
+			},
+		});
+	});
+
+	it('passes pluginMcpConfig even without a workflowPlan', () => {
+		files['/tmp/plugin-mcp.json'] = JSON.stringify({
+			mcpServers: {
+				'plugin-server': {
+					command: 'node',
+					args: ['server.js'],
+				},
+			},
+		});
+		const result = buildCodexPromptOptions({
+			pluginMcpConfig: '/tmp/plugin-mcp.json',
+		});
+		expect(result.config).toEqual({
+			mcp_servers: {
+				'plugin-server': {
+					command: 'node',
+					args: ['server.js'],
+				},
+			},
 		});
 	});
 
@@ -116,6 +231,8 @@ describe('buildCodexPromptOptions', () => {
 			skillRoots: undefined,
 			config: undefined,
 			ephemeral: true,
+			approvalPolicy: 'on-request',
+			sandbox: 'workspace-write',
 		});
 	});
 });

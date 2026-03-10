@@ -95,6 +95,9 @@ export type RuntimeEventDataMap = {
 		tool_use_id?: string;
 		error?: string;
 		is_interrupt?: boolean;
+		exit_code?: number;
+		output?: string;
+		error_code?: string;
 	};
 	'permission.request': {
 		tool_name?: string;
@@ -109,10 +112,13 @@ export type RuntimeEventDataMap = {
 	'subagent.start': {
 		agent_id?: string;
 		agent_type?: string;
+		tool?: string;
 	};
 	'subagent.stop': {
 		agent_id?: string;
 		agent_type?: string;
+		tool?: string;
+		status?: string;
 		stop_hook_active?: boolean;
 		agent_transcript_path?: string;
 		last_assistant_message?: string;

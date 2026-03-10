@@ -83,7 +83,7 @@ export function useWorkflowSessionController(
 							console.error(`[athena] ${warning}`);
 						}
 
-						lastResult = await base.spawn(
+						lastResult = await base.startTurn(
 							prepared.prompt,
 							nextContinuation,
 							prepared.configOverride,
@@ -128,7 +128,7 @@ export function useWorkflowSessionController(
 
 	return {
 		...base,
-		spawn,
+		startTurn: spawn,
 		isRunning,
 		interrupt,
 		kill,

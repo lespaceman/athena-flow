@@ -422,7 +422,7 @@ function AppContent({
 	);
 
 	const {
-		spawn: spawnHarness,
+		startTurn: spawnHarness,
 		isRunning: isHarnessRunning,
 		interrupt,
 		tokenUsage,

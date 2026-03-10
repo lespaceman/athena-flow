@@ -131,6 +131,144 @@ describe('translateNotification', () => {
 		});
 		expect(result.kind).toBe('unknown');
 	});
+
+	it('maps collabAgentToolCall (spawnAgent, inProgress) item/started to subagent.start', () => {
+		const result = translateNotification({
+			method: 'item/started',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'collab-1',
+					type: 'collabAgentToolCall',
+					tool: 'spawnAgent',
+					status: 'inProgress',
+					agentsStates: {
+						'agent-abc': {status: 'running', message: null},
+					},
+					callerThreadId: 'th1',
+					callerTurnId: 't1',
+				},
+			},
+		});
+		expect(result.kind).toBe('subagent.start');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				agent_id: 'agent-abc',
+				agent_type: 'codex',
+				tool: 'spawnAgent',
+			}),
+		);
+	});
+
+	it('maps collabAgentToolCall (completed) item/completed to subagent.stop', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'collab-1',
+					type: 'collabAgentToolCall',
+					tool: 'spawnAgent',
+					status: 'completed',
+					agentsStates: {
+						'agent-abc': {status: 'completed', message: null},
+					},
+					callerThreadId: 'th1',
+					callerTurnId: 't1',
+				},
+			},
+		});
+		expect(result.kind).toBe('subagent.stop');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				agent_id: 'agent-abc',
+				agent_type: 'codex',
+				status: 'completed',
+			}),
+		);
+	});
+
+	it('preserves structured error details in commandExecution failure', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'i1',
+					type: 'commandExecution',
+					command: 'git push',
+					cwd: '/project',
+					status: 'failed',
+					error: {code: 128, message: 'push rejected'},
+					aggregatedOutput: 'fatal: remote rejected',
+					exitCode: 128,
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'command_execution',
+				error: 'push rejected',
+				exit_code: 128,
+				output: 'fatal: remote rejected',
+			}),
+		);
+	});
+
+	it('preserves structured error details in mcpToolCall failure', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'i1',
+					type: 'mcpToolCall',
+					server: 'demo',
+					tool: 'fetch',
+					status: 'failed',
+					error: {message: 'connection refused', code: 'ECONNREFUSED'},
+					arguments: {url: 'http://localhost'},
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'mcp:demo/fetch',
+				error: 'connection refused',
+				error_code: 'ECONNREFUSED',
+			}),
+		);
+	});
+
+	it('preserves structured error details in fileChange failure', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'i1',
+					type: 'fileChange',
+					status: 'failed',
+					error: {message: 'permission denied'},
+					changes: [{path: '/etc/hosts', kind: 'write'}],
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'file_change',
+				error: 'permission denied',
+			}),
+		);
+	});
 });
 
 describe('translateServerRequest', () => {

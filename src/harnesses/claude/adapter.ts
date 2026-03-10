@@ -43,6 +43,12 @@ export const claudeHarnessAdapter: HarnessAdapter = {
 	id: 'claude-code',
 	label: 'Claude Code',
 	enabled: true,
+	capabilities: {
+		conversationModel: 'fresh_per_turn',
+		killWaitsForTurnSettlement: true,
+		supportsEphemeralSessions: false,
+		supportsConfigurableIsolation: true,
+	},
 	verify: () => verifyClaudeHarness(),
 	createRuntime: input =>
 		createClaudeHookRuntime({
@@ -66,7 +72,7 @@ export const claudeHarnessAdapter: HarnessAdapter = {
 		);
 
 		const controller: UseSessionControllerResult = {
-			spawn: process.spawn,
+			startTurn: process.spawn,
 			isRunning: process.isRunning,
 			interrupt: process.sendInterrupt,
 			kill: process.kill,

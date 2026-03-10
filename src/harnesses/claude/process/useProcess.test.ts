@@ -65,13 +65,16 @@ describe('useClaudeProcess', () => {
 	): Promise<{
 		spawnPromise: ReturnType<typeof useClaudeProcess>['spawn'];
 	}> {
-		const priorSpawnCalls = vi.mocked(spawnModule.spawnClaude).mock.calls.length;
+		const priorSpawnCalls = vi.mocked(spawnModule.spawnClaude).mock.calls
+			.length;
 		let spawnPromise!: ReturnType<typeof result.current.spawn>;
 		await act(async () => {
 			spawnPromise = result.current.spawn(prompt, ...args);
 		});
 		await waitFor(() => {
-			expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(priorSpawnCalls + 1);
+			expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(
+				priorSpawnCalls + 1,
+			);
 		});
 		return {spawnPromise};
 	}
@@ -616,14 +619,9 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		const {spawnPromise} = await startSpawn(
-			result,
-			'test prompt',
-			undefined,
-			{
-				mcpConfig: '/per-command/mcp.json',
-			},
-		);
+		const {spawnPromise} = await startSpawn(result, 'test prompt', undefined, {
+			mcpConfig: '/per-command/mcp.json',
+		});
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({

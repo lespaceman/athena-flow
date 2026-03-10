@@ -19,6 +19,12 @@ export const codexHarnessAdapter: HarnessAdapter = {
 	id: 'openai-codex',
 	label: 'OpenAI Codex',
 	enabled: true,
+	capabilities: {
+		conversationModel: 'persistent_thread',
+		killWaitsForTurnSettlement: true,
+		supportsEphemeralSessions: true,
+		supportsConfigurableIsolation: true,
+	},
 	verify: () => verifyCodexHarness(),
 	createRuntime: input =>
 		createCodexRuntime({
@@ -34,9 +40,10 @@ export const codexHarnessAdapter: HarnessAdapter = {
 			input.workflowPlan,
 			input.ephemeral,
 			input.options,
+			input.pluginMcpConfig,
 		);
 		const controller: UseSessionControllerResult = {
-			spawn: process.spawn,
+			startTurn: process.startTurn,
 			isRunning: process.isRunning,
 			interrupt: process.sendInterrupt,
 			kill: process.kill,

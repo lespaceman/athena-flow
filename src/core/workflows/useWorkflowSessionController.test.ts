@@ -35,7 +35,7 @@ describe('useWorkflowSessionController', () => {
 		fs.writeFileSync(promptPath, 'Always read the tracker.', 'utf-8');
 
 		const spawn = vi
-			.fn<HarnessProcess<HarnessProcessOverride>['spawn']>()
+			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
 			.mockImplementation(async (_prompt, _continuation, _configOverride) => {
 				const call = spawn.mock.calls.length;
 				if (call === 1) {
@@ -76,7 +76,7 @@ describe('useWorkflowSessionController', () => {
 		const {result} = renderHook(() =>
 			useWorkflowSessionController(
 				{
-					spawn,
+					startTurn: spawn,
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill: vi.fn().mockResolvedValue(undefined),
@@ -109,7 +109,7 @@ describe('useWorkflowSessionController', () => {
 		);
 
 		await act(async () => {
-			await result.current.spawn('ship it', {
+			await result.current.startTurn('ship it', {
 				mode: 'resume',
 				handle: 'session-1',
 			});
@@ -143,7 +143,7 @@ describe('useWorkflowSessionController', () => {
 			releaseFirstSpawn?.();
 		});
 		const spawn = vi
-			.fn<HarnessProcess<HarnessProcessOverride>['spawn']>()
+			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
 			.mockImplementationOnce(
 				() =>
 					new Promise<TurnExecutionResult>(resolve => {
@@ -168,7 +168,7 @@ describe('useWorkflowSessionController', () => {
 		const {result} = renderHook(() =>
 			useWorkflowSessionController(
 				{
-					spawn,
+					startTurn: spawn,
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill,
@@ -194,11 +194,11 @@ describe('useWorkflowSessionController', () => {
 
 		let firstSpawnPromise: Promise<TurnExecutionResult>;
 		await act(async () => {
-			firstSpawnPromise = result.current.spawn('first');
+			firstSpawnPromise = result.current.startTurn('first');
 		});
 
 		await act(async () => {
-			await result.current.spawn('second');
+			await result.current.startTurn('second');
 		});
 
 		await act(async () => {
@@ -213,7 +213,7 @@ describe('useWorkflowSessionController', () => {
 	it('stops workflow continuation after a failed turn', async () => {
 		const trackerPath = path.join(makeTempDir(), 'tracker.md');
 		const spawn = vi
-			.fn<HarnessProcess<HarnessProcessOverride>['spawn']>()
+			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
 			.mockImplementation(async () => {
 				fs.writeFileSync(trackerPath, 'still running', 'utf-8');
 				return {
@@ -235,7 +235,7 @@ describe('useWorkflowSessionController', () => {
 		const {result} = renderHook(() =>
 			useWorkflowSessionController(
 				{
-					spawn,
+					startTurn: spawn,
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill: vi.fn().mockResolvedValue(undefined),
@@ -267,7 +267,7 @@ describe('useWorkflowSessionController', () => {
 		);
 
 		const turnResult = await act(async () => {
-			return await result.current.spawn('ship it');
+			return await result.current.startTurn('ship it');
 		});
 
 		expect(turnResult.exitCode).toBe(1);

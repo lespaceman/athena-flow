@@ -44,7 +44,7 @@ export type HarnessProcessLifecycleEvent =
  */
 export type HarnessProcess<ConfigOverride = unknown> = {
 	isRunning: boolean;
-	spawn: (
+	startTurn: (
 		prompt: string,
 		continuation?: TurnContinuation,
 		configOverride?: ConfigOverride,

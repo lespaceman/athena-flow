@@ -35,6 +35,8 @@ export type CodexRuntime = Runtime & {
 			skillRoots?: string[];
 			config?: Record<string, unknown>;
 			ephemeral?: boolean;
+			approvalPolicy?: string;
+			sandbox?: string;
 		},
 	): Promise<void>;
 	/** Interrupt the currently running turn. */
@@ -430,6 +432,8 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				skillRoots?: string[];
 				config?: Record<string, unknown>;
 				ephemeral?: boolean;
+				approvalPolicy?: string;
+				sandbox?: string;
 			},
 		): Promise<void> {
 			if (!manager || status !== 'running') {
@@ -441,6 +445,8 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 
 			try {
 				const continuation = options?.continuation;
+				const approvalPolicy = options?.approvalPolicy ?? 'on-request';
+				const sandbox = options?.sandbox ?? 'workspace-write';
 				const shouldResume =
 					continuation?.mode === 'resume' && continuation.handle.length > 0;
 				const shouldStartFresh =
@@ -474,8 +480,8 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				if (shouldResume) {
 					const result = await manager.sendRequest(M.THREAD_RESUME, {
 						threadId: continuation.handle,
-						approvalPolicy: 'on-request',
-						sandbox: 'workspace-write',
+						approvalPolicy,
+						sandbox,
 						cwd: projectDir,
 						...(options?.model ? {model: options.model} : {}),
 						...(developerInstructions ? {developerInstructions} : {}),
@@ -493,8 +499,8 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 					threadId = null;
 					turnId = null;
 					const result = await manager.sendRequest(M.THREAD_START, {
-						approvalPolicy: 'on-request',
-						sandbox: 'workspace-write',
+						approvalPolicy,
+						sandbox,
 						cwd: projectDir,
 						...(options?.model ? {model: options.model} : {}),
 						...(developerInstructions ? {developerInstructions} : {}),
@@ -516,12 +522,19 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				pendingTurnCompletion = turnCompletion;
 				pendingTurnPrompt = prompt;
 
-				// Start a turn with the user prompt
+				// Start a turn with the user prompt.
+				// Note: sandbox is intentionally omitted here. The Codex protocol's
+				// TurnStartParams accepts `sandboxPolicy` (a structured SandboxPolicy
+				// union type), which is different from the simple SandboxMode string
+				// accepted by thread/start and thread/resume. The sandbox is already
+				// configured at thread creation/resume time, and turns inherit it.
+				// The per-turn `sandboxPolicy` override is for fine-grained control
+				// that we don't currently need.
 				await manager.sendRequest(M.TURN_START, {
 					threadId,
 					input: [{type: 'text', text: prompt, text_elements: []}],
 					cwd: projectDir,
-					approvalPolicy: 'on-request',
+					approvalPolicy,
 					...(options?.model ? {model: options.model} : {}),
 				});
 

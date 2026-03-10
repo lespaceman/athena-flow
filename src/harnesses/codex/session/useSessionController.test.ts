@@ -30,7 +30,7 @@ describe('useCodexSessionController', () => {
 		);
 
 		await act(async () => {
-			await result.current.spawn(
+			await result.current.startTurn(
 				'continue the task',
 				{mode: 'resume', handle: 'thread-123'},
 				{
@@ -46,6 +46,8 @@ describe('useCodexSessionController', () => {
 			skillRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
+			approvalPolicy: 'on-request',
+			sandbox: 'workspace-write',
 		});
 		expect(result.current.isRunning).toBe(false);
 	});
@@ -67,7 +69,7 @@ describe('useCodexSessionController', () => {
 		);
 
 		await act(async () => {
-			await result.current.spawn('ephemeral task');
+			await result.current.startTurn('ephemeral task');
 		});
 
 		expect(sendPrompt).toHaveBeenCalledWith(

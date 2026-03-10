@@ -33,7 +33,7 @@ export type SessionController<ConfigOverride = HarnessProcessOverride> = {
 export type UseSessionControllerResult<
 	ConfigOverride = HarnessProcessOverride,
 > = {
-	spawn: (
+	startTurn: (
 		prompt: string,
 		continuation?: TurnContinuation,
 		configOverride?: ConfigOverride,

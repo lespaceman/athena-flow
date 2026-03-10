@@ -33,6 +33,12 @@ const opencodeHarnessAdapter: HarnessAdapter = {
 	id: 'opencode',
 	label: 'OpenCode',
 	enabled: false,
+	capabilities: {
+		conversationModel: 'fresh_per_turn',
+		killWaitsForTurnSettlement: true,
+		supportsEphemeralSessions: false,
+		supportsConfigurableIsolation: false,
+	},
 	createRuntime: input => claudeHarnessAdapter.createRuntime(input),
 	createSessionController: input =>
 		claudeHarnessAdapter.createSessionController(input),

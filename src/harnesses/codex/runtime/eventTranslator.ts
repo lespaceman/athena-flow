@@ -225,6 +225,11 @@ export function translateNotification(
 			const params = msg.params as CodexItemStartedNotification;
 			const item = asRecord(params.item);
 			const itemType = item['type'] as string;
+
+			if (itemType === 'collabAgentToolCall') {
+				return translateCollabStarted(item);
+			}
+
 			const toolName = resolveToolName(itemType, item);
 			if (
 				itemType === 'commandExecution' ||
@@ -257,6 +262,11 @@ export function translateNotification(
 			const params = msg.params as CodexItemCompletedNotification;
 			const item = asRecord(params.item);
 			const itemType = item['type'] as string;
+
+			if (itemType === 'collabAgentToolCall') {
+				return translateCollabCompleted(item);
+			}
+
 			const toolName = resolveToolName(itemType, item);
 			if (
 				itemType === 'commandExecution' ||
@@ -265,18 +275,7 @@ export function translateNotification(
 			) {
 				const itemStatus = item['status'] as string;
 				if (itemStatus === 'failed' || itemStatus === 'cancelled') {
-					return {
-						kind: 'tool.failure',
-						data: {
-							tool_name: toolName,
-							tool_input: resolveToolInput(itemType, item),
-							tool_use_id: item['id'] as string | undefined,
-							error: item['error'] as string | undefined,
-						},
-						toolName,
-						toolUseId: item['id'] as string | undefined,
-						expectsDecision: false,
-					};
+					return resolveToolFailure(itemType, toolName, item);
 				}
 				return {
 					kind: 'tool.post',
@@ -335,6 +334,104 @@ export function translateNotification(
 				expectsDecision: false,
 			};
 	}
+}
+
+/**
+ * Extract the first agent ID from the agentsStates map on a
+ * collabAgentToolCall item.
+ */
+function resolveCollabAgentId(item: Record<string, unknown>): string {
+	const states = asRecord(item['agentsStates']);
+	const keys = Object.keys(states);
+	return keys[0] ?? 'unknown';
+}
+
+function translateCollabStarted(
+	item: Record<string, unknown>,
+): CodexTranslatedEvent {
+	const agentId = resolveCollabAgentId(item);
+	const tool =
+		typeof item['tool'] === 'string' ? item['tool'] : 'spawnAgent';
+	return {
+		kind: 'subagent.start',
+		data: {
+			agent_id: agentId,
+			agent_type: 'codex',
+			tool,
+		},
+		expectsDecision: false,
+	};
+}
+
+function translateCollabCompleted(
+	item: Record<string, unknown>,
+): CodexTranslatedEvent {
+	const agentId = resolveCollabAgentId(item);
+	const tool =
+		typeof item['tool'] === 'string' ? item['tool'] : 'spawnAgent';
+	const status =
+		typeof item['status'] === 'string' ? item['status'] : 'completed';
+	return {
+		kind: 'subagent.stop',
+		data: {
+			agent_id: agentId,
+			agent_type: 'codex',
+			tool,
+			status,
+		},
+		expectsDecision: false,
+	};
+}
+
+/**
+ * Build a tool.failure event with structured error details preserved.
+ *
+ * For commandExecution: extract exit_code and aggregatedOutput.
+ * For mcpToolCall: extract error_code from the error object.
+ * For all types: prefer error.message over raw error-as-string.
+ */
+function resolveToolFailure(
+	itemType: string,
+	toolName: string,
+	item: Record<string, unknown>,
+): CodexTranslatedEvent {
+	const rawError = item['error'];
+	const errorRecord = asRecord(rawError);
+	const errorMessage =
+		typeof rawError === 'string'
+			? rawError
+			: typeof errorRecord['message'] === 'string'
+				? errorRecord['message']
+				: 'Unknown error';
+	const base: Record<string, unknown> = {
+		tool_name: toolName,
+		tool_input: resolveToolInput(itemType, item),
+		tool_use_id: item['id'] as string | undefined,
+		error: errorMessage,
+	};
+
+	if (itemType === 'commandExecution') {
+		if (typeof item['exitCode'] === 'number') {
+			base['exit_code'] = item['exitCode'];
+		}
+		if (typeof item['aggregatedOutput'] === 'string') {
+			base['output'] = item['aggregatedOutput'];
+		}
+	}
+
+	if (itemType === 'mcpToolCall') {
+		if (typeof errorRecord['code'] === 'string') {
+			base['error_code'] = errorRecord['code'];
+		}
+	}
+
+	return {
+		kind: 'tool.failure',
+		data: base,
+		toolName,
+		toolUseId: item['id'] as string | undefined,
+		expectsDecision: false,
+	};
 }
 
 export function translateServerRequest(

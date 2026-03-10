@@ -41,4 +41,22 @@ describe('harness registry', () => {
 			}),
 		]);
 	});
+
+	it('declares semantic capabilities per adapter', () => {
+		const claude = resolveHarnessAdapter('claude-code');
+		expect(claude.capabilities).toEqual({
+			conversationModel: 'fresh_per_turn',
+			killWaitsForTurnSettlement: true,
+			supportsEphemeralSessions: false,
+			supportsConfigurableIsolation: true,
+		});
+
+		const codex = resolveHarnessAdapter('openai-codex');
+		expect(codex.capabilities).toEqual({
+			conversationModel: 'persistent_thread',
+			killWaitsForTurnSettlement: true,
+			supportsEphemeralSessions: true,
+			supportsConfigurableIsolation: true,
+		});
+	});
 });

@@ -289,6 +289,11 @@ npm run perf:tui -- -- sessions
 
 See `docs/performance-profiling.md` for profiling modes and artifact analysis.
 
+## Codex Protocol Bindings
+
+- The source for `src/harnesses/codex/protocol/generated` is the `codex app-server` schema (`generate-ts`/`generate-json-schema`). Do not hand-edit those files—they are generated.
+- To refresh them, run `scripts/update-codex-protocol-snapshot.mjs` with the version of `codex app-server` that matches your local runtime. Commit the regenerated directory so others can build without re-running the generator.
+
 ## License
 
 MIT
