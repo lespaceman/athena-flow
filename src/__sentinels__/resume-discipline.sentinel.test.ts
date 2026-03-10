@@ -16,7 +16,7 @@ import {renderHook, act} from '@testing-library/react';
 
 // Mock spawnClaude before importing the hook
 vi.mock('../harnesses/claude/process/spawn', () => ({
-	spawnClaude: vi.fn(() => {
+	spawnClaude: vi.fn((options: {onExit?: (code: number | null) => void}) => {
 		// Return a minimal ChildProcess-like object
 		const proc = {
 			stdout: null,
@@ -24,6 +24,7 @@ vi.mock('../harnesses/claude/process/spawn', () => ({
 			on: vi.fn(),
 			kill: vi.fn(),
 		};
+		options.onExit?.(0);
 		return proc;
 	}),
 }));
@@ -62,7 +63,10 @@ describe('Sentinel: resume non-execution discipline', () => {
 
 		// Simulate user submitting a prompt with a sessionId (resume scenario)
 		await act(async () => {
-			await result.current.spawn('test prompt', 'existing-session-id');
+			await result.current.spawn('test prompt', {
+				mode: 'resume',
+				handle: 'existing-session-id',
+			});
 		});
 
 		expect(spawnClaude).toHaveBeenCalledTimes(1);

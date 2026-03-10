@@ -70,7 +70,7 @@ describe('buildHeaderModel', () => {
 
 	it('includes context with null used and default max', () => {
 		const model = buildHeaderModel(baseInput);
-		expect(model.context).toEqual({used: null, max: 200000});
+		expect(model.context).toEqual({used: null, max: null});
 	});
 
 	it('includes context with provided values', () => {

@@ -1,6 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {type ChildProcess} from 'node:child_process';
-import fs from 'node:fs';
 import {spawnClaude} from './spawn';
 import {type UseClaudeProcessResult} from './types';
 import {
@@ -11,19 +10,14 @@ import {
 import type {TokenUsage} from '../../../shared/types/headerMetrics';
 import {createTokenAccumulator} from './tokenAccumulator';
 import type {WorkflowConfig} from '../../../core/workflows/types';
-import {
-	applyPromptTemplate,
-	createLoopManager,
-	buildContinuePrompt,
-	cleanupTrackerFile,
-	type LoopManager,
-} from '../../../core/workflows/index';
-import path from 'node:path';
 import type {
 	HarnessProcessLifecycleEvent,
 	HarnessProcessFailureCode,
 	TokenUsageParserFactory,
+	TurnContinuation,
+	TurnExecutionResult,
 } from '../../../core/runtime/process';
+import {createAssistantMessageAccumulator} from '../session/assistantMessageAccumulator';
 
 export type {UseClaudeProcessResult};
 
@@ -58,6 +52,7 @@ const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
 
 function extractFailureCode(
@@ -100,7 +95,8 @@ function tokenUsageEquals(a: TokenUsage, b: TokenUsage): boolean {
 		a.cacheRead === b.cacheRead &&
 		a.cacheWrite === b.cacheWrite &&
 		a.total === b.total &&
-		a.contextSize === b.contextSize
+		a.contextSize === b.contextSize &&
+		a.contextWindowSize === b.contextWindowSize
 	);
 }
 
@@ -115,6 +111,22 @@ function tokenUsageEquals(a: TokenUsage, b: TokenUsage): boolean {
 // jq filter that extracts text content from assistant messages
 const JQ_ASSISTANT_TEXT_FILTER =
 	'select(.type == "message" and .role == "assistant") | .content[] | select(.type == "text") | .text';
+
+function resolveClaudeSessionId(
+	continuation: TurnContinuation | undefined,
+): string | undefined {
+	if (!continuation || continuation.mode === 'fresh') {
+		return undefined;
+	}
+
+	if (continuation.mode === 'resume') {
+		return continuation.handle;
+	}
+
+	throw new Error(
+		'Claude process hook does not support reuse-current continuation',
+	);
+}
 
 export type UseClaudeProcessOptions = {
 	initialTokens?: TokenUsage | null;
@@ -145,7 +157,6 @@ export function useClaudeProcess(
 	const tokenAccRef = useRef(
 		(options?.tokenParserFactory ?? createTokenAccumulator)(),
 	);
-	const loopManagerRef = useRef<LoopManager | null>(null);
 	const tokenBaseRef = useRef({
 		input: options?.initialTokens?.input ?? 0,
 		output: options?.initialTokens?.output ?? 0,
@@ -220,8 +231,6 @@ export function useClaudeProcess(
 			return;
 		}
 
-		const loopManager = loopManagerRef.current;
-
 		// Create promise to wait for process exit
 		const exitPromise = new Promise<void>(resolve => {
 			exitResolverRef.current = resolve;
@@ -235,18 +244,11 @@ export function useClaudeProcess(
 
 		processRef.current.kill();
 
-		loopManager?.deactivate();
-		loopManagerRef.current = null;
-
 		// Wait for exit or timeout
 		await Promise.race([exitPromise, timeoutPromise]);
 
 		// Clean up timeout to prevent memory leak
 		clearTimeout(timeoutId!);
-
-		if (loopManager) {
-			cleanupTrackerFile(loopManager.trackerPath);
-		}
 
 		// Clean up
 		exitResolverRef.current = null;
@@ -259,9 +261,9 @@ export function useClaudeProcess(
 	const spawn = useCallback(
 		async (
 			prompt: string,
-			sessionId?: string,
+			continuation?: TurnContinuation,
 			perCallIsolation?: Partial<IsolationConfig>,
-		): Promise<void> => {
+		): Promise<TurnExecutionResult> => {
 			// Kill existing process if running and wait for it to exit
 			await kill();
 
@@ -286,269 +288,184 @@ export function useClaudeProcess(
 				cacheRead: current.cacheRead ?? 0,
 				cacheWrite: current.cacheWrite ?? 0,
 			};
+			const messageAccumulator = createAssistantMessageAccumulator();
 
-			// Apply workflow: transform prompt and arm loop
-			let effectivePrompt = prompt;
-			if (workflow) {
-				if (
-					workflow.loop &&
-					loopManagerRef.current &&
-					loopManagerRef.current.getState().iteration > 0
-				) {
-					// Iteration 2+: use continue prompt instead of original template
-					effectivePrompt = buildContinuePrompt(workflow.loop);
-				} else {
-					effectivePrompt = applyPromptTemplate(
-						workflow.promptTemplate,
-						prompt,
-					);
-				}
-
-				if (workflow.loop?.enabled && !loopManagerRef.current) {
-					const trackerPath = path.resolve(
-						projectDir,
-						workflow.loop.trackerPath ?? 'tracker.md',
-					);
-					loopManagerRef.current = createLoopManager(
-						trackerPath,
-						workflow.loop,
-					);
-				}
-			}
-
-			// Thread workflow's systemPromptFile into isolation config
-			const resolvedSystemPromptFile = workflow?.systemPromptFile
-				? path.resolve(projectDir, workflow.systemPromptFile)
-				: undefined;
-			const appendSystemPromptFile =
-				resolvedSystemPromptFile && fs.existsSync(resolvedSystemPromptFile)
-					? resolvedSystemPromptFile
-					: undefined;
-			if (workflow?.systemPromptFile && !appendSystemPromptFile) {
-				console.error(
-					`[athena] Workflow "${workflow.name}" system prompt file not found: ${workflow.systemPromptFile}. Continuing without --append-system-prompt-file.`,
-				);
-			}
-			const effectivePerCallIsolation: Partial<IsolationConfig> | undefined =
-				perCallIsolation || appendSystemPromptFile
-					? {
-							...perCallIsolation,
-							...(appendSystemPromptFile && {
-								appendSystemPromptFile,
-							}),
-						}
-					: undefined;
-
-			try {
-				const child = spawnClaude({
-					prompt: effectivePrompt,
-					projectDir,
-					instanceId,
-					sessionId,
-					isolation: mergeIsolation(
-						isolation,
-						pluginMcpConfig,
-						effectivePerCallIsolation,
-					),
-					env: workflow?.env,
-					...(verbose
-						? {
-								jqFilter: JQ_ASSISTANT_TEXT_FILTER,
-								onFilteredStdout: (data: string) => {
-									if (abortRef.current.signal.aborted) return;
-									if (!trackStreamingTextRef.current) return;
-									setStreamingText(prev => prev + data);
-								},
-								onJqStderr: (data: string) => {
-									if (abortRef.current.signal.aborted) return;
-									if (!trackOutputRef.current) return;
-									setOutput(prev => [...prev, `[jq] ${data}`]);
-								},
-							}
-						: {}),
-					onStdout: (data: string) => {
-						if (abortRef.current.signal.aborted) return;
-						// Parse stream-json for token usage — merge with cumulative base
-						tokenAccRef.current.feed(data);
-						const acc = tokenAccRef.current.getUsage();
+			return await new Promise<TurnExecutionResult>(resolve => {
+				const finalize = (exitCode: number | null, error: Error | null) => {
+					tokenAccRef.current.flush();
+					messageAccumulator.flush();
+					const finalAcc = tokenAccRef.current.getUsage();
+					if (!abortRef.current.signal.aborted) {
 						const base = tokenBaseRef.current;
-						publishTokenUsage({
-							input: (base.input || 0) + (acc.input ?? 0) || null,
-							output: (base.output || 0) + (acc.output ?? 0) || null,
-							cacheRead: (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null,
-							cacheWrite:
-								(base.cacheWrite || 0) + (acc.cacheWrite ?? 0) || null,
-							total:
-								(base.input || 0) +
-									(acc.input ?? 0) +
-									(base.output || 0) +
-									(acc.output ?? 0) || null,
-							contextSize: acc.contextSize,
-						});
+						publishTokenUsage(
+							{
+								input: (base.input || 0) + (finalAcc.input ?? 0) || null,
+								output: (base.output || 0) + (finalAcc.output ?? 0) || null,
+								cacheRead:
+									(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
+								cacheWrite:
+									(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
+								total:
+									(base.input || 0) +
+										(finalAcc.input ?? 0) +
+										(base.output || 0) +
+										(finalAcc.output ?? 0) || null,
+								contextSize: finalAcc.contextSize,
+								contextWindowSize: finalAcc.contextWindowSize,
+							},
+							true,
+						);
+					}
+					onExitTokensRef.current?.(finalAcc);
 
-						if (!trackOutputRef.current) return;
-						setOutput(prev => {
-							const updated = [...prev, data];
-							// Limit output size to prevent memory issues
-							if (updated.length > MAX_OUTPUT) {
-								return updated.slice(-MAX_OUTPUT);
-							}
-							return updated;
-						});
-					},
-					onStderr: (data: string) => {
-						if (abortRef.current.signal.aborted) return;
-						lastStderrRef.current = data.trim() || lastStderrRef.current;
-						if (!trackOutputRef.current) return;
-						setOutput(prev => {
-							const updated = [...prev, `[stderr] ${data}`];
-							if (updated.length > MAX_OUTPUT) {
-								return updated.slice(-MAX_OUTPUT);
-							}
-							return updated;
-						});
-					},
-					onExit: (code: number | null) => {
-						// Flush any remaining buffered data for final token count
-						tokenAccRef.current.flush();
-						const finalAcc = tokenAccRef.current.getUsage();
-						if (!abortRef.current.signal.aborted) {
-							const base = tokenBaseRef.current;
-							publishTokenUsage(
-								{
-									input: (base.input || 0) + (finalAcc.input ?? 0) || null,
-									output: (base.output || 0) + (finalAcc.output ?? 0) || null,
-									cacheRead:
-										(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
-									cacheWrite:
-										(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
-									total:
-										(base.input || 0) +
-											(finalAcc.input ?? 0) +
-											(base.output || 0) +
-											(finalAcc.output ?? 0) || null,
-									contextSize: finalAcc.contextSize,
-								},
-								true,
-							);
-						}
-						// Persist this process's own tokens (not cumulative)
-						onExitTokensRef.current?.(finalAcc);
+					if (exitResolverRef.current) {
+						exitResolverRef.current();
+						exitResolverRef.current = null;
+					}
+					processRef.current = null;
 
-						// Resolve any pending kill promise
-						if (exitResolverRef.current) {
-							exitResolverRef.current();
-							exitResolverRef.current = null;
-						}
-						if (abortRef.current.signal.aborted) return;
-						processRef.current = null;
-
-						// Loop respawn: spawn next iteration if not terminal and the workflow
-						// actually started (tracker file exists). This prevents accidental
-						// "continue task" loops for non-workflow prompts.
-						// Never respawn on non-zero exit (process error) to avoid infinite loops.
-						const loopManager = loopManagerRef.current;
-						const loopConfig = workflow?.loop;
-						const canContinueLoop =
-							loopConfig &&
-							loopManager &&
-							code === 0 &&
-							fs.existsSync(loopManager.trackerPath) &&
-							!loopManager.isTerminal();
-						if (canContinueLoop) {
-							loopManager.incrementIteration();
-							spawn(buildContinuePrompt(loopConfig)).catch(() => {
-								loopManagerRef.current?.deactivate();
-								loopManagerRef.current = null;
-								if (!abortRef.current.signal.aborted) {
-									setIsRunning(false);
-								}
-							});
-							return;
-						}
-
-						// Loop reached terminal state — deactivate
-						if (loopManagerRef.current) {
-							if (
-								code === 0 &&
-								fs.existsSync(loopManagerRef.current.trackerPath) &&
-								loopManagerRef.current.isTerminal()
-							) {
-								cleanupTrackerFile(loopManagerRef.current.trackerPath);
-							}
-							loopManagerRef.current.deactivate();
-							loopManagerRef.current = null;
-						}
-
+					if (!abortRef.current.signal.aborted) {
 						setIsRunning(false);
-						if (trackOutputRef.current && code !== 0 && code !== null) {
-							setOutput(prev => [...prev, `[exit code: ${code}]`]);
+						if (trackOutputRef.current && exitCode !== 0 && exitCode !== null) {
+							setOutput(prev => [...prev, `[exit code: ${exitCode}]`]);
 						}
-						if (code !== null && code !== 0 && !reportedFailureRef.current) {
-							reportedFailureRef.current = true;
-							const stderrDetail = lastStderrRef.current
-								? ` Stderr: ${lastStderrRef.current}`
-								: '';
-							onLifecycleEventRef.current?.({
-								type: 'exit_nonzero',
-								code,
-								message: `Claude exited with code ${code}.${stderrDetail}`,
-								failureCode: inferFailureCodeFromMessage(lastStderrRef.current),
-							});
-						}
-					},
-					onError: (error: Error) => {
-						// Resolve any pending kill promise
-						if (exitResolverRef.current) {
-							exitResolverRef.current();
-							exitResolverRef.current = null;
-						}
-						if (abortRef.current.signal.aborted) return;
-						processRef.current = null;
-						setIsRunning(false);
-						if (!reportedFailureRef.current) {
-							reportedFailureRef.current = true;
-							onLifecycleEventRef.current?.({
-								type: 'spawn_error',
-								message: error.message,
-								failureCode:
-									extractFailureCode(error) ??
-									inferFailureCodeFromMessage(error.message),
-							});
-						}
-						if (!trackOutputRef.current) return;
-						setOutput(prev => [...prev, `[error] ${error.message}`]);
-					},
-				});
+					}
 
-				processRef.current = child;
-			} catch (error) {
-				if (exitResolverRef.current) {
-					exitResolverRef.current();
-					exitResolverRef.current = null;
-				}
-				if (abortRef.current.signal.aborted) return;
-				processRef.current = null;
-				setIsRunning(false);
-				if (!reportedFailureRef.current) {
-					reportedFailureRef.current = true;
-					onLifecycleEventRef.current?.({
-						type: 'spawn_error',
-						message:
-							error instanceof Error ? error.message : 'Unknown spawn failure',
-						failureCode:
-							extractFailureCode(error) ??
-							(error instanceof Error
-								? inferFailureCodeFromMessage(error.message)
-								: 'unknown'),
+					resolve({
+						exitCode,
+						error,
+						tokens: finalAcc,
+						streamMessage: messageAccumulator.getLastMessage(),
 					});
+				};
+
+				try {
+					const child = spawnClaude({
+						prompt,
+						projectDir,
+						instanceId,
+						sessionId: resolveClaudeSessionId(continuation),
+						isolation: mergeIsolation(
+							isolation,
+							pluginMcpConfig,
+							perCallIsolation,
+						),
+						env: workflow?.env,
+						...(verbose
+							? {
+									jqFilter: JQ_ASSISTANT_TEXT_FILTER,
+									onFilteredStdout: (data: string) => {
+										if (abortRef.current.signal.aborted) return;
+										if (!trackStreamingTextRef.current) return;
+										setStreamingText(prev => prev + data);
+									},
+									onJqStderr: (data: string) => {
+										if (abortRef.current.signal.aborted) return;
+										if (!trackOutputRef.current) return;
+										setOutput(prev => [...prev, `[jq] ${data}`]);
+									},
+								}
+							: {}),
+						onStdout: (data: string) => {
+							if (abortRef.current.signal.aborted) return;
+							tokenAccRef.current.feed(data);
+							messageAccumulator.feed(data);
+							const acc = tokenAccRef.current.getUsage();
+							const base = tokenBaseRef.current;
+							publishTokenUsage({
+								input: (base.input || 0) + (acc.input ?? 0) || null,
+								output: (base.output || 0) + (acc.output ?? 0) || null,
+								cacheRead: (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null,
+								cacheWrite:
+									(base.cacheWrite || 0) + (acc.cacheWrite ?? 0) || null,
+								total:
+									(base.input || 0) +
+										(acc.input ?? 0) +
+										(base.output || 0) +
+										(acc.output ?? 0) || null,
+								contextSize: acc.contextSize,
+								contextWindowSize: acc.contextWindowSize,
+							});
+
+							if (!trackOutputRef.current) return;
+							setOutput(prev => {
+								const updated = [...prev, data];
+								return updated.length > MAX_OUTPUT
+									? updated.slice(-MAX_OUTPUT)
+									: updated;
+							});
+						},
+						onStderr: (data: string) => {
+							if (abortRef.current.signal.aborted) return;
+							// Keep the first stderr chunk as the root cause.
+							// Later chunks (e.g. "Hook cancelled") are cascading failures.
+							if (!lastStderrRef.current) {
+								lastStderrRef.current = data.trim();
+							}
+							if (!trackOutputRef.current) return;
+							setOutput(prev => {
+								const updated = [...prev, `[stderr] ${data}`];
+								return updated.length > MAX_OUTPUT
+									? updated.slice(-MAX_OUTPUT)
+									: updated;
+							});
+						},
+						onExit: (code: number | null) => {
+							if (code !== null && code !== 0 && !reportedFailureRef.current) {
+								reportedFailureRef.current = true;
+								const stderrDetail = lastStderrRef.current
+									? ` Stderr: ${lastStderrRef.current}`
+									: '';
+								onLifecycleEventRef.current?.({
+									type: 'exit_nonzero',
+									code,
+									message: `Claude exited with code ${code}.${stderrDetail}`,
+									failureCode: inferFailureCodeFromMessage(
+										lastStderrRef.current,
+									),
+								});
+							}
+							finalize(code, null);
+						},
+						onError: (error: Error) => {
+							if (!reportedFailureRef.current) {
+								reportedFailureRef.current = true;
+								onLifecycleEventRef.current?.({
+									type: 'spawn_error',
+									message: error.message,
+									failureCode:
+										extractFailureCode(error) ??
+										inferFailureCodeFromMessage(error.message),
+								});
+							}
+							if (!abortRef.current.signal.aborted && trackOutputRef.current) {
+								setOutput(prev => [...prev, `[error] ${error.message}`]);
+							}
+							finalize(null, error);
+						},
+					});
+
+					processRef.current = child;
+				} catch (error) {
+					const resolvedError =
+						error instanceof Error ? error : new Error('Unknown spawn failure');
+					if (!reportedFailureRef.current) {
+						reportedFailureRef.current = true;
+						onLifecycleEventRef.current?.({
+							type: 'spawn_error',
+							message: resolvedError.message,
+							failureCode:
+								extractFailureCode(error) ??
+								inferFailureCodeFromMessage(resolvedError.message) ??
+								'unknown',
+						});
+					}
+					if (!abortRef.current.signal.aborted && trackOutputRef.current) {
+						setOutput(prev => [...prev, `[error] ${resolvedError.message}`]);
+					}
+					finalize(null, resolvedError);
 				}
-				if (!trackOutputRef.current) return;
-				setOutput(prev => [
-					...prev,
-					`[error] ${error instanceof Error ? error.message : 'Unknown spawn failure'}`,
-				]);
-			}
+			});
 		},
 		[
 			projectDir,
@@ -570,11 +487,6 @@ export function useClaudeProcess(
 		return () => {
 			abortRef.current.abort();
 			clearTokenUsageTimer();
-			if (loopManagerRef.current) {
-				cleanupTrackerFile(loopManagerRef.current.trackerPath);
-				loopManagerRef.current.deactivate();
-				loopManagerRef.current = null;
-			}
 			if (processRef.current) {
 				processRef.current.kill();
 				processRef.current = null;

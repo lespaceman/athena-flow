@@ -42,8 +42,8 @@ export const darkTheme: Theme = {
 
 	// ── Feed ────────────────────────────────────────────────
 	feed: {
-		headerLabel: '#484f58',
-		stripeBackground: '#070e16',
+		headerLabel: '#6e7681',
+		stripeBackground: '#0d1521',
 	},
 
 	// ── User messages ───────────────────────────────────────

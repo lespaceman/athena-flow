@@ -73,7 +73,8 @@ import {fit} from '../../shared/utils/format';
 import {copyToClipboard} from '../../shared/utils/clipboard';
 import {extractYankContent} from '../../ui/utils/yankContent';
 import {detectHarness} from '../../shared/utils/detectHarness';
-import type {WorkflowConfig} from '../../core/workflows/types';
+import type {WorkflowConfig, WorkflowPlan} from '../../core/workflows';
+import type {TurnContinuation} from '../../core/runtime/process';
 import SetupWizard from '../../setup/SetupWizard';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
 import {useRuntimeSelectors} from './useRuntimeSelectors';
@@ -128,6 +129,7 @@ type Props = {
 	showSessionPicker?: boolean;
 	workflowRef?: string;
 	workflow?: WorkflowConfig;
+	workflowPlan?: WorkflowPlan;
 	pluginFlags?: string[];
 	isolationPreset: IsolationPreset;
 	ascii?: boolean;
@@ -159,6 +161,7 @@ const EMPTY_SESSION_METRICS: SessionMetrics = {
 		cacheWrite: null,
 		total: null,
 		contextSize: null,
+		contextWindowSize: null,
 	},
 	failures: 0,
 	blocks: 0,
@@ -230,6 +233,7 @@ function AppContent({
 	initialTelemetryDiagnosticsConsent,
 	workflowRef,
 	workflow,
+	workflowPlan,
 	ascii,
 }: Omit<
 	Props,
@@ -419,7 +423,7 @@ function AppContent({
 	);
 
 	const {
-		spawn: spawnHarness,
+		startTurn: spawnHarness,
 		isRunning: isHarnessRunning,
 		interrupt,
 		tokenUsage,
@@ -431,6 +435,7 @@ function AppContent({
 		pluginMcpConfig,
 		verbose,
 		workflow,
+		workflowPlan,
 		options: {
 			initialTokens: restoredTokens,
 			onExitTokens,
@@ -724,15 +729,16 @@ function AppContent({
 					return;
 				}
 				const sessionToResume = currentSessionId ?? initialSessionRef.current;
+				const continuation: TurnContinuation = sessionToResume
+					? {mode: 'resume', handle: sessionToResume}
+					: {mode: 'fresh'};
 				startupAttemptRef.current = {
 					feedEventCountAtSpawn: feedEvents.length,
 				};
-				spawnHarness(result.text, sessionToResume ?? undefined).catch(
-					(err: unknown) => {
-						startupAttemptRef.current = null;
-						console.error('[athena] spawn failed:', err);
-					},
-				);
+				spawnHarness(result.text, continuation).catch((err: unknown) => {
+					startupAttemptRef.current = null;
+					console.error('[athena] spawn failed:', err);
+				});
 				// Clear intent after first use — subsequent prompts use currentSessionId from mapper
 				if (initialSessionRef.current) {
 					initialSessionRef.current = undefined;
@@ -789,12 +795,15 @@ function AppContent({
 						startupAttemptRef.current = {
 							feedEventCountAtSpawn: feedEvents.length,
 						};
-						return spawnHarness(prompt, sessionId, configOverride).catch(
-							(err: unknown) => {
+						const continuation: TurnContinuation = sessionId
+							? {mode: 'resume', handle: sessionId}
+							: {mode: 'fresh'};
+						return spawnHarness(prompt, continuation, configOverride)
+							.then(() => undefined)
+							.catch((err: unknown) => {
 								startupAttemptRef.current = null;
 								throw err;
-							},
-						);
+							});
 					},
 					currentSessionId: currentSessionId ?? undefined,
 				},
@@ -1149,7 +1158,7 @@ function AppContent({
 			now: 0,
 			workflowRef,
 			contextUsed: tokenUsage.contextSize,
-			contextMax: 200000,
+			contextMax: tokenUsage.contextWindowSize,
 			sessionIndex: sessionScope.current,
 			sessionTotal: sessionScope.total,
 			harness,
@@ -1170,6 +1179,7 @@ function AppContent({
 		feedNav.tailFollow,
 		workflowRef,
 		tokenUsage.contextSize,
+		tokenUsage.contextWindowSize,
 		sessionScope,
 		harness,
 		startupFailure?.message,
@@ -1789,6 +1799,7 @@ export default function App({
 	showSetup,
 	workflowRef,
 	workflow,
+	workflowPlan,
 	pluginFlags,
 	isolationPreset,
 	ascii,
@@ -1809,6 +1820,7 @@ export default function App({
 		modelName: string | null;
 		workflowRef?: string;
 		workflow?: WorkflowConfig;
+		workflowPlan?: WorkflowPlan;
 	}>({
 		harness,
 		isolation,
@@ -1816,6 +1828,7 @@ export default function App({
 		modelName,
 		workflowRef,
 		workflow,
+		workflowPlan,
 	});
 	const inputHistory = useInputHistory(projectDir);
 	let initialPhase: AppPhase;
@@ -1960,6 +1973,7 @@ export default function App({
 					modelName: refreshed.modelName,
 					workflowRef: refreshed.workflowRef,
 					workflow: refreshed.workflow,
+					workflowPlan: refreshed.workflowPlan,
 				});
 			} catch (error) {
 				console.error(`Error: ${(error as Error).message}`);
@@ -2019,6 +2033,7 @@ export default function App({
 				projectDir={projectDir}
 				instanceId={instanceId}
 				harness={runtimeState.harness}
+				workflow={runtimeState.workflow}
 				allowedTools={runtimeState.isolation?.allowedTools}
 				athenaSessionId={athenaSessionId}
 			>
@@ -2046,6 +2061,7 @@ export default function App({
 					}}
 					workflowRef={runtimeState.workflowRef}
 					workflow={runtimeState.workflow}
+					workflowPlan={runtimeState.workflowPlan}
 					ascii={ascii}
 					initialTelemetryDiagnosticsConsent={
 						initialTelemetryDiagnosticsConsent

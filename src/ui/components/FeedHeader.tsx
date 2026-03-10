@@ -19,12 +19,10 @@ export function formatFeedHeaderLine(
 	const style = (s: string) => chalk.hex(headerColor)(s);
 	let line = ' ';
 	line += style(fit('TIME', 5));
-	line += ' '.repeat(cols.timeEventGapW);
-	line += style(fit('EVENT', 12));
 	line += ' '.repeat(cols.gapW);
 	line += style(fit('ACTOR', 10));
 	line += ' '.repeat(cols.gapW);
-	line += style(fit('TOOL', cols.toolW));
+	line += style(fit('ACTION', cols.toolW));
 	line += ' '.repeat(cols.gapW);
 	line += style(fit('DETAILS', cols.detailsW));
 	if (cols.resultW > 0) {
@@ -45,17 +43,13 @@ function FeedHeaderImpl({cols, theme}: Props) {
 			<Box width={5} flexShrink={0}>
 				<Text wrap="truncate-end">{style(fit('TIME', 5))}</Text>
 			</Box>
-			<Box width={cols.timeEventGapW} flexShrink={0} />
-			<Box width={12} flexShrink={0}>
-				<Text wrap="truncate-end">{style(fit('EVENT', 12))}</Text>
-			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>
 				<Text wrap="truncate-end">{style(fit('ACTOR', 10))}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.toolW} flexShrink={0}>
-				<Text wrap="truncate-end">{style(fit('TOOL', cols.toolW))}</Text>
+				<Text wrap="truncate-end">{style(fit('ACTION', cols.toolW))}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={cols.detailsW} flexShrink={0}>

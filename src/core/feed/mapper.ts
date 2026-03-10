@@ -23,6 +23,9 @@ export type FeedMapper = {
 };
 
 export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
+	const MAX_STREAMED_TOOL_OUTPUT_CHARS = 64_000;
+	const STREAMED_TOOL_OUTPUT_TRUNCATED_NOTICE =
+		'[streaming output truncated to recent content]\n';
 	let currentSession: Session | null = null;
 	let currentRun: Run | null = null;
 	const actors = new ActorRegistry();
@@ -39,6 +42,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 	// first new event has empty indexes, which is benign — no decisions can arrive
 	// for events from the old adapter session.
 	const toolPreIndex = new Map<string, string>(); // tool_use_id → feed event_id
+	const toolDeltaTextByUseId = new Map<string, string>(); // tool_use_id → cumulative streamed output
+	const truncatedToolDeltaUseIds = new Set<string>();
 	const eventIdByRequestId = new Map<string, string>(); // runtime id → feed event_id
 	const eventKindByRequestId = new Map<string, string>(); // runtime id → feed kind
 
@@ -106,6 +111,28 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 	function nextSeq(): number {
 		return ++seq;
+	}
+
+	function appendToolDelta(
+		toolUseId: string | undefined,
+		chunk: string,
+	): string {
+		if (!toolUseId) {
+			return chunk;
+		}
+
+		const cumulative = `${toolDeltaTextByUseId.get(toolUseId) ?? ''}${chunk}`;
+		if (cumulative.length <= MAX_STREAMED_TOOL_OUTPUT_CHARS) {
+			toolDeltaTextByUseId.set(toolUseId, cumulative);
+			return truncatedToolDeltaUseIds.has(toolUseId)
+				? `${STREAMED_TOOL_OUTPUT_TRUNCATED_NOTICE}${cumulative}`
+				: cumulative;
+		}
+
+		const tail = cumulative.slice(-MAX_STREAMED_TOOL_OUTPUT_CHARS);
+		toolDeltaTextByUseId.set(toolUseId, tail);
+		truncatedToolDeltaUseIds.add(toolUseId);
+		return `${STREAMED_TOOL_OUTPUT_TRUNCATED_NOTICE}${tail}`;
 	}
 
 	function getRunId(): string {
@@ -193,6 +220,8 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 		runSeq++;
 		toolPreIndex.clear();
+		toolDeltaTextByUseId.clear();
+		truncatedToolDeltaUseIds.clear();
 		eventIdByRequestId.clear();
 		eventKindByRequestId.clear();
 		activeSubagentStack.length = 0;
@@ -227,6 +256,14 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 	const activeSubagentStack: string[] = []; // LIFO stack of active subagent actor IDs
 	let lastTaskDescription: string | undefined;
 	const subagentDescriptions = new Map<string, string>(); // agent_id → description
+	const pendingMessages = new Map<
+		string,
+		{
+			message: string;
+			actorId: string;
+			scope: 'root' | 'subagent';
+		}
+	>();
 	const transcriptReader = createTranscriptReader();
 
 	/**
@@ -312,6 +349,77 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		};
 		const eventKind = event.kind;
 		const results: FeedEvent[] = [];
+		const resolveMessageScope = (): {
+			actorId: string;
+			scope: 'root' | 'subagent';
+		} => {
+			const actorId = resolveToolActor();
+			return {
+				actorId,
+				scope: activeSubagentStack.length > 0 ? 'subagent' : 'root',
+			};
+		};
+		const appendPendingMessageDelta = (
+			itemId: string | undefined,
+			delta: string,
+		): void => {
+			if (!delta) return;
+			const key = itemId ?? '__legacy_root__';
+			const existing = pendingMessages.get(key);
+			if (existing) {
+				existing.message += delta;
+				return;
+			}
+			const scope = resolveMessageScope();
+			pendingMessages.set(key, {
+				message: delta,
+				actorId: scope.actorId,
+				scope: scope.scope,
+			});
+		};
+		const emitCompletedMessage = (
+			itemId: string | undefined,
+			messageText: string | undefined,
+		): void => {
+			const key = itemId ?? '__legacy_root__';
+			const pending = pendingMessages.get(key);
+			const message = messageText ?? pending?.message ?? '';
+			if (!message) return;
+			const scope = pending ?? resolveMessageScope();
+			results.push(
+				makeEvent(
+					'agent.message',
+					'info',
+					scope.actorId,
+					{
+						message,
+						source: 'hook',
+						scope: scope.scope,
+					} satisfies import('./types').AgentMessageData,
+					event,
+				),
+			);
+			pendingMessages.delete(key);
+		};
+		const flushPendingMessages = (): void => {
+			for (const [itemId, pending] of pendingMessages) {
+				if (!pending.message) continue;
+				results.push(
+					makeEvent(
+						'agent.message',
+						'info',
+						pending.actorId,
+						{
+							message: pending.message,
+							source: 'hook',
+							scope: pending.scope,
+						} satisfies import('./types').AgentMessageData,
+						event,
+					),
+				);
+				pendingMessages.delete(itemId);
+			}
+		};
 
 		// Fallback: emit agent.message from last_assistant_message when transcript yields nothing
 		function emitFallbackMessage(
@@ -357,6 +465,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 		switch (eventKind) {
 			case 'session.start': {
+				pendingMessages.clear();
 				const source = readString(d['source']) ?? 'startup';
 				currentSession = {
 					session_id: event.sessionId,
@@ -387,6 +496,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			}
 
 			case 'session.end': {
+				pendingMessages.clear();
 				if (currentRun) {
 					const closeEvt = closeRun(event, 'completed');
 					if (closeEvt) results.push(closeEvt);
@@ -431,6 +541,115 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
+			case 'turn.start': {
+				pendingMessages.clear();
+				const prompt = readString(d['prompt']);
+				results.push(
+					...ensureRunArray(
+						event,
+						prompt ? 'user_prompt_submit' : 'other',
+						prompt?.slice(0, 80),
+					),
+				);
+				if (prompt) {
+					results.push(
+						makeEvent(
+							'user.prompt',
+							'info',
+							'user',
+							{
+								prompt,
+								cwd: event.context.cwd,
+								permission_mode: event.context.permissionMode,
+							} satisfies import('./types').UserPromptData,
+							event,
+						),
+					);
+				}
+				break;
+			}
+
+			case 'message.delta': {
+				appendPendingMessageDelta(
+					readString(d['item_id']),
+					readString(d['delta']) ?? '',
+				);
+				break;
+			}
+
+			case 'message.complete': {
+				results.push(...ensureRunArray(event));
+				emitCompletedMessage(
+					readString(d['item_id']),
+					readString(d['message']),
+				);
+				break;
+			}
+
+			case 'turn.complete': {
+				if (!currentRun) {
+					pendingMessages.clear();
+					break;
+				}
+				const stopEvt = makeEvent(
+					'stop.request',
+					'info',
+					'agent:root',
+					{
+						stop_hook_active: false,
+					} satisfies import('./types').StopRequestData,
+					event,
+				);
+				results.push(stopEvt);
+				const messageCountBeforeFlush = results.length;
+				flushPendingMessages();
+				if (results.length > messageCountBeforeFlush) {
+					for (let i = messageCountBeforeFlush; i < results.length; i++) {
+						results[i]!.cause = {
+							...(results[i]!.cause ?? {}),
+							parent_event_id: stopEvt.event_id,
+						};
+					}
+				}
+				const closeEvt = closeRun(event, 'completed');
+				if (closeEvt) {
+					results.push(closeEvt);
+				}
+				break;
+			}
+
+			case 'plan.delta':
+			case 'reasoning.delta':
+			case 'usage.update': {
+				break;
+			}
+
+			case 'tool.delta': {
+				results.push(...ensureRunArray(event));
+				const toolUseId = resolveToolUseId(event, d);
+				const toolName =
+					event.toolName ?? readString(d['tool_name']) ?? 'Unknown';
+				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
+				const chunk = readString(d['delta']) ?? '';
+				const cumulative = appendToolDelta(toolUseId, chunk);
+				results.push(
+					makeEvent(
+						'tool.delta',
+						'info',
+						resolveToolActor(),
+						{
+							tool_name: toolName,
+							tool_input: readObject(d['tool_input']),
+							tool_use_id: toolUseId,
+							delta: cumulative,
+						} satisfies import('./types').ToolDeltaData,
+						event,
+						toolUseCause(toolUseId, parentId),
+					),
+				);
+				break;
+			}
+
 			case 'tool.pre': {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_uses++;
@@ -468,6 +687,10 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			case 'tool.post': {
 				results.push(...ensureRunArray(event));
 				const toolUseId = resolveToolUseId(event, d);
+				if (toolUseId) {
+					toolDeltaTextByUseId.delete(toolUseId);
+					truncatedToolDeltaUseIds.delete(toolUseId);
+				}
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
 				const toolName =
 					event.toolName ?? readString(d['tool_name']) ?? 'Unknown';
@@ -493,6 +716,10 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				results.push(...ensureRunArray(event));
 				if (currentRun) currentRun.counters.tool_failures++;
 				const toolUseId = resolveToolUseId(event, d);
+				if (toolUseId) {
+					toolDeltaTextByUseId.delete(toolUseId);
+					truncatedToolDeltaUseIds.delete(toolUseId);
+				}
 				const parentId = toolUseId ? toolPreIndex.get(toolUseId) : undefined;
 				const toolName =
 					event.toolName ?? readString(d['tool_name']) ?? 'Unknown';

@@ -1,18 +1,21 @@
 import type {AthenaHarness} from '../../infra/plugins/config';
-import type {WorkflowConfig} from '../../core/workflows/types';
+import type {WorkflowConfig, WorkflowPlan} from '../../core/workflows';
 import type {
-	HarnessProcess,
 	HarnessProcessConfig,
-	HarnessProcessOptions,
 	HarnessProcessOverride,
 	HarnessProcessPreset,
+	HarnessProcessOptions,
 } from '../../core/runtime/process';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
-import {resolveHarnessProcessProfile} from '../../harnesses/processProfiles';
+import type {UseSessionControllerResult} from '../../harnesses/contracts/session';
+import {resolveHarnessAdapter} from '../../harnesses/registry';
+import {useWorkflowSessionController} from '../../core/workflows/useWorkflowSessionController';
+import {useRuntime} from '../providers/RuntimeProvider';
 
-export type HarnessProcessResult = HarnessProcess<HarnessProcessOverride> & {
-	tokenUsage: TokenUsage;
-};
+export type HarnessProcessResult =
+	UseSessionControllerResult<HarnessProcessOverride> & {
+		tokenUsage: TokenUsage;
+	};
 
 export type UseHarnessProcessInput = {
 	harness: AthenaHarness;
@@ -22,32 +25,33 @@ export type UseHarnessProcessInput = {
 	pluginMcpConfig?: string;
 	verbose?: boolean;
 	workflow?: WorkflowConfig;
+	workflowPlan?: WorkflowPlan;
 	options?: HarnessProcessOptions;
 };
 
 export function useHarnessProcess(
 	input: UseHarnessProcessInput,
 ): HarnessProcessResult {
-	const processProfile = resolveHarnessProcessProfile(input.harness);
-	const process = processProfile.useProcess(
-		input.projectDir,
-		input.instanceId,
-		input.isolation,
-		input.pluginMcpConfig,
-		input.verbose,
-		input.workflow,
-		{
-			...input.options,
-			tokenParserFactory: processProfile.tokenParserFactory,
-		},
-	);
+	const runtime = useRuntime();
+	const adapter = resolveHarnessAdapter(input.harness);
+	const controller = adapter.useSessionController({
+		projectDir: input.projectDir,
+		instanceId: input.instanceId,
+		processConfig: input.isolation,
+		pluginMcpConfig: input.pluginMcpConfig,
+		verbose: input.verbose,
+		workflow: input.workflow,
+		workflowPlan: input.workflowPlan,
+		options: input.options,
+		runtime,
+	});
+	const workflowController = useWorkflowSessionController(controller, {
+		projectDir: input.projectDir,
+		workflow: input.workflow,
+	});
 
 	return {
-		spawn: process.spawn,
-		isRunning: process.isRunning,
-		interrupt: process.sendInterrupt,
-		kill: process.kill,
-		usage: process.tokenUsage,
-		tokenUsage: process.tokenUsage,
+		...workflowController,
+		tokenUsage: workflowController.usage,
 	};
 }

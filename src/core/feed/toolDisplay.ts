@@ -911,6 +911,7 @@ export function resolveEventDisplay(event: FeedEvent): {
 			};
 
 		case 'setup':
+		case 'tool.delta':
 		case 'tool.pre':
 		case 'tool.post':
 		case 'tool.failure':
@@ -972,6 +973,7 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'run.start':
 		case 'run.end':
 		case 'user.prompt':
+		case 'tool.delta':
 		case 'tool.pre':
 		case 'tool.post':
 		case 'tool.failure':

@@ -2,11 +2,9 @@
  * @vitest-environment jsdom
  */
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
-import {renderHook, act} from '@testing-library/react';
+import {renderHook, act, waitFor} from '@testing-library/react';
 import {useClaudeProcess} from './useProcess';
 import * as spawnModule from './spawn';
-import * as workflowModule from '../../../core/workflows';
-import fs from 'node:fs';
 import {EventEmitter} from 'node:events';
 import type {ChildProcess} from 'node:child_process';
 import type {WorkflowConfig} from '../../../core/workflows/types';
@@ -20,13 +18,6 @@ function createMockChildProcess(): ChildProcess {
 
 vi.mock('./spawn', () => ({
 	spawnClaude: vi.fn(),
-}));
-
-vi.mock('../../../core/workflows', () => ({
-	applyPromptTemplate: vi.fn((_tpl: string, prompt: string) => prompt),
-	createLoopManager: vi.fn(),
-	buildContinuePrompt: vi.fn(() => 'Continue the task.'),
-	cleanupTrackerFile: vi.fn(),
 }));
 
 describe('useClaudeProcess', () => {
@@ -62,6 +53,52 @@ describe('useClaudeProcess', () => {
 		vi.clearAllMocks();
 	});
 
+	async function startSpawn(
+		result: {current: ReturnType<typeof useClaudeProcess>},
+		prompt: string,
+		...args: Parameters<ReturnType<typeof useClaudeProcess>['spawn']> extends [
+			string,
+			...infer Rest,
+		]
+			? Rest
+			: never
+	): Promise<{
+		spawnPromise: ReturnType<typeof useClaudeProcess>['spawn'];
+	}> {
+		const priorSpawnCalls = vi.mocked(spawnModule.spawnClaude).mock.calls
+			.length;
+		let spawnPromise!: ReturnType<typeof result.current.spawn>;
+		await act(async () => {
+			spawnPromise = result.current.spawn(prompt, ...args);
+		});
+		await waitFor(() => {
+			expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(
+				priorSpawnCalls + 1,
+			);
+		});
+		return {spawnPromise};
+	}
+
+	async function completeSpawn(
+		spawnPromise: Promise<unknown>,
+		code: number | null = 0,
+	): Promise<void> {
+		await act(async () => {
+			capturedCallbacks.onExit?.(code);
+			await spawnPromise;
+		});
+	}
+
+	async function failSpawn(
+		spawnPromise: Promise<unknown>,
+		error: Error,
+	): Promise<void> {
+		await act(async () => {
+			capturedCallbacks.onError?.(error);
+			await spawnPromise;
+		});
+	}
+
 	it('should initialize with isRunning false', () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
@@ -83,11 +120,10 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
 		expect(result.current.isRunning).toBe(true);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should call spawnClaude with correct arguments including instanceId', async () => {
@@ -95,9 +131,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test/dir', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('my prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'my prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -106,6 +140,7 @@ describe('useClaudeProcess', () => {
 				instanceId: TEST_INSTANCE_ID,
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should use injected token parser strategy when provided', async () => {
@@ -120,6 +155,7 @@ describe('useClaudeProcess', () => {
 				cacheWrite: null,
 				total: null,
 				contextSize: null,
+				contextWindowSize: null,
 			})),
 		};
 		const tokenParserFactory = vi.fn(() => parser);
@@ -138,9 +174,7 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test parser');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test parser');
 
 		expect(tokenParserFactory).toHaveBeenCalled();
 		expect(parser.reset).toHaveBeenCalled();
@@ -150,9 +184,7 @@ describe('useClaudeProcess', () => {
 		});
 		expect(parser.feed).toHaveBeenCalledWith('{"type":"message"}\n');
 
-		act(() => {
-			capturedCallbacks.onExit?.(0);
-		});
+		await completeSpawn(spawnPromise);
 		expect(parser.flush).toHaveBeenCalled();
 	});
 
@@ -168,6 +200,7 @@ describe('useClaudeProcess', () => {
 				cacheWrite: null,
 				total: null,
 				contextSize: null,
+				contextWindowSize: null,
 			})),
 		};
 
@@ -188,15 +221,14 @@ describe('useClaudeProcess', () => {
 
 		const initialTokenUsage = result.current.tokenUsage;
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		act(() => {
 			capturedCallbacks.onStdout?.('{"type":"message"}\n');
 		});
 
 		expect(result.current.tokenUsage).toBe(initialTokenUsage);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should add stdout data to output', async () => {
@@ -204,9 +236,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		act(() => {
 			capturedCallbacks.onStdout?.('line 1');
@@ -217,6 +247,7 @@ describe('useClaudeProcess', () => {
 		});
 
 		expect(result.current.output).toEqual(['line 1', 'line 2']);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should add stderr data to output with prefix', async () => {
@@ -224,15 +255,14 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		act(() => {
 			capturedCallbacks.onStderr?.('error message');
 		});
 
 		expect(result.current.output).toEqual(['[stderr] error message']);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('reports preflight spawn errors without leaving the process running', async () => {
@@ -257,8 +287,9 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
+		const {spawnPromise} = await startSpawn(result, 'test');
 		await act(async () => {
-			await result.current.spawn('test');
+			await spawnPromise;
 		});
 
 		expect(result.current.isRunning).toBe(false);
@@ -274,15 +305,11 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		expect(result.current.isRunning).toBe(true);
 
-		act(() => {
-			capturedCallbacks.onExit?.(0);
-		});
+		await completeSpawn(spawnPromise);
 
 		expect(result.current.isRunning).toBe(false);
 	});
@@ -292,9 +319,8 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test1');
-		});
+		const {spawnPromise: firstSpawnPromise} = await startSpawn(result, 'test1');
+		const firstOnExit = capturedCallbacks.onExit;
 
 		act(() => {
 			capturedCallbacks.onStdout?.('old output');
@@ -302,14 +328,20 @@ describe('useClaudeProcess', () => {
 
 		expect(result.current.output).toEqual(['old output']);
 
-		// Trigger exit so spawn can complete kill
-		await act(async () => {
-			const spawnPromise = result.current.spawn('test2');
-			capturedCallbacks.onExit?.(0);
-			await spawnPromise;
+		let secondSpawnPromise!: ReturnType<typeof result.current.spawn>;
+		act(() => {
+			secondSpawnPromise = result.current.spawn('test2');
 		});
+		act(() => {
+			firstOnExit?.(0);
+		});
+		await waitFor(() => {
+			expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(2);
+		});
+		await completeSpawn(secondSpawnPromise);
 
 		expect(result.current.output).toEqual([]);
+		await firstSpawnPromise;
 	});
 
 	it('should kill existing process when spawning new one and wait for exit', async () => {
@@ -317,19 +349,23 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test1');
-		});
+		const {spawnPromise: firstSpawnPromise} = await startSpawn(result, 'test1');
+		const firstOnExit = capturedCallbacks.onExit;
 
-		// Spawn new process - kill will wait for exit
-		await act(async () => {
-			const spawnPromise = result.current.spawn('test2');
-			// Simulate process exit
-			capturedCallbacks.onExit?.(0);
-			await spawnPromise;
+		let secondSpawnPromise!: ReturnType<typeof result.current.spawn>;
+		act(() => {
+			secondSpawnPromise = result.current.spawn('test2');
 		});
+		act(() => {
+			firstOnExit?.(0);
+		});
+		await waitFor(() => {
+			expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(2);
+		});
+		await completeSpawn(secondSpawnPromise);
 
 		expect(mockProcess.kill).toHaveBeenCalled();
+		await firstSpawnPromise;
 	});
 
 	it('should kill process when kill is called and wait for exit', async () => {
@@ -337,9 +373,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		await startSpawn(result, 'test');
 
 		await act(async () => {
 			const killPromise = result.current.kill();
@@ -370,11 +404,11 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		unmount();
+		capturedCallbacks.onExit?.(0);
+		await spawnPromise;
 
 		expect(mockProcess.kill).toHaveBeenCalled();
 	});
@@ -384,9 +418,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		unmount();
 
@@ -396,6 +428,7 @@ describe('useClaudeProcess', () => {
 			capturedCallbacks.onStderr?.('error after unmount');
 			capturedCallbacks.onExit?.(0);
 		}).not.toThrow();
+		await spawnPromise;
 	});
 
 	it('should handle spawn error', async () => {
@@ -403,13 +436,9 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
-		act(() => {
-			capturedCallbacks.onError?.(new Error('spawn claude ENOENT'));
-		});
+		await failSpawn(spawnPromise, new Error('spawn claude ENOENT'));
 
 		expect(result.current.isRunning).toBe(false);
 		expect(result.current.output).toContain('[error] spawn claude ENOENT');
@@ -432,13 +461,9 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
-		act(() => {
-			capturedCallbacks.onError?.(new Error('spawn claude ENOENT'));
-		});
+		await failSpawn(spawnPromise, new Error('spawn claude ENOENT'));
 
 		expect(onLifecycleEvent).toHaveBeenCalledWith({
 			type: 'spawn_error',
@@ -451,13 +476,8 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
-
-		act(() => {
-			capturedCallbacks.onExit?.(1);
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
+		await completeSpawn(spawnPromise, 1);
 
 		expect(result.current.isRunning).toBe(false);
 		expect(result.current.output).toContain('[exit code: 1]');
@@ -480,13 +500,12 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
-		act(() => {
+		await act(async () => {
 			capturedCallbacks.onStderr?.('permission denied');
 			capturedCallbacks.onExit?.(1);
+			await spawnPromise;
 		});
 
 		expect(onLifecycleEvent).toHaveBeenCalledWith({
@@ -497,18 +516,50 @@ describe('useClaudeProcess', () => {
 		expect(result.current.isRunning).toBe(false);
 	});
 
+	it('reports first stderr as root cause when multiple stderr chunks arrive before exit', async () => {
+		const onLifecycleEvent = vi.fn();
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				undefined,
+				undefined,
+				false,
+				undefined,
+				{
+					trackOutput: false,
+					onLifecycleEvent,
+				},
+			),
+		);
+
+		const {spawnPromise} = await startSpawn(result, 'test');
+
+		await act(async () => {
+			capturedCallbacks.onStderr?.('API authentication failed');
+			capturedCallbacks.onStderr?.(
+				"SessionEnd hook ['node' 'hook-forwarder.js'] failed: Hook cancelled",
+			);
+			capturedCallbacks.onExit?.(1);
+			await spawnPromise;
+		});
+
+		expect(onLifecycleEvent).toHaveBeenCalledWith(
+			expect.objectContaining({
+				type: 'exit_nonzero',
+				code: 1,
+				message: 'Claude exited with code 1. Stderr: API authentication failed',
+			}),
+		);
+	});
+
 	it('should not log zero exit code', async () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
-
-		act(() => {
-			capturedCallbacks.onExit?.(0);
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
+		await completeSpawn(spawnPromise, 0);
 
 		expect(result.current.output).not.toContain('[exit code: 0]');
 	});
@@ -518,9 +569,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		// Add more than MAX_OUTPUT (1000) lines
 		act(() => {
@@ -533,16 +582,15 @@ describe('useClaudeProcess', () => {
 		expect(result.current.output.length).toBe(1000);
 		// Should keep the most recent lines
 		expect(result.current.output[999]).toBe('line 1099');
+		await completeSpawn(spawnPromise);
 	});
 
-	it('should not pass sessionId to spawnClaude when not provided', async () => {
+	it('should start a fresh Claude turn when no continuation is provided', async () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('my prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'my prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -552,15 +600,17 @@ describe('useClaudeProcess', () => {
 				sessionId: undefined,
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
-	it('should pass sessionId to spawnClaude when provided', async () => {
+	it('should resume Claude when an explicit continuation handle is provided', async () => {
 		const {result} = renderHook(() =>
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('my prompt', 'abc-123-session');
+		const {spawnPromise} = await startSpawn(result, 'my prompt', {
+			mode: 'resume',
+			handle: 'abc-123-session',
 		});
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
@@ -571,6 +621,7 @@ describe('useClaudeProcess', () => {
 				sessionId: 'abc-123-session',
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should merge pluginMcpConfig into isolation for every spawn', async () => {
@@ -583,9 +634,7 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -594,6 +643,7 @@ describe('useClaudeProcess', () => {
 				}),
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should keep pluginMcpConfig over per-command mcpConfig override', async () => {
@@ -606,10 +656,8 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt', undefined, {
-				mcpConfig: '/per-command/mcp.json',
-			});
+		const {spawnPromise} = await startSpawn(result, 'test prompt', undefined, {
+			mcpConfig: '/per-command/mcp.json',
 		});
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
@@ -619,6 +667,7 @@ describe('useClaudeProcess', () => {
 				}),
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should not include pluginMcpConfig when not provided', async () => {
@@ -626,15 +675,14 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID, 'strict'),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
 				isolation: 'strict',
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should initialize streamingText as empty string', () => {
@@ -651,12 +699,11 @@ describe('useClaudeProcess', () => {
 				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test');
-			});
+			const {spawnPromise} = await startSpawn(result, 'test');
 
 			expect(capturedOptions.jqFilter).toBeDefined();
 			expect(typeof capturedOptions.jqFilter).toBe('string');
+			await completeSpawn(spawnPromise);
 		});
 
 		it('should not pass jqFilter when debug is false', async () => {
@@ -670,11 +717,10 @@ describe('useClaudeProcess', () => {
 				),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test');
-			});
+			const {spawnPromise} = await startSpawn(result, 'test');
 
 			expect(capturedOptions.jqFilter).toBeUndefined();
+			await completeSpawn(spawnPromise);
 		});
 
 		it('should not pass jqFilter when debug is not provided', async () => {
@@ -682,11 +728,10 @@ describe('useClaudeProcess', () => {
 				useClaudeProcess('/test', TEST_INSTANCE_ID),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test');
-			});
+			const {spawnPromise} = await startSpawn(result, 'test');
 
 			expect(capturedOptions.jqFilter).toBeUndefined();
+			await completeSpawn(spawnPromise);
 		});
 
 		it('should accumulate onFilteredStdout into streamingText', async () => {
@@ -694,9 +739,7 @@ describe('useClaudeProcess', () => {
 				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test');
-			});
+			const {spawnPromise} = await startSpawn(result, 'test');
 
 			act(() => {
 				capturedCallbacks.onFilteredStdout?.('Hello ');
@@ -707,6 +750,7 @@ describe('useClaudeProcess', () => {
 			});
 
 			expect(result.current.streamingText).toBe('Hello world');
+			await completeSpawn(spawnPromise);
 		});
 
 		it('should reset streamingText on new spawn', async () => {
@@ -714,9 +758,11 @@ describe('useClaudeProcess', () => {
 				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test1');
-			});
+			const {spawnPromise: firstSpawnPromise} = await startSpawn(
+				result,
+				'test1',
+			);
+			const firstOnExit = capturedCallbacks.onExit;
 
 			act(() => {
 				capturedCallbacks.onFilteredStdout?.('old text');
@@ -724,14 +770,20 @@ describe('useClaudeProcess', () => {
 
 			expect(result.current.streamingText).toBe('old text');
 
-			// Spawn new process
-			await act(async () => {
-				const spawnPromise = result.current.spawn('test2');
-				capturedCallbacks.onExit?.(0);
-				await spawnPromise;
+			let secondSpawnPromise!: ReturnType<typeof result.current.spawn>;
+			act(() => {
+				secondSpawnPromise = result.current.spawn('test2');
 			});
+			act(() => {
+				firstOnExit?.(0);
+			});
+			await waitFor(() => {
+				expect(spawnModule.spawnClaude).toHaveBeenCalledTimes(2);
+			});
+			await completeSpawn(secondSpawnPromise);
 
 			expect(result.current.streamingText).toBe('');
+			await firstSpawnPromise;
 		});
 
 		it('should route jq stderr to output with [jq] prefix', async () => {
@@ -739,15 +791,14 @@ describe('useClaudeProcess', () => {
 				useClaudeProcess('/test', TEST_INSTANCE_ID, undefined, undefined, true),
 			);
 
-			await act(async () => {
-				await result.current.spawn('test');
-			});
+			const {spawnPromise} = await startSpawn(result, 'test');
 
 			act(() => {
 				capturedCallbacks.onJqStderr?.('parse error');
 			});
 
 			expect(result.current.output).toContain('[jq] parse error');
+			await completeSpawn(spawnPromise);
 		});
 	});
 
@@ -756,15 +807,14 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test');
 
 		act(() => {
 			result.current.sendInterrupt();
 		});
 
 		expect(mockProcess.kill).toHaveBeenCalledWith('SIGINT');
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should be a no-op when sendInterrupt is called with no process', () => {
@@ -780,41 +830,39 @@ describe('useClaudeProcess', () => {
 
 	it('should resolve kill after timeout if process does not exit', async () => {
 		vi.useFakeTimers();
-		const {result} = renderHook(() =>
-			useClaudeProcess('/test', TEST_INSTANCE_ID),
-		);
+		try {
+			const {result} = renderHook(() =>
+				useClaudeProcess('/test', TEST_INSTANCE_ID),
+			);
 
-		await act(async () => {
-			await result.current.spawn('test');
-		});
+			let spawnPromise!: ReturnType<typeof result.current.spawn>;
+			await act(async () => {
+				spawnPromise = result.current.spawn('test');
+				await Promise.resolve();
+			});
 
-		let killResolved = false;
-		let killPromise: Promise<void>;
-
-		act(() => {
-			killPromise = result.current.kill();
-			killPromise.then(() => {
+			let killResolved = false;
+			const killPromise = result.current.kill();
+			void killPromise.then(() => {
 				killResolved = true;
 			});
-		});
 
-		// Should not be resolved yet (no exit event, no timeout)
-		expect(killResolved).toBe(false);
+			// Should not be resolved yet (no exit event, no timeout)
+			expect(killResolved).toBe(false);
 
-		// Advance timer past KILL_TIMEOUT_MS (3000ms)
-		await act(async () => {
-			vi.advanceTimersByTime(3100);
-		});
+			await act(async () => {
+				await vi.advanceTimersByTimeAsync(3100);
+			});
+			await act(async () => {
+				await killPromise;
+			});
+			void spawnPromise;
 
-		// Wait for promise to resolve
-		await act(async () => {
-			await killPromise!;
-		});
-
-		expect(killResolved).toBe(true);
-		expect(result.current.isRunning).toBe(false);
-
-		vi.useRealTimers();
+			expect(killResolved).toBe(true);
+			expect(result.current.isRunning).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('should pass pluginDirs through to spawnClaude when present in isolation config', async () => {
@@ -827,9 +875,7 @@ describe('useClaudeProcess', () => {
 			useClaudeProcess('/test', TEST_INSTANCE_ID, isolationWithPlugins),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -838,6 +884,7 @@ describe('useClaudeProcess', () => {
 				}),
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
 	it('should preserve pluginDirs when merging with pluginMcpConfig', async () => {
@@ -855,9 +902,7 @@ describe('useClaudeProcess', () => {
 			),
 		);
 
-		await act(async () => {
-			await result.current.spawn('test prompt');
-		});
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
 		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -867,347 +912,43 @@ describe('useClaudeProcess', () => {
 				}),
 			}),
 		);
+		await completeSpawn(spawnPromise);
 	});
 
-	it('should pass workflow systemPromptFile to harness isolation when file exists', async () => {
-		const existsSpy = vi
-			.spyOn(fs, 'existsSync')
-			.mockImplementation(p => p === '/test/workflow-prompt.md');
-		try {
-			const workflow: WorkflowConfig = {
-				name: 'wf',
-				plugins: [],
-				promptTemplate: '{input}',
-				systemPromptFile: 'workflow-prompt.md',
-			};
-
-			const {result} = renderHook(() =>
-				useClaudeProcess(
-					'/test',
-					TEST_INSTANCE_ID,
-					undefined,
-					undefined,
-					false,
-					workflow,
-				),
-			);
-
-			await act(async () => {
-				await result.current.spawn('test prompt');
-			});
-
-			expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
-				expect.objectContaining({
-					isolation: expect.objectContaining({
-						appendSystemPromptFile: '/test/workflow-prompt.md',
-					}),
-				}),
-			);
-		} finally {
-			existsSpy.mockRestore();
-		}
-	});
-
-	it('should skip missing workflow systemPromptFile instead of passing invalid appendSystemPromptFile', async () => {
-		const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-		try {
-			const workflow: WorkflowConfig = {
-				name: 'wf',
-				plugins: [],
-				promptTemplate: '{input}',
-				systemPromptFile: 'missing-prompt.md',
-			};
-
-			const {result} = renderHook(() =>
-				useClaudeProcess(
-					'/test',
-					TEST_INSTANCE_ID,
-					undefined,
-					undefined,
-					false,
-					workflow,
-				),
-			);
-
-			await act(async () => {
-				await result.current.spawn('test prompt');
-			});
-
-			expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
-				expect.objectContaining({
-					prompt: 'test prompt',
-				}),
-			);
-			expect(capturedOptions['isolation']).toBeUndefined();
-			expect(errorSpy).toHaveBeenCalledWith(
-				expect.stringContaining('system prompt file not found'),
-			);
-		} finally {
-			errorSpy.mockRestore();
-		}
-	});
-
-	describe('workflow loop respawn', () => {
-		const loopWorkflow: WorkflowConfig = {
-			name: 'test-loop',
+	it('passes workflow env through to Claude spawn without applying workflow logic internally', async () => {
+		const workflow: WorkflowConfig = {
+			name: 'wf',
 			plugins: [],
-			promptTemplate: '{prompt}',
+			promptTemplate: 'Wrapped: {input}',
+			systemPromptFile: 'workflow-prompt.md',
+			env: {ATHENA_WORKFLOW: '1'},
 			loop: {
 				enabled: true,
 				completionMarker: '<!-- DONE -->',
 				maxIterations: 5,
-				trackerPath: 'tracker.md',
 			},
 		};
 
-		it('should not respawn loop on non-zero exit code', async () => {
-			const mockLoopManager = {
-				isTerminal: vi.fn().mockReturnValue(false),
-				getState: vi.fn().mockReturnValue({
-					active: true,
-					iteration: 0,
-					maxIterations: 5,
-					completed: false,
-					blocked: false,
-					reachedLimit: false,
-				}),
-				incrementIteration: vi.fn(),
-				deactivate: vi.fn(),
-				trackerPath: '/tmp/tracker.md',
-			};
-			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
-				mockLoopManager,
-			);
+		const {result} = renderHook(() =>
+			useClaudeProcess(
+				'/test',
+				TEST_INSTANCE_ID,
+				undefined,
+				undefined,
+				false,
+				workflow,
+			),
+		);
 
-			const {result} = renderHook(() =>
-				useClaudeProcess(
-					'/test',
-					TEST_INSTANCE_ID,
-					undefined,
-					undefined,
-					false,
-					loopWorkflow,
-				),
-			);
+		const {spawnPromise} = await startSpawn(result, 'test prompt');
 
-			await act(async () => {
-				await result.current.spawn('test prompt');
-			});
-
-			const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
-				.length;
-
-			// Simulate non-zero exit (error)
-			act(() => {
-				capturedCallbacks.onExit?.(1);
-			});
-
-			// Should NOT have respawned
-			expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
-				spawnCountBefore,
-			);
-			expect(result.current.isRunning).toBe(false);
-		});
-
-		it('should respawn loop on exit code 0 when not terminal', async () => {
-			const existsSpy = vi
-				.spyOn(fs, 'existsSync')
-				.mockImplementation(p => p === '/tmp/tracker.md');
-			const mockLoopManager = {
-				isTerminal: vi.fn().mockReturnValue(false),
-				getState: vi.fn().mockReturnValue({
-					active: true,
-					iteration: 0,
-					maxIterations: 5,
-					completed: false,
-					blocked: false,
-					reachedLimit: false,
-				}),
-				incrementIteration: vi.fn(),
-				deactivate: vi.fn(),
-				trackerPath: '/tmp/tracker.md',
-			};
-			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
-				mockLoopManager,
-			);
-
-			try {
-				const {result} = renderHook(() =>
-					useClaudeProcess(
-						'/test',
-						TEST_INSTANCE_ID,
-						undefined,
-						undefined,
-						false,
-						loopWorkflow,
-					),
-				);
-
-				await act(async () => {
-					await result.current.spawn('test prompt');
-				});
-
-				const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
-					.length;
-
-				// Simulate successful exit
-				await act(async () => {
-					capturedCallbacks.onExit?.(0);
-				});
-
-				// Should have respawned (one more call)
-				expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
-					spawnCountBefore + 1,
-				);
-				expect(mockLoopManager.incrementIteration).toHaveBeenCalledTimes(1);
-			} finally {
-				existsSpy.mockRestore();
-			}
-		});
-
-		it('should not respawn loop on exit code 0 when tracker does not exist', async () => {
-			const mockLoopManager = {
-				isTerminal: vi.fn().mockReturnValue(false),
-				getState: vi.fn().mockReturnValue({
-					active: true,
-					iteration: 0,
-					maxIterations: 5,
-					completed: false,
-					blocked: false,
-					reachedLimit: false,
-				}),
-				incrementIteration: vi.fn(),
-				deactivate: vi.fn(),
-				trackerPath: '/tmp/missing-tracker.md',
-			};
-			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
-				mockLoopManager,
-			);
-
-			const {result} = renderHook(() =>
-				useClaudeProcess(
-					'/test',
-					TEST_INSTANCE_ID,
-					undefined,
-					undefined,
-					false,
-					loopWorkflow,
-				),
-			);
-
-			await act(async () => {
-				await result.current.spawn('test prompt');
-			});
-
-			const spawnCountBefore = vi.mocked(spawnModule.spawnClaude).mock.calls
-				.length;
-
-			await act(async () => {
-				capturedCallbacks.onExit?.(0);
-			});
-
-			expect(vi.mocked(spawnModule.spawnClaude).mock.calls.length).toBe(
-				spawnCountBefore,
-			);
-			expect(mockLoopManager.incrementIteration).not.toHaveBeenCalled();
-		});
-
-		it('removes the tracker file when the loop reaches a terminal state', async () => {
-			const existsSpy = vi
-				.spyOn(fs, 'existsSync')
-				.mockImplementation(p => p === '/tmp/tracker.md');
-			const mockLoopManager = {
-				isTerminal: vi.fn().mockReturnValue(true),
-				getState: vi.fn().mockReturnValue({
-					active: true,
-					iteration: 0,
-					maxIterations: 5,
-					completed: true,
-					blocked: false,
-					reachedLimit: false,
-				}),
-				incrementIteration: vi.fn(),
-				deactivate: vi.fn(),
-				trackerPath: '/tmp/tracker.md',
-			};
-			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
-				mockLoopManager,
-			);
-
-			try {
-				const {result} = renderHook(() =>
-					useClaudeProcess(
-						'/test',
-						TEST_INSTANCE_ID,
-						undefined,
-						undefined,
-						false,
-						loopWorkflow,
-					),
-				);
-
-				await act(async () => {
-					await result.current.spawn('test prompt');
-				});
-
-				await act(async () => {
-					capturedCallbacks.onExit?.(0);
-				});
-
-				expect(workflowModule.cleanupTrackerFile).toHaveBeenCalledWith(
-					'/tmp/tracker.md',
-				);
-				expect(mockLoopManager.deactivate).toHaveBeenCalledTimes(1);
-			} finally {
-				existsSpy.mockRestore();
-			}
-		});
-
-		it('removes the tracker file when the user stops the loop', async () => {
-			const mockLoopManager = {
-				isTerminal: vi.fn().mockReturnValue(false),
-				getState: vi.fn().mockReturnValue({
-					active: true,
-					iteration: 0,
-					maxIterations: 5,
-					completed: false,
-					blocked: false,
-					reachedLimit: false,
-				}),
-				incrementIteration: vi.fn(),
-				deactivate: vi.fn(),
-				trackerPath: '/tmp/tracker.md',
-			};
-			vi.mocked(workflowModule.createLoopManager).mockReturnValue(
-				mockLoopManager,
-			);
-
-			const {result} = renderHook(() =>
-				useClaudeProcess(
-					'/test',
-					TEST_INSTANCE_ID,
-					undefined,
-					undefined,
-					false,
-					loopWorkflow,
-				),
-			);
-
-			await act(async () => {
-				await result.current.spawn('test prompt');
-			});
-
-			await act(async () => {
-				const killPromise = result.current.kill();
-				capturedCallbacks.onExit?.(null);
-				await killPromise;
-			});
-
-			expect(workflowModule.cleanupTrackerFile).toHaveBeenCalledWith(
-				'/tmp/tracker.md',
-			);
-			expect(mockLoopManager.deactivate).toHaveBeenCalledTimes(1);
-			expect(result.current.isRunning).toBe(false);
-		});
+		expect(spawnModule.spawnClaude).toHaveBeenCalledWith(
+			expect.objectContaining({
+				prompt: 'test prompt',
+				env: {ATHENA_WORKFLOW: '1'},
+			}),
+		);
+		expect(capturedOptions['isolation']).toBeUndefined();
+		await completeSpawn(spawnPromise);
 	});
 });

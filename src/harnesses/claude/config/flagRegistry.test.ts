@@ -336,6 +336,28 @@ describe('buildIsolationArgs', () => {
 		});
 	});
 
+	// === spawn.ts streaming config simulation ===
+	describe('spawnClaude streaming config (verbose defaults to true)', () => {
+		it('should include --verbose when isolation config omits verbose field', () => {
+			// Simulates the HarnessProcessConfig from buildClaudeCompatibleIsolationConfig
+			// when user does NOT pass --verbose to athena CLI (verbose=false → debug=false, no verbose field)
+			const rawConfig = {
+				preset: 'minimal' as const,
+				debug: false,
+			};
+			const resolved = resolveIsolationConfig(rawConfig);
+			// Simulate spawn.ts:138-144 streaming config merge
+			const streamingConfig = {
+				...resolved,
+				verbose: resolved.verbose ?? true,
+				includePartialMessages: resolved.includePartialMessages ?? true,
+			};
+			const args = buildIsolationArgs(streamingConfig);
+			expect(args).toContain('--verbose');
+			expect(args).toContain('--include-partial-messages');
+		});
+	});
+
 	// === Registry ordering ===
 	describe('flag ordering', () => {
 		it('should emit flags in registry order', () => {

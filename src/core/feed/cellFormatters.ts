@@ -7,19 +7,19 @@ import stripAnsi from 'strip-ansi';
 // Re-export fit so all formatter consumers import from one place
 export {fit} from '../../shared/utils/format';
 
+function isLifecycleOp(op: string): boolean {
+	return (
+		op.startsWith('sess.') || op.startsWith('run.') || op.startsWith('stop.')
+	);
+}
+
 export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	if (op === 'tool.fail') return theme.status.error;
 	if (op === 'tool.ok') return theme.textMuted;
 	if (op.startsWith('tool.')) return theme.textMuted;
 	if (op.startsWith('perm.')) return theme.accentSecondary;
 	if (op === 'agent.msg') return theme.status.info;
-	if (
-		op.startsWith('run.') ||
-		op.startsWith('sess.') ||
-		op.startsWith('stop.') ||
-		op.startsWith('sub.')
-	)
-		return theme.textMuted;
+	if (isLifecycleOp(op) || op.startsWith('sub.')) return theme.textMuted;
 	return undefined;
 }
 
@@ -29,68 +29,48 @@ type ToolPalette = {
 	fg: string;
 };
 
-type BuiltInSubagentType = 'explore' | 'plan' | 'general-purpose' | 'bash';
-
 export type ToolPillCategory =
 	| 'safe'
 	| 'mutating'
+	| 'browser'
 	| 'neutral'
 	| 'skill'
-	| 'subagent';
+	| 'subagent.spawn'
+	| 'subagent.return';
 
-const TOOL_PILL_PALETTES: Record<
-	Exclude<ToolPillCategory, 'subagent'>,
-	ToolPalette
-> = {
+const SUBAGENT_BASE: Pick<ToolPalette, 'dot' | 'bg'> = {
+	dot: '#2ea87a',
+	bg: '#0a2e22',
+};
+
+const TOOL_PILL_PALETTES: Record<ToolPillCategory, ToolPalette> = {
 	safe: {
-		dot: '#38bdf8',
-		bg: '#102a42',
-		fg: '#7dd3fc',
+		dot: '#2d8abf',
+		bg: '#0e2233',
+		fg: '#5ba3cc',
 	},
 	mutating: {
-		dot: '#f59e0b',
-		bg: '#3a2508',
-		fg: '#fbbf24',
+		dot: '#b8862e',
+		bg: '#2a1d0a',
+		fg: '#d4a44a',
+	},
+	browser: {
+		dot: '#2aaa9e',
+		bg: '#0b2625',
+		fg: '#5cc4ba',
 	},
 	neutral: {
-		dot: '#6b7280',
-		bg: '#1b2533',
-		fg: '#9ca3af',
+		dot: '#5a6270',
+		bg: '#141a22',
+		fg: '#7d8590',
 	},
 	skill: {
-		dot: '#f472b6',
-		bg: '#3d1229',
-		fg: '#f9a8d4',
+		dot: '#b06a9e',
+		bg: '#2a0f24',
+		fg: '#c98ab8',
 	},
-};
-
-const SUBAGENT_PILL_PALETTES: Record<BuiltInSubagentType, ToolPalette> = {
-	explore: {
-		dot: '#22d3ee',
-		bg: '#0b2a36',
-		fg: '#67e8f9',
-	},
-	plan: {
-		dot: '#a78bfa',
-		bg: '#2a1452',
-		fg: '#c4b5fd',
-	},
-	'general-purpose': {
-		dot: '#34d399',
-		bg: '#0a4637',
-		fg: '#6ee7b7',
-	},
-	bash: {
-		dot: '#fb923c',
-		bg: '#3b1809',
-		fg: '#fdba74',
-	},
-};
-
-const FALLBACK_SUBAGENT_PILL: ToolPalette = {
-	dot: '#93c5fd',
-	bg: '#1a3252',
-	fg: '#bfdbfe',
+	'subagent.spawn': {...SUBAGENT_BASE, fg: '#5cc4a0'},
+	'subagent.return': {...SUBAGENT_BASE, fg: '#468e78'},
 };
 
 const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
@@ -109,10 +89,6 @@ const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
 	'Ping',
 	'Resolve',
 	'QueryDocs',
-	'Navigate',
-	'Reload',
-	'Back',
-	'Forward',
 	'AskUser',
 	'Task',
 	'TaskOut',
@@ -127,6 +103,10 @@ const MUTATING_TOOL_LABELS = new Set([
 	'TaskStop',
 	'PlanMode',
 	'Worktree',
+]);
+
+const BROWSER_TOOL_LABELS = new Set([
+	'Navigate',
 	'Click',
 	'Type',
 	'Press',
@@ -136,36 +116,22 @@ const MUTATING_TOOL_LABELS = new Set([
 	'ScrollTo',
 	'Close',
 	'ClosePage',
+	'Reload',
+	'Back',
+	'Forward',
 ]);
 
 export function resolveToolPillCategoryForLabel(
 	label: string,
-): Exclude<ToolPillCategory, 'subagent'> {
+): Exclude<ToolPillCategory, 'subagent.spawn' | 'subagent.return'> {
 	if (label === 'Skill') return 'skill';
+	if (BROWSER_TOOL_LABELS.has(label)) return 'browser';
 	if (MUTATING_TOOL_LABELS.has(label)) return 'mutating';
 	if (NON_DESTRUCTIVE_TOOL_LABELS.has(label)) return 'safe';
 	return 'neutral';
 }
 
-function normalizeSubagentType(type: string | undefined): string {
-	if (!type) return '';
-	return type
-		.trim()
-		.toLowerCase()
-		.replace(/[_\s]+/g, '-');
-}
-
-function resolvePillPalette(
-	category: ToolPillCategory,
-	subagentType?: string,
-): ToolPalette {
-	if (category === 'subagent') {
-		const normalized = normalizeSubagentType(subagentType);
-		if (normalized in SUBAGENT_PILL_PALETTES) {
-			return SUBAGENT_PILL_PALETTES[normalized as BuiltInSubagentType];
-		}
-		return FALLBACK_SUBAGENT_PILL;
-	}
+function resolvePillPalette(category: ToolPillCategory): ToolPalette {
 	return TOOL_PILL_PALETTES[category];
 }
 
@@ -202,17 +168,6 @@ export function formatTime(
 	return chalk.hex(theme.textMuted)(fitImpl(clock, contentWidth));
 }
 
-export function formatEvent(
-	opLabel: string,
-	contentWidth: number,
-	theme: Theme,
-	opTag?: string,
-): string {
-	const fitted = fitImpl(opLabel, contentWidth);
-	const color = opTag ? opCategoryColor(opTag, theme) : undefined;
-	return color ? chalk.hex(color)(fitted) : chalk.hex(theme.text)(fitted);
-}
-
 export function formatActor(
 	actor: string,
 	duplicate: boolean,
@@ -236,7 +191,6 @@ export function formatTool(
 	options?: {
 		pill?: boolean;
 		category?: ToolPillCategory;
-		subagentType?: string;
 		ascii?: boolean;
 	},
 ): string {
@@ -248,7 +202,7 @@ export function formatTool(
 	}
 
 	const category = options.category ?? 'neutral';
-	const palette = resolvePillPalette(category, options.subagentType);
+	const palette = resolvePillPalette(category);
 	if (contentWidth < 8) {
 		return chalk.hex(palette.dot)(fitImpl(toolColumn, contentWidth));
 	}
@@ -269,24 +223,17 @@ export function formatTool(
 export function formatResult(
 	outcome: string | undefined,
 	outcomeZero: boolean | undefined,
+	isError: boolean | undefined,
 	contentWidth: number,
 	theme: Theme,
 ): string {
 	if (contentWidth <= 0) return '';
 	if (!outcome) return fitImpl('', contentWidth);
 
-	const label = outcome.trim();
-	const badgeLen = label.length + 2; // surrounding spaces
-	if (badgeLen <= contentWidth) {
-		const badge = outcomeZero
-			? chalk.bgHex('#4a3a0c').hex('#fde047')(` ${label} `)
-			: chalk.bgHex('#10321d').hex('#3fb950')(` ${label} `);
-		return badge + ' '.repeat(contentWidth - badgeLen);
-	}
-
-	const fitted = fitImpl(label, contentWidth);
+	const fitted = fitImpl(outcome.trim(), contentWidth);
+	if (isError) return chalk.hex(theme.status.error)(fitted);
 	if (outcomeZero) return chalk.hex(theme.status.warning)(fitted);
-	return chalk.hex(theme.status.success)(fitted);
+	return chalk.hex(theme.textMuted)(fitted);
 }
 
 export function formatSuffix(
@@ -358,7 +305,6 @@ function renderSegments(
 	width: number,
 	theme: Theme,
 	opTag: string,
-	isError: boolean,
 ): string {
 	if (width <= 0) return '';
 	const normalizePathPrefix = (text: string): string =>
@@ -368,11 +314,17 @@ function renderSegments(
 	}
 
 	const isAgentMsg = opTag === 'agent.msg';
-	const baseColor = isAgentMsg ? theme.status.info : theme.text;
+	const isSubReturn = opTag === 'sub.stop';
+	const isLifecycle = isLifecycleOp(opTag);
+	const baseColor = isAgentMsg
+		? theme.status.info
+		: isLifecycle || isSubReturn
+			? theme.textMuted
+			: theme.text;
+	const shouldDim = isAgentMsg || isLifecycle;
 	const hasFilename = segments.some(seg => seg.role === 'filename');
 
 	const roleColor = (role: SummarySegmentRole): string => {
-		if (isError) return theme.status.error;
 		switch (role) {
 			case 'verb':
 				return baseColor;
@@ -397,7 +349,8 @@ function renderSegments(
 			normalizedText.length > remaining
 				? normalizedText.slice(0, remaining)
 				: normalizedText;
-		result += chalk.hex(roleColor(seg.role))(text);
+		const styled = chalk.hex(roleColor(seg.role))(text);
+		result += shouldDim ? chalk.dim(styled) : styled;
 		usedWidth += text.length;
 	}
 
@@ -431,7 +384,6 @@ export type FormatDetailsOpts = {
 	contentWidth: number;
 	theme: Theme;
 	opTag: string;
-	isError?: boolean;
 };
 
 export function formatDetails(opts: FormatDetailsOpts): string {
@@ -446,7 +398,6 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 		contentWidth,
 		theme,
 		opTag,
-		isError = false,
 	} = opts;
 
 	// Step 1: merged-column prefix
@@ -460,8 +411,7 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 	// Step 3: if no outcome, just render segments into innerWidth
 	if (!outcomeStr || innerWidth <= 0) {
 		return (
-			prefix.text +
-			renderSegments(segments, summary, innerWidth, theme, opTag, isError)
+			prefix.text + renderSegments(segments, summary, innerWidth, theme, opTag)
 		);
 	}
 
@@ -476,7 +426,6 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 			Math.max(0, innerWidth - outcomeLen - 2),
 			theme,
 			opTag,
-			isError,
 		);
 		const segClean = stripAnsi(segStr).trimEnd();
 		const padNeeded = innerWidth - segClean.length - outcomeLen;
@@ -488,14 +437,7 @@ export function formatDetails(opts: FormatDetailsOpts): string {
 		return prefix.text + truncated;
 	}
 
-	const segStr = renderSegments(
-		segments,
-		summary,
-		targetBudget,
-		theme,
-		opTag,
-		isError,
-	);
+	const segStr = renderSegments(segments, summary, targetBudget, theme, opTag);
 	const segClean = stripAnsi(segStr);
 	const padNeeded = innerWidth - segClean.length - outcomeLen;
 	const pad = padNeeded > 0 ? ' '.repeat(padNeeded) : '  ';

@@ -9,7 +9,6 @@ import {parseToolName} from '../../shared/utils/toolNameParser';
 import {
 	formatGutter,
 	formatTime,
-	formatEvent,
 	formatActor,
 	formatTool,
 	type ToolPillCategory,
@@ -26,7 +25,6 @@ type FeedColumnWidths = {
 	resultW: number;
 	gapW: number;
 	detailsResultGapW: number;
-	timeEventGapW: number;
 };
 
 type Props = {
@@ -77,9 +75,6 @@ function canonicalSubagentLabel(type: string): string {
 
 function defaultEventPillLabel(opTag: string): string | undefined {
 	switch (opTag) {
-		case 'agent.msg':
-		case 'msg.agent':
-			return 'Agent';
 		case 'msg.user':
 		case 'prompt':
 			return 'User';
@@ -180,7 +175,6 @@ function buildLineCacheKey({
 		cols.resultW,
 		cols.gapW,
 		cols.detailsResultGapW,
-		cols.timeEventGapW,
 		focused ? 1 : 0,
 		expanded ? 1 : 0,
 		matched ? 1 : 0,
@@ -210,7 +204,6 @@ function lineParts({
 }: Props): {
 	gutter: string;
 	time: string;
-	event: string;
 	actor: string;
 	tool: string;
 	detail: string;
@@ -218,12 +211,6 @@ function lineParts({
 } {
 	const isUserBorder = entry.opTag === 'prompt' || entry.opTag === 'msg.user';
 	const rowTextOverrideColor = focused ? theme.text : undefined;
-	const eventOverrideColor = (() => {
-		if (!focused) return undefined;
-		if (entry.opTag === 'tool.ok') return theme.status.success;
-		if (entry.opTag === 'tool.fail') return theme.status.error;
-		return theme.text;
-	})();
 	const isToolRow =
 		entry.opTag.startsWith('tool.') || entry.opTag === 'perm.req';
 	const isSubagentRow =
@@ -238,7 +225,7 @@ function lineParts({
 	const hasSyntheticPill = syntheticLabel !== undefined;
 	const toolCategory: ToolPillCategory = (() => {
 		if (isSubagentRow) {
-			return 'subagent';
+			return entry.opTag === 'sub.stop' ? 'subagent.return' : 'subagent.spawn';
 		}
 		if (!isToolRow || !entry.feedEvent) return 'neutral';
 		if (
@@ -262,54 +249,36 @@ function lineParts({
 		theme,
 	});
 	const time = cell(formatTime(entry.ts, 5, theme), rowTextOverrideColor);
-	const event = cell(
-		formatEvent(entry.op, 12, theme, entry.opTag),
-		eventOverrideColor,
-	);
-	const actor = formatActor(
-		entry.actor,
-		isDuplicateActor,
-		10,
-		theme,
-		entry.actorId,
-	);
-	const tool = cell(
-		formatTool(toolText, cols.toolW, theme, {
-			pill: isToolRow || isSubagentRow || hasSyntheticPill,
-			category: toolCategory,
-			subagentType: isSubagentRow ? entry.toolColumn : undefined,
-			ascii,
-		}),
+	const actor = cell(
+		formatActor(entry.actor, isDuplicateActor, 10, theme, entry.actorId),
 		rowTextOverrideColor,
 	);
+	const tool = formatTool(toolText, cols.toolW, theme, {
+		pill: isToolRow || isSubagentRow || hasSyntheticPill,
+		category: toolCategory,
+		ascii,
+	});
 
 	const detailSummaryInfo = trimVerbPrefix(entry);
 
-	const detail = cell(
-		formatDetails({
-			segments: detailSummaryInfo.segments,
-			summary: detailSummaryInfo.summary,
-			mode: 'full',
-			contentWidth: cols.detailsW,
-			theme,
-			opTag: entry.opTag,
-			isError: entry.error,
-		}),
-		focused ? theme.text : theme.textMuted,
-	);
-	const result = cell(
-		formatResult(
-			entry.summaryOutcome,
-			entry.summaryOutcomeZero,
-			cols.resultW,
-			theme,
-		),
-		rowTextOverrideColor,
+	const detail = formatDetails({
+		segments: detailSummaryInfo.segments,
+		summary: detailSummaryInfo.summary,
+		mode: 'full',
+		contentWidth: cols.detailsW,
+		theme,
+		opTag: entry.opTag,
+	});
+	const result = formatResult(
+		entry.summaryOutcome,
+		entry.summaryOutcomeZero,
+		entry.error,
+		cols.resultW,
+		theme,
 	);
 	return {
 		gutter,
 		time,
-		event,
 		actor,
 		tool,
 		detail,
@@ -330,14 +299,12 @@ export function formatFeedRowLine({
 
 		const parts = lineParts(props);
 		const {
-			cols: {gapW, timeEventGapW, detailsResultGapW, resultW},
+			cols: {gapW, detailsResultGapW, resultW},
 		} = props;
 
 		let line =
 			parts.gutter +
 			parts.time +
-			spaces(timeEventGapW) +
-			parts.event +
 			spaces(gapW) +
 			parts.actor +
 			spaces(gapW) +
@@ -394,10 +361,6 @@ function FeedRowImpl({
 			</Box>
 			<Box width={5} flexShrink={0}>
 				<Text wrap="truncate-end">{parts.time}</Text>
-			</Box>
-			<Box width={cols.timeEventGapW} flexShrink={0} />
-			<Box width={12} flexShrink={0}>
-				<Text wrap="truncate-end">{parts.event}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>

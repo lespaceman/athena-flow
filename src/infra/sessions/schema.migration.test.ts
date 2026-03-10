@@ -57,7 +57,7 @@ describe('schema migrations', () => {
 		db.close();
 	});
 
-	it('migrates v2 → v3 by adding token columns', () => {
+	it('migrates v2 → v4 by adding token columns', () => {
 		const db = new Database(':memory:');
 		// Set up a v2 database manually
 		db.exec('PRAGMA foreign_keys = ON');
@@ -88,16 +88,67 @@ describe('schema migrations', () => {
 		const row = db.prepare('SELECT version FROM schema_version').get() as {
 			version: number;
 		};
-		expect(row.version).toBe(3);
+		expect(row.version).toBe(4);
 
 		// Verify token columns exist and can be updated
 		db.prepare(
 			'UPDATE adapter_sessions SET tokens_input = 100 WHERE session_id = ?',
 		).run('as1');
 		const updated = db
-			.prepare('SELECT tokens_input FROM adapter_sessions WHERE session_id = ?')
+			.prepare(
+				'SELECT tokens_input, tokens_context_window_size FROM adapter_sessions WHERE session_id = ?',
+			)
 			.get('as1') as {tokens_input: number};
 		expect(updated.tokens_input).toBe(100);
+		expect(updated.tokens_context_window_size ?? null).toBeNull();
+
+		db.prepare(
+			'UPDATE adapter_sessions SET tokens_context_window_size = 200000 WHERE session_id = ?',
+		).run('as1');
+		const withWindow = db
+			.prepare(
+				'SELECT tokens_context_window_size FROM adapter_sessions WHERE session_id = ?',
+			)
+			.get('as1') as {tokens_context_window_size: number};
+		expect(withWindow.tokens_context_window_size).toBe(200000);
+
+		db.close();
+	});
+
+	it('migrates v3 → v4 by adding context window size column', () => {
+		const db = new Database(':memory:');
+		db.exec('PRAGMA foreign_keys = ON');
+		db.exec('CREATE TABLE schema_version (version INTEGER NOT NULL)');
+		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(3);
+		db.exec(
+			'CREATE TABLE session (id TEXT PRIMARY KEY, project_dir TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, label TEXT, event_count INTEGER DEFAULT 0)',
+		);
+		db.exec(
+			'CREATE TABLE runtime_events (id TEXT PRIMARY KEY, seq INTEGER NOT NULL UNIQUE, timestamp INTEGER NOT NULL, hook_name TEXT NOT NULL, adapter_session_id TEXT, payload JSON NOT NULL)',
+		);
+		db.exec(
+			'CREATE TABLE feed_events (event_id TEXT PRIMARY KEY, runtime_event_id TEXT, seq INTEGER NOT NULL, kind TEXT NOT NULL, run_id TEXT NOT NULL, actor_id TEXT NOT NULL, timestamp INTEGER NOT NULL, data JSON NOT NULL, FOREIGN KEY (runtime_event_id) REFERENCES runtime_events(id))',
+		);
+		db.exec(
+			'CREATE TABLE adapter_sessions (session_id TEXT PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, model TEXT, source TEXT, tokens_input INTEGER, tokens_output INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, tokens_context_size INTEGER)',
+		);
+
+		initSchema(db);
+
+		const row = db.prepare('SELECT version FROM schema_version').get() as {
+			version: number;
+		};
+		expect(row.version).toBe(4);
+
+		db.prepare(
+			'INSERT INTO adapter_sessions (session_id, started_at, tokens_context_window_size) VALUES (?, ?, ?)',
+		).run('as2', Date.now(), 400000);
+		const updated = db
+			.prepare(
+				'SELECT tokens_context_window_size FROM adapter_sessions WHERE session_id = ?',
+			)
+			.get('as2') as {tokens_context_window_size: number};
+		expect(updated.tokens_context_window_size).toBe(400000);
 
 		db.close();
 	});

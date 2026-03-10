@@ -6,7 +6,6 @@ import {
 	opCategoryColor,
 	fit,
 	formatTime,
-	formatEvent,
 	formatActor,
 	formatTool,
 	formatSuffix,
@@ -64,7 +63,13 @@ describe('resolveToolPillCategoryForLabel', () => {
 	test('classifies mutating tools as mutating', () => {
 		expect(resolveToolPillCategoryForLabel('Edit')).toBe('mutating');
 		expect(resolveToolPillCategoryForLabel('Write')).toBe('mutating');
-		expect(resolveToolPillCategoryForLabel('Click')).toBe('mutating');
+		expect(resolveToolPillCategoryForLabel('Bash')).toBe('mutating');
+	});
+
+	test('classifies browser tools as browser', () => {
+		expect(resolveToolPillCategoryForLabel('Click')).toBe('browser');
+		expect(resolveToolPillCategoryForLabel('Navigate')).toBe('browser');
+		expect(resolveToolPillCategoryForLabel('Type')).toBe('browser');
 	});
 
 	test('falls back to neutral for unknown labels', () => {
@@ -151,25 +156,6 @@ describe('formatTime', () => {
 	test('fills exactly contentWidth chars', () => {
 		const r = formatTime(Date.now(), 5, theme);
 		expect(stripAnsi(r)).toHaveLength(5);
-	});
-});
-
-describe('formatEvent', () => {
-	test('pads short opTag to contentWidth', () => {
-		const r = formatEvent('Agent', 12, theme);
-		expect(stripAnsi(r)).toHaveLength(12);
-	});
-
-	test('truncates long opTag to contentWidth', () => {
-		const r = formatEvent('Tool Response Long', 12, theme);
-		expect(stripAnsi(r)).toHaveLength(12);
-	});
-
-	test('applies opCategoryColor for tool.fail', () => {
-		const r = formatEvent('Tool Fail', 12, theme, 'tool.fail');
-		// Verify it produces a string of correct width (color applied via chalk.hex)
-		expect(stripAnsi(r)).toHaveLength(12);
-		expect(stripAnsi(r)).toContain('Tool Fail');
 	});
 });
 

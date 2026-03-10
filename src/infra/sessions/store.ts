@@ -273,7 +273,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		`UPDATE adapter_sessions SET
 			tokens_input = ?, tokens_output = ?,
 			tokens_cache_read = ?, tokens_cache_write = ?,
-			tokens_context_size = ?
+			tokens_context_size = ?, tokens_context_window_size = ?
 		 WHERE session_id = ?`,
 	);
 
@@ -284,6 +284,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 			tokens.cacheRead,
 			tokens.cacheWrite,
 			tokens.contextSize,
+			tokens.contextWindowSize,
 			adapterSessionId,
 		);
 	}
@@ -317,10 +318,15 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 		// contextSize from the most recent adapter session
 		const ctxRow = db
 			.prepare(
-				`SELECT tokens_context_size FROM adapter_sessions
+				`SELECT tokens_context_size, tokens_context_window_size FROM adapter_sessions
 				 ORDER BY started_at DESC LIMIT 1`,
 			)
-			.get() as {tokens_context_size: number | null} | undefined;
+			.get() as
+			| {
+					tokens_context_size: number | null;
+					tokens_context_window_size: number | null;
+			  }
+			| undefined;
 
 		const input = row.input ?? 0;
 		const output = row.output ?? 0;
@@ -334,6 +340,7 @@ export function createSessionStore(opts: SessionStoreOptions): SessionStore {
 			cacheWrite,
 			total: input + output,
 			contextSize: ctxRow?.tokens_context_size ?? null,
+			contextWindowSize: ctxRow?.tokens_context_window_size ?? null,
 		};
 	}
 

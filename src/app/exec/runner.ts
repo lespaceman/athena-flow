@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
-import type {ChildProcess} from 'node:child_process';
 import {
 	handleEvent,
 	type ControllerCallbacks,
@@ -12,31 +10,21 @@ import {
 	type RuntimeEvent,
 } from '../../core/runtime/types';
 import {
-	applyPromptTemplate,
-	buildContinuePrompt,
-	cleanupTrackerFile,
-	createLoopManager,
-	type LoopManager,
-} from '../../core/workflows';
+	cleanupWorkflowRun,
+	createWorkflowRunState,
+	prepareWorkflowTurn,
+	shouldContinueWorkflowRun,
+} from '../../core/workflows/sessionPlan';
+import type {TurnContinuation} from '../../core/runtime/process';
 import {
 	createSessionStore,
 	sessionsDir,
 	type SessionStore,
 } from '../../infra/sessions';
-import {spawnClaude} from '../../harnesses/claude/process/spawn';
-import {
-	type IsolationConfig,
-	type IsolationPreset,
-	resolveIsolationConfig,
-} from '../../harnesses/claude/config/isolation';
-import {createTokenAccumulator} from '../../harnesses/claude/process/tokenAccumulator';
+import {resolveHarnessAdapter} from '../../harnesses/registry';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
 import {createRuntime} from '../runtime/createRuntime';
-import {
-	createAssistantMessageAccumulator,
-	findLastMappedAgentMessage,
-	resolveFinalMessage,
-} from './finalMessage';
+import {findLastMappedAgentMessage, resolveFinalMessage} from './finalMessage';
 import {createExecOutputWriter} from './output';
 import {resolvePermissionPolicy} from './policies';
 import {resolveQuestionPolicy, type PolicyResolution} from './policies';
@@ -50,28 +38,8 @@ const NULL_TOKENS: TokenUsage = {
 	cacheWrite: null,
 	total: null,
 	contextSize: null,
+	contextWindowSize: null,
 };
-
-type SpawnIterationResult = {
-	exitCode: number | null;
-	error: Error | null;
-	tokens: TokenUsage;
-	streamMessage: string | null;
-};
-
-function mergeIsolation(
-	base: IsolationConfig | IsolationPreset | undefined,
-	pluginMcpConfig: string | undefined,
-	overrides: Partial<IsolationConfig> | undefined,
-): IsolationConfig | IsolationPreset | undefined {
-	if (!pluginMcpConfig && !overrides) return base;
-
-	return {
-		...resolveIsolationConfig(base),
-		...(overrides ?? {}),
-		...(pluginMcpConfig ? {mcpConfig: pluginMcpConfig} : {}),
-	};
-}
 
 function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
 	const input = (base.input ?? 0) + (next.input ?? 0);
@@ -92,6 +60,7 @@ function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
 		return {
 			...NULL_TOKENS,
 			contextSize: next.contextSize ?? base.contextSize,
+			contextWindowSize: next.contextWindowSize ?? base.contextWindowSize,
 		};
 	}
 
@@ -102,38 +71,8 @@ function mergeTokenUsage(base: TokenUsage, next: TokenUsage): TokenUsage {
 		cacheWrite,
 		total: input + output + cacheRead + cacheWrite,
 		contextSize: next.contextSize ?? base.contextSize,
+		contextWindowSize: next.contextWindowSize ?? base.contextWindowSize,
 	};
-}
-
-function selectOutputIsolation(
-	projectDir: string,
-	workflowSystemPromptFile: string | undefined,
-): {overrides?: Partial<IsolationConfig>; warning?: string} {
-	if (!workflowSystemPromptFile) {
-		return {};
-	}
-
-	const resolvedPath = path.resolve(projectDir, workflowSystemPromptFile);
-	if (!fs.existsSync(resolvedPath)) {
-		return {
-			warning: `Workflow system prompt file not found: ${workflowSystemPromptFile}. Continuing without --append-system-prompt-file.`,
-		};
-	}
-
-	return {
-		overrides: {
-			appendSystemPromptFile: resolvedPath,
-		},
-	};
-}
-
-function killChildProcess(child: ChildProcess | null): void {
-	if (!child) return;
-	try {
-		child.kill();
-	} catch {
-		// Best effort.
-	}
 }
 
 function policyFailure(
@@ -185,61 +124,6 @@ function safePersist(
 	}
 }
 
-async function spawnOnce(input: {
-	prompt: string;
-	projectDir: string;
-	instanceId: number;
-	sessionId?: string;
-	isolation: IsolationConfig | IsolationPreset | undefined;
-	workflowEnv?: Record<string, string>;
-	spawnProcess: (options: Parameters<typeof spawnClaude>[0]) => ChildProcess;
-	verbose: boolean;
-	stderrWrite: (message: string) => void;
-}): Promise<SpawnIterationResult> {
-	const tokenAccumulator = createTokenAccumulator();
-	const messageAccumulator = createAssistantMessageAccumulator();
-
-	return await new Promise(resolve => {
-		let settled = false;
-
-		const finalize = (exitCode: number | null, error: Error | null): void => {
-			if (settled) return;
-			settled = true;
-			tokenAccumulator.flush();
-			messageAccumulator.flush();
-			resolve({
-				exitCode,
-				error,
-				tokens: tokenAccumulator.getUsage(),
-				streamMessage: messageAccumulator.getLastMessage(),
-			});
-		};
-
-		try {
-			input.spawnProcess({
-				prompt: input.prompt,
-				projectDir: input.projectDir,
-				instanceId: input.instanceId,
-				sessionId: input.sessionId,
-				isolation: input.isolation,
-				env: input.workflowEnv,
-				onStdout: (data: string) => {
-					tokenAccumulator.feed(data);
-					messageAccumulator.feed(data);
-				},
-				onStderr: (data: string) => {
-					if (!input.verbose) return;
-					input.stderrWrite(data.trim());
-				},
-				onExit: code => finalize(code, null),
-				onError: error => finalize(null, error),
-			});
-		} catch (error) {
-			finalize(null, error instanceof Error ? error : new Error(String(error)));
-		}
-	});
-}
-
 export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 	const now = options.now ?? Date.now;
 	const startTs = now();
@@ -247,7 +131,6 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 	const json = options.json ?? false;
 	const instanceId = options.instanceId ?? process.pid;
 	const runtimeFactory = options.runtimeFactory ?? createRuntime;
-	const spawnProcess = options.spawnProcess ?? spawnClaude;
 	const sessionStoreFactory = options.sessionStoreFactory ?? createSessionStore;
 	const athenaSessionId = options.athenaSessionId ?? crypto.randomUUID();
 
@@ -270,8 +153,8 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 	let streamFinalMessage: string | null = null;
 	let mappedFinalMessage: string | null = null;
 	let adapterSessionId: string | null = null;
-	let activeChild: ChildProcess | null = null;
 	let currentIteration = 0;
+	let workflowState: ReturnType<typeof createWorkflowRunState> | null = null;
 
 	let store: SessionStore;
 	try {
@@ -308,6 +191,7 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 			harness: options.harness,
 			projectDir: options.projectDir,
 			instanceId,
+			workflow: options.workflow,
 		});
 	} catch (error) {
 		const message = `Failed to initialize runtime: ${
@@ -324,6 +208,21 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 			message,
 		});
 	}
+	const harnessAdapter = resolveHarnessAdapter(options.harness);
+	const sessionController = harnessAdapter.createSessionController({
+		projectDir: options.projectDir,
+		instanceId,
+		processConfig: options.isolationConfig,
+		pluginMcpConfig: options.pluginMcpConfig,
+		verbose,
+		workflow: options.workflow,
+		workflowPlan: options.workflowPlan,
+		ephemeral: options.ephemeral,
+		runtime,
+		spawnProcess: options.spawnProcess as
+			| ((options: unknown) => import('node:child_process').ChildProcess)
+			| undefined,
+	});
 
 	function registerFailure(next: ExecRunFailure): void {
 		if (failure) return;
@@ -333,7 +232,7 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 			kind: next.kind,
 			message: next.message,
 		});
-		killChildProcess(activeChild);
+		void sessionController.kill();
 	}
 
 	const hasFailure = (): boolean => failure !== undefined;
@@ -447,24 +346,13 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 		});
 
 		const workflow = options.workflow;
-		const basePrompt = workflow
-			? applyPromptTemplate(workflow.promptTemplate, options.prompt)
-			: options.prompt;
-
-		let loopManager: LoopManager | null = null;
-		if (workflow?.loop?.enabled) {
-			const trackerPath = path.resolve(
-				options.projectDir,
-				workflow.loop.trackerPath ?? 'tracker.md',
-			);
-			loopManager = createLoopManager(trackerPath, workflow.loop);
-		}
-
-		const {overrides: systemPromptOverrides, warning: systemPromptWarning} =
-			selectOutputIsolation(options.projectDir, workflow?.systemPromptFile);
-		if (systemPromptWarning) {
-			output.warn(systemPromptWarning);
-			output.emitJsonEvent('exec.warning', {message: systemPromptWarning});
+		workflowState = createWorkflowRunState({
+			projectDir: options.projectDir,
+			workflow,
+		});
+		for (const warning of workflowState.warnings) {
+			output.warn(warning);
+			output.emitJsonEvent('exec.warning', {message: warning});
 		}
 
 		output.emitJsonEvent('run.started', {
@@ -472,57 +360,47 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 			loopEnabled: workflow?.loop?.enabled ?? false,
 		});
 
-		let nextPrompt = basePrompt;
-		let nextSessionId = options.adapterResumeSessionId;
+		let nextPrompt = options.prompt;
+		let nextContinuation: TurnContinuation = options.adapterResumeSessionId
+			? {mode: 'resume', handle: options.adapterResumeSessionId}
+			: {mode: 'fresh'};
 
 		while (!hasFailure()) {
 			currentIteration += 1;
+			const preparedTurn = prepareWorkflowTurn(workflowState, {
+				prompt: nextPrompt,
+				configOverride: undefined,
+			});
+
 			output.emitJsonEvent('process.started', {
 				iteration: currentIteration,
-				resumeSessionId: nextSessionId ?? null,
+				resumeSessionId:
+					nextContinuation.mode === 'resume' ? nextContinuation.handle : null,
 			});
 
-			const isolation = mergeIsolation(
-				options.isolationConfig as IsolationConfig | IsolationPreset,
-				options.pluginMcpConfig,
-				systemPromptOverrides,
-			);
-
-			const spawnPromise = spawnOnce({
-				prompt: nextPrompt,
-				projectDir: options.projectDir,
-				instanceId,
-				sessionId: nextSessionId,
-				isolation,
-				workflowEnv: workflow?.env,
-				spawnProcess: spawnOptions => {
-					const child = spawnProcess(spawnOptions);
-					activeChild = child;
-					return child;
-				},
-				verbose,
-				stderrWrite: message => output.log(message),
+			const turnResult = await sessionController.startTurn({
+				prompt: preparedTurn.prompt,
+				continuation: nextContinuation,
+				configOverride: preparedTurn.configOverride,
+				onStderrLine: message => output.log(message),
 			});
-
-			const spawnResult = await spawnPromise;
-			activeChild = null;
-			finalExitCode = spawnResult.exitCode;
-			cumulativeTokens = mergeTokenUsage(cumulativeTokens, spawnResult.tokens);
-			if (spawnResult.streamMessage) {
-				streamFinalMessage = spawnResult.streamMessage;
+			finalExitCode = turnResult.exitCode;
+			cumulativeTokens = mergeTokenUsage(cumulativeTokens, turnResult.tokens);
+			if (turnResult.streamMessage) {
+				streamFinalMessage = turnResult.streamMessage;
 			}
 
 			output.emitJsonEvent('process.exited', {
 				iteration: currentIteration,
-				exitCode: spawnResult.exitCode,
-				tokens: spawnResult.tokens,
+				exitCode: turnResult.exitCode,
+				tokens: turnResult.tokens,
 			});
 
 			const sessionIdForTokens = currentAdapterSessionId();
 			if (sessionIdForTokens !== null) {
 				safePersist(
 					store,
-					() => store.recordTokens(sessionIdForTokens, spawnResult.tokens),
+					() => store.recordTokens(sessionIdForTokens, turnResult.tokens),
 					message => output.warn(message),
 					'recordTokens failed',
 				);
@@ -532,37 +410,33 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 				break;
 			}
 
-			if (spawnResult.error) {
+			if (turnResult.error) {
 				registerFailure({
 					kind: 'process',
-					message: `Failed to run harness process: ${spawnResult.error.message}`,
+					message: `Failed to run harness process: ${turnResult.error.message}`,
 				});
 				break;
 			}
 
-			if (spawnResult.exitCode !== 0) {
+			if (turnResult.exitCode !== 0) {
 				registerFailure({
 					kind: 'process',
-					message: `Harness process exited with code ${spawnResult.exitCode}.`,
+					message: `Harness process exited with code ${turnResult.exitCode}.`,
 				});
 				break;
 			}
 
-			if (!loopManager || !workflow?.loop?.enabled) {
+			if (!workflow?.loop?.enabled) {
+				cleanupWorkflowRun(workflowState);
 				break;
 			}
 
-			const continueLoop =
-				fs.existsSync(loopManager.trackerPath) && !loopManager.isTerminal();
-			if (!continueLoop) {
-				cleanupTrackerFile(loopManager.trackerPath);
-				loopManager.deactivate();
+			if (!shouldContinueWorkflowRun(workflowState)) {
 				break;
 			}
 
-			loopManager.incrementIteration();
-			nextPrompt = buildContinuePrompt(workflow.loop);
-			nextSessionId = undefined;
+			nextPrompt = options.prompt;
+			nextContinuation = {mode: 'fresh'};
 		}
 	} catch (error) {
 		registerFailure({
@@ -573,13 +447,16 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 		if (timeoutTimer) {
 			clearTimeout(timeoutTimer);
 		}
-		killChildProcess(activeChild);
+		await sessionController.kill();
 		unsubscribeEvent();
 		unsubscribeDecision();
 		if (runtimeStarted) {
 			runtime.stop();
 		}
 		store.close();
+		if (workflowState) {
+			cleanupWorkflowRun(workflowState);
+		}
 	}
 
 	const resolvedFinalMessage = resolveFinalMessage({
