@@ -15,6 +15,11 @@ import {
 import {mapDecisionToCodexResult} from './decisionMapper';
 import {asRecord} from './eventTranslator';
 import {resolveCodexSkillInstructions} from './skillInstructions';
+import {
+	resolveCodexAgentConfig,
+	cleanupAgentConfig,
+	type CodexAgentConfigResult,
+} from './agentConfig';
 import * as M from '../protocol/methods';
 import {generateId} from '../../../shared/utils/id';
 
@@ -34,6 +39,7 @@ export type CodexRuntime = Runtime & {
 			model?: string;
 			developerInstructions?: string;
 			skillRoots?: string[];
+			agentRoots?: string[];
 			config?: Record<string, unknown>;
 			ephemeral?: boolean;
 			approvalPolicy?: string;
@@ -128,6 +134,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 	let pendingTurnPrompt: string | null = null;
 	let pendingTurnCompletion: PendingTurnCompletion | null = null;
 	let configuredSkillRoots: string[] = [];
+	let loadedAgentConfig: CodexAgentConfigResult | null = null;
 
 	function createPendingTurnCompletion(): PendingTurnCompletion {
 		let settleResolve: (() => void) | null = null;
@@ -312,6 +319,31 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 		return base ?? skills;
 	}
 
+	function buildAgentLoadMessage(input: {
+		agentNames: string[];
+		agentRoots: string[];
+		errorCount?: number;
+	}): string {
+		const {agentNames, agentRoots, errorCount = 0} = input;
+		if (agentNames.length === 0) {
+			const rootLabel = agentRoots.length === 1 ? 'root' : 'roots';
+			const base = `No workflow agents were loaded from ${agentRoots.length} configured agent ${rootLabel}.`;
+			if (errorCount === 0) {
+				return base;
+			}
+			const label = errorCount === 1 ? 'error' : 'errors';
+			return `${base} ${errorCount} validation ${label} occurred while scanning workflow agents.`;
+		}
+
+		const label = agentNames.length === 1 ? 'agent' : 'agents';
+		const base = `Loaded ${agentNames.length} workflow ${label}: ${agentNames.join(', ')}.`;
+		if (errorCount === 0) {
+			return base;
+		}
+		const skippedLabel = errorCount === 1 ? 'invalid agent' : 'invalid agents';
+		return `${base} Skipped ${errorCount} ${skippedLabel} due to validation errors.`;
+	}
+
 	function buildSkillLoadMessage(input: {
 		skillNames: string[];
 		skillRoots: string[];
@@ -429,6 +461,11 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 		stop(): void {
 			clearPendingApprovals();
 
+			if (loadedAgentConfig) {
+				cleanupAgentConfig(loadedAgentConfig.tempDir);
+				loadedAgentConfig = null;
+			}
+
 			if (manager) {
 				manager.removeAllListeners();
 				manager.stop().catch(() => {});
@@ -480,6 +517,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				model?: string;
 				developerInstructions?: string;
 				skillRoots?: string[];
+				agentRoots?: string[];
 				config?: Record<string, unknown>;
 				ephemeral?: boolean;
 				approvalPolicy?: string;
@@ -540,6 +578,69 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 						);
 					}
 				}
+				// Resolve agent config from plugin agent roots
+				const agentRoots = options?.agentRoots?.filter(Boolean) ?? [];
+				if (shouldConfigureThread && agentRoots.length > 0) {
+					// Clean up previous agent config if switching workflows
+					if (loadedAgentConfig) {
+						cleanupAgentConfig(loadedAgentConfig.tempDir);
+						loadedAgentConfig = null;
+					}
+
+					try {
+						const agentConfig = resolveCodexAgentConfig({
+							agentRoots,
+							sessionId: threadId ?? generateId(),
+						});
+
+						if (agentConfig && agentConfig.agentConfigEdits.length > 0) {
+							await manager.sendRequest(M.CONFIG_BATCH_WRITE, {
+								filePath: `${projectDir}/.codex/config.toml`,
+								edits: agentConfig.agentConfigEdits,
+							});
+							loadedAgentConfig = agentConfig;
+
+							emitNotification({
+								hookName: 'agents.loaded',
+								title: 'Agents loaded',
+								message: buildAgentLoadMessage({
+									agentNames: agentConfig.agentNames,
+									agentRoots,
+									errorCount: agentConfig.errors.length,
+								}),
+								notificationType: 'agents.loaded',
+								payload: {
+									agentRoots,
+									agentNames: agentConfig.agentNames,
+									errors: agentConfig.errors,
+								},
+							});
+						} else if (agentConfig && agentConfig.errors.length > 0) {
+							emitNotification({
+								hookName: 'agents.loaded',
+								title: 'Agents loaded',
+								message: buildAgentLoadMessage({
+									agentNames: [],
+									agentRoots,
+									errorCount: agentConfig.errors.length,
+								}),
+								notificationType: 'agents.loaded',
+								payload: {
+									agentRoots,
+									agentNames: [],
+									errors: agentConfig.errors,
+								},
+							});
+						}
+					} catch (error) {
+						console.error(
+							`[athena:codex] failed to load workflow agents: ${
+								error instanceof Error ? error.message : String(error)
+							}`,
+						);
+					}
+				}
+
 				const developerInstructions = shouldConfigureThread
 					? combineDeveloperInstructions(
 							options?.developerInstructions,

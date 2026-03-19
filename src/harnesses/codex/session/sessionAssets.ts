@@ -46,6 +46,22 @@ export function resolveCodexWorkflowSkillRoots(
 	];
 }
 
+export function resolveCodexWorkflowAgentRoots(
+	workflowPlan?: WorkflowPlan,
+): string[] {
+	if (!workflowPlan) {
+		return [];
+	}
+
+	return [
+		...new Set(
+			workflowPlan.pluginDirs
+				.map(pluginDir => path.join(pluginDir, 'agents'))
+				.filter(agentRoot => fs.existsSync(agentRoot)),
+		),
+	];
+}
+
 function readMcpServers(
 	configPath: string,
 ): Record<string, Record<string, unknown>> {

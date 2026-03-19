@@ -7,6 +7,7 @@ import type {
 import type {WorkflowPlan} from '../../../core/workflows';
 import {
 	resolveCodexMcpConfig,
+	resolveCodexWorkflowAgentRoots,
 	resolveCodexWorkflowSkillRoots,
 } from './sessionAssets';
 
@@ -18,6 +19,7 @@ export type CodexPromptOptions = {
 	model?: string;
 	developerInstructions?: string;
 	skillRoots?: string[];
+	agentRoots?: string[];
 	config?: Record<string, unknown>;
 	ephemeral?: boolean;
 	approvalPolicy: CodexApprovalPolicy;
@@ -66,6 +68,7 @@ export function buildCodexPromptOptions(input: {
 			? input.processConfig.model
 			: undefined;
 	const skillRoots = resolveCodexWorkflowSkillRoots(input.workflowPlan);
+	const agentRoots = resolveCodexWorkflowAgentRoots(input.workflowPlan);
 	const isolation = resolveIsolation(input.processConfig?.preset);
 
 	return {
@@ -73,6 +76,7 @@ export function buildCodexPromptOptions(input: {
 		model: modelFromOverride ?? modelFromProcess,
 		developerInstructions,
 		skillRoots: skillRoots.length > 0 ? skillRoots : undefined,
+		agentRoots: agentRoots.length > 0 ? agentRoots : undefined,
 		config: resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan),
 		ephemeral: input.ephemeral,
 		approvalPolicy: isolation.approvalPolicy,
