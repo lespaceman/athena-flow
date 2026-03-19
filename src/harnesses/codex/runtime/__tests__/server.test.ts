@@ -177,6 +177,10 @@ vi.mock('../appServerManager', () => ({
 				return {};
 			}
 
+			if (method === 'config/mcpServer/reload') {
+				return {};
+			}
+
 			throw new Error(`Unexpected request: ${method}`);
 		}
 	},
@@ -662,6 +666,12 @@ describe('createCodexServer', () => {
 			]),
 		});
 
+		// config/mcpServer/reload should have been called after config/batchWrite
+		const mcpReloadReq = manager!.requests.find(
+			r => r.method === 'config/mcpServer/reload',
+		);
+		expect(mcpReloadReq).toBeDefined();
+
 		// agents.loaded notification should have been emitted
 		expect(events).toEqual(
 			expect.arrayContaining([
@@ -672,7 +682,7 @@ describe('createCodexServer', () => {
 						notification_type: 'agents.loaded',
 						message: 'Loaded 1 workflow agent: reviewer.',
 					}),
-					hookName: 'agents.loaded',
+					hookName: M.AGENTS_LOADED,
 				}),
 			]),
 		);

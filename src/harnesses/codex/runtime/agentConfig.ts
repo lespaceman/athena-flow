@@ -39,9 +39,18 @@ export type AgentConfigError = {
 };
 
 /**
- * Map Claude model aliases to Codex model equivalents.
- * Codex model names vary by deployment — we pass through as-is
- * since the Codex binary resolves model aliases internally.
+ * Map Claude model aliases to Codex agent config model field.
+ *
+ * Claude agents use aliases like 'sonnet', 'opus', 'haiku', 'inherit'.
+ * Codex uses deployment-specific model names (e.g. 'gpt-5.3-codex').
+ * We pass through as-is and let the Codex binary resolve the model:
+ * - 'inherit' / undefined → omitted from TOML, inherits parent model
+ * - Recognized Codex model → used directly
+ * - Unrecognized name → Codex falls back to default model
+ *
+ * A static mapping table was considered but rejected because model names
+ * change across Codex deployments. If this becomes a friction point,
+ * we can add a model/list RPC lookup for closest-match resolution.
  */
 function mapModelForCodex(model?: string): string | undefined {
 	if (!model || model === 'inherit') {
@@ -59,7 +68,7 @@ function mapSandboxMode(permissionMode?: string): string | undefined {
 			return 'read-only';
 		case 'bypassPermissions':
 		case 'dontAsk':
-			return undefined;
+		case undefined:
 		default:
 			return undefined;
 	}
@@ -166,6 +175,11 @@ export function parseAgentMd(filePath: string, content: string): ParsedAgent {
 			`Agent file ${filePath} missing required "name" field in frontmatter`,
 		);
 	}
+	if (!AGENT_NAME_PATTERN.test(name)) {
+		throw new Error(
+			`Agent file ${filePath} has invalid name "${name}": must match [a-zA-Z0-9_-]`,
+		);
+	}
 
 	const description =
 		typeof frontmatter['description'] === 'string'
@@ -214,13 +228,16 @@ export function parseAgentMd(filePath: string, content: string): ParsedAgent {
 	};
 }
 
+/** Valid agent name pattern: lowercase, digits, hyphens, underscores. */
+const AGENT_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+
 /**
- * Escape a TOML string value (double-quoted).
+ * Escape a TOML multi-line basic string value.
+ * Handles `"""` sequences inside the content by inserting a backslash escape.
  */
 function tomlString(value: string): string {
-	return `"""
-${value}
-"""`;
+	const escaped = value.replace(/"""/g, '""\\"');
+	return `"""\n${escaped}\n"""`;
 }
 
 /**
@@ -288,28 +305,36 @@ export function discoverAgents(agentRoots: string[]): {
 	return {agents, errors};
 }
 
+type CollisionResult = {
+	errors: AgentConfigError[];
+	collidingNames: Set<string>;
+};
+
 /**
  * Detect agent name collisions across plugins.
+ * Returns both errors and the set of colliding names for filtering.
  */
 function detectCollisions(
 	agents: Array<{filePath: string; agent: ParsedAgent}>,
-): AgentConfigError[] {
+): CollisionResult {
 	const seen = new Map<string, string>();
-	const collisions: AgentConfigError[] = [];
+	const errors: AgentConfigError[] = [];
+	const collidingNames = new Set<string>();
 
 	for (const {filePath, agent} of agents) {
 		const existing = seen.get(agent.name);
 		if (existing) {
-			collisions.push({
+			errors.push({
 				path: filePath,
 				message: `Agent name "${agent.name}" collides with ${existing}`,
 			});
+			collidingNames.add(agent.name);
 		} else {
 			seen.set(agent.name, filePath);
 		}
 	}
 
-	return collisions;
+	return {errors, collidingNames};
 }
 
 /**
@@ -328,18 +353,12 @@ export function resolveCodexAgentConfig(input: {
 	}
 
 	const {agents, errors} = discoverAgents(agentRoots);
-	const collisionErrors = detectCollisions(agents);
-	const allErrors = [...errors, ...collisionErrors];
+	const collisions = detectCollisions(agents);
+	const allErrors = [...errors, ...collisions.errors];
 
 	// Filter out collision duplicates (keep first occurrence)
-	const collisionNames = new Set(
-		collisionErrors.map(e => {
-			const match = e.message.match(/Agent name "([^"]+)"/);
-			return match?.[1] ?? '';
-		}),
-	);
 	const uniqueAgents = agents.filter(({agent}, index) => {
-		if (!collisionNames.has(agent.name)) {
+		if (!collisions.collidingNames.has(agent.name)) {
 			return true;
 		}
 		// Keep the first occurrence of a colliding name

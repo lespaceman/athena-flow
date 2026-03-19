@@ -30,8 +30,9 @@ function normalizeCodexMcpServerConfig(
 	return normalized;
 }
 
-export function resolveCodexWorkflowSkillRoots(
-	workflowPlan?: WorkflowPlan,
+function resolveCodexWorkflowPluginSubdirs(
+	workflowPlan: WorkflowPlan | undefined,
+	subdir: string,
 ): string[] {
 	if (!workflowPlan) {
 		return [];
@@ -40,26 +41,22 @@ export function resolveCodexWorkflowSkillRoots(
 	return [
 		...new Set(
 			workflowPlan.pluginDirs
-				.map(pluginDir => path.join(pluginDir, 'skills'))
-				.filter(skillRoot => fs.existsSync(skillRoot)),
+				.map(pluginDir => path.join(pluginDir, subdir))
+				.filter(dir => fs.existsSync(dir)),
 		),
 	];
+}
+
+export function resolveCodexWorkflowSkillRoots(
+	workflowPlan?: WorkflowPlan,
+): string[] {
+	return resolveCodexWorkflowPluginSubdirs(workflowPlan, 'skills');
 }
 
 export function resolveCodexWorkflowAgentRoots(
 	workflowPlan?: WorkflowPlan,
 ): string[] {
-	if (!workflowPlan) {
-		return [];
-	}
-
-	return [
-		...new Set(
-			workflowPlan.pluginDirs
-				.map(pluginDir => path.join(pluginDir, 'agents'))
-				.filter(agentRoot => fs.existsSync(agentRoot)),
-		),
-	];
+	return resolveCodexWorkflowPluginSubdirs(workflowPlan, 'agents');
 }
 
 function readMcpServers(

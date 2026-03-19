@@ -11,6 +11,9 @@ export const SKILLS_LIST = 'skills/list';
 export const CONFIG_BATCH_WRITE = 'config/batchWrite';
 export const CONFIG_MCP_SERVER_RELOAD = 'config/mcpServer/reload';
 
+// Athena-local notification hook names (not Codex protocol methods)
+export const AGENTS_LOADED = 'agents.loaded';
+
 // Server → client notifications
 export const TURN_STARTED = 'turn/started';
 export const TURN_COMPLETED = 'turn/completed';

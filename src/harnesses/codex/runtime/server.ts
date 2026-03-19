@@ -320,53 +320,31 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 		return base ?? skills;
 	}
 
-	function buildAgentLoadMessage(input: {
-		agentNames: string[];
-		agentRoots: string[];
+	function buildLoadMessage(input: {
+		kind: string;
+		names: string[];
+		rootCount: number;
 		errorCount?: number;
 	}): string {
-		const {agentNames, agentRoots, errorCount = 0} = input;
-		if (agentNames.length === 0) {
-			const rootLabel = agentRoots.length === 1 ? 'root' : 'roots';
-			const base = `No workflow agents were loaded from ${agentRoots.length} configured agent ${rootLabel}.`;
+		const {kind, names, rootCount, errorCount = 0} = input;
+		const plural = names.length === 1 ? kind : `${kind}s`;
+
+		if (names.length === 0) {
+			const rootLabel = rootCount === 1 ? 'root' : 'roots';
+			const base = `No workflow ${kind}s were loaded from ${rootCount} configured ${kind} ${rootLabel}.`;
 			if (errorCount === 0) {
 				return base;
 			}
 			const label = errorCount === 1 ? 'error' : 'errors';
-			return `${base} ${errorCount} validation ${label} occurred while scanning workflow agents.`;
+			return `${base} ${errorCount} validation ${label} occurred while scanning workflow ${kind}s.`;
 		}
 
-		const label = agentNames.length === 1 ? 'agent' : 'agents';
-		const base = `Loaded ${agentNames.length} workflow ${label}: ${agentNames.join(', ')}.`;
+		const base = `Loaded ${names.length} workflow ${plural}: ${names.join(', ')}.`;
 		if (errorCount === 0) {
 			return base;
 		}
-		const skippedLabel = errorCount === 1 ? 'invalid agent' : 'invalid agents';
-		return `${base} Skipped ${errorCount} ${skippedLabel} due to validation errors.`;
-	}
-
-	function buildSkillLoadMessage(input: {
-		skillNames: string[];
-		skillRoots: string[];
-		errorCount?: number;
-	}): string {
-		const {skillNames, skillRoots, errorCount = 0} = input;
-		if (skillNames.length === 0) {
-			const rootLabel = skillRoots.length === 1 ? 'root' : 'roots';
-			const base = `No workflow skills were loaded from ${skillRoots.length} configured skill ${rootLabel}.`;
-			if (errorCount === 0) {
-				return base;
-			}
-			const label = errorCount === 1 ? 'error' : 'errors';
-			return `${base} ${errorCount} validation ${label} occurred while scanning workflow skills.`;
-		}
-
-		const label = skillNames.length === 1 ? 'skill' : 'skills';
-		const base = `Loaded ${skillNames.length} workflow ${label}: ${skillNames.join(', ')}.`;
-		if (errorCount === 0) {
-			return base;
-		}
-		const skippedLabel = errorCount === 1 ? 'invalid skill' : 'invalid skills';
+		const skippedLabel =
+			errorCount === 1 ? `invalid ${kind}` : `invalid ${kind}s`;
 		return `${base} Skipped ${errorCount} ${skippedLabel} due to validation errors.`;
 	}
 
@@ -558,9 +536,10 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 							emitNotification({
 								hookName: M.SKILLS_LIST,
 								title: 'Skills loaded',
-								message: buildSkillLoadMessage({
-									skillNames: skillResolution.skills.map(skill => skill.name),
-									skillRoots,
+								message: buildLoadMessage({
+									kind: 'skill',
+									names: skillResolution.skills.map(skill => skill.name),
+									rootCount: skillRoots.length,
 									errorCount: skillResolution.errors.length,
 								}),
 								notificationType: 'skills.loaded',
@@ -619,15 +598,27 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 							});
 							loadedAgentConfig = agentConfig;
 
+							// Reload MCP servers so Codex picks up any per-agent
+							// MCP configs defined in agent TOML files.
+							try {
+								await manager.sendRequest(
+									M.CONFIG_MCP_SERVER_RELOAD,
+									undefined,
+								);
+							} catch {
+								// Best-effort — next thread start picks up config anyway
+							}
+
 							emitNotification({
-								hookName: 'agents.loaded',
+								hookName: M.AGENTS_LOADED,
 								title: 'Agents loaded',
-								message: buildAgentLoadMessage({
-									agentNames: agentConfig.agentNames,
-									agentRoots,
+								message: buildLoadMessage({
+									kind: 'agent',
+									names: agentConfig.agentNames,
+									rootCount: agentRoots.length,
 									errorCount: agentConfig.errors.length,
 								}),
-								notificationType: 'agents.loaded',
+								notificationType: M.AGENTS_LOADED,
 								payload: {
 									agentRoots,
 									agentNames: agentConfig.agentNames,
@@ -636,14 +627,15 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 							});
 						} else if (agentConfig && agentConfig.errors.length > 0) {
 							emitNotification({
-								hookName: 'agents.loaded',
+								hookName: M.AGENTS_LOADED,
 								title: 'Agents loaded',
-								message: buildAgentLoadMessage({
-									agentNames: [],
-									agentRoots,
+								message: buildLoadMessage({
+									kind: 'agent',
+									names: [],
+									rootCount: agentRoots.length,
 									errorCount: agentConfig.errors.length,
 								}),
-								notificationType: 'agents.loaded',
+								notificationType: M.AGENTS_LOADED,
 								payload: {
 									agentRoots,
 									agentNames: [],

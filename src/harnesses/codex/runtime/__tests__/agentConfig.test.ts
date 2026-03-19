@@ -149,6 +149,18 @@ Body.`;
 		);
 	});
 
+	it('throws on invalid agent name with special characters', () => {
+		const content = `---
+name: my agent/bad
+description: Invalid name
+---
+
+Body.`;
+		expect(() => parseAgentMd('/agents/bad.md', content)).toThrow(
+			'invalid name',
+		);
+	});
+
 	it('handles disallowedTools as comma-separated string', () => {
 		const content = `---
 name: safe-agent
@@ -184,6 +196,19 @@ describe('generateAgentToml', () => {
 			permissionMode: 'plan',
 		});
 		expect(toml).toContain('sandbox_mode = "read-only"');
+	});
+
+	it('escapes triple-quote sequences in developer instructions', () => {
+		const toml = generateAgentToml({
+			name: 'tricky',
+			description: 'Has tricky content',
+			developerInstructions: 'Use """triple quotes""" in output.',
+		});
+		// Should not contain unescaped triple quotes inside the value
+		const matches = toml.match(/"""/g);
+		// Only the opening and closing delimiters should be unescaped triple quotes
+		expect(matches).toHaveLength(2);
+		expect(toml).toContain('""\\');
 	});
 
 	it('omits model when inherit or undefined', () => {

@@ -229,10 +229,43 @@ describe('buildCodexPromptOptions', () => {
 			model: undefined,
 			developerInstructions: undefined,
 			skillRoots: undefined,
+			agentRoots: undefined,
 			config: undefined,
 			ephemeral: true,
 			approvalPolicy: 'on-request',
 			sandbox: 'workspace-write',
 		});
+	});
+
+	it('resolves workflow agent roots from plugin dirs with agents/', () => {
+		files['/plugins/my-plugin/agents'] = '';
+		files['/plugins/my-plugin/skills'] = '';
+		const result = buildCodexPromptOptions({
+			workflowPlan: {
+				workflow: {
+					name: 'test',
+					plugins: [],
+					promptTemplate: '{input}',
+				},
+				pluginDirs: ['/plugins/my-plugin'],
+			},
+		});
+		expect(result.agentRoots).toEqual(['/plugins/my-plugin/agents']);
+		expect(result.skillRoots).toEqual(['/plugins/my-plugin/skills']);
+	});
+
+	it('omits agentRoots when no plugin dirs have agents/', () => {
+		files['/plugins/my-plugin/skills'] = '';
+		const result = buildCodexPromptOptions({
+			workflowPlan: {
+				workflow: {
+					name: 'test',
+					plugins: [],
+					promptTemplate: '{input}',
+				},
+				pluginDirs: ['/plugins/my-plugin'],
+			},
+		});
+		expect(result.agentRoots).toBeUndefined();
 	});
 });
