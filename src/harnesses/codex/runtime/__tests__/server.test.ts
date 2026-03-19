@@ -4,6 +4,32 @@ import {createCodexServer} from '../server';
 import type {RuntimeEvent} from '../../../../core/runtime/types';
 import * as M from '../../protocol/methods';
 
+const mockAgentResult = vi.hoisted(() => ({
+	current: undefined as
+		| {
+				agentConfigEdits: Array<{
+					keyPath: string;
+					value: unknown;
+					mergeStrategy: string;
+				}>;
+				tempDir: string;
+				agentNames: string[];
+				errors: Array<{path: string; message: string}>;
+		  }
+		| undefined,
+}));
+
+vi.mock('../agentConfig', () => ({
+	resolveCodexAgentConfig: () => mockAgentResult.current,
+	buildAgentRemovalEdits: (names: string[]) =>
+		names.map(name => ({
+			keyPath: `agents.${name}`,
+			value: null,
+			mergeStrategy: 'replace',
+		})),
+	cleanupAgentConfig: () => {},
+}));
+
 const mockState = vi.hoisted(() => ({
 	current: null as {
 		requests: Array<{method: string; params?: Record<string, unknown>}>;
@@ -147,6 +173,10 @@ vi.mock('../appServerManager', () => ({
 				return {turn: {id: 'turn-1', items: [], status: 'completed'}};
 			}
 
+			if (method === 'config/batchWrite') {
+				return {};
+			}
+
 			throw new Error(`Unexpected request: ${method}`);
 		}
 	},
@@ -155,6 +185,7 @@ vi.mock('../appServerManager', () => ({
 describe('createCodexServer', () => {
 	beforeEach(() => {
 		mockState.current = null;
+		mockAgentResult.current = undefined;
 	});
 
 	it('resolves sendPrompt when turn completion arrives before turn/start responds', async () => {
@@ -558,5 +589,210 @@ describe('createCodexServer', () => {
 		});
 
 		await expect(promptPromise).resolves.toBeUndefined();
+	});
+
+	it('sends config/batchWrite with agent config when agentRoots contain agents', async () => {
+		mockAgentResult.current = {
+			agentConfigEdits: [
+				{
+					keyPath: 'features.multi_agent',
+					value: true,
+					mergeStrategy: 'replace',
+				},
+				{
+					keyPath: 'agents.max_threads',
+					value: 6,
+					mergeStrategy: 'replace',
+				},
+				{
+					keyPath: 'agents.max_depth',
+					value: 1,
+					mergeStrategy: 'replace',
+				},
+				{
+					keyPath: 'agents.reviewer',
+					value: {
+						description: 'Reviews code',
+						config_file: '/tmp/athena-agents-test/reviewer.toml',
+					},
+					mergeStrategy: 'upsert',
+				},
+			],
+			tempDir: '/tmp/athena-agents-test',
+			agentNames: ['reviewer'],
+			errors: [],
+		};
+
+		const runtime = createCodexServer({
+			projectDir: '/project',
+			instanceId: 1,
+			binaryPath: 'codex',
+		});
+		const events: RuntimeEvent[] = [];
+		runtime.onEvent(event => {
+			events.push(event);
+		});
+
+		await runtime.start();
+		await runtime.sendPrompt('Hello Codex', {
+			agentRoots: ['/workflow/plugins/test-plugin/agents'],
+		});
+
+		const manager = mockState.current;
+		expect(manager).not.toBeNull();
+
+		// config/batchWrite should have been called with agent edits
+		const batchWriteReq = manager!.requests.find(
+			r => r.method === 'config/batchWrite',
+		);
+		expect(batchWriteReq).toBeDefined();
+		expect(batchWriteReq!.params).toEqual({
+			filePath: '/project/.codex/config.toml',
+			edits: expect.arrayContaining([
+				expect.objectContaining({
+					keyPath: 'features.multi_agent',
+					value: true,
+				}),
+				expect.objectContaining({
+					keyPath: 'agents.reviewer',
+					value: expect.objectContaining({
+						description: 'Reviews code',
+					}),
+				}),
+			]),
+		});
+
+		// agents.loaded notification should have been emitted
+		expect(events).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					kind: 'notification',
+					data: expect.objectContaining({
+						title: 'Agents loaded',
+						notification_type: 'agents.loaded',
+						message: 'Loaded 1 workflow agent: reviewer.',
+					}),
+					hookName: 'agents.loaded',
+				}),
+			]),
+		);
+	});
+
+	it('sends removal edits on workflow switch before loading new agents', async () => {
+		// First workflow: has reviewer agent
+		mockAgentResult.current = {
+			agentConfigEdits: [
+				{
+					keyPath: 'features.multi_agent',
+					value: true,
+					mergeStrategy: 'replace',
+				},
+				{
+					keyPath: 'agents.reviewer',
+					value: {
+						description: 'Reviews code',
+						config_file: '/tmp/athena-agents-1/reviewer.toml',
+					},
+					mergeStrategy: 'upsert',
+				},
+			],
+			tempDir: '/tmp/athena-agents-1',
+			agentNames: ['reviewer'],
+			errors: [],
+		};
+
+		const runtime = createCodexServer({
+			projectDir: '/project',
+			instanceId: 1,
+			binaryPath: 'codex',
+		});
+
+		await runtime.start();
+		await runtime.sendPrompt('First workflow turn', {
+			agentRoots: ['/workflow/plugins/plugin-a/agents'],
+		});
+
+		// Switch to second workflow with explorer agent
+		mockAgentResult.current = {
+			agentConfigEdits: [
+				{
+					keyPath: 'features.multi_agent',
+					value: true,
+					mergeStrategy: 'replace',
+				},
+				{
+					keyPath: 'agents.explorer',
+					value: {
+						description: 'Explores codebase',
+						config_file: '/tmp/athena-agents-2/explorer.toml',
+					},
+					mergeStrategy: 'upsert',
+				},
+			],
+			tempDir: '/tmp/athena-agents-2',
+			agentNames: ['explorer'],
+			errors: [],
+		};
+
+		await runtime.sendPrompt('Second workflow turn', {
+			continuation: {mode: 'fresh', handle: ''},
+			agentRoots: ['/workflow/plugins/plugin-b/agents'],
+		});
+
+		const manager = mockState.current;
+		expect(manager).not.toBeNull();
+
+		const batchWrites = manager!.requests.filter(
+			r => r.method === 'config/batchWrite',
+		);
+
+		// Should have 3 config/batchWrite calls:
+		// 1. Load reviewer
+		// 2. Remove reviewer (workflow switch cleanup)
+		// 3. Load explorer
+		expect(batchWrites).toHaveLength(3);
+
+		// Second call should contain removal edits
+		expect(batchWrites[1]!.params).toEqual({
+			filePath: '/project/.codex/config.toml',
+			edits: expect.arrayContaining([
+				expect.objectContaining({
+					keyPath: 'agents.reviewer',
+					value: null,
+					mergeStrategy: 'replace',
+				}),
+			]),
+		});
+
+		// Third call should contain new agent
+		expect(batchWrites[2]!.params).toEqual({
+			filePath: '/project/.codex/config.toml',
+			edits: expect.arrayContaining([
+				expect.objectContaining({
+					keyPath: 'agents.explorer',
+				}),
+			]),
+		});
+	});
+
+	it('does not send config/batchWrite when agentRoots is empty', async () => {
+		const runtime = createCodexServer({
+			projectDir: '/project',
+			instanceId: 1,
+			binaryPath: 'codex',
+		});
+
+		await runtime.start();
+		await runtime.sendPrompt('Hello Codex', {
+			agentRoots: [],
+		});
+
+		const manager = mockState.current;
+		expect(manager).not.toBeNull();
+
+		const batchWrites = manager!.requests.filter(
+			r => r.method === 'config/batchWrite',
+		);
+		expect(batchWrites).toHaveLength(0);
 	});
 });

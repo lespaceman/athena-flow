@@ -17,6 +17,7 @@ import {asRecord} from './eventTranslator';
 import {resolveCodexSkillInstructions} from './skillInstructions';
 import {
 	resolveCodexAgentConfig,
+	buildAgentRemovalEdits,
 	cleanupAgentConfig,
 	type CodexAgentConfigResult,
 } from './agentConfig';
@@ -578,15 +579,33 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 						);
 					}
 				}
-				// Resolve agent config from plugin agent roots
+				// Resolve agent config from plugin agent roots.
+				// Clean up previous agent config first (handles workflow switching
+				// including the case where the new workflow has no agents).
 				const agentRoots = options?.agentRoots?.filter(Boolean) ?? [];
-				if (shouldConfigureThread && agentRoots.length > 0) {
-					// Clean up previous agent config if switching workflows
-					if (loadedAgentConfig) {
-						cleanupAgentConfig(loadedAgentConfig.tempDir);
-						loadedAgentConfig = null;
+				if (shouldConfigureThread && loadedAgentConfig) {
+					const removalEdits = buildAgentRemovalEdits(
+						loadedAgentConfig.agentNames,
+					);
+					if (removalEdits.length > 0) {
+						try {
+							await manager.sendRequest(M.CONFIG_BATCH_WRITE, {
+								filePath: `${projectDir}/.codex/config.toml`,
+								edits: removalEdits,
+							});
+						} catch (error) {
+							console.error(
+								`[athena:codex] failed to remove previous agents: ${
+									error instanceof Error ? error.message : String(error)
+								}`,
+							);
+						}
 					}
+					cleanupAgentConfig(loadedAgentConfig.tempDir);
+					loadedAgentConfig = null;
+				}
 
+				if (shouldConfigureThread && agentRoots.length > 0) {
 					try {
 						const agentConfig = resolveCodexAgentConfig({
 							agentRoots,

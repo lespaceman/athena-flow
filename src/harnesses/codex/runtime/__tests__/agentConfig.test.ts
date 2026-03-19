@@ -8,6 +8,7 @@ import {
 	generateAgentToml,
 	discoverAgents,
 	resolveCodexAgentConfig,
+	buildAgentRemovalEdits,
 	cleanupAgentConfig,
 } from '../agentConfig';
 
@@ -424,6 +425,26 @@ Second reviewer.`,
 		expect(result!.agentNames).toHaveLength(0);
 		expect(result!.errors).toHaveLength(1);
 		expect(result!.agentConfigEdits).toHaveLength(0);
+	});
+});
+
+describe('buildAgentRemovalEdits', () => {
+	it('generates removal edits for each agent name', () => {
+		const edits = buildAgentRemovalEdits(['reviewer', 'explorer']);
+		expect(edits).toEqual([
+			{keyPath: 'agents.reviewer', value: null, mergeStrategy: 'replace'},
+			{keyPath: 'agents.explorer', value: null, mergeStrategy: 'replace'},
+			{
+				keyPath: 'features.multi_agent',
+				value: false,
+				mergeStrategy: 'replace',
+			},
+		]);
+	});
+
+	it('returns empty array for empty names', () => {
+		const edits = buildAgentRemovalEdits([]);
+		expect(edits).toEqual([]);
 	});
 });
 

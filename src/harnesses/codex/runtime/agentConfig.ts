@@ -408,6 +408,33 @@ export function resolveCodexAgentConfig(input: {
 }
 
 /**
+ * Build config/batchWrite edits that remove previously loaded agent entries.
+ * Uses `mergeStrategy: 'replace'` with `null` value to delete keys.
+ */
+export function buildAgentRemovalEdits(
+	agentNames: string[],
+): AgentConfigEdit[] {
+	if (agentNames.length === 0) {
+		return [];
+	}
+
+	const edits: AgentConfigEdit[] = agentNames.map(name => ({
+		keyPath: `agents.${name}`,
+		value: null,
+		mergeStrategy: 'replace' as const,
+	}));
+
+	// Also disable multi_agent when removing all agents
+	edits.push({
+		keyPath: 'features.multi_agent',
+		value: false,
+		mergeStrategy: 'replace',
+	});
+
+	return edits;
+}
+
+/**
  * Clean up temp TOML files and remove agent config entries.
  */
 export function cleanupAgentConfig(tempDir: string): void {
