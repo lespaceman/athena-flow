@@ -9,6 +9,81 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 	return null;
 }
 
+/**
+ * Shell-quote a string using single quotes (POSIX-safe).
+ * Interior single quotes are escaped as `'"'"'`.
+ */
+function shellQuote(s: string): string {
+	return "'" + s.replace(/'/g, "'\"'\"'") + "'";
+}
+
+/**
+ * When `env` is present but the codex protocol has no `env` field,
+ * rewrite `command`/`args` into a shell wrapper that exports the
+ * env vars before exec-ing the original command.
+ */
+/**
+ * Session env vars that MCP servers typically need but codex does not
+ * forward. Under the claude harness, child processes inherit process.env
+ * automatically; here we must inject them explicitly.
+ */
+const SESSION_ENV_PASSTHROUGH = [
+	'DISPLAY',
+	'XAUTHORITY',
+	'WAYLAND_DISPLAY',
+	'XDG_RUNTIME_DIR',
+] as const;
+
+/**
+ * Inject session-level env vars from `process.env` into the config's
+ * `env` field. Explicit values in the config take precedence.
+ */
+function injectSessionEnv(config: Record<string, unknown>): void {
+	let envObj = asRecord(config['env']);
+	let injected = false;
+
+	for (const key of SESSION_ENV_PASSTHROUGH) {
+		const value = process.env[key];
+		if (!value) continue;
+		if (envObj && key in envObj) continue;
+
+		if (!envObj) {
+			envObj = {};
+			injected = true;
+		}
+		envObj[key] = value;
+		injected = true;
+	}
+
+	if (injected && envObj) {
+		config['env'] = envObj;
+	}
+}
+
+function applyEnvShellWrap(config: Record<string, unknown>): void {
+	injectSessionEnv(config);
+
+	const envObj = asRecord(config['env']);
+	delete config['env'];
+
+	if (!envObj || Object.keys(envObj).length === 0) {
+		return;
+	}
+
+	const exports = Object.entries(envObj)
+		.filter(([, v]) => typeof v === 'string')
+		.map(([k, v]) => `export ${k}=${shellQuote(v as string)}`);
+
+	const origCmd = String(config['command'] ?? '');
+	const origArgs = Array.isArray(config['args'])
+		? (config['args'] as string[]).map(a => shellQuote(String(a)))
+		: [];
+
+	const parts = [...exports, `exec ${origCmd} ${origArgs.join(' ')}`.trimEnd()];
+	config['command'] = 'sh';
+	config['args'] = ['-c', parts.join(' && ')];
+}
+
 function normalizeCodexMcpServerConfig(
 	serverConfig: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -26,6 +101,8 @@ function normalizeCodexMcpServerConfig(
 
 		normalized[key] = value;
 	}
+
+	applyEnvShellWrap(normalized);
 
 	return normalized;
 }

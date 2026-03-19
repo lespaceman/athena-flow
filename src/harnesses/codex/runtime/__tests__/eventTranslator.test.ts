@@ -358,6 +358,147 @@ describe('translateNotification', () => {
 		);
 	});
 
+	it('maps item/started (dynamicToolCall) to tool.pre', () => {
+		const result = translateNotification({
+			method: 'item/started',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'dyn-1',
+					type: 'dynamicToolCall',
+					tool: 'MyCustomTool',
+					arguments: {foo: 'bar'},
+					status: 'inProgress',
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.pre');
+		expect(result.toolName).toBe('MyCustomTool');
+		expect(result.toolUseId).toBe('dyn-1');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'MyCustomTool',
+				tool_input: {foo: 'bar'},
+				tool_use_id: 'dyn-1',
+			}),
+		);
+	});
+
+	it('maps item/completed (dynamicToolCall) to tool.post', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'dyn-1',
+					type: 'dynamicToolCall',
+					tool: 'MyCustomTool',
+					arguments: {foo: 'bar'},
+					status: 'completed',
+					success: true,
+					contentItems: [{type: 'inputText', text: 'result data'}],
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.post');
+		expect(result.toolName).toBe('MyCustomTool');
+		expect(result.toolUseId).toBe('dyn-1');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'MyCustomTool',
+				tool_input: {foo: 'bar'},
+				tool_use_id: 'dyn-1',
+				tool_response: [{type: 'inputText', text: 'result data'}],
+			}),
+		);
+	});
+
+	it('maps item/completed (dynamicToolCall, failed) to tool.failure', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'dyn-1',
+					type: 'dynamicToolCall',
+					tool: 'MyCustomTool',
+					arguments: {foo: 'bar'},
+					status: 'failed',
+					success: false,
+					error: 'tool execution failed',
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'MyCustomTool',
+				tool_input: {foo: 'bar'},
+				error: 'tool execution failed',
+			}),
+		);
+	});
+
+	it('extracts error from result.content when error field is null (mcpToolCall)', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'mcp-1',
+					type: 'mcpToolCall',
+					server: 'agent-web-interface',
+					tool: 'navigate',
+					status: 'failed',
+					error: null,
+					arguments: {url: 'http://localhost'},
+					result: {
+						content: [
+							{type: 'text', text: 'Navigation failed: page not found'},
+						],
+					},
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'mcp__agent-web-interface__navigate',
+				error: 'Navigation failed: page not found',
+			}),
+		);
+	});
+
+	it('falls back to Unknown error when both error and result.content are empty', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'mcp-2',
+					type: 'mcpToolCall',
+					server: 'demo',
+					tool: 'test',
+					status: 'failed',
+					error: null,
+					arguments: {},
+					result: null,
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.failure');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				error: 'Unknown error',
+			}),
+		);
+	});
+
 	it('preserves structured error details in fileChange failure', () => {
 		const result = translateNotification({
 			method: 'item/completed',

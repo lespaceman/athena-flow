@@ -58,6 +58,8 @@ function resolveToolName(
 			const tool = String(item['tool'] ?? 'unknown');
 			return `mcp__${server}__${tool}`;
 		}
+		case 'dynamicToolCall':
+			return String(item['tool'] ?? 'DynamicTool');
 		default:
 			return itemType;
 	}
@@ -75,6 +77,8 @@ function resolveToolInput(
 		case 'webSearch':
 			return {query: item['query']};
 		case 'mcpToolCall':
+			return asRecord(item['arguments']);
+		case 'dynamicToolCall':
 			return asRecord(item['arguments']);
 		default:
 			return item;
@@ -280,7 +284,8 @@ export function translateNotification(
 				itemType === 'commandExecution' ||
 				itemType === 'fileChange' ||
 				itemType === 'mcpToolCall' ||
-				itemType === 'webSearch'
+				itemType === 'webSearch' ||
+				itemType === 'dynamicToolCall'
 			) {
 				return {
 					kind: 'tool.pre',
@@ -335,7 +340,8 @@ export function translateNotification(
 				itemType === 'commandExecution' ||
 				itemType === 'fileChange' ||
 				itemType === 'mcpToolCall' ||
-				itemType === 'webSearch'
+				itemType === 'webSearch' ||
+				itemType === 'dynamicToolCall'
 			) {
 				const itemStatus = item['status'] as string;
 				if (itemStatus === 'failed' || itemStatus === 'cancelled') {
@@ -351,7 +357,8 @@ export function translateNotification(
 							item['aggregatedOutput'] ??
 							item['action'] ??
 							item['result'] ??
-							item['changes'],
+							item['changes'] ??
+							item['contentItems'],
 					},
 					toolName,
 					toolUseId: item['id'] as string | undefined,
@@ -449,11 +456,33 @@ function translateCollabCompleted(
 }
 
 /**
+ * Try to extract an error message from MCP-style result content.
+ * MCP tool calls may return error text inside `result.content` items
+ * when the `error` field on the item is null.
+ */
+function extractResultContentError(
+	item: Record<string, unknown>,
+): string | undefined {
+	const result = asRecord(item['result']);
+	const content = result['content'];
+	if (!Array.isArray(content)) return undefined;
+	const texts: string[] = [];
+	for (const entry of content) {
+		const rec = asRecord(entry);
+		if (rec['type'] === 'text' && typeof rec['text'] === 'string') {
+			texts.push(rec['text']);
+		}
+	}
+	return texts.length > 0 ? texts.join('\n') : undefined;
+}
+
+/**
  * Build a tool.failure event with structured error details preserved.
  *
  * For commandExecution: extract exit_code and aggregatedOutput.
  * For mcpToolCall: extract error_code from the error object.
  * For all types: prefer error.message over raw error-as-string.
+ * Falls back to result.content text for MCP-style errors.
  */
 function resolveToolFailure(
 	itemType: string,
@@ -467,7 +496,7 @@ function resolveToolFailure(
 			? rawError
 			: typeof errorRecord['message'] === 'string'
 				? errorRecord['message']
-				: 'Unknown error';
+				: (extractResultContentError(item) ?? 'Unknown error');
 	const base: Record<string, unknown> = {
 		tool_name: toolName,
 		tool_input: resolveToolInput(itemType, item),
