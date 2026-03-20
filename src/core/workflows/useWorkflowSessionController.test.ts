@@ -210,6 +210,82 @@ describe('useWorkflowSessionController', () => {
 		expect(spawn).toHaveBeenNthCalledWith(2, 'second', undefined, undefined);
 	});
 
+	it('interrupt immediately ends the session via kill', async () => {
+		let releaseTurn: ((result: TurnExecutionResult) => void) | null = null;
+		const baseInterrupt = vi.fn();
+		const baseKill = vi.fn().mockImplementation(async () => {
+			releaseTurn?.({
+				exitCode: null,
+				error: new Error('killed'),
+				tokens: {
+					input: null,
+					output: null,
+					cacheRead: null,
+					cacheWrite: null,
+					total: null,
+					contextSize: null,
+					contextWindowSize: null,
+				},
+				streamMessage: null,
+			});
+		});
+		const spawn = vi
+			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
+			.mockImplementation(
+				() =>
+					new Promise<TurnExecutionResult>(resolve => {
+						releaseTurn = resolve;
+					}),
+			);
+
+		const {result} = renderHook(() =>
+			useWorkflowSessionController(
+				{
+					startTurn: spawn,
+					isRunning: false,
+					interrupt: baseInterrupt,
+					kill: baseKill,
+					usage: {
+						input: null,
+						output: null,
+						cacheRead: null,
+						cacheWrite: null,
+						total: null,
+						contextSize: null,
+						contextWindowSize: null,
+					},
+				},
+				{
+					projectDir: makeTempDir(),
+				},
+			),
+		);
+
+		// Start a turn (don't await — it blocks until the turn completes)
+		let turnPromise: Promise<TurnExecutionResult>;
+		act(() => {
+			turnPromise = result.current.startTurn('test prompt');
+		});
+
+		expect(result.current.isRunning).toBe(true);
+
+		// Interrupt (simulates double-ESC)
+		act(() => {
+			result.current.interrupt();
+		});
+
+		// isRunning should be false immediately after interrupt
+		expect(result.current.isRunning).toBe(false);
+		// base.kill() should have been called to forcefully stop the process
+		expect(baseKill).toHaveBeenCalledTimes(1);
+		// base.interrupt() should NOT be called — interrupt escalates to kill
+		expect(baseInterrupt).not.toHaveBeenCalled();
+
+		await act(async () => {
+			await turnPromise!;
+		});
+	});
+
 	it('stops workflow continuation after a failed turn', async () => {
 		const trackerPath = path.join(makeTempDir(), 'tracker.md');
 		const spawn = vi

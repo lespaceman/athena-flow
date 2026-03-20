@@ -28,18 +28,22 @@ export function useWorkflowSessionController(
 	);
 	const isCancelled = (): boolean => cancelledRef.current;
 
-	const interrupt = useCallback((): void => {
-		cancelledRef.current = true;
-		base.interrupt();
-	}, [base]);
-
-	const kill = useCallback(async (): Promise<void> => {
+	const cancelRun = useCallback((): void => {
 		cancelledRef.current = true;
 		activeRunIdRef.current += 1;
 		setIsRunning(false);
+	}, []);
+
+	const interrupt = useCallback((): void => {
+		cancelRun();
+		void base.kill().catch(() => {});
+	}, [base, cancelRun]);
+
+	const kill = useCallback(async (): Promise<void> => {
+		cancelRun();
 		await base.kill();
 		await activeSpawnPromiseRef.current?.catch(() => {});
-	}, [base]);
+	}, [base, cancelRun]);
 
 	const spawn = useCallback(
 		async (
@@ -49,9 +53,7 @@ export function useWorkflowSessionController(
 		): Promise<TurnExecutionResult> => {
 			const previousSpawn = activeSpawnPromiseRef.current;
 			if (previousSpawn) {
-				cancelledRef.current = true;
-				activeRunIdRef.current += 1;
-				setIsRunning(false);
+				cancelRun();
 				await base.kill();
 				await previousSpawn.catch(() => {});
 			}
@@ -114,7 +116,7 @@ export function useWorkflowSessionController(
 			activeSpawnPromiseRef.current = runPromise;
 			return await runPromise;
 		},
-		[base, input.projectDir, input.workflow],
+		[base, cancelRun, input.projectDir, input.workflow],
 	);
 
 	useEffect(() => {
