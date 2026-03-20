@@ -24,6 +24,7 @@ import type {
 import type {RuntimeConnector} from '../../../core/runtime/connector';
 import {mapEnvelopeToRuntimeEvent} from './mapper';
 import {mapDecisionToResult} from './decisionMapper';
+import {BoundedLineParser} from './boundedLineParser';
 
 type PendingRequest = {
 	event: RuntimeEvent;
@@ -81,6 +82,9 @@ function getSocketPathLimit(): number {
 		? MAX_UNIX_SOCKET_PATH_BYTES.darwin
 		: MAX_UNIX_SOCKET_PATH_BYTES.default;
 }
+
+/** Global TTL for pending requests — strictly less than forwarder's 5min timeout */
+const PENDING_TTL_MS = 4 * 60 * 1000 + 30 * 1000; // 4 minutes 30 seconds
 
 export function createServer(opts: ServerOptions) {
 	const {projectDir, instanceId} = opts;
@@ -204,30 +208,25 @@ export function createServer(opts: ServerOptions) {
 			}
 
 			server = net.createServer((socket: net.Socket) => {
-				let data = '';
+				const parser = new BoundedLineParser();
 
 				socket.on('data', (chunk: Buffer) => {
-					data += chunk.toString();
-					const lines = data.split('\n');
-					if (lines.length <= 1 || !lines[0]) return;
+					const lines = parser.feed(chunk);
+					for (const line of lines) {
+						try {
+							const parsed: unknown = JSON.parse(line);
+							if (!isValidHookEventEnvelope(parsed)) {
+								socket.end();
+								return;
+							}
 
-					const line = lines[0]!;
-					data = lines.slice(1).join('\n');
+							const envelope = parsed as HookEventEnvelope;
+							const runtimeEvent = mapEnvelopeToRuntimeEvent(envelope);
 
-					try {
-						const parsed: unknown = JSON.parse(line);
-						if (!isValidHookEventEnvelope(parsed)) {
-							socket.end();
-							return;
-						}
-
-						const envelope = parsed as HookEventEnvelope;
-						const runtimeEvent = mapEnvelopeToRuntimeEvent(envelope);
-
-						// Set up timeout if interaction hints specify one
-						let timer: ReturnType<typeof setTimeout> | undefined;
-						if (runtimeEvent.interaction.defaultTimeoutMs) {
-							timer = setTimeout(() => {
+							// Set up timeout — use event-specific or global TTL
+							const timeoutMs =
+								runtimeEvent.interaction.defaultTimeoutMs ?? PENDING_TTL_MS;
+							const timer = setTimeout(() => {
 								const timeoutDecision: RuntimeDecision = {
 									type: 'passthrough',
 									source: 'timeout',
@@ -238,17 +237,17 @@ export function createServer(opts: ServerOptions) {
 								);
 								respondToForwarder(runtimeEvent.id, result);
 								notifyDecision(runtimeEvent.id, timeoutDecision);
-							}, runtimeEvent.interaction.defaultTimeoutMs);
-						}
+							}, timeoutMs);
 
-						pending.set(runtimeEvent.id, {
-							event: runtimeEvent,
-							socket,
-							timer,
-						});
-						emit(runtimeEvent);
-					} catch {
-						socket.end();
+							pending.set(runtimeEvent.id, {
+								event: runtimeEvent,
+								socket,
+								timer,
+							});
+							emit(runtimeEvent);
+						} catch {
+							socket.end();
+						}
 					}
 				});
 
@@ -260,6 +259,14 @@ export function createServer(opts: ServerOptions) {
 					for (const [reqId, req] of pending) {
 						if (req.socket === socket) {
 							if (req.timer) clearTimeout(req.timer);
+							// Emit passthrough decision for expectsDecision entries
+							// to prevent stale permission requests in the TUI
+							if (req.event.interaction.expectsDecision) {
+								notifyDecision(reqId, {
+									type: 'passthrough',
+									source: 'timeout',
+								});
+							}
 							pending.delete(reqId);
 						}
 					}

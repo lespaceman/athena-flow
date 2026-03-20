@@ -11,6 +11,7 @@ import {frameGlyphs} from '../glyphs/index';
 import {fitAnsi, spaces} from '../../shared/utils/format';
 import {type FeedColumnWidths, formatFeedRowLine} from './FeedRow';
 import {formatFeedHeaderLine} from './FeedHeader';
+import {RowCache} from './rowCache';
 
 // ── Public types ───────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ export type BuildFeedSurfaceParams = {
 	theme: Theme;
 	innerWidth: number;
 	cols: FeedColumnWidths;
+	rowCache?: RowCache;
 };
 
 // ── Internal helpers ───────────────────────────────────────────────
@@ -102,6 +104,7 @@ export function buildFeedSurface(params: BuildFeedSurfaceParams): FeedSurface {
 		theme,
 		innerWidth,
 		cols,
+		rowCache,
 	} = params;
 
 	const fr = frameGlyphs(ascii);
@@ -169,13 +172,46 @@ export function buildFeedSurface(params: BuildFeedSurfaceParams): FeedSurface {
 			break;
 		}
 		const entry = filteredEntries[idx]!;
-		bodyLines.push(
-			formatRow(
+		const isFocused = focusMode === 'feed' && idx === feedCursor;
+		const isStriped = idx % 2 === 1;
+		const isMatched = searchMatchSet.has(idx);
+
+		let rowLine: string;
+		if (rowCache) {
+			const cacheKey = RowCache.key(
+				entry.id,
+				isFocused,
+				isStriped,
+				isMatched,
+				rowCache.getGeneration(),
+			);
+			const cached = rowCache.get(cacheKey);
+			if (cached !== undefined) {
+				rowLine = cached;
+			} else {
+				rowLine = formatRow(
+					entry,
+					idx,
+					feedCursor,
+					focusMode,
+					isMatched,
+					ascii,
+					theme,
+					innerWidth,
+					cols,
+					vGlyph,
+					borderColor,
+					stripeBg,
+				);
+				rowCache.set(cacheKey, rowLine);
+			}
+		} else {
+			rowLine = formatRow(
 				entry,
 				idx,
 				feedCursor,
 				focusMode,
-				searchMatchSet.has(idx),
+				isMatched,
 				ascii,
 				theme,
 				innerWidth,
@@ -183,8 +219,9 @@ export function buildFeedSurface(params: BuildFeedSurfaceParams): FeedSurface {
 				vGlyph,
 				borderColor,
 				stripeBg,
-			),
-		);
+			);
+		}
+		bodyLines.push(rowLine);
 		lineToEntry.set(feedLinesEmitted, idx);
 		feedLinesEmitted++;
 		entryOffset++;

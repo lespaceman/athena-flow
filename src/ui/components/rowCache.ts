@@ -1,0 +1,89 @@
+/**
+ * LRU row cache for feed surface rendering.
+ *
+ * Caches formatted ANSI strings by entry identity + rendering context.
+ * Uses a generation counter for global params (width, theme, ascii) —
+ * bumping generation implicitly invalidates the entire cache without
+ * explicit clearing.
+ */
+
+const DEFAULT_MAX_SIZE = 100;
+
+export class RowCache {
+	private cache = new Map<string, string>();
+	private maxSize: number;
+	private generation = 0;
+
+	constructor(maxSize = DEFAULT_MAX_SIZE) {
+		this.maxSize = maxSize;
+	}
+
+	get(key: string): string | undefined {
+		const value = this.cache.get(key);
+		if (value === undefined) return undefined;
+		// LRU: move to end (most recently used)
+		this.cache.delete(key);
+		this.cache.set(key, value);
+		return value;
+	}
+
+	set(key: string, rendered: string): void {
+		// If already present, delete to refresh insertion order
+		if (this.cache.has(key)) {
+			this.cache.delete(key);
+		}
+		this.cache.set(key, rendered);
+		// Evict oldest if over capacity
+		if (this.cache.size > this.maxSize) {
+			const oldest = this.cache.keys().next().value;
+			if (oldest !== undefined) {
+				this.cache.delete(oldest);
+			}
+		}
+	}
+
+	/** Invalidate a specific entry (e.g., when tool.pre → tool.post). */
+	invalidate(entryId: string): void {
+		// Must scan all keys that start with this entryId
+		for (const key of this.cache.keys()) {
+			if (key.startsWith(entryId + ':')) {
+				this.cache.delete(key);
+			}
+		}
+	}
+
+	/** Bump generation counter — implicitly invalidates all cached entries
+	 * because new keys won't match old generation. Cache naturally refills. */
+	bumpGeneration(): void {
+		this.generation++;
+		this.cache.clear();
+	}
+
+	getGeneration(): number {
+		return this.generation;
+	}
+
+	clear(): void {
+		this.cache.clear();
+	}
+
+	get size(): number {
+		return this.cache.size;
+	}
+
+	/**
+	 * Build a cache key that encodes all rendering-relevant parameters.
+	 * Generation counter encodes width+theme+ascii state — when any changes,
+	 * generation bumps and entire cache is invalidated.
+	 */
+	static key(
+		entryId: string,
+		focused: boolean,
+		striped: boolean,
+		matched: boolean,
+		generation: number,
+	): string {
+		// Use compact encoding: f=focused, s=striped, m=matched
+		return `${entryId}:${focused ? 'f' : '_'}${striped ? 's' : '_'}${matched ? 'm' : '_'}:${generation}`;
+	}
+}

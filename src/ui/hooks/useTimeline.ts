@@ -1,6 +1,7 @@
 import {useMemo, useRef} from 'react';
 import {type FeedItem} from '../../core/feed/items';
 import {type FeedEvent} from '../../core/feed/types';
+import {IndexedTimeline} from '../../core/feed/indexedTimeline';
 import {
 	type TimelineEntry,
 	type RunSummary,
@@ -23,7 +24,6 @@ import {
 	resolveToolColumn,
 	resolveEventToolColumn,
 } from '../../core/feed/toolDisplay';
-import {startPerfMeasure, startPerfStage} from '../../shared/utils/perf';
 
 const detailCache = new WeakMap<TimelineEntry, string>();
 const searchTextCache = new WeakMap<TimelineEntry, string>();
@@ -96,7 +96,7 @@ export type UseTimelineResult = {
 	searchMatchSet: Set<number>;
 };
 
-type TimelineBuildCache = {
+export type TimelineBuildCache = {
 	feedItems: FeedItem[];
 	feedEvents: FeedEvent[];
 	entries: TimelineEntry[];
@@ -322,7 +322,7 @@ function sameFeedEventPrefix(
 	return true;
 }
 
-function canAppendIncrementally(
+export function canAppendIncrementally(
 	previous: TimelineBuildCache | null,
 	feedItems: FeedItem[],
 	feedEvents: FeedEvent[],
@@ -336,7 +336,7 @@ function canAppendIncrementally(
 	);
 }
 
-function buildTimelineCache(
+export function buildTimelineCache(
 	feedItems: FeedItem[],
 	feedEvents: FeedEvent[],
 	postByToolUseId: Map<string, FeedEvent> | undefined,
@@ -385,7 +385,7 @@ function buildTimelineCache(
 	};
 }
 
-function appendTimelineCache(
+export function appendTimelineCache(
 	previous: TimelineBuildCache,
 	feedItems: FeedItem[],
 	feedEvents: FeedEvent[],
@@ -501,35 +501,20 @@ export function useTimeline({
 	postByToolUseId,
 	verbose,
 }: UseTimelineOptions): UseTimelineResult {
-	const buildCacheRef = useRef<TimelineBuildCache | null>(null);
+	const indexedRef = useRef<IndexedTimeline | null>(null);
+
+	if (!indexedRef.current) {
+		indexedRef.current = new IndexedTimeline();
+	}
 
 	const timelineEntries = useMemo((): TimelineEntry[] => {
-		const doneSlow = startPerfMeasure('timeline.entries.compute', {
-			feed_items: feedItems.length,
-			feed_events: feedEvents.length,
-		});
-		const previous = buildCacheRef.current;
-		const incremental = canAppendIncrementally(
-			previous,
+		indexedRef.current!.update(
 			feedItems,
 			feedEvents,
-			verbose,
+			postByToolUseId,
+			!!verbose,
 		);
-		const doneStage = startPerfStage('timeline.build', {
-			build_mode: incremental ? 'append' : 'full',
-			feed_items: feedItems.length,
-			feed_events: feedEvents.length,
-		});
-		try {
-			const next = incremental
-				? appendTimelineCache(previous, feedItems, feedEvents, postByToolUseId)
-				: buildTimelineCache(feedItems, feedEvents, postByToolUseId, verbose);
-			buildCacheRef.current = next;
-			return next.entries;
-		} finally {
-			doneStage();
-			doneSlow();
-		}
+		return indexedRef.current!.getEntries();
 	}, [feedItems, feedEvents, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
@@ -590,46 +575,12 @@ export function useTimeline({
 	}, [feedEvents, currentRun]);
 
 	const filteredEntries = useMemo(() => {
-		const done = startPerfStage('filter.search', {
-			op: 'timeline.filter',
-			entries: timelineEntries.length,
-			run_filter: runFilter,
-			errors_only: errorsOnly,
-		});
-		try {
-			return timelineEntries.filter(entry => {
-				if (runFilter !== 'all' && entry.runId !== runFilter) return false;
-				if (errorsOnly && !entry.error) return false;
-				return true;
-			});
-		} finally {
-			done();
-		}
+		return indexedRef.current!.getFilteredView(runFilter, errorsOnly);
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- timelineEntries triggers recompute when entries change
 	}, [timelineEntries, runFilter, errorsOnly]);
 
 	const searchMatches = useMemo(() => {
-		const q = searchQuery.trim().toLowerCase();
-		if (!q) return [] as number[];
-		const done = startPerfStage('filter.search', {
-			op: 'timeline.search',
-			entries: filteredEntries.length,
-			query_length: q.length,
-		});
-		try {
-			const matches: number[] = [];
-			for (let i = 0; i < filteredEntries.length; i++) {
-				if (
-					getTimelineEntrySearchText(filteredEntries[i]!)
-						.toLowerCase()
-						.includes(q)
-				) {
-					matches.push(i);
-				}
-			}
-			return matches;
-		} finally {
-			done();
-		}
+		return indexedRef.current!.getSearchMatches(filteredEntries, searchQuery);
 	}, [filteredEntries, searchQuery]);
 
 	const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);

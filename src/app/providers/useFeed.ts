@@ -1,6 +1,13 @@
 // src/app/providers/useFeed.ts
 
-import {useEffect, useRef, useState, useCallback, useMemo} from 'react';
+import {
+	useEffect,
+	useRef,
+	useState,
+	useCallback,
+	useMemo,
+	useSyncExternalStore,
+} from 'react';
 import type {
 	Runtime,
 	RuntimeEvent,
@@ -16,11 +23,7 @@ import {
 	type PermissionQueueItem,
 	extractPermissionSnapshot,
 } from '../../core/controller/permission';
-import {
-	type FeedItem,
-	mergeFeedItems,
-	buildPostByToolUseId,
-} from '../../core/feed/items';
+import {type FeedItem, mergeFeedItems} from '../../core/feed/items';
 import type {Message} from '../../shared/types/common';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
 import type {TodoItem, TodoWriteInput} from '../../core/feed/todo';
@@ -35,11 +38,10 @@ import {
 	startPerfCycle,
 	startPerfStage,
 } from '../../shared/utils/perf';
+import {FeedStore} from '../../core/feed/feedStore';
 function generateId(): string {
 	return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
-
-const MAX_EVENTS = 200;
 
 export type UseFeedResult = {
 	items: FeedItem[];
@@ -127,9 +129,21 @@ export function useFeed(
 		[sessionStore],
 	);
 
-	const [feedEvents, setFeedEvents] = useState<FeedEvent[]>(
-		() => mapperBootstrap?.feedEvents ?? [],
+	const mapperRef = useRef<FeedMapper>(createFeedMapper(mapperBootstrap));
+
+	const feedStoreRef = useRef<FeedStore | null>(null);
+	if (!feedStoreRef.current) {
+		feedStoreRef.current = new FeedStore({
+			mapper: mapperRef.current,
+			bootstrap: mapperBootstrap ?? undefined,
+		});
+	}
+
+	const feedEvents = useSyncExternalStore(
+		feedStoreRef.current.subscribe,
+		feedStoreRef.current.getSnapshot,
 	);
+
 	const [rules, setRules] = useState<HookRule[]>(() =>
 		buildInitialRules(initialAllowedTools),
 	);
@@ -148,8 +162,6 @@ export function useFeed(
 		() => sessionStore?.getRestoredTokens() ?? null,
 		[sessionStore],
 	);
-
-	const mapperRef = useRef<FeedMapper>(createFeedMapper(mapperBootstrap));
 	const sessionStoreRef = useRef<SessionStore | undefined>(sessionStore);
 	const rulesRef = useRef<HookRule[]>([]);
 	const abortRef = useRef<AbortController>(new AbortController());
@@ -168,7 +180,9 @@ export function useFeed(
 
 	const resetSession = useCallback(() => {
 		// Reset mapper state — create fresh mapper
-		mapperRef.current = createFeedMapper();
+		const newMapper = createFeedMapper();
+		mapperRef.current = newMapper;
+		feedStoreRef.current!.reset(newMapper);
 	}, []);
 
 	const addRule = useCallback((rule: Omit<HookRule, 'id'>) => {
@@ -181,7 +195,9 @@ export function useFeed(
 	}, []);
 
 	const clearRules = useCallback(() => setRules([]), []);
-	const clearEvents = useCallback(() => setFeedEvents([]), []);
+	const clearEvents = useCallback(() => {
+		feedStoreRef.current!.clear();
+	}, []);
 
 	const recordTokens = useCallback(
 		(adapterSessionId: string, tokens: TokenUsage) => {
@@ -301,7 +317,7 @@ export function useFeed(
 		);
 		const newEvents = mapper.mapEvent(syntheticRuntime);
 		if (!abortRef.current.signal.aborted) {
-			setFeedEvents(prev => [...prev, ...newEvents]);
+			feedStoreRef.current!.pushEvents(newEvents);
 		}
 	}, []);
 
@@ -410,12 +426,7 @@ export function useFeed(
 						}
 					}
 
-					setFeedEvents(prev => {
-						const updated = [...prev, ...newFeedEvents];
-						return updated.length > MAX_EVENTS
-							? updated.slice(-MAX_EVENTS)
-							: updated;
-					});
+					feedStoreRef.current!.pushEvents(newFeedEvents);
 				}
 			} finally {
 				doneCause();
@@ -456,7 +467,7 @@ export function useFeed(
 							}
 						}
 
-						setFeedEvents(prev => [...prev, feedEvent]);
+						feedStoreRef.current!.pushEvents([feedEvent]);
 
 						// Auto-dequeue permissions/questions when decision arrives
 						if (
@@ -535,15 +546,9 @@ export function useFeed(
 	}, [feedEvents]);
 
 	const postByToolUseId = useMemo(() => {
-		const done = startPerfStage('state.derive', {
-			op: 'postByToolUseId',
-			feed_events: feedEvents.length,
-		});
-		try {
-			return buildPostByToolUseId(feedEvents);
-		} finally {
-			done();
-		}
+		// feedEvents is in deps to trigger recomputation on store snapshot change
+		void feedEvents;
+		return feedStoreRef.current!.getPostByToolUseId();
 	}, [feedEvents]);
 
 	return {

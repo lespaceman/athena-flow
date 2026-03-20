@@ -4,6 +4,7 @@ import {type TimelineEntry} from '../../core/feed/timeline';
 import {type Theme} from '../theme/types';
 import {type FeedColumnWidths} from './FeedRow';
 import {buildFeedSurface} from './feedSurfaceModel';
+import {RowCache} from './rowCache';
 import {logFeedViewportDiff} from '../../shared/utils/perf';
 import {FeedSurfaceView, resolveFeedBackend} from './FeedSurface';
 import {type FeedSurfaceBackend} from '../../shared/utils/perf';
@@ -60,6 +61,22 @@ function FeedGridImpl({
 }: Props) {
 	const backend = resolveFeedBackend(backendProp);
 	const isIncremental = backend === 'incremental';
+
+	const rowCacheRef = React.useRef(new RowCache());
+
+	const prevGlobalsRef = React.useRef({innerWidth, ascii, theme});
+	React.useEffect(() => {
+		const prev = prevGlobalsRef.current;
+		if (
+			prev.innerWidth !== innerWidth ||
+			prev.ascii !== ascii ||
+			prev.theme !== theme
+		) {
+			rowCacheRef.current.bumpGeneration();
+			prevGlobalsRef.current = {innerWidth, ascii, theme};
+		}
+	}, [innerWidth, ascii, theme]);
+
 	// Delegate all line rendering to the extracted surface model.
 	const surface = React.useMemo(
 		() =>
@@ -75,6 +92,7 @@ function FeedGridImpl({
 				theme,
 				innerWidth,
 				cols,
+				rowCache: rowCacheRef.current,
 			}),
 		[
 			feedHeaderRows,
