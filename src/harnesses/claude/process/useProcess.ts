@@ -88,6 +88,39 @@ function inferFailureCodeFromMessage(
 	return undefined;
 }
 
+type TokenBase = {
+	input: number;
+	output: number;
+	cacheRead: number;
+	cacheWrite: number;
+};
+
+/** Merge cross-process base with current accumulator snapshot. */
+function mergeTokenBase(base: TokenBase, acc: TokenUsage): TokenUsage {
+	const input = (base.input || 0) + (acc.input ?? 0) || null;
+	const output = (base.output || 0) + (acc.output ?? 0) || null;
+	const cacheRead = (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null;
+	const cacheWrite = (base.cacheWrite || 0) + (acc.cacheWrite ?? 0) || null;
+	const total =
+		(base.input || 0) +
+			(acc.input ?? 0) +
+			(base.output || 0) +
+			(acc.output ?? 0) +
+			(base.cacheRead || 0) +
+			(acc.cacheRead ?? 0) +
+			(base.cacheWrite || 0) +
+			(acc.cacheWrite ?? 0) || null;
+	return {
+		input,
+		output,
+		cacheRead,
+		cacheWrite,
+		total,
+		contextSize: acc.contextSize,
+		contextWindowSize: acc.contextWindowSize,
+	};
+}
+
 function tokenUsageEquals(a: TokenUsage, b: TokenUsage): boolean {
 	return (
 		a.input === b.input &&
@@ -296,27 +329,8 @@ export function useClaudeProcess(
 					messageAccumulator.flush();
 					const finalAcc = tokenAccRef.current.getUsage();
 					if (!abortRef.current.signal.aborted) {
-						const base = tokenBaseRef.current;
 						publishTokenUsage(
-							{
-								input: (base.input || 0) + (finalAcc.input ?? 0) || null,
-								output: (base.output || 0) + (finalAcc.output ?? 0) || null,
-								cacheRead:
-									(base.cacheRead || 0) + (finalAcc.cacheRead ?? 0) || null,
-								cacheWrite:
-									(base.cacheWrite || 0) + (finalAcc.cacheWrite ?? 0) || null,
-								total:
-									(base.input || 0) +
-										(finalAcc.input ?? 0) +
-										(base.output || 0) +
-										(finalAcc.output ?? 0) +
-										(base.cacheRead || 0) +
-										(finalAcc.cacheRead ?? 0) +
-										(base.cacheWrite || 0) +
-										(finalAcc.cacheWrite ?? 0) || null,
-								contextSize: finalAcc.contextSize,
-								contextWindowSize: finalAcc.contextWindowSize,
-							},
+							mergeTokenBase(tokenBaseRef.current, finalAcc),
 							true,
 						);
 					}
@@ -375,25 +389,7 @@ export function useClaudeProcess(
 							tokenAccRef.current.feed(data);
 							messageAccumulator.feed(data);
 							const acc = tokenAccRef.current.getUsage();
-							const base = tokenBaseRef.current;
-							publishTokenUsage({
-								input: (base.input || 0) + (acc.input ?? 0) || null,
-								output: (base.output || 0) + (acc.output ?? 0) || null,
-								cacheRead: (base.cacheRead || 0) + (acc.cacheRead ?? 0) || null,
-								cacheWrite:
-									(base.cacheWrite || 0) + (acc.cacheWrite ?? 0) || null,
-								total:
-									(base.input || 0) +
-										(acc.input ?? 0) +
-										(base.output || 0) +
-										(acc.output ?? 0) +
-										(base.cacheRead || 0) +
-										(acc.cacheRead ?? 0) +
-										(base.cacheWrite || 0) +
-										(acc.cacheWrite ?? 0) || null,
-								contextSize: acc.contextSize,
-								contextWindowSize: acc.contextWindowSize,
-							});
+							publishTokenUsage(mergeTokenBase(tokenBaseRef.current, acc));
 
 							if (!trackOutputRef.current) return;
 							setOutput(prev => {

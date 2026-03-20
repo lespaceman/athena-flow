@@ -33,18 +33,16 @@ type StreamMessage = {
 
 /**
  * Resolves the context window size (in tokens) for a given Claude model ID.
+ *
+ * Only two model families differ from the 200k default:
+ * - Extended context models (ID contains "[1m]") → 1M
+ * - Claude 2.0 (but not 2.1) → 100k
  */
 function resolveContextWindowSize(modelId: string): number | null {
 	if (!modelId) return null;
-	// Extended context: model ID contains "[1m]" suffix
 	if (modelId.includes('[1m]')) return 1_000_000;
-	// Claude 3+ family: all have 200k context
-	if (/^claude-[3-9]|^claude-(opus|sonnet|haiku)-[4-9]/.test(modelId))
-		return 200_000;
-	// Claude 2.1 had 200k; Claude 2.0 had 100k
-	if (modelId.startsWith('claude-2.1')) return 200_000;
-	if (modelId.startsWith('claude-2')) return 100_000;
-	// Unknown model - default to 200k (most common)
+	if (modelId.startsWith('claude-2') && !modelId.startsWith('claude-2.1'))
+		return 100_000;
 	return 200_000;
 }
 
