@@ -18,7 +18,7 @@ export type EscapeInterruptGateResult = {
 export function evaluateEscapeInterruptGate(
 	input: EscapeInterruptGateInput,
 ): EscapeInterruptGateResult {
-	const canInterrupt = input.isHarnessRunning && input.focusMode === 'feed';
+	const canInterrupt = input.isHarnessRunning;
 
 	if (!input.keyEscape || !canInterrupt) {
 		return {shouldInterrupt: false, nextLastEscapeAtMs: null};

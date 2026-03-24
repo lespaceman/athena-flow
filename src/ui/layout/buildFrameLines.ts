@@ -56,13 +56,19 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 		}
 
 		if (ctx.focusMode === 'input') {
-			return buildHintPairs([
+			const inputPairs: Array<[string, string]> = [
 				[h.enter, 'Send'],
 				[h.escape, 'Back'],
+			];
+			if (ctx.isClaudeRunning) {
+				inputPairs.push([`${h.escape} ${h.escape}`, 'Interrupt']);
+			}
+			inputPairs.push(
 				[h.tab, 'Focus'],
 				['⌃P/N', 'History'],
 				[h.toggle, 'Hints'],
-			]);
+			);
+			return buildHintPairs(inputPairs);
 		}
 
 		// Feed mode (default)

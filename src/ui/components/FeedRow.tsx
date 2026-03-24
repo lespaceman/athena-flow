@@ -9,7 +9,6 @@ import {parseToolName} from '../../shared/utils/toolNameParser';
 import {
 	formatGutter,
 	formatTime,
-	formatEvent,
 	formatActor,
 	formatTool,
 	type ToolPillCategory,
@@ -26,7 +25,6 @@ type FeedColumnWidths = {
 	resultW: number;
 	gapW: number;
 	detailsResultGapW: number;
-	timeEventGapW: number;
 };
 
 type Props = {
@@ -177,7 +175,6 @@ function buildLineCacheKey({
 		cols.resultW,
 		cols.gapW,
 		cols.detailsResultGapW,
-		cols.timeEventGapW,
 		focused ? 1 : 0,
 		expanded ? 1 : 0,
 		matched ? 1 : 0,
@@ -207,7 +204,6 @@ function lineParts({
 }: Props): {
 	gutter: string;
 	time: string;
-	event: string;
 	actor: string;
 	tool: string;
 	detail: string;
@@ -253,10 +249,6 @@ function lineParts({
 		theme,
 	});
 	const time = cell(formatTime(entry.ts, 5, theme), rowTextOverrideColor);
-	const event = cell(
-		formatEvent(entry.op, 12, theme, entry.opTag),
-		rowTextOverrideColor,
-	);
 	const actor = cell(
 		formatActor(entry.actor, isDuplicateActor, 10, theme, entry.actorId),
 		rowTextOverrideColor,
@@ -287,7 +279,6 @@ function lineParts({
 	return {
 		gutter,
 		time,
-		event,
 		actor,
 		tool,
 		detail,
@@ -308,14 +299,12 @@ export function formatFeedRowLine({
 
 		const parts = lineParts(props);
 		const {
-			cols: {gapW, timeEventGapW, detailsResultGapW, resultW},
+			cols: {gapW, detailsResultGapW, resultW},
 		} = props;
 
 		let line =
 			parts.gutter +
 			parts.time +
-			spaces(timeEventGapW) +
-			parts.event +
 			spaces(gapW) +
 			parts.actor +
 			spaces(gapW) +
@@ -372,10 +361,6 @@ function FeedRowImpl({
 			</Box>
 			<Box width={5} flexShrink={0}>
 				<Text wrap="truncate-end">{parts.time}</Text>
-			</Box>
-			<Box width={cols.timeEventGapW} flexShrink={0} />
-			<Box width={12} flexShrink={0}>
-				<Text wrap="truncate-end">{parts.event}</Text>
 			</Box>
 			<Box width={cols.gapW} flexShrink={0} />
 			<Box width={10} flexShrink={0}>

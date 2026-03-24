@@ -106,6 +106,7 @@ they read as "tinted label" rather than "status indicator."
 but never needs it urgently. It should be visible but never compete with content.
 
 **Treatment:**
+
 - Always `theme.textMuted` regardless of row class
 - Format: `HH:MM` (5 characters fixed)
 - No special coloring for any row type — if a failure happened at 17:41,
@@ -125,6 +126,7 @@ consecutive rows, so the column is repetitive. Duplicate suppression (showing
 `·` instead of repeating `AGENT`) already handles this.
 
 **Treatment:**
+
 - `theme.textMuted` for all actors
 - Duplicate actors collapse to `·` in `theme.textMuted`
 - Width: 6-8 characters (down from current 10)
@@ -146,6 +148,7 @@ detail text. But it should never be brighter than the detail text it
 accompanies.
 
 **Treatment:**
+
 - Dot-and-label pill format: `● Read`, `● Bash`, `● Spawn`
 - Desaturated family palettes (see Section 5)
 - Blank for agent message rows (no synthetic `Agent` pill)
@@ -153,6 +156,7 @@ accompanies.
 
 **Reasoning for pills over plain text:** The pill format (colored dot + tinted
 background label) provides two benefits:
+
 1. The dot creates a vertical rhythm that helps the eye track rows
 2. The background tint groups tool families visually (all file ops share a
    cool blue; all mutations share warm amber)
@@ -178,6 +182,7 @@ the user reads what actually happened.
 the eye.
 
 **Treatment by segment role:**
+
 - **Filename** (`/tests/faq.spec.ts`): `theme.text` — bright, the scan anchor
 - **Directory prefix** (`/tests/`): `theme.textMuted` — dim the structural path
 - **Command/target** (`npx playwright test ...`): `theme.text` — readable content
@@ -228,6 +233,7 @@ and only populated when the row has a meaningful outcome. Empty RESULT cells
 don't waste visual attention.
 
 **Treatment by outcome type:**
+
 - **Routine success** (`exit 0`, `replaced 2→2 lines`): `theme.textMuted`
 - **Notable success** (`42 files`, `200 passed`): `theme.textMuted`
 - **Zero/empty** (`0 files`, `0 found`): `theme.status.warning`
@@ -272,6 +278,7 @@ files, editing code, running commands, searching.
 **Character:** Workmanlike. Neutral. The content matters more than the event.
 
 **Rules:**
+
 - DETAILS at `theme.text` — this is the primary information
 - RESULT at `theme.textMuted` for success, `theme.status.error` for failure
 - ACTION pill classifies the tool family but doesn't add emphasis
@@ -290,6 +297,7 @@ different visual register to signal "this is prose, not an operation."
 **Character:** Conversational. Slightly set apart from the operational rows.
 
 **Rules:**
+
 - ACTION is blank — agents don't perform a "tool" when speaking
 - DETAILS in `chalk.dim(theme.status.info)` — the blue tint distinguishes
   prose from operations, but dimming keeps it from dominating
@@ -318,6 +326,7 @@ active) but not as prominent as the work the subagent actually does.
 **Character:** Transitional. Marks a boundary, then gets out of the way.
 
 **Rules:**
+
 - Spawn: ACTION pill in subagent family tint, DETAILS at `theme.text`
 - Return: ACTION pill in dimmer subagent tint, DETAILS at `theme.textMuted`
 - Return RESULT: `theme.textMuted` when a completion summary exists
@@ -352,6 +361,7 @@ These are system plumbing. Important for debugging, irrelevant for daily use.
 you need them, ignorable otherwise.
 
 **Rules:**
+
 - Everything at `chalk.dim(theme.textMuted)` — the dimmest level
 - No ACTION pill (or dim neutral if one is needed)
 - These rows should almost disappear in normal scrolling
@@ -368,6 +378,7 @@ it fast.
 **Character:** Unmistakable. Red RESULT breaks the gray baseline immediately.
 
 **Rules:**
+
 - DETAILS stays at `theme.text` — the user needs to read what failed
 - RESULT at `theme.status.error` — this is the signal
 - ACTION pill keeps its family tint (don't also make the pill red)
@@ -440,14 +451,14 @@ Dot: #5a6270    Pill BG: #141a22    Pill FG: #7d8590
 
 ### 5.3 Comparison with current palettes
 
-| Family      | Current Dot | New Dot  | Current FG | New FG   | Change           |
-|-------------|-------------|----------|------------|----------|------------------|
-| file-read   | `#38bdf8`   | `#2d8abf`| `#7dd3fc`  | `#5ba3cc`| -30% saturation  |
-| file-mutate | `#f59e0b`   | `#b8862e`| `#fbbf24`  | `#d4a44a`| -30% saturation  |
-| browser     | (was safe)  | `#2aaa9e`| (was safe) | `#5cc4ba`| new family       |
-| subagent    | `#34d399`   | `#2ea87a`| `#6ee7b7`  | `#5cc4a0`| -25% saturation  |
-| skill       | `#f472b6`   | `#b06a9e`| `#f9a8d4`  | `#c98ab8`| -25% saturation  |
-| neutral     | `#6b7280`   | `#5a6270`| `#9ca3af`  | `#7d8590`| -15% brightness  |
+| Family      | Current Dot | New Dot   | Current FG | New FG    | Change          |
+| ----------- | ----------- | --------- | ---------- | --------- | --------------- |
+| file-read   | `#38bdf8`   | `#2d8abf` | `#7dd3fc`  | `#5ba3cc` | -30% saturation |
+| file-mutate | `#f59e0b`   | `#b8862e` | `#fbbf24`  | `#d4a44a` | -30% saturation |
+| browser     | (was safe)  | `#2aaa9e` | (was safe) | `#5cc4ba` | new family      |
+| subagent    | `#34d399`   | `#2ea87a` | `#6ee7b7`  | `#5cc4a0` | -25% saturation |
+| skill       | `#f472b6`   | `#b06a9e` | `#f9a8d4`  | `#c98ab8` | -25% saturation |
+| neutral     | `#6b7280`   | `#5a6270` | `#9ca3af`  | `#7d8590` | -15% brightness |
 
 The direction is consistent: lower saturation, lower brightness, same hue.
 The pills remain distinguishable from each other but no longer compete with
@@ -633,6 +644,7 @@ constants in `cellFormatters.ts` — they're rendering details, not semantic
 theme tokens.
 
 Light and high-contrast themes should follow the same principles:
+
 - Light: stripe should be a subtle warm gray (`#f0f2f5` area)
 - High-contrast: stripe should have ~10% luminance delta
 
