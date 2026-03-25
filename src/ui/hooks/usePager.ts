@@ -10,6 +10,7 @@ import {
 } from '../layout/renderDetailLines';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {termColumns, termRows} from '../../shared/utils/terminal';
+import type {Theme} from '../theme/types';
 
 const PAGER_MARGIN = 3;
 const PAGER_PAD_TOP = 1;
@@ -24,9 +25,14 @@ function pagerContentRows(): number {
 export type UsePagerOptions = {
 	filteredEntriesRef: React.RefObject<TimelineEntry[]>;
 	feedCursor: number;
+	theme?: Theme;
 };
 
-export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
+export function usePager({
+	filteredEntriesRef,
+	feedCursor,
+	theme,
+}: UsePagerOptions): {
 	pagerActive: boolean;
 	handleExpandForPager: () => void;
 } {
@@ -111,8 +117,12 @@ export function usePager({filteredEntriesRef, feedCursor}: UsePagerOptions): {
 		const margin = ' '.repeat(PAGER_MARGIN);
 
 		const lines = entry.feedEvent
-			? renderDetailLines(entry.feedEvent, contentWidth, entry.pairedPostEvent)
-					.lines
+			? renderDetailLines(
+					entry.feedEvent,
+					contentWidth,
+					entry.pairedPostEvent,
+					theme,
+				).lines
 			: renderMarkdownToLines(entry.details || entry.summary, contentWidth);
 
 		pagerLinesRef.current = lines.map(line => margin + line);

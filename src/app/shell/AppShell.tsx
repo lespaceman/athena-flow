@@ -1028,6 +1028,7 @@ function AppContent({
 	const {pagerActive, handleExpandForPager} = usePager({
 		filteredEntriesRef,
 		feedCursor: feedNav.feedCursor,
+		theme,
 	});
 
 	useGlobalKeyboard({
@@ -1073,10 +1074,10 @@ function AppContent({
 	const yankAtCursor = useCallback(() => {
 		const entry = filteredEntriesRef.current.at(feedNav.feedCursor);
 		if (!entry) return;
-		const content = extractYankContent(entry);
+		const content = extractYankContent(entry, theme);
 		copyToClipboard(content);
 		showToast('Copied to clipboard!');
-	}, [feedNav.feedCursor, showToast]);
+	}, [feedNav.feedCursor, showToast, theme]);
 
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive && !pagerActive,

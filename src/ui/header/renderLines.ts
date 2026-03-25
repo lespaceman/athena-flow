@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import type {Theme} from '../theme/types';
+import {darkTheme} from '../theme/themes';
 import type {HeaderModel} from './model';
 import {
 	formatTokenCount,
@@ -126,38 +127,20 @@ type HeaderPalette = {
 };
 
 function resolveHeaderPalette(theme?: Theme): HeaderPalette {
-	if (!theme) {
-		// No theme provided — use dark defaults via theme tokens.
-		return {
-			brand: '#e6edf3',
-			divider: '#30363d',
-			label: '#484f58',
-			value: '#6e7681',
-			context: {
-				label: '#484f58',
-				numbers: '#6e7681',
-				percent: '#484f58',
-				track: '#1e2a38',
-				low: '#3fb950',
-				medium: '#fbbf24',
-				high: '#f97316',
-			},
-		};
-	}
-
+	const t = theme ?? darkTheme;
 	return {
-		brand: theme.text,
-		divider: theme.textMuted,
-		label: theme.textMuted,
-		value: theme.status.neutral,
+		brand: t.text,
+		divider: t.textMuted,
+		label: t.textMuted,
+		value: t.status.neutral,
 		context: {
-			label: theme.textMuted,
-			numbers: theme.status.neutral,
-			percent: theme.textMuted,
-			track: theme.contextBar.track,
-			low: theme.contextBar.low,
-			medium: theme.contextBar.medium,
-			high: theme.contextBar.high,
+			label: t.textMuted,
+			numbers: t.status.neutral,
+			percent: t.textMuted,
+			track: t.contextBar.track,
+			low: t.contextBar.low,
+			medium: t.contextBar.medium,
+			high: t.contextBar.high,
 		},
 	};
 }
