@@ -97,7 +97,7 @@ describe('StepSelector', () => {
 		expect(frame).toContain('Beta');
 	});
 
-	it('renders description for focused item when provided', () => {
+	it('renders descriptions for all items', () => {
 		const {lastFrame} = render(
 			<StepSelector
 				options={[
@@ -108,9 +108,7 @@ describe('StepSelector', () => {
 			/>,
 		);
 		const frame = lastFrame()!;
-		// Description of focused item (Alpha) should show
 		expect(frame).toContain('First letter');
-		// Description of non-focused (Beta) should not show
-		expect(frame).not.toContain('Second letter');
+		expect(frame).toContain('Second letter');
 	});
 });

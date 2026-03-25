@@ -7,8 +7,8 @@ import WorkflowStep from './steps/WorkflowStep';
 import McpOptionsStep from './steps/McpOptionsStep';
 import StepStatus from './components/StepStatus';
 import WizardFrame from './components/WizardFrame';
-import StepDots from './components/StepDots';
 import WizardHints from './components/WizardHints';
+import {getGlyphs} from '../ui/glyphs/index';
 import {
 	writeGlobalConfig,
 	type AthenaHarness,
@@ -32,7 +32,18 @@ type Props = {
 	onThemePreview?: (theme: string) => void;
 };
 
-const STEP_LABELS = ['Theme', 'Harness', 'Workflow', 'MCP Options'];
+const STEP_SUMMARIES = [
+	{label: 'Theme', summarize: (r: SetupResult) => r.theme},
+	{label: 'Harness', summarize: (r: SetupResult) => r.harness ?? 'skipped'},
+	{label: 'Workflow', summarize: (r: SetupResult) => r.workflow ?? 'skipped'},
+	{
+		label: 'MCP Options',
+		summarize: (r: SetupResult) => {
+			const n = Object.keys(r.mcpServerOptions ?? {}).length;
+			return n > 0 ? `${n} server(s)` : 'auto';
+		},
+	},
+];
 
 export default function SetupWizard({onComplete, onThemePreview}: Props) {
 	const theme = useTheme();
@@ -197,28 +208,13 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 		}
 	}, [isComplete, result, onComplete, writeRetryCount]);
 
-	const completedSteps = new Set(Array.from({length: stepIndex}, (_, i) => i));
-
 	return (
 		<WizardFrame
 			title="ATHENA SETUP"
 			header={
-				<>
-					<Text color={theme.textMuted}>
-						Configure your defaults in under a minute.
-					</Text>
-					<Box marginTop={1}>
-						<StepDots
-							steps={STEP_LABELS}
-							currentIndex={isComplete ? STEP_LABELS.length : stepIndex}
-							completedSteps={
-								isComplete
-									? new Set(STEP_LABELS.map((_, i) => i))
-									: completedSteps
-							}
-						/>
-					</Box>
-				</>
+				<Text color={theme.textMuted}>
+					Configure your defaults in under a minute.
+				</Text>
 			}
 			footer={
 				<WizardHints
@@ -229,34 +225,46 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 				/>
 			}
 		>
-			{stepIndex === 0 && stepState !== 'success' && !isComplete && (
+			{STEP_SUMMARIES.slice(
+				0,
+				isComplete ? STEP_SUMMARIES.length : stepIndex,
+			).map((step, i) => (
+				<Text key={i} color={theme.status.success}>
+					{getGlyphs()['todo.done']} {step.label} · {step.summarize(result)}
+				</Text>
+			))}
+
+			{stepIndex === 0 && !isComplete && (
 				<ThemeStep
 					onComplete={handleThemeComplete}
 					onPreview={handleThemePreview}
 				/>
 			)}
-			{stepIndex === 0 && stepState === 'success' && (
-				<StepStatus status="success" message={`Theme: ${result.theme}`} />
-			)}
 			{stepIndex === 1 && !isComplete && (
-				<HarnessStep
-					key={retryCount}
-					onComplete={handleHarnessComplete}
-					onError={() => markError()}
-				/>
+				<Box marginTop={1}>
+					<HarnessStep
+						key={retryCount}
+						onComplete={handleHarnessComplete}
+						onError={() => markError()}
+					/>
+				</Box>
 			)}
 			{stepIndex === 2 && !isComplete && (
-				<WorkflowStep
-					key={retryCount}
-					onComplete={handleWorkflowComplete}
-					onError={() => markError()}
-				/>
+				<Box marginTop={1}>
+					<WorkflowStep
+						key={retryCount}
+						onComplete={handleWorkflowComplete}
+						onError={() => markError()}
+					/>
+				</Box>
 			)}
 			{stepIndex === 3 && !isComplete && (
-				<McpOptionsStep
-					servers={mcpServersWithOptions}
-					onComplete={handleMcpOptionsComplete}
-				/>
+				<Box marginTop={1}>
+					<McpOptionsStep
+						servers={mcpServersWithOptions}
+						onComplete={handleMcpOptionsComplete}
+					/>
+				</Box>
 			)}
 			{stepState === 'error' && !isComplete && (
 				<Text color={theme.status.error}>Press r to retry this step.</Text>

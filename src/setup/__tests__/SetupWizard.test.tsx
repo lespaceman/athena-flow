@@ -141,14 +141,20 @@ describe('SetupWizard', {timeout: 15_000}, () => {
 		expect(lastFrame()!).toContain('Choose your display theme');
 	});
 
-	it('shows step dots indicator', () => {
-		const {lastFrame} = render(
+	it('shows completed step summary lines above active step', () => {
+		const {stdin, lastFrame} = render(
 			<ThemeProvider value={darkTheme}>
 				<SetupWizard onComplete={() => {}} />
 			</ThemeProvider>,
 		);
-		expect(lastFrame()!).toContain('◉');
-		expect(lastFrame()!).toContain('Theme');
+
+		// Complete theme step and advance
+		act(() => stdin.write('\r'));
+		act(() => vi.advanceTimersByTime(500));
+
+		const frame = lastFrame()!;
+		expect(frame).toContain('✓ Theme · dark');
+		expect(frame).toContain('Select harness');
 	});
 
 	it('shows MCP options step when workflow has servers with options', async () => {
