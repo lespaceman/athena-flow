@@ -1217,15 +1217,19 @@ function AppContent({
 		[inputChevronColor, inputKeywordColor],
 	);
 	const runBadgeStyled = startupFailure
-		? chalk.bgHex('#4b1014').hex('#ff7b72')(' ERR ')
+		? chalk.bgHex(theme.badge.error.bg).hex(theme.badge.error.fg)(' ERR ')
 		: isHarnessRunning
-			? chalk.bgHex('#4a3a0c').hex('#fbbf24')(' RUN ')
-			: chalk.bgHex('#10321d').hex('#3fb950')(' IDLE ');
+			? chalk.bgHex(theme.badge.running.bg).hex(theme.badge.running.fg)(' RUN ')
+			: chalk.bgHex(theme.badge.idle.bg).hex(theme.badge.idle.fg)(' IDLE ');
 	let modeBadgeStyled = '';
 	if (inputMode === 'search') {
-		modeBadgeStyled = chalk.bgHex('#1b2a3f').hex(theme.accent)(' SEARCH ');
+		modeBadgeStyled = chalk.bgHex(theme.badge.search.bg).hex(theme.accent)(
+			' SEARCH ',
+		);
 	} else if (inputMode === 'command') {
-		modeBadgeStyled = chalk.bgHex('#2a1b3f').hex(theme.accent)(' CMD ');
+		modeBadgeStyled = chalk.bgHex(theme.badge.command.bg).hex(theme.accent)(
+			' CMD ',
+		);
 	}
 	const withBorderEdges = useCallback(
 		(line: string): string => {

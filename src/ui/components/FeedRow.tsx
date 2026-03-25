@@ -318,7 +318,10 @@ export function formatFeedRowLine({
 
 		const formatted = fitAnsi(line, innerWidth);
 		const focusedFormatted = props.focused
-			? fitAnsi(chalk.bgHex('#1b2a3f')(formatted), innerWidth)
+			? fitAnsi(
+					chalk.bgHex(props.theme.feed.focusBackground)(formatted),
+					innerWidth,
+				)
 			: formatted;
 		cachedLines.set(cacheKey, focusedFormatted);
 		if (cachedLines.size > ROW_LINE_CACHE_MAX_VARIANTS) {

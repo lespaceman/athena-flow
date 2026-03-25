@@ -1,122 +1,206 @@
 /**
- * Quick theme color preview script.
- * Run: npx tsx scripts/theme-preview.ts
+ * Visual theme preview — renders every theme against simulated
+ * dark and light terminal backgrounds.
+ *
+ * Run: npx tsx scripts/theme-preview.ts [dark|light|high-contrast]
  */
 import chalk from 'chalk';
+import {darkTheme, lightTheme, highContrastTheme} from '../src/ui/theme/themes';
+import type {Theme} from '../src/ui/theme/types';
 
-const dark = {
-	border: chalk.cyan,
-	text: chalk.white,
-	textMuted: chalk.gray,
-	accent: chalk.cyan,
-	accentSecondary: chalk.magenta,
-	success: chalk.green,
-	error: chalk.red,
-	warning: chalk.yellow,
-	info: chalk.cyan,
-	neutral: chalk.gray,
-	userMsg: chalk.hex('#b0b0b0').bgHex('#2d3748'),
+const THEMES: Record<string, Theme> = {
+	dark: darkTheme,
+	light: lightTheme,
+	'high-contrast': highContrastTheme,
 };
 
-const darkProposed = {
-	border: chalk.hex('#89b4fa'),
-	text: chalk.hex('#cdd6f4'),
-	textMuted: chalk.hex('#6c7086'),
-	accent: chalk.hex('#89b4fa'),
-	accentSecondary: chalk.hex('#cba6f7'),
-	success: chalk.hex('#a6e3a1'),
-	error: chalk.hex('#f38ba8'),
-	warning: chalk.hex('#f9e2af'),
-	info: chalk.hex('#89dceb'),
-	neutral: chalk.hex('#6c7086'),
-	userMsg: chalk.hex('#bac2de').bgHex('#313244'),
-};
+// Simulated terminal backgrounds for visual testing
+const TERM_BACKGROUNDS: Array<{name: string; bg: string}> = [
+	{name: 'Dark terminal  (#0d1117)', bg: '#0d1117'},
+	{name: 'Medium terminal (#1e1e2e)', bg: '#1e1e2e'},
+	{name: 'Light terminal (#ffffff)', bg: '#ffffff'},
+	{name: 'Warm light     (#fdf6e3)', bg: '#fdf6e3'},
+];
 
-const lightCurrent = {
-	border: chalk.blue,
-	text: chalk.black,
-	textMuted: chalk.gray,
-	accent: chalk.blue,
-	accentSecondary: chalk.hex('#8B008B'),
-	success: chalk.green,
-	error: chalk.red,
-	warning: chalk.hex('#B8860B'),
-	info: chalk.blue,
-	neutral: chalk.gray,
-	userMsg: chalk.hex('#4a5568').bgHex('#edf2f7'),
-};
+const W = 62;
 
-const lightProposed = {
-	border: chalk.hex('#5c5cff'),
-	text: chalk.black,
-	textMuted: chalk.hex('#6c6f85'),
-	accent: chalk.hex('#5c5cff'),
-	accentSecondary: chalk.hex('#8839ef'),
-	success: chalk.hex('#40a02b'),
-	error: chalk.hex('#d20f39'),
-	warning: chalk.hex('#df8e1d'),
-	info: chalk.hex('#1e66f5'),
-	neutral: chalk.hex('#6c6f85'),
-	userMsg: chalk.hex('#4c4f69').bgHex('#ccd0da'),
-};
-
-function renderTheme(name: string, t: typeof dark) {
-	console.log(chalk.bold.underline(`\n  ${name}\n`));
-
-	// Simulated header box
-	const top = t.border('╭─────────────────────────────────────────────╮');
-	const bot = t.border('╰─────────────────────────────────────────────╯');
-	const side = t.border('│');
-	console.log(top);
-	console.log(
-		`${side}  ${t.accent.bold('Welcome back!')}                              ${side}`,
-	);
-	console.log(
-		`${side}  ${t.text('Opus 4.6')} ${t.textMuted('· Athena v0.1.0')}                  ${side}`,
-	);
-	console.log(
-		`${side}  ${t.textMuted('~/Projects/ai-projects/athena-cli')}           ${side}`,
-	);
-	console.log(bot);
-
-	// Status line
-	console.log(
-		`  ${t.info('◐ Athena: working')} ${t.textMuted('|')} ${t.text('Opus 4.6')} ${t.textMuted('| Tools:')} ${t.text('5')}`,
-	);
-
-	// Tool events
-	console.log(`\n  ${t.success('● Read')} ${t.textMuted('src/app.tsx')}`);
-	console.log(`  ${t.warning('○ Bash')} ${t.textMuted('npm test')}`);
-	console.log(`  ${t.error('✗ Write')} ${t.textMuted('(blocked)')}`);
-	console.log(`  ${t.info('→ Task')} ${t.textMuted('(json_output)')}`);
-
-	// Subagent box
-	console.log(`\n  ${t.accentSecondary('╭─ ◆ Task(explore) ─────────╮')}`);
-	console.log(
-		`  ${t.accentSecondary('│')}  ${t.success('● Glob')} ${t.textMuted('**/*.ts')}`,
-	);
-	console.log(`  ${t.accentSecondary('╰───────────────────────────╯')}`);
-
-	// Permission keybindings
-	console.log(
-		`\n  ${t.success.bold('a')} Allow  ${t.error.bold('d')} Deny  ${t.info.bold('S')} Server-allow`,
-	);
-
-	// User message
-	console.log(`\n  ${t.userMsg(' User: fix the bug in auth ')}`);
-
-	// Streaming response
-	console.log(`  ${t.accent.bold('◐ Streaming')}`);
-	console.log(`  ${t.text("I'll look into the auth module...")}`);
+function hr(ch: string, width: number): string {
+	return ch.repeat(width);
 }
 
-console.log(chalk.bold('\n═══════════════════════════════════════════════'));
-console.log(chalk.bold('  THEME COMPARISON'));
-console.log(chalk.bold('═══════════════════════════════════════════════'));
+function pad(s: string, width: number): string {
+	// eslint-disable-next-line no-control-regex
+	const stripped = s.replace(/\x1b\[[0-9;]*m/g, '');
+	const diff = width - stripped.length;
+	return diff > 0 ? s + ' '.repeat(diff) : s;
+}
 
-renderTheme('DARK THEME (current)', dark);
-renderTheme('DARK THEME (proposed — Catppuccin Mocha)', darkProposed);
-renderTheme('LIGHT THEME (current)', lightCurrent);
-renderTheme('LIGHT THEME (proposed — Catppuccin Latte)', lightProposed);
+function renderSection(theme: Theme, bg: string): void {
+	const bgFn = (s: string) => chalk.bgHex(bg)(s);
+	const row = (content: string) => {
+		console.log(bgFn(pad(`  ${content}`, W)));
+	};
+	const blank = () => console.log(bgFn(' '.repeat(W)));
 
-console.log('\n');
+	const c = (hex: string) => chalk.hex(hex);
+	const cb = (hex: string) => chalk.hex(hex).bold;
+
+	blank();
+
+	// ── Header ──────────────────────────────────────────
+	row(
+		cb(theme.text)('ATHENA FLOW') +
+			'  ' +
+			c(theme.textMuted)('│') +
+			'  ' +
+			c(theme.textMuted)('Harness: ') +
+			c(theme.status.neutral)('Claude Code'),
+	);
+	blank();
+
+	// ── Context bar ─────────────────────────────────────
+	const barW = 20;
+	const filled = Math.round(barW * 0.35);
+	const bar =
+		chalk.bgHex(theme.contextBar.low).hex(bg)('█'.repeat(filled)) +
+		chalk.hex(theme.contextBar.track)('░'.repeat(barW - filled));
+	row(c(theme.textMuted)('Context ') + bar + c(theme.textMuted)(' 35%'));
+	blank();
+
+	// ── Border line ─────────────────────────────────────
+	row(c(theme.border)(hr('─', W - 4)));
+
+	// ── Feed rows ───────────────────────────────────────
+	const pills: Array<{
+		cat: keyof Theme['toolPill'];
+		label: string;
+		detail: string;
+	}> = [
+		{cat: 'safe', label: 'Read', detail: 'src/app/shell/AppShell.tsx'},
+		{cat: 'mutating', label: 'Write', detail: 'src/config.ts'},
+		{cat: 'browser', label: 'WebFetch', detail: 'https://api.example.com'},
+		{cat: 'skill', label: 'Skill', detail: '/commit'},
+		{cat: 'subagent.spawn', label: 'Agent', detail: 'explore codebase'},
+		{cat: 'neutral', label: 'Task', detail: 'json_output'},
+	];
+
+	for (let i = 0; i < pills.length; i++) {
+		const p = pills[i];
+		const pal = theme.toolPill[p.cat];
+		const stripe =
+			i % 2 === 1 && theme.feed.stripeBackground
+				? chalk.bgHex(theme.feed.stripeBackground)
+				: (s: string) => s;
+
+		const pill =
+			c(pal.dot)('●') +
+			' ' +
+			chalk.bgHex(pal.bg).hex(pal.fg)(` ${p.label} `) +
+			'  ' +
+			c(theme.textMuted)(p.detail);
+
+		// Show one row with focus highlight
+		if (i === 1) {
+			const focused = chalk.bgHex(theme.feed.focusBackground)(
+				pad(`  ${c(theme.accent)('▎')} ${pill}`, W),
+			);
+			console.log(bgFn(focused));
+		} else {
+			console.log(bgFn(stripe(pad(`    ${pill}`, W))));
+		}
+	}
+
+	blank();
+
+	// ── Badges ──────────────────────────────────────────
+	const errBadge = chalk.bgHex(theme.badge.error.bg).hex(theme.badge.error.fg)(
+		' ERR ',
+	);
+	const runBadge = chalk
+		.bgHex(theme.badge.running.bg)
+		.hex(theme.badge.running.fg)(' RUN ');
+	const idleBadge = chalk.bgHex(theme.badge.idle.bg).hex(theme.badge.idle.fg)(
+		' IDLE ',
+	);
+	const searchBadge = chalk.bgHex(theme.badge.search.bg).hex(theme.accent)(
+		' SEARCH ',
+	);
+	const cmdBadge = chalk.bgHex(theme.badge.command.bg).hex(theme.accent)(
+		' CMD ',
+	);
+	row(
+		`Badges: ${errBadge} ${runBadge} ${idleBadge} ${searchBadge} ${cmdBadge}`,
+	);
+	blank();
+
+	// ── Status colors ───────────────────────────────────
+	row(
+		c(theme.status.success)('success ') +
+			c(theme.status.error)('error ') +
+			c(theme.status.warning)('warning ') +
+			c(theme.status.info)('info ') +
+			c(theme.status.neutral)('neutral'),
+	);
+	blank();
+
+	// ── Detail view ─────────────────────────────────────
+	row(
+		cb(theme.detail.title)('Read') +
+			chalk.dim('(') +
+			c(theme.detail.subject)('src/config.ts') +
+			chalk.dim(')'),
+	);
+	blank();
+
+	// ── User message ────────────────────────────────────
+	row(c(theme.userMessage.border)('╭' + hr('─', 40) + '╮'));
+	row(
+		c(theme.userMessage.border)('│') +
+			chalk.bgHex(theme.userMessage.background).hex(theme.userMessage.text)(
+				pad(' fix the bug in auth', 40),
+			) +
+			c(theme.userMessage.border)('│'),
+	);
+	row(c(theme.userMessage.border)('╰' + hr('─', 40) + '╯'));
+	blank();
+
+	// ── Input ───────────────────────────────────────────
+	row(
+		c(theme.inputPrompt)('input') +
+			' ' +
+			c(theme.inputChevron)('❯') +
+			' ' +
+			c(theme.textMuted)('type a message...'),
+	);
+	blank();
+
+	// ── Accent ──────────────────────────────────────────
+	row(
+		c(theme.accent)('accent') +
+			'  ' +
+			c(theme.accentSecondary)('accentSecondary'),
+	);
+	blank();
+}
+
+// ── Main ────────────────────────────────────────────────
+const filter = process.argv[2];
+const themesToShow = filter ? {[filter]: THEMES[filter]} : THEMES;
+
+if (filter && !THEMES[filter]) {
+	console.error(`Unknown theme: ${filter}. Use: dark, light, high-contrast`);
+	process.exit(1);
+}
+
+for (const [name, theme] of Object.entries(themesToShow)) {
+	console.log(chalk.bold(`\n${'═'.repeat(W)}`));
+	console.log(chalk.bold(`  THEME: ${name.toUpperCase()}`));
+	console.log(chalk.bold(`${'═'.repeat(W)}`));
+
+	for (const termBg of TERM_BACKGROUNDS) {
+		console.log(chalk.dim(`\n  ▸ ${termBg.name}`));
+		renderSection(theme, termBg.bg);
+	}
+}
+
+console.log();

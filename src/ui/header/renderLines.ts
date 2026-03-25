@@ -126,53 +126,38 @@ type HeaderPalette = {
 };
 
 function resolveHeaderPalette(theme?: Theme): HeaderPalette {
-	if (theme?.name === 'light') {
+	if (!theme) {
+		// No theme provided — use dark defaults via theme tokens.
 		return {
-			brand: theme.text,
-			divider: theme.textMuted,
-			label: theme.textMuted,
-			value: theme.status.neutral,
-			context: {
-				label: theme.textMuted,
-				numbers: theme.status.neutral,
-				percent: theme.textMuted,
-				track: '#d0d7de',
-				low: theme.contextBar.low,
-				medium: theme.contextBar.medium,
-				high: theme.contextBar.high,
-			},
-		};
-	}
-	if (theme?.name === 'high-contrast') {
-		return {
-			brand: theme.text,
-			divider: theme.textMuted,
-			label: theme.textMuted,
-			value: theme.status.neutral,
-			context: {
-				label: theme.textMuted,
-				numbers: theme.status.neutral,
-				percent: theme.textMuted,
-				track: '#3d444d',
-				low: theme.contextBar.low,
-				medium: theme.contextBar.medium,
-				high: theme.contextBar.high,
-			},
-		};
-	}
-	return {
-		brand: '#e6edf3',
-		divider: '#30363d',
-		label: '#484f58',
-		value: '#6e7681',
-		context: {
+			brand: '#e6edf3',
+			divider: '#30363d',
 			label: '#484f58',
-			numbers: '#6e7681',
-			percent: '#484f58',
-			track: '#1e2a38',
-			low: '#3fb950',
-			medium: '#fbbf24',
-			high: '#f97316',
+			value: '#6e7681',
+			context: {
+				label: '#484f58',
+				numbers: '#6e7681',
+				percent: '#484f58',
+				track: '#1e2a38',
+				low: '#3fb950',
+				medium: '#fbbf24',
+				high: '#f97316',
+			},
+		};
+	}
+
+	return {
+		brand: theme.text,
+		divider: theme.textMuted,
+		label: theme.textMuted,
+		value: theme.status.neutral,
+		context: {
+			label: theme.textMuted,
+			numbers: theme.status.neutral,
+			percent: theme.textMuted,
+			track: theme.contextBar.track,
+			low: theme.contextBar.low,
+			medium: theme.contextBar.medium,
+			high: theme.contextBar.high,
 		},
 	};
 }

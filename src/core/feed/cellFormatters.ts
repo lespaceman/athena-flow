@@ -23,55 +23,7 @@ export function opCategoryColor(op: string, theme: Theme): string | undefined {
 	return undefined;
 }
 
-type ToolPalette = {
-	dot: string;
-	bg: string;
-	fg: string;
-};
-
-export type ToolPillCategory =
-	| 'safe'
-	| 'mutating'
-	| 'browser'
-	| 'neutral'
-	| 'skill'
-	| 'subagent.spawn'
-	| 'subagent.return';
-
-const SUBAGENT_BASE: Pick<ToolPalette, 'dot' | 'bg'> = {
-	dot: '#2ea87a',
-	bg: '#0a2e22',
-};
-
-const TOOL_PILL_PALETTES: Record<ToolPillCategory, ToolPalette> = {
-	safe: {
-		dot: '#2d8abf',
-		bg: '#0e2233',
-		fg: '#5ba3cc',
-	},
-	mutating: {
-		dot: '#b8862e',
-		bg: '#2a1d0a',
-		fg: '#d4a44a',
-	},
-	browser: {
-		dot: '#2aaa9e',
-		bg: '#0b2625',
-		fg: '#5cc4ba',
-	},
-	neutral: {
-		dot: '#5a6270',
-		bg: '#141a22',
-		fg: '#7d8590',
-	},
-	skill: {
-		dot: '#b06a9e',
-		bg: '#2a0f24',
-		fg: '#c98ab8',
-	},
-	'subagent.spawn': {...SUBAGENT_BASE, fg: '#5cc4a0'},
-	'subagent.return': {...SUBAGENT_BASE, fg: '#468e78'},
-};
+export type ToolPillCategory = keyof Theme['toolPill'];
 
 const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
 	'Read',
@@ -129,10 +81,6 @@ export function resolveToolPillCategoryForLabel(
 	if (MUTATING_TOOL_LABELS.has(label)) return 'mutating';
 	if (NON_DESTRUCTIVE_TOOL_LABELS.has(label)) return 'safe';
 	return 'neutral';
-}
-
-function resolvePillPalette(category: ToolPillCategory): ToolPalette {
-	return TOOL_PILL_PALETTES[category];
 }
 
 export type FormatGutterOpts = {
@@ -202,7 +150,7 @@ export function formatTool(
 	}
 
 	const category = options.category ?? 'neutral';
-	const palette = resolvePillPalette(category);
+	const palette = theme.toolPill[category];
 	if (contentWidth < 8) {
 		return chalk.hex(palette.dot)(fitImpl(toolColumn, contentWidth));
 	}

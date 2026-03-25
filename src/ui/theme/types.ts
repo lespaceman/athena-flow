@@ -1,5 +1,11 @@
 export type ThemeName = 'dark' | 'light' | 'high-contrast';
 
+export type ToolPillPalette = {
+	dot: string;
+	bg: string;
+	fg: string;
+};
+
 export type Theme = {
 	name: ThemeName;
 	border: string;
@@ -17,6 +23,7 @@ export type Theme = {
 	accent: string;
 	accentSecondary: string;
 	contextBar: {
+		track: string;
 		low: string;
 		medium: string;
 		high: string;
@@ -30,10 +37,31 @@ export type Theme = {
 	feed: {
 		headerLabel: string;
 		stripeBackground: string | null;
+		focusBackground: string;
 	};
 	userMessage: {
 		text: string;
 		background: string;
 		border: string;
+	};
+	badge: {
+		error: {bg: string; fg: string};
+		running: {bg: string; fg: string};
+		idle: {bg: string; fg: string};
+		search: {bg: string};
+		command: {bg: string};
+	};
+	detail: {
+		title: string;
+		subject: string;
+	};
+	toolPill: {
+		safe: ToolPillPalette;
+		mutating: ToolPillPalette;
+		browser: ToolPillPalette;
+		neutral: ToolPillPalette;
+		skill: ToolPillPalette;
+		'subagent.spawn': ToolPillPalette;
+		'subagent.return': ToolPillPalette;
 	};
 };

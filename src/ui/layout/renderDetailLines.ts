@@ -11,6 +11,8 @@ import {createMarkedInstance} from '../../shared/utils/markedFactory';
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
 import {formatClock} from '../../shared/utils/format';
+import {type Theme} from '../theme/types';
+import {darkTheme} from '../theme/themes';
 
 export type DetailRenderResult = {
 	lines: string[];
@@ -18,8 +20,6 @@ export type DetailRenderResult = {
 };
 
 const MAX_HIGHLIGHT_SIZE = 50_000;
-const DETAIL_TITLE_COLOR = '#c9d1d9';
-const DETAIL_SUBJECT_COLOR = '#58a6ff';
 
 function wrapAnsiLine(line: string, maxWidth: number): string[] {
 	if (maxWidth <= 0) return [''];
@@ -307,21 +307,22 @@ function eventLabel(event: FeedEvent): string {
 function buildCompactHeader(
 	event: FeedEvent,
 	width: number,
-	options?: {subject?: string; failed?: boolean},
+	opts: {subject?: string; failed?: boolean; theme?: Theme} = {},
 ): string[] {
+	const theme = opts.theme ?? darkTheme;
 	const label = eventLabel(event);
 	const time = formatClock(event.ts);
 
-	let title = chalk.bold.hex(DETAIL_TITLE_COLOR)(label);
-	if (options?.subject) {
+	let title = chalk.bold.hex(theme.detail.title)(label);
+	if (opts.subject) {
 		title +=
 			chalk.dim('(') +
-			chalk.hex(DETAIL_SUBJECT_COLOR)(options.subject) +
+			chalk.hex(theme.detail.subject)(opts.subject) +
 			chalk.dim(')');
 	}
 
 	const parts = [title];
-	if (options?.failed) parts.push(chalk.red('FAILED'));
+	if (opts.failed) parts.push(chalk.red('FAILED'));
 	parts.push(chalk.dim(time));
 
 	return wrapAnsiLines([parts.join(chalk.dim(' · '))], width);
@@ -345,13 +346,14 @@ function renderToolResult(
 	>,
 	width: number,
 	cw: number,
+	theme: Theme = darkTheme,
 ): DetailRenderResult {
 	const subject = extractToolSubject(
 		event.data.tool_name,
 		event.data.tool_input,
 	);
 	const failed = responseEvent.kind === 'tool.failure';
-	const header = buildCompactHeader(event, width, {subject, failed});
+	const header = buildCompactHeader(event, width, {subject, failed, theme});
 	const response = renderToolResponseContent(responseEvent, cw);
 	return buildResult(header, response.lines, response.showLineNumbers);
 }
@@ -362,17 +364,18 @@ export function renderDetailLines(
 	event: FeedEvent,
 	width: number,
 	pairedPostEvent?: FeedEvent,
+	theme: Theme = darkTheme,
 ): DetailRenderResult {
 	const cw = contentWidth(width);
 	switch (event.kind) {
 		case 'agent.message': {
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const content = renderMarkdownToLines(event.data.message, cw);
 			return buildResult(header, content, false);
 		}
 
 		case 'user.prompt': {
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const content = renderMarkdownToLines(event.data.prompt, cw);
 			return buildResult(header, content, false);
 		}
@@ -380,7 +383,7 @@ export function renderDetailLines(
 		case 'tool.post':
 		case 'tool.delta':
 		case 'tool.failure':
-			return renderToolResult(event, event, width, cw);
+			return renderToolResult(event, event, width, cw, theme);
 
 		case 'tool.pre':
 		case 'permission.request': {
@@ -390,14 +393,14 @@ export function renderDetailLines(
 					pairedPostEvent.kind === 'tool.post' ||
 					pairedPostEvent.kind === 'tool.failure')
 			) {
-				return renderToolResult(event, pairedPostEvent, width, cw);
+				return renderToolResult(event, pairedPostEvent, width, cw, theme);
 			}
 
 			const subject = extractToolSubject(
 				event.data.tool_name,
 				event.data.tool_input,
 			);
-			const header = buildCompactHeader(event, width, {subject});
+			const header = buildCompactHeader(event, width, {subject, theme});
 			const json = JSON.stringify(event.data.tool_input, null, 2);
 			const requestLines = highlightCode(json, cw, 'json');
 			return buildResult(header, requestLines, true);
@@ -405,7 +408,7 @@ export function renderDetailLines(
 
 		case 'subagent.start': {
 			const prompt = event.data.description?.trim();
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const content = prompt
 				? renderMarkdownToLines(prompt, cw)
 				: ['(no subagent prompt captured)'];
@@ -413,7 +416,7 @@ export function renderDetailLines(
 		}
 
 		case 'subagent.stop': {
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const prompt = event.data.description?.trim();
 			const response = event.data.last_assistant_message?.trim();
 			let content: string[];
@@ -434,7 +437,7 @@ export function renderDetailLines(
 		}
 
 		case 'notification': {
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const content = renderMarkdownToLines(event.data.message, cw);
 			return buildResult(header, content, false);
 		}
@@ -455,7 +458,7 @@ export function renderDetailLines(
 		case 'teammate.idle':
 		case 'task.completed':
 		case 'config.change': {
-			const header = buildCompactHeader(event, width);
+			const header = buildCompactHeader(event, width, {theme});
 			const json = JSON.stringify(event.raw ?? event.data, null, 2);
 			const content = highlightCode(json, cw, 'json');
 			return buildResult(header, content, true);
