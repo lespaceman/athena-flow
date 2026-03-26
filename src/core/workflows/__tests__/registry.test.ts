@@ -56,6 +56,11 @@ vi.mock('../../../infra/plugins/marketplace', () => ({
 	resolveMarketplaceWorkflow: () => '/tmp/resolved-workflow.json',
 }));
 
+vi.mock('../builtins/index', () => ({
+	resolveBuiltinWorkflow: () => undefined,
+	listBuiltinWorkflows: () => [],
+}));
+
 const {
 	resolveWorkflow,
 	installWorkflow,

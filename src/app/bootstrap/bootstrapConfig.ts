@@ -77,13 +77,7 @@ export function bootstrapRuntimeConfig({
 	const warnings: string[] = [];
 	const harness =
 		projectConfig.harness ?? globalConfig.harness ?? DEFAULT_HARNESS;
-	const configuredActiveWorkflow = globalConfig.activeWorkflow;
-
-	if (!showSetup && !configuredActiveWorkflow) {
-		throw new Error(
-			'No active workflow selected. Run `athena-flow workflow use <name>` or `athena-flow setup`.',
-		);
-	}
+	const configuredActiveWorkflow = globalConfig.activeWorkflow ?? 'default';
 
 	let workflowPluginDirs: string[] = [];
 	let resolvedWorkflow: WorkflowConfig | undefined;

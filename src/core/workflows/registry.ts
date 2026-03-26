@@ -18,6 +18,7 @@ import type {
 	WorkflowConfig,
 	WorkflowSourceMetadata,
 } from './types';
+import {resolveBuiltinWorkflow, listBuiltinWorkflows} from './builtins/index';
 
 function registryDir(): string {
 	return path.join(os.homedir(), '.config', 'athena', 'workflows');
@@ -114,6 +115,11 @@ export function resolveWorkflow(name: string): ResolvedWorkflowConfig {
 	const workflowPath = path.join(workflowDir, 'workflow.json');
 
 	if (!fs.existsSync(workflowPath)) {
+		const builtin = resolveBuiltinWorkflow(name);
+		if (builtin) {
+			return builtin;
+		}
+
 		throw new Error(
 			`Workflow "${name}" not found. Install with: athena workflow install <source> --name ${name}`,
 		);
@@ -300,16 +306,22 @@ export function updateWorkflow(name: string): string {
  */
 export function listWorkflows(): string[] {
 	const dir = registryDir();
-	if (!fs.existsSync(dir)) return [];
+	const installed = fs.existsSync(dir)
+		? fs
+				.readdirSync(dir, {withFileTypes: true})
+				.filter(
+					entry =>
+						entry.isDirectory() &&
+						fs.existsSync(path.join(dir, entry.name, 'workflow.json')),
+				)
+				.map(entry => entry.name)
+		: [];
 
-	return fs
-		.readdirSync(dir, {withFileTypes: true})
-		.filter(
-			entry =>
-				entry.isDirectory() &&
-				fs.existsSync(path.join(dir, entry.name, 'workflow.json')),
-		)
-		.map(entry => entry.name);
+	const builtins = listBuiltinWorkflows().filter(
+		name => !installed.includes(name),
+	);
+
+	return [...builtins, ...installed];
 }
 
 /**

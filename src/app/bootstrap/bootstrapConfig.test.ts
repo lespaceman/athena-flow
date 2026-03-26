@@ -199,17 +199,25 @@ describe('bootstrapRuntimeConfig', () => {
 		]);
 	});
 
-	it('throws when setup is not shown and active workflow is missing', () => {
+	it('defaults to "default" workflow when no active workflow is configured', () => {
+		const defaultWorkflow = {
+			name: 'default',
+			plugins: [],
+			promptTemplate: '{input}',
+		};
 		readGlobalConfigMock.mockReturnValue(emptyConfig);
 		readConfigMock.mockReturnValue(emptyConfig);
+		resolveWorkflowMock.mockReturnValue(defaultWorkflow);
+		installWorkflowPluginsMock.mockReturnValue([]);
 
-		expect(() =>
-			bootstrapRuntimeConfig({
-				projectDir: '/project',
-				showSetup: false,
-				isolationPreset: 'strict',
-			}),
-		).toThrow(/No active workflow selected/i);
+		const result = bootstrapRuntimeConfig({
+			projectDir: '/project',
+			showSetup: false,
+			isolationPreset: 'strict',
+		});
+
+		expect(resolveWorkflowMock).toHaveBeenCalledWith('default');
+		expect(result.workflowRef).toBe('default');
 	});
 
 	it('always resolves workflow from global activeWorkflow only', () => {

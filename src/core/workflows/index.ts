@@ -29,3 +29,4 @@ export {
 	type LoopState,
 	type LoopManager,
 } from './loopManager';
+export {resolveBuiltinWorkflow, listBuiltinWorkflows} from './builtins/index';
