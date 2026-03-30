@@ -6,7 +6,8 @@ const registerPluginsMock = vi.fn();
 const buildPluginMcpConfigMock = vi.fn();
 const resolveWorkflowMock = vi.fn();
 const installWorkflowPluginsMock = vi.fn();
-const resolveWorkflowPluginTargetsMock = vi.fn();
+const resolveWorkflowLocalPluginsMock = vi.fn();
+const resolveWorkflowCodexPluginRefsMock = vi.fn();
 const readClaudeSettingsModelMock = vi.fn();
 
 vi.mock('../../infra/plugins/index', () => ({
@@ -27,25 +28,34 @@ vi.mock('../../core/workflows/index', () => ({
 	resolveWorkflow: (name: string) => resolveWorkflowMock(name),
 	installWorkflowPlugins: (workflow: unknown) =>
 		installWorkflowPluginsMock(workflow),
-	resolveWorkflowPluginTargets: (workflow: unknown) =>
-		resolveWorkflowPluginTargetsMock(workflow),
+	resolveWorkflowLocalPlugins: (workflow: unknown) =>
+		resolveWorkflowLocalPluginsMock(workflow),
+	resolveWorkflowCodexPluginRefs: (workflow: unknown) =>
+		resolveWorkflowCodexPluginRefsMock(workflow),
 	compileWorkflowPlan: ({
 		workflow,
-		pluginDirs,
-		pluginTargets,
+		localPlugins,
+		codexPlugins,
 		pluginMcpConfig,
 	}: {
 		workflow?: unknown;
-		pluginDirs?: string[];
-		pluginTargets?: unknown[];
+		localPlugins?: unknown[];
+		codexPlugins?: unknown[];
 		pluginMcpConfig?: string;
 	}) =>
 		workflow
 			? {
 					workflow,
-					pluginDirs: pluginDirs ?? installWorkflowPluginsMock(workflow),
-					pluginTargets:
-						pluginTargets ?? resolveWorkflowPluginTargetsMock(workflow),
+					localPlugins:
+						localPlugins ?? resolveWorkflowLocalPluginsMock(workflow),
+					agentRoots: (
+						(localPlugins ??
+							resolveWorkflowLocalPluginsMock(workflow)) as Array<{
+							pluginDir: string;
+						}>
+					).map(plugin => `${plugin.pluginDir}/agents`),
+					codexPlugins:
+						codexPlugins ?? resolveWorkflowCodexPluginRefsMock(workflow),
 					pluginMcpConfig,
 				}
 			: undefined,
@@ -71,8 +81,10 @@ describe('bootstrapRuntimeConfig', () => {
 		resolveWorkflowMock.mockReset();
 		installWorkflowPluginsMock.mockReset();
 		installWorkflowPluginsMock.mockReturnValue([]);
-		resolveWorkflowPluginTargetsMock.mockReset();
-		resolveWorkflowPluginTargetsMock.mockReturnValue([]);
+		resolveWorkflowLocalPluginsMock.mockReset();
+		resolveWorkflowLocalPluginsMock.mockReturnValue([]);
+		resolveWorkflowCodexPluginRefsMock.mockReset();
+		resolveWorkflowCodexPluginRefsMock.mockReturnValue([]);
 		readClaudeSettingsModelMock.mockReset();
 	});
 
@@ -110,7 +122,12 @@ describe('bootstrapRuntimeConfig', () => {
 			promptTemplate: '{input}',
 			isolation: 'minimal',
 		});
-		installWorkflowPluginsMock.mockReturnValue(['/workflow-plugin']);
+		resolveWorkflowLocalPluginsMock.mockReturnValue([
+			{
+				ref: 'plugin@marketplace',
+				pluginDir: '/workflow-plugin',
+			},
+		]);
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/mcp.json',
 			workflows: [],
@@ -137,8 +154,14 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.workflowRef).toBe('e2e-test-builder');
 		expect(result.workflowPlan).toEqual({
 			workflow: result.workflow,
-			pluginDirs: ['/workflow-plugin'],
-			pluginTargets: [],
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			agentRoots: ['/workflow-plugin/agents'],
+			codexPlugins: [],
 			pluginMcpConfig: '/tmp/mcp.json',
 		});
 		expect(result.harness).toBe('claude-code');
@@ -184,8 +207,9 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.workflowRef).toBe('plugin-workflow');
 		expect(result.workflowPlan).toEqual({
 			workflow: result.workflow,
-			pluginDirs: [],
-			pluginTargets: [],
+			localPlugins: [],
+			agentRoots: [],
+			codexPlugins: [],
 			pluginMcpConfig: undefined,
 		});
 		expect(result.harness).toBe('claude-code');
@@ -312,12 +336,17 @@ describe('bootstrapRuntimeConfig', () => {
 			promptTemplate: '{input}',
 		});
 		installWorkflowPluginsMock.mockReturnValue(['/workflow-plugin']);
-		resolveWorkflowPluginTargetsMock.mockReturnValue([
+		resolveWorkflowLocalPluginsMock.mockReturnValue([
+			{
+				ref: 'plugin@marketplace',
+				pluginDir: '/workflow-plugin',
+			},
+		]);
+		resolveWorkflowCodexPluginRefsMock.mockReturnValue([
 			{
 				ref: 'plugin@marketplace',
 				pluginName: 'plugin',
 				marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-				pluginDir: '/workflow-plugin',
 			},
 		]);
 		registerPluginsMock.mockReturnValue({
@@ -335,13 +364,18 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.pluginMcpConfig).toBe('/tmp/workflow-mcp.json');
 		expect(result.workflowPlan).toEqual({
 			workflow: result.workflow,
-			pluginDirs: ['/workflow-plugin'],
-			pluginTargets: [
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			agentRoots: ['/workflow-plugin/agents'],
+			codexPlugins: [
 				{
 					ref: 'plugin@marketplace',
 					pluginName: 'plugin',
 					marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-					pluginDir: '/workflow-plugin',
 				},
 			],
 			pluginMcpConfig: '/tmp/workflow-mcp.json',
@@ -364,13 +398,17 @@ describe('bootstrapRuntimeConfig', () => {
 			plugins: [],
 			promptTemplate: '{input}',
 		});
-		installWorkflowPluginsMock.mockReturnValue(['/workflow-plugin']);
-		resolveWorkflowPluginTargetsMock.mockReturnValue([
+		resolveWorkflowLocalPluginsMock.mockReturnValue([
+			{
+				ref: 'plugin@marketplace',
+				pluginDir: '/workflow-plugin',
+			},
+		]);
+		resolveWorkflowCodexPluginRefsMock.mockReturnValue([
 			{
 				ref: 'plugin@marketplace',
 				pluginName: 'plugin',
 				marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-				pluginDir: '/workflow-plugin',
 			},
 		]);
 		registerPluginsMock.mockReturnValue({
@@ -387,7 +425,7 @@ describe('bootstrapRuntimeConfig', () => {
 		});
 
 		expect(registerPluginsMock).toHaveBeenCalledWith(
-			['/workflow-plugin', '/global-plugin', '/project-plugin', '/cli-plugin'],
+			['/global-plugin', '/project-plugin', '/cli-plugin'],
 			undefined,
 			false,
 		);
@@ -398,13 +436,18 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.pluginMcpConfig).toBeUndefined();
 		expect(result.workflowPlan).toEqual({
 			workflow: result.workflow,
-			pluginDirs: ['/workflow-plugin'],
-			pluginTargets: [
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			agentRoots: ['/workflow-plugin/agents'],
+			codexPlugins: [
 				{
 					ref: 'plugin@marketplace',
 					pluginName: 'plugin',
 					marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-					pluginDir: '/workflow-plugin',
 				},
 			],
 			pluginMcpConfig: '/tmp/workflow-only-mcp.json',

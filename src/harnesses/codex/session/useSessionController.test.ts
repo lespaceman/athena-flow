@@ -43,7 +43,6 @@ describe('useCodexSessionController', () => {
 			continuation: {mode: 'resume', handle: 'thread-123'},
 			model: 'gpt-5.3-codex',
 			developerInstructions: undefined,
-			skillRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
 			approvalPolicy: 'on-request',

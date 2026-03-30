@@ -1,4 +1,10 @@
 import type {RuntimeEvent, RuntimeDecision} from '../../../core/runtime/types';
+import type {
+	CodexMcpServerElicitationRequestResponse,
+	CodexPermissionGrantScope,
+	CodexPermissionsRequestApprovalResponse,
+	CodexRequestPermissionProfile,
+} from '../protocol';
 import type {CodexApprovalDecision} from '../protocol/items';
 import type {ReviewDecision} from '../protocol/generated/ReviewDecision';
 import type {CodexToolRequestUserInputResponse} from '../protocol';
@@ -42,6 +48,8 @@ export function mapDecisionToCodexResult(
 ):
 	| {decision: CodexApprovalDecision}
 	| {decision: ReviewDecision}
+	| CodexMcpServerElicitationRequestResponse
+	| CodexPermissionsRequestApprovalResponse
 	| CodexToolRequestUserInputResponse {
 	if (event.hookName === M.TOOL_REQUEST_USER_INPUT) {
 		if (decision.intent?.kind !== 'question_answer') {
@@ -58,9 +66,94 @@ export function mapDecisionToCodexResult(
 		};
 	}
 
+	if (event.hookName === M.PERMISSIONS_REQUEST_APPROVAL) {
+		return mapPermissionsApprovalResponse(event, decision);
+	}
+
+	if (event.hookName === M.MCP_SERVER_ELICITATION_REQUEST) {
+		return mapMcpElicitationResponse(decision, event.payload);
+	}
+
 	const isLegacy = LEGACY_APPROVAL_METHODS.has(event.hookName);
 	const v2Result = mapToV2Decision(decision);
 	return isLegacy ? toLegacyDecision(v2Result.decision) : v2Result;
+}
+
+function mapMcpElicitationResponse(
+	decision: RuntimeDecision,
+	payload: unknown,
+): CodexMcpServerElicitationRequestResponse {
+	const v2Result = mapToV2Decision(decision);
+	if (v2Result.decision === 'decline') {
+		return {action: 'decline', content: null, _meta: null};
+	}
+	if (v2Result.decision === 'cancel') {
+		return {action: 'cancel', content: null, _meta: null};
+	}
+
+	const record =
+		typeof payload === 'object' && payload !== null
+			? (payload as Record<string, unknown>)
+			: {};
+	return {
+		action: 'accept',
+		content: record['mode'] === 'form' ? {} : null,
+		_meta: null,
+	};
+}
+
+function mapPermissionsApprovalResponse(
+	event: RuntimeEvent,
+	decision: RuntimeDecision,
+): CodexPermissionsRequestApprovalResponse {
+	const eventData = event.data as Record<string, unknown>;
+	const toolInput =
+		typeof eventData['tool_input'] === 'object' &&
+		eventData['tool_input'] !== null
+			? (eventData['tool_input'] as Record<string, unknown>)
+			: {};
+	const requestedPermissions = toolInput['permissions'] as
+		| CodexRequestPermissionProfile
+		| null
+		| undefined;
+	const scope = resolvePermissionScope(decision);
+
+	if (
+		decision.type === 'block' ||
+		decision.intent?.kind === 'permission_deny' ||
+		decision.intent?.kind === 'pre_tool_deny' ||
+		decision.intent?.kind === 'stop_block'
+	) {
+		return {permissions: {}, scope: 'turn'};
+	}
+
+	if (!requestedPermissions) {
+		return {permissions: {}, scope};
+	}
+
+	return {
+		permissions: {
+			...(requestedPermissions.network != null
+				? {network: requestedPermissions.network}
+				: {}),
+			...(requestedPermissions.fileSystem != null
+				? {fileSystem: requestedPermissions.fileSystem}
+				: {}),
+		},
+		scope,
+	};
+}
+
+function resolvePermissionScope(
+	decision: RuntimeDecision,
+): CodexPermissionGrantScope {
+	const rawScope =
+		typeof decision.data === 'object' &&
+		decision.data !== null &&
+		'scope' in decision.data
+			? (decision.data as {scope?: unknown}).scope
+			: undefined;
+	return rawScope === 'session' ? 'session' : 'turn';
 }
 
 function mapToV2Decision(decision: RuntimeDecision): {

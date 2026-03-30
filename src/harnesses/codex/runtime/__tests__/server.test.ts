@@ -85,43 +85,8 @@ vi.mock('../appServerManager', () => ({
 				return {};
 			}
 
-			if (method === 'skills/list') {
-				return {
-					data: [
-						{
-							cwd: '/project',
-							skills: [
-								{
-									name: 'workflow-skill',
-									description: 'Handle workflow tasks.',
-									path: '/workflow/plugins/e2e-test-builder/skills/workflow-skill/SKILL.md',
-									enabled: true,
-									dependencies: {
-										tools: [
-											{
-												type: 'mcp',
-												value: 'agent-web-interface',
-											},
-										],
-									},
-								},
-								{
-									name: 'global-skill',
-									description: 'Do not include this.',
-									path: '/elsewhere/global-skill/SKILL.md',
-									enabled: true,
-								},
-							],
-							errors: [
-								{
-									path: '/workflow/plugins/e2e-test-builder/skills/broken/SKILL.md',
-									message:
-										'invalid description: exceeds maximum length of 1024 characters',
-								},
-							],
-						},
-					],
-				};
+			if (method === 'plugin/install') {
+				return {};
 			}
 
 			if (method === 'thread/start') {
@@ -221,7 +186,7 @@ describe('createCodexServer', () => {
 		);
 	});
 
-	it('hydrates thread startup with workflow skill roots and mcp config', async () => {
+	it('hydrates thread startup with native workflow plugin install and mcp config', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -235,8 +200,14 @@ describe('createCodexServer', () => {
 		await runtime.start();
 		await runtime.sendPrompt('Hello Codex', {
 			developerInstructions: 'Use the workflow tracker.',
-			skillRoots: ['/workflow/plugins/e2e-test-builder/skills'],
 			config: {
+				_athenaWorkflowCodexPlugins: [
+					{
+						ref: 'plugin-a@owner/repo',
+						pluginName: 'plugin-a',
+						marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
+					},
+				],
 				mcp_servers: {
 					'agent-web-interface': {
 						command: 'npx',
@@ -251,17 +222,7 @@ describe('createCodexServer', () => {
 		expect(manager!.requests).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({
-					method: 'skills/list',
-					params: {
-						cwds: ['/project'],
-						forceReload: true,
-						perCwdExtraUserRoots: [
-							{
-								cwd: '/project',
-								extraUserRoots: ['/workflow/plugins/e2e-test-builder/skills'],
-							},
-						],
-					},
+					method: 'plugin/install',
 				}),
 				expect.objectContaining({
 					method: 'thread/start',
@@ -279,39 +240,69 @@ describe('createCodexServer', () => {
 						),
 					}),
 				}),
-			]),
-		);
-		expect(
-			manager!.requests.find(request => request.method === 'thread/start')
-				?.params?.['developerInstructions'],
-		).toEqual(expect.stringContaining('workflow-skill'));
-		expect(
-			manager!.requests.find(request => request.method === 'thread/start')
-				?.params?.['developerInstructions'],
-		).not.toEqual(expect.stringContaining('global-skill'));
-		expect(events).toEqual(
-			expect.arrayContaining([
 				expect.objectContaining({
-					kind: 'notification',
-					data: expect.objectContaining({
-						title: 'Skills loaded',
-						notification_type: 'skills.loaded',
-						message:
-							'Loaded 1 workflow skill: workflow-skill. Skipped 1 invalid skill due to validation errors.',
-					}),
-					payload: expect.objectContaining({
-						errors: [
+					method: 'turn/start',
+					params: expect.objectContaining({
+						input: [
 							{
-								path: '/workflow/plugins/e2e-test-builder/skills/broken/SKILL.md',
-								message:
-									'invalid description: exceeds maximum length of 1024 characters',
+								type: 'text',
+								text: 'Hello Codex',
+								text_elements: [],
 							},
 						],
 					}),
-					hookName: 'skills/list',
 				}),
 			]),
 		);
+		expect(
+			manager!.requests.find(request => request.method === 'thread/start')
+				?.params?.['developerInstructions'],
+		).toEqual('Use the workflow tracker.');
+		expect(events.some(event => event.hookName === 'skills.loaded')).toBe(
+			false,
+		);
+	});
+
+	it('ensures workflow plugins before turn start without Athena-side skill routing', async () => {
+		const runtime = createCodexServer({
+			projectDir: '/project',
+			instanceId: 1,
+			binaryPath: 'codex',
+		});
+
+		await runtime.start();
+		await runtime.sendPrompt('Hello Codex', {
+			config: {
+				_athenaWorkflowCodexPlugins: [
+					{
+						ref: 'plugin-a@owner/repo',
+						pluginName: 'plugin-a',
+						marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
+					},
+				],
+			},
+		});
+
+		const manager = mockState.current;
+		expect(manager).not.toBeNull();
+		const methodOrder = manager!.requests.map(request => request.method);
+		expect(methodOrder).toEqual(
+			expect.arrayContaining(['plugin/install', 'thread/start']),
+		);
+		expect(methodOrder.indexOf('plugin/install')).toBeLessThan(
+			methodOrder.indexOf('thread/start'),
+		);
+		expect(methodOrder).not.toContain('plugin/list');
+		expect(methodOrder).not.toContain('plugin/read');
+		expect(methodOrder).not.toContain('skills/list');
+		expect(
+			manager!.requests.find(request => request.method === 'turn/start')
+				?.params?.['input'],
+		).toEqual([{type: 'text', text: 'Hello Codex', text_elements: []}]);
+		expect(
+			manager!.requests.find(request => request.method === 'thread/start')
+				?.params?.['config'],
+		).toEqual({});
 	});
 
 	it('starts ephemeral Codex threads without extended history persistence', async () => {
@@ -378,7 +369,7 @@ describe('createCodexServer', () => {
 		).toBe(false);
 	});
 
-	it('returns typed fallback results for known unsupported Codex server requests', async () => {
+	it('returns typed fallback results for known unsupported dynamic/auth Codex server requests', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -389,19 +380,6 @@ describe('createCodexServer', () => {
 		const manager = mockState.current;
 		expect(manager).not.toBeNull();
 
-		manager!.emit('serverRequest', {
-			method: 'mcpServer/elicitation/request',
-			id: 21,
-			params: {
-				threadId: 'th-1',
-				turnId: 'turn-1',
-				serverName: 'demo',
-				mode: 'url',
-				message: 'Open this URL',
-				url: 'https://example.com',
-				elicitationId: 'elic-1',
-			},
-		});
 		manager!.emit('serverRequest', {
 			method: 'item/tool/call',
 			id: 22,
@@ -421,7 +399,6 @@ describe('createCodexServer', () => {
 
 		expect(manager!.responses).toEqual(
 			expect.arrayContaining([
-				{id: 21, result: {action: 'decline', content: null}},
 				{id: 22, result: {contentItems: [], success: false}},
 			]),
 		);
@@ -462,7 +439,7 @@ describe('createCodexServer', () => {
 		expect(events).toEqual([]);
 	});
 
-	it('surfaces skills/changed after skill roots are configured', async () => {
+	it('ignores skills/changed notifications now that workflow skills are passed natively', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -474,30 +451,18 @@ describe('createCodexServer', () => {
 		});
 
 		await runtime.start();
-		await runtime.sendPrompt('Hello Codex', {
-			skillRoots: ['/workflow/plugins/e2e-test-builder/skills'],
-		});
+		await runtime.sendPrompt('Hello Codex');
 
 		const manager = mockState.current;
 		expect(manager).not.toBeNull();
+		const eventCountBefore = events.length;
 
 		manager!.emit('notification', {
 			method: M.SKILLS_CHANGED,
 			params: {},
 		});
 
-		expect(events).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					kind: 'notification',
-					data: expect.objectContaining({
-						title: 'Skills changed',
-						notification_type: 'skills.changed',
-					}),
-					hookName: M.SKILLS_CHANGED,
-				}),
-			]),
-		);
+		expect(events).toHaveLength(eventCountBefore);
 	});
 
 	it('does not suppress completed agentMessage items', async () => {

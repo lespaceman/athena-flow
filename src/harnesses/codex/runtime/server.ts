@@ -14,11 +14,10 @@ import {
 } from './mapper';
 import {mapDecisionToCodexResult} from './decisionMapper';
 import {asRecord} from './eventTranslator';
-import {resolveCodexSkillInstructions} from './skillInstructions';
 import {
 	buildCodexPluginInstallMessage,
 	ensureCodexWorkflowPluginsInstalled,
-} from './pluginManager';
+} from './workflowPluginLifecycle';
 import {
 	resolveCodexAgentConfig,
 	buildAgentRemovalEdits,
@@ -43,7 +42,6 @@ export type CodexRuntime = Runtime & {
 			continuation?: TurnContinuation;
 			model?: string;
 			developerInstructions?: string;
-			skillRoots?: string[];
 			agentRoots?: string[];
 			config?: Record<string, unknown>;
 			ephemeral?: boolean;
@@ -87,6 +85,7 @@ function requireThreadId(value: unknown, method: string): string {
 const SUPPRESSED_ITEM_TYPES = new Set(['userMessage', 'plan', 'reasoning']);
 
 const IGNORED_NOTIFICATION_METHODS = new Set([
+	M.SKILLS_CHANGED,
 	M.THREAD_STATUS_CHANGED,
 	M.TURN_DIFF_UPDATED,
 ]);
@@ -103,8 +102,6 @@ function getUnsupportedServerRequestResponse(method: string): {
 	error?: {code: number; message: string};
 } {
 	switch (method) {
-		case M.MCP_SERVER_ELICITATION_REQUEST:
-			return {result: {action: 'decline', content: null}};
 		case M.DYNAMIC_TOOL_CALL:
 			return {result: {contentItems: [], success: false}};
 		case M.CHATGPT_AUTH_TOKENS_REFRESH:
@@ -138,7 +135,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 	let threadModel: string | null = null;
 	let pendingTurnPrompt: string | null = null;
 	let pendingTurnCompletion: PendingTurnCompletion | null = null;
-	let configuredSkillRoots: string[] = [];
 	let loadedAgentConfig: CodexAgentConfigResult | null = null;
 
 	function createPendingTurnCompletion(): PendingTurnCompletion {
@@ -313,17 +309,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 		}
 	}
 
-	function combineDeveloperInstructions(
-		base: string | undefined,
-		skills: string | undefined,
-	): string | undefined {
-		if (base && skills) {
-			return `${base}\n\n${skills}`;
-		}
-
-		return base ?? skills;
-	}
-
 	function buildLoadMessage(input: {
 		kind: string;
 		names: string[];
@@ -361,12 +346,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 
 				manager.on('notification', msg => {
 					if (shouldIgnoreNotificationMethod(msg.method)) {
-						return;
-					}
-					if (
-						msg.method === M.SKILLS_CHANGED &&
-						configuredSkillRoots.length === 0
-					) {
 						return;
 					}
 					trackNotificationState(msg);
@@ -459,7 +438,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 			threadId = null;
 			turnId = null;
 			threadModel = null;
-			configuredSkillRoots = [];
 			clearPendingTurn(new Error('Codex runtime stopped'));
 		},
 
@@ -499,7 +477,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				continuation?: TurnContinuation;
 				model?: string;
 				developerInstructions?: string;
-				skillRoots?: string[];
 				agentRoots?: string[];
 				config?: Record<string, unknown>;
 				ephemeral?: boolean;
@@ -518,7 +495,6 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				const continuation = options?.continuation;
 				const approvalPolicy = options?.approvalPolicy ?? 'on-request';
 				const sandbox = options?.sandbox ?? 'workspace-write';
-				const skillRoots = options?.skillRoots?.filter(Boolean) ?? [];
 				const shouldResume =
 					continuation?.mode === 'resume' && continuation.handle.length > 0;
 				const shouldStartFresh =
@@ -526,61 +502,47 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				const shouldReuseCurrent = continuation?.mode === 'reuse-current';
 				const shouldConfigureThread =
 					shouldResume || shouldStartFresh || (shouldReuseCurrent && !threadId);
-				let skillInstructions: string | undefined;
 				const workflowPluginTargets = Array.isArray(
 					(options?.config as Record<string, unknown> | undefined)?.[
-						'_athenaWorkflowPluginTargets'
+						'_athenaWorkflowCodexPlugins'
 					],
 				)
 					? (
 							(options?.config as Record<string, unknown>)[
-								'_athenaWorkflowPluginTargets'
+								'_athenaWorkflowCodexPlugins'
 							] as Array<Record<string, unknown>>
 						)
-							.map(target => ({
-								ref: String(target['ref'] ?? ''),
-								pluginName: String(target['pluginName'] ?? ''),
-								marketplacePath: String(target['marketplacePath'] ?? ''),
-								pluginDir: String(target['pluginDir'] ?? ''),
+							.map(plugin => ({
+								ref: String(plugin['ref'] ?? ''),
+								pluginName: String(plugin['pluginName'] ?? ''),
+								marketplacePath: String(plugin['marketplacePath'] ?? ''),
 							}))
 							.filter(
-								target =>
-									target.ref.length > 0 &&
-									target.pluginName.length > 0 &&
-									target.marketplacePath.length > 0,
+								plugin =>
+									plugin.ref.length > 0 &&
+									plugin.pluginName.length > 0 &&
+									plugin.marketplacePath.length > 0,
 							)
 					: [];
-				if (shouldConfigureThread) {
-					configuredSkillRoots = skillRoots;
+				if (shouldConfigureThread && workflowPluginTargets.length > 0) {
 					try {
-						const skillResolution = await resolveCodexSkillInstructions({
+						const installedPlugins = await ensureCodexWorkflowPluginsInstalled({
 							manager,
 							projectDir,
-							skillRoots,
-							pluginTargets: workflowPluginTargets,
+							plugins: workflowPluginTargets,
 						});
-						skillInstructions = skillResolution.instructions;
-						if (skillRoots.length > 0) {
-							emitNotification({
-								hookName: M.SKILLS_LIST,
-								title: 'Skills loaded',
-								message: buildLoadMessage({
-									kind: 'skill',
-									names: skillResolution.skills.map(skill => skill.name),
-									rootCount: skillRoots.length,
-									errorCount: skillResolution.errors.length,
-								}),
-								notificationType: 'skills.loaded',
-								payload: {
-									skillRoots,
-									skills: skillResolution.skills,
-									errors: skillResolution.errors,
-								},
-							});
-						}
+						emitNotification({
+							hookName: M.PLUGINS_ENSURED,
+							title: 'Plugins ensured',
+							message: buildCodexPluginInstallMessage(installedPlugins),
+							notificationType: M.PLUGINS_ENSURED,
+							payload: {
+								plugins: installedPlugins,
+							},
+						});
 					} catch (error) {
 						console.error(
-							`[athena:codex] failed to scan workflow skills: ${
+							`[athena:codex] failed to ensure workflow plugins: ${
 								error instanceof Error ? error.message : String(error)
 							}`,
 						);
@@ -680,39 +642,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 					}
 				}
 
-				if (shouldConfigureThread && workflowPluginTargets.length > 0) {
-					try {
-						const installedPlugins = await ensureCodexWorkflowPluginsInstalled({
-							manager,
-							projectDir,
-							pluginTargets: workflowPluginTargets,
-						});
-						if (workflowPluginTargets.length > 0) {
-							emitNotification({
-								hookName: M.PLUGINS_ENSURED,
-								title: 'Plugins ensured',
-								message: buildCodexPluginInstallMessage(installedPlugins),
-								notificationType: M.PLUGINS_ENSURED,
-								payload: {
-									plugins: installedPlugins,
-								},
-							});
-						}
-					} catch (error) {
-						console.error(
-							`[athena:codex] failed to ensure workflow plugins: ${
-								error instanceof Error ? error.message : String(error)
-							}`,
-						);
-					}
-				}
-
-				const developerInstructions = shouldConfigureThread
-					? combineDeveloperInstructions(
-							options?.developerInstructions,
-							skillInstructions,
-						)
-					: options?.developerInstructions;
+				const developerInstructions = options?.developerInstructions;
 				// Resume a thread or start a new one
 				if (shouldResume) {
 					const result = await manager.sendRequest(M.THREAD_RESUME, {
@@ -726,7 +656,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 							? {
 									config: Object.fromEntries(
 										Object.entries(options.config).filter(
-											([key]) => key !== '_athenaWorkflowPluginTargets',
+											([key]) => key !== '_athenaWorkflowCodexPlugins',
 										),
 									),
 								}
@@ -753,7 +683,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 							? {
 									config: Object.fromEntries(
 										Object.entries(options.config).filter(
-											([key]) => key !== '_athenaWorkflowPluginTargets',
+											([key]) => key !== '_athenaWorkflowCodexPlugins',
 										),
 									),
 								}

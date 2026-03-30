@@ -14,7 +14,6 @@ export type CodexPromptOptions = {
 	continuation?: TurnContinuation;
 	model?: string;
 	developerInstructions?: string;
-	skillRoots?: string[];
 	agentRoots?: string[];
 	config?: Record<string, unknown>;
 	ephemeral?: boolean;
@@ -69,8 +68,10 @@ export function buildCodexPromptOptions(input: {
 		continuation: input.continuation,
 		model: modelFromOverride ?? modelFromProcess,
 		developerInstructions,
-		skillRoots: undefined,
-		agentRoots: undefined,
+		agentRoots:
+			input.workflowPlan?.agentRoots && input.workflowPlan.agentRoots.length > 0
+				? input.workflowPlan.agentRoots
+				: undefined,
 		config: resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan),
 		ephemeral: input.ephemeral,
 		approvalPolicy: isolation.approvalPolicy,

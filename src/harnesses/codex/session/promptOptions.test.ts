@@ -47,7 +47,7 @@ describe('buildCodexPromptOptions', () => {
 			continuation: {mode: 'resume', handle: 'thread-123'},
 			model: 'gpt-5.3-codex',
 			developerInstructions: 'Use the workflow tracker.',
-			skillRoots: undefined,
+			agentRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
 			approvalPolicy: 'on-request',
@@ -65,7 +65,7 @@ describe('buildCodexPromptOptions', () => {
 			continuation: undefined,
 			model: 'gpt-5.4-codex',
 			developerInstructions: undefined,
-			skillRoots: undefined,
+			agentRoots: undefined,
 			config: undefined,
 			ephemeral: undefined,
 			approvalPolicy: 'on-request',
@@ -92,8 +92,21 @@ describe('buildCodexPromptOptions', () => {
 						plugins: [],
 						promptTemplate: '{input}',
 					},
-					pluginDirs: ['/plugins/e2e-test-builder', '/plugins/md-export'],
-					pluginTargets: [],
+					localPlugins: [
+						{
+							ref: 'e2e-test-builder@owner/repo',
+							pluginDir: '/plugins/e2e-test-builder',
+						},
+						{
+							ref: 'md-export@owner/repo',
+							pluginDir: '/plugins/md-export',
+						},
+					],
+					agentRoots: [
+						'/plugins/e2e-test-builder/agents',
+						'/plugins/md-export/agents',
+					],
+					codexPlugins: [],
 					pluginMcpConfig: '/tmp/plugin-mcp.json',
 				},
 			}),
@@ -101,8 +114,10 @@ describe('buildCodexPromptOptions', () => {
 			continuation: undefined,
 			model: undefined,
 			developerInstructions: undefined,
-			skillRoots: undefined,
-			agentRoots: undefined,
+			agentRoots: [
+				'/plugins/e2e-test-builder/agents',
+				'/plugins/md-export/agents',
+			],
 			config: {
 				mcp_servers: {
 					'agent-web-interface': {
@@ -187,8 +202,9 @@ describe('buildCodexPromptOptions', () => {
 					plugins: [],
 					promptTemplate: '{input}',
 				},
-				pluginDirs: [],
-				pluginTargets: [],
+				localPlugins: [],
+				agentRoots: [],
+				codexPlugins: [],
 				pluginMcpConfig: '/tmp/workflow-mcp.json',
 			},
 		});
@@ -237,7 +253,6 @@ describe('buildCodexPromptOptions', () => {
 			continuation: undefined,
 			model: undefined,
 			developerInstructions: undefined,
-			skillRoots: undefined,
 			agentRoots: undefined,
 			config: undefined,
 			ephemeral: true,
@@ -246,7 +261,7 @@ describe('buildCodexPromptOptions', () => {
 		});
 	});
 
-	it('does not derive workflow agent or skill roots from plugin dirs', () => {
+	it('uses shared workflow agent roots', () => {
 		const result = buildCodexPromptOptions({
 			workflowPlan: {
 				workflow: {
@@ -254,11 +269,16 @@ describe('buildCodexPromptOptions', () => {
 					plugins: [],
 					promptTemplate: '{input}',
 				},
-				pluginDirs: ['/plugins/my-plugin'],
-				pluginTargets: [],
+				localPlugins: [
+					{
+						ref: 'my-plugin@owner/repo',
+						pluginDir: '/plugins/my-plugin',
+					},
+				],
+				agentRoots: ['/plugins/my-plugin/agents'],
+				codexPlugins: [],
 			},
 		});
-		expect(result.agentRoots).toBeUndefined();
-		expect(result.skillRoots).toBeUndefined();
+		expect(result.agentRoots).toEqual(['/plugins/my-plugin/agents']);
 	});
 });
