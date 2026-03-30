@@ -14,7 +14,9 @@ import type {
 	CodexFileChangeRequestApprovalParams,
 	CodexItemCompletedNotification,
 	CodexItemStartedNotification,
+	CodexMcpServerElicitationRequestParams,
 	CodexPlanDeltaNotification,
+	CodexPermissionsRequestApprovalParams,
 	CodexReasoningSummaryPartAddedNotification,
 	CodexReasoningSummaryTextDeltaNotification,
 	CodexReasoningTextDeltaNotification,
@@ -101,6 +103,27 @@ function permissionRequestEvent(
 		toolUseId: extra?.toolUseId,
 		expectsDecision: true,
 	};
+}
+
+function extractMcpToolNameFromMessage(message: string): string | null {
+	const quotedToolMatch =
+		/(?:run|use)(?: the)? tool ["']([^"']+)["']/i.exec(message) ??
+		/tool ["']([^"']+)["']/i.exec(message);
+	return quotedToolMatch?.[1] ?? null;
+}
+
+function resolveMcpElicitationToolName(
+	params: CodexMcpServerElicitationRequestParams,
+): string {
+	const meta = asRecord(params._meta);
+	if (meta['codex_approval_kind'] === 'mcp_tool_call') {
+		const toolName = extractMcpToolNameFromMessage(params.message);
+		if (toolName) {
+			return `mcp__${params.serverName}__${toolName}`;
+		}
+	}
+
+	return `mcp__${params.serverName}__elicitation`;
 }
 
 export function translateNotification(
@@ -551,6 +574,21 @@ export function translateServerRequest(
 			});
 		}
 
+		case M.PERMISSIONS_REQUEST_APPROVAL: {
+			const params = msg.params as CodexPermissionsRequestApprovalParams;
+			return permissionRequestEvent(
+				'Permissions',
+				{
+					threadId: params.threadId,
+					turnId: params.turnId,
+					itemId: params.itemId,
+					reason: params.reason,
+					permissions: params.permissions,
+				},
+				{toolUseId: params.itemId},
+			);
+		}
+
 		case M.TOOL_REQUEST_USER_INPUT: {
 			const params = msg.params as CodexToolRequestUserInputParams;
 			return permissionRequestEvent('user_input', params);
@@ -583,6 +621,32 @@ export function translateServerRequest(
 					callId: params.callId,
 				},
 				{toolUseId: params.callId},
+			);
+		}
+
+		case M.MCP_SERVER_ELICITATION_REQUEST: {
+			const params = msg.params as CodexMcpServerElicitationRequestParams;
+			const toolName = resolveMcpElicitationToolName(params);
+			return permissionRequestEvent(
+				toolName,
+				{
+					serverName: params.serverName,
+					mode: params.mode,
+					reason: params.message,
+					...(params.mode === 'form'
+						? {
+								requestedSchema: params.requestedSchema,
+								_meta: params._meta,
+							}
+						: {
+								url: params.url,
+								elicitationId: params.elicitationId,
+								_meta: params._meta,
+							}),
+				},
+				{
+					toolUseId: params.mode === 'url' ? params.elicitationId : undefined,
+				},
 			);
 		}
 

@@ -603,7 +603,7 @@ describe('translateServerRequest', () => {
 		expect(result.toolUseId).toBe('exec-1');
 	});
 
-	it('marks removed permissions approval requests as unknown', () => {
+	it('maps permissions approval requests to permission.request', () => {
 		const result = translateServerRequest({
 			method: 'item/permissions/requestApproval',
 			id: 8,
@@ -614,7 +614,54 @@ describe('translateServerRequest', () => {
 				permissions: {network: {enabled: true}},
 			},
 		});
-		expect(result.kind).toBe('unknown');
-		expect(result.expectsDecision).toBe(false);
+		expect(result.kind).toBe('permission.request');
+		expect(result.toolName).toBe('Permissions');
+		expect(result.toolUseId).toBe('i1');
+		expect(result.expectsDecision).toBe(true);
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'Permissions',
+				tool_input: expect.objectContaining({
+					threadId: 'th1',
+					turnId: 't1',
+					itemId: 'i1',
+					permissions: {network: {enabled: true}},
+				}),
+			}),
+		);
+	});
+
+	it('maps MCP tool approval elicitations to permission.request', () => {
+		const result = translateServerRequest({
+			method: 'mcpServer/elicitation/request',
+			id: 21,
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				serverName: 'browser',
+				mode: 'form',
+				message: 'Allow the browser MCP server to run tool "list_pages"?',
+				requestedSchema: {
+					type: 'object',
+					properties: {},
+				},
+				_meta: {
+					codex_approval_kind: 'mcp_tool_call',
+					tool_title: 'List Pages',
+				},
+			},
+		});
+		expect(result.kind).toBe('permission.request');
+		expect(result.toolName).toBe('mcp__browser__list_pages');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				tool_name: 'mcp__browser__list_pages',
+				tool_input: expect.objectContaining({
+					serverName: 'browser',
+					mode: 'form',
+					reason: 'Allow the browser MCP server to run tool "list_pages"?',
+				}),
+			}),
+		);
 	});
 });

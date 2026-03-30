@@ -91,6 +91,99 @@ describe('mapDecisionToCodexResult', () => {
 		});
 	});
 
+	it('maps permissions approvals to granted permissions', () => {
+		const permissionsEvent: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.PERMISSIONS_REQUEST_APPROVAL,
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {
+					permissions: {
+						network: {enabled: true},
+						fileSystem: {read: ['/tmp'], write: ['/tmp']},
+					},
+				},
+			},
+		};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+			data: {scope: 'session'},
+		};
+		expect(mapDecisionToCodexResult(permissionsEvent, decision)).toEqual({
+			permissions: {
+				network: {enabled: true},
+				fileSystem: {read: ['/tmp'], write: ['/tmp']},
+			},
+			scope: 'session',
+		});
+	});
+
+	it('maps permissions denials to an empty permission grant', () => {
+		const permissionsEvent: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.PERMISSIONS_REQUEST_APPROVAL,
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {
+					permissions: {
+						network: {enabled: true},
+					},
+				},
+			},
+		};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_deny', reason: 'nope'},
+		};
+		expect(mapDecisionToCodexResult(permissionsEvent, decision)).toEqual({
+			permissions: {},
+			scope: 'turn',
+		});
+	});
+
+	it('maps MCP elicitation approvals to accept responses', () => {
+		const elicitationEvent: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.MCP_SERVER_ELICITATION_REQUEST,
+			payload: {
+				mode: 'form',
+			},
+		};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+		};
+		expect(mapDecisionToCodexResult(elicitationEvent, decision)).toEqual({
+			action: 'accept',
+			content: {},
+			_meta: null,
+		});
+	});
+
+	it('maps MCP elicitation denials to decline responses', () => {
+		const elicitationEvent: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.MCP_SERVER_ELICITATION_REQUEST,
+			payload: {
+				mode: 'form',
+			},
+		};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_deny', reason: 'nope'},
+		};
+		expect(mapDecisionToCodexResult(elicitationEvent, decision)).toEqual({
+			action: 'decline',
+			content: null,
+			_meta: null,
+		});
+	});
+
 	it('maps json without intent to accept', () => {
 		const decision: RuntimeDecision = {type: 'json', source: 'rule'};
 		expect(mapDecisionToCodexResult(MOCK_EVENT, decision)).toEqual({
