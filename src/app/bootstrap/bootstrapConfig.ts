@@ -13,14 +13,14 @@ import type {
 } from '../../core/runtime/process';
 import {
 	compileWorkflowPlan,
-	installWorkflowPlugins,
-	resolveWorkflowPluginTargets,
+	resolveWorkflowPlugins,
 	resolveWorkflow,
 } from '../../core/workflows/index';
 import type {
+	CodexWorkflowPluginRef,
+	ResolvedLocalWorkflowPlugin,
 	WorkflowConfig,
 	WorkflowPlan,
-	WorkflowPluginTarget,
 } from '../../core/workflows';
 import {DEFAULT_HARNESS} from '../runtime/createRuntime';
 import {resolveHarnessConfigProfile} from '../../harnesses/configProfiles';
@@ -86,7 +86,8 @@ export function bootstrapRuntimeConfig({
 	const configuredActiveWorkflow = globalConfig.activeWorkflow ?? 'default';
 
 	let workflowPluginDirs: string[] = [];
-	let workflowPluginTargets: WorkflowPluginTarget[] = [];
+	let workflowLocalPlugins: ResolvedLocalWorkflowPlugin[] = [];
+	let workflowCodexPlugins: CodexWorkflowPluginRef[] = [];
 	let resolvedWorkflow: WorkflowConfig | undefined;
 
 	const workflowToResolve = shouldResolveWorkflow({
@@ -98,12 +99,14 @@ export function bootstrapRuntimeConfig({
 
 	if (workflowToResolve) {
 		resolvedWorkflow = resolveWorkflow(workflowToResolve);
-		workflowPluginDirs = installWorkflowPlugins(resolvedWorkflow);
-		workflowPluginTargets = resolveWorkflowPluginTargets(resolvedWorkflow);
+		const plugins = resolveWorkflowPlugins(resolvedWorkflow);
+		workflowLocalPlugins = plugins.localPlugins;
+		workflowPluginDirs = workflowLocalPlugins.map(plugin => plugin.pluginDir);
+		workflowCodexPlugins = plugins.codexPlugins;
 	}
 
 	const pluginDirs = mergePluginDirs({
-		workflowPluginDirs,
+		workflowPluginDirs: harness === 'openai-codex' ? [] : workflowPluginDirs,
 		globalPlugins: globalConfig.plugins,
 		projectPlugins: projectConfig.plugins,
 		pluginFlags,
@@ -149,13 +152,13 @@ export function bootstrapRuntimeConfig({
 	const harnessConfigProfile = resolveHarnessConfigProfile(harness);
 	const workflowPlan = compileWorkflowPlan({
 		workflow: activeWorkflow,
-		pluginDirs:
+		localPlugins:
 			activeWorkflow && resolvedWorkflow?.name === activeWorkflow.name
-				? workflowPluginDirs
+				? workflowLocalPlugins
 				: undefined,
-		pluginTargets:
+		codexPlugins:
 			activeWorkflow && resolvedWorkflow?.name === activeWorkflow.name
-				? workflowPluginTargets
+				? workflowCodexPlugins
 				: undefined,
 		pluginMcpConfig:
 			harness === 'openai-codex' &&

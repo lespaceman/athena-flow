@@ -2,7 +2,7 @@ import React from 'react';
 import type {FeedEvent} from '../../core/feed/types';
 import SessionEndEvent from './SessionEndEvent';
 import AskUserQuestionEvent from './AskUserQuestionEvent';
-import {TASK_TOOL_NAMES} from '../../core/feed/todo';
+import {TASK_TOOL_NAMES, isSubagentTool} from '../../core/feed/todo';
 import UnifiedToolCallEvent from './UnifiedToolCallEvent';
 import TaskAgentEvent from './TaskAgentEvent';
 import SubagentStartEvent from './SubagentStartEvent';
@@ -48,7 +48,7 @@ export default function HookEvent({
 		return null;
 	}
 
-	if (event.kind === 'tool.pre' && event.data.tool_name === 'Task') {
+	if (event.kind === 'tool.pre' && isSubagentTool(event.data.tool_name)) {
 		return <TaskAgentEvent event={event} />;
 	}
 
@@ -65,7 +65,7 @@ export default function HookEvent({
 
 	if (
 		(event.kind === 'tool.post' || event.kind === 'tool.failure') &&
-		event.data.tool_name === 'Task'
+		isSubagentTool(event.data.tool_name)
 	) {
 		return <SubagentResultEvent event={event} verbose={verbose} />;
 	}

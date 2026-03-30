@@ -84,6 +84,32 @@ describe('hookController handleEvent', () => {
 		});
 	});
 
+	it('always enqueues scoped permissions approval requests instead of applying tool rules', () => {
+		const cb = makeCallbacks();
+		cb._rules = [
+			{id: '1', toolName: 'Permissions', action: 'approve', addedBy: 'test'},
+		];
+		const event = makeEvent('item/permissions/requestApproval', {
+			kind: 'permission.request',
+			hookName: 'item/permissions/requestApproval',
+			toolName: 'Permissions',
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {reason: 'needs network'},
+			},
+		});
+		const result = handleEvent(event, cb);
+
+		expect(result.handled).toBe(true);
+		expect(result.decision).toBeUndefined();
+		expect(cb.enqueuePermission).toHaveBeenCalledWith(
+			expect.objectContaining({
+				id: 'req-1',
+				hookName: 'item/permissions/requestApproval',
+			}),
+		);
+	});
+
 	it('enqueues AskUserQuestion PreToolUse events', () => {
 		const cb = makeCallbacks();
 		const event = makeEvent('PreToolUse', {toolName: 'AskUserQuestion'});

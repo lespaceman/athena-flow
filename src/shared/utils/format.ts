@@ -213,6 +213,7 @@ const PRIMARY_INPUT_EXTRACTORS: Record<
 		return p + g;
 	},
 	Task: input => compactText(String(input.description ?? ''), 96),
+	Agent: input => compactText(String(input.description ?? ''), 96),
 	WebSearch: input => `"${String(input.query ?? '')}"`,
 	WebFetch: input => compactText(String(input.url ?? ''), 96),
 	Skill: input => {

@@ -189,6 +189,65 @@ describe('createFeedMapper', () => {
 			]);
 		});
 
+		it('captures tasks from Codex plan.delta events', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent({
+					id: 'rt-plan-1',
+					kind: 'plan.delta',
+					hookName: undefined as unknown as string,
+					payload: {
+						thread_id: 't1',
+						turn_id: 'turn1',
+						plan: [
+							{step: 'Search codebase', status: 'completed'},
+							{step: 'Implement fix', status: 'inProgress'},
+							{step: 'Run tests', status: 'pending'},
+						],
+					},
+				}),
+			);
+			expect(mapper.getTasks()).toEqual([
+				{content: 'Search codebase', status: 'completed'},
+				{content: 'Implement fix', status: 'in_progress'},
+				{content: 'Run tests', status: 'pending'},
+			]);
+		});
+
+		it('updates tasks when a new plan.delta arrives', () => {
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent({
+					id: 'rt-plan-1',
+					kind: 'plan.delta',
+					hookName: undefined as unknown as string,
+					payload: {
+						plan: [
+							{step: 'Step 1', status: 'pending'},
+							{step: 'Step 2', status: 'pending'},
+						],
+					},
+				}),
+			);
+			mapper.mapEvent(
+				makeRuntimeEvent({
+					id: 'rt-plan-2',
+					kind: 'plan.delta',
+					hookName: undefined as unknown as string,
+					payload: {
+						plan: [
+							{step: 'Step 1', status: 'completed'},
+							{step: 'Step 2', status: 'inProgress'},
+						],
+					},
+				}),
+			);
+			expect(mapper.getTasks()).toEqual([
+				{content: 'Step 1', status: 'completed'},
+				{content: 'Step 2', status: 'in_progress'},
+			]);
+		});
+
 		it('restores tasks from bootstrap', () => {
 			const bootstrap: MapperBootstrap = {
 				adapterSessionIds: ['cs-1'],

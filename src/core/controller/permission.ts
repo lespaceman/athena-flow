@@ -26,6 +26,13 @@ export type PermissionQueueItem = {
 	suggestions?: unknown;
 };
 
+/** Scoped-permissions requests always bypass tool rules and go to the user. */
+export function isScopedPermissionsRequest(
+	hookName: string | undefined,
+): boolean {
+	return hookName === 'item/permissions/requestApproval';
+}
+
 export function extractPermissionSnapshot(
 	event: RuntimeEvent,
 ): PermissionQueueItem {

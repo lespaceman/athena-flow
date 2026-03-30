@@ -18,3 +18,8 @@ export const TASK_TOOL_NAMES = new Set([
 	'TaskList',
 	'TaskGet',
 ]);
+
+/** Tool names that spawn subagents (should not be merged with post events). */
+export function isSubagentTool(toolName: string | undefined): boolean {
+	return toolName === 'Task' || toolName === 'Agent';
+}

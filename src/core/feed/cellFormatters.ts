@@ -43,6 +43,7 @@ const NON_DESTRUCTIVE_TOOL_LABELS = new Set([
 	'QueryDocs',
 	'AskUser',
 	'Task',
+	'Agent',
 	'TaskOut',
 ]);
 
@@ -55,6 +56,8 @@ const MUTATING_TOOL_LABELS = new Set([
 	'TaskStop',
 	'PlanMode',
 	'Worktree',
+	'Cron',
+	'Trigger',
 ]);
 
 const BROWSER_TOOL_LABELS = new Set([

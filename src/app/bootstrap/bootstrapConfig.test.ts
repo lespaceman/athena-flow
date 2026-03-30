@@ -6,8 +6,7 @@ const registerPluginsMock = vi.fn();
 const buildPluginMcpConfigMock = vi.fn();
 const resolveWorkflowMock = vi.fn();
 const installWorkflowPluginsMock = vi.fn();
-const resolveWorkflowLocalPluginsMock = vi.fn();
-const resolveWorkflowCodexPluginRefsMock = vi.fn();
+const resolveWorkflowPluginsMock = vi.fn();
 const readClaudeSettingsModelMock = vi.fn();
 
 vi.mock('../../infra/plugins/index', () => ({
@@ -28,10 +27,8 @@ vi.mock('../../core/workflows/index', () => ({
 	resolveWorkflow: (name: string) => resolveWorkflowMock(name),
 	installWorkflowPlugins: (workflow: unknown) =>
 		installWorkflowPluginsMock(workflow),
-	resolveWorkflowLocalPlugins: (workflow: unknown) =>
-		resolveWorkflowLocalPluginsMock(workflow),
-	resolveWorkflowCodexPluginRefs: (workflow: unknown) =>
-		resolveWorkflowCodexPluginRefsMock(workflow),
+	resolveWorkflowPlugins: (workflow: unknown) =>
+		resolveWorkflowPluginsMock(workflow),
 	compileWorkflowPlan: ({
 		workflow,
 		localPlugins,
@@ -42,23 +39,21 @@ vi.mock('../../core/workflows/index', () => ({
 		localPlugins?: unknown[];
 		codexPlugins?: unknown[];
 		pluginMcpConfig?: string;
-	}) =>
-		workflow
-			? {
-					workflow,
-					localPlugins:
-						localPlugins ?? resolveWorkflowLocalPluginsMock(workflow),
-					agentRoots: (
-						(localPlugins ??
-							resolveWorkflowLocalPluginsMock(workflow)) as Array<{
-							pluginDir: string;
-						}>
-					).map(plugin => `${plugin.pluginDir}/agents`),
-					codexPlugins:
-						codexPlugins ?? resolveWorkflowCodexPluginRefsMock(workflow),
-					pluginMcpConfig,
-				}
-			: undefined,
+	}) => {
+		if (!workflow) return undefined;
+		const resolved = resolveWorkflowPluginsMock(workflow);
+		const lp = localPlugins ?? resolved?.localPlugins ?? [];
+		const cp = codexPlugins ?? resolved?.codexPlugins ?? [];
+		return {
+			workflow,
+			localPlugins: lp,
+			agentRoots: (lp as Array<{pluginDir: string}>).map(
+				plugin => `${plugin.pluginDir}/agents`,
+			),
+			codexPlugins: cp,
+			pluginMcpConfig,
+		};
+	},
 }));
 
 vi.mock('../../harnesses/claude/config/readSettingsModel', () => ({
@@ -81,10 +76,11 @@ describe('bootstrapRuntimeConfig', () => {
 		resolveWorkflowMock.mockReset();
 		installWorkflowPluginsMock.mockReset();
 		installWorkflowPluginsMock.mockReturnValue([]);
-		resolveWorkflowLocalPluginsMock.mockReset();
-		resolveWorkflowLocalPluginsMock.mockReturnValue([]);
-		resolveWorkflowCodexPluginRefsMock.mockReset();
-		resolveWorkflowCodexPluginRefsMock.mockReturnValue([]);
+		resolveWorkflowPluginsMock.mockReset();
+		resolveWorkflowPluginsMock.mockReturnValue({
+			localPlugins: [],
+			codexPlugins: [],
+		});
 		readClaudeSettingsModelMock.mockReset();
 	});
 
@@ -122,12 +118,15 @@ describe('bootstrapRuntimeConfig', () => {
 			promptTemplate: '{input}',
 			isolation: 'minimal',
 		});
-		resolveWorkflowLocalPluginsMock.mockReturnValue([
-			{
-				ref: 'plugin@marketplace',
-				pluginDir: '/workflow-plugin',
-			},
-		]);
+		resolveWorkflowPluginsMock.mockReturnValue({
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			codexPlugins: [],
+		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/mcp.json',
 			workflows: [],
@@ -336,19 +335,21 @@ describe('bootstrapRuntimeConfig', () => {
 			promptTemplate: '{input}',
 		});
 		installWorkflowPluginsMock.mockReturnValue(['/workflow-plugin']);
-		resolveWorkflowLocalPluginsMock.mockReturnValue([
-			{
-				ref: 'plugin@marketplace',
-				pluginDir: '/workflow-plugin',
-			},
-		]);
-		resolveWorkflowCodexPluginRefsMock.mockReturnValue([
-			{
-				ref: 'plugin@marketplace',
-				pluginName: 'plugin',
-				marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-			},
-		]);
+		resolveWorkflowPluginsMock.mockReturnValue({
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			codexPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginName: 'plugin',
+					marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
+				},
+			],
+		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/workflow-mcp.json',
 			workflows: [],
@@ -398,19 +399,21 @@ describe('bootstrapRuntimeConfig', () => {
 			plugins: [],
 			promptTemplate: '{input}',
 		});
-		resolveWorkflowLocalPluginsMock.mockReturnValue([
-			{
-				ref: 'plugin@marketplace',
-				pluginDir: '/workflow-plugin',
-			},
-		]);
-		resolveWorkflowCodexPluginRefsMock.mockReturnValue([
-			{
-				ref: 'plugin@marketplace',
-				pluginName: 'plugin',
-				marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
-			},
-		]);
+		resolveWorkflowPluginsMock.mockReturnValue({
+			localPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginDir: '/workflow-plugin',
+				},
+			],
+			codexPlugins: [
+				{
+					ref: 'plugin@marketplace',
+					pluginName: 'plugin',
+					marketplacePath: '/marketplace/.agents/plugins/marketplace.json',
+				},
+			],
+		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/all-plugin-mcp.json',
 			workflows: [],

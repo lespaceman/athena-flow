@@ -9,7 +9,7 @@ import type {
 } from './types';
 import type {Session, Run, Actor} from './entities';
 import type {MapperBootstrap} from './bootstrap';
-import type {TodoItem, TodoWriteInput} from './todo';
+import {type TodoItem, type TodoWriteInput, isSubagentTool} from './todo';
 import {ActorRegistry} from './entities';
 import {generateTitle} from './titleGen';
 import {createTranscriptReader} from './transcript';
@@ -118,6 +118,17 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 	function extractTodoItems(toolInput: unknown): TodoItem[] {
 		const input = toolInput as TodoWriteInput | undefined;
 		return Array.isArray(input?.todos) ? input.todos : [];
+	}
+
+	function mapPlanStepStatus(status: string | undefined): TodoItem['status'] {
+		switch (status) {
+			case 'inProgress':
+				return 'in_progress';
+			case 'completed':
+				return 'completed';
+			default:
+				return 'pending';
+		}
 	}
 
 	function nextSeq(): number {
@@ -629,7 +640,46 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
-			case 'plan.delta':
+			case 'plan.delta': {
+				const planSteps = d['plan'];
+				if (Array.isArray(planSteps) && planSteps.length > 0) {
+					// Compare raw steps against lastRootTasks before allocating.
+					const changed =
+						planSteps.length !== lastRootTasks.length ||
+						planSteps.some(
+							(step: {step?: string; status?: string}, i: number) => {
+								const content = typeof step.step === 'string' ? step.step : '';
+								const status = mapPlanStepStatus(step.status);
+								return (
+									content !== lastRootTasks[i]?.content ||
+									status !== lastRootTasks[i]?.status
+								);
+							},
+						);
+					if (changed) {
+						lastRootTasks = planSteps.map(
+							(step: {step?: string; status?: string}) => ({
+								content: typeof step.step === 'string' ? step.step : '',
+								status: mapPlanStepStatus(step.status),
+							}),
+						);
+						// Notify UI — useMemo on feedEvents drives task panel updates.
+						results.push(
+							makeEvent(
+								'todo.update',
+								'info',
+								'system',
+								{
+									todo_id: 'plan',
+									patch: {status: 'doing'},
+								} satisfies import('./types').TodoUpdateData,
+								event,
+							),
+						);
+					}
+				}
+				break;
+			}
 			case 'reasoning.delta':
 			case 'usage.update': {
 				break;
@@ -688,8 +738,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 					lastRootTasks = extractTodoItems(readObject(d['tool_input']));
 				}
 
-				// Track Task description for subagent enrichment
-				if (toolName === 'Task') {
+				if (isSubagentTool(toolName)) {
 					const input = readObject(d['tool_input']);
 					lastTaskDescription =
 						typeof input['description'] === 'string'

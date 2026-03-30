@@ -149,19 +149,17 @@ export function resolveCodexMcpConfig(
 		? readMcpServers(workflowPlan.pluginMcpConfig)
 		: {};
 
-	const pluginTargets = workflowPlan?.pluginTargets ?? [];
+	const codexPlugins = workflowPlan?.codexPlugins ?? [];
 	const merged = {...sessionServers, ...workflowServers};
 	if (Object.keys(merged).length === 0) {
-		return pluginTargets.length
+		return codexPlugins.length
 			? {
-					_athenaWorkflowPluginTargets: pluginTargets,
+					_athenaWorkflowCodexPlugins: codexPlugins,
 				}
 			: undefined;
 	}
 	return {
 		mcp_servers: merged,
-		...(pluginTargets.length
-			? {_athenaWorkflowPluginTargets: pluginTargets}
-			: {}),
+		...(codexPlugins.length ? {_athenaWorkflowCodexPlugins: codexPlugins} : {}),
 	};
 }

@@ -2,6 +2,7 @@ import {
 	installWorkflow,
 	listWorkflows,
 	removeWorkflow,
+	resolveWorkflow,
 	updateWorkflow,
 } from '../../core/workflows/index';
 import {
@@ -20,6 +21,8 @@ const USAGE = `Usage: athena-flow workflow <subcommand>
 Subcommands
   install <source>   Install a workflow from a name, file path, or marketplace ref
   list               List installed workflows
+  remote list [source]
+                     List workflows available in the configured or specified marketplace
   remove <name>      Remove an installed workflow
   update [name]      Re-sync an installed workflow from its recorded source
   use-marketplace <source>
@@ -38,6 +41,7 @@ export type WorkflowCommandDeps = {
 	listWorkflows?: typeof listWorkflows;
 	removeWorkflow?: typeof removeWorkflow;
 	updateWorkflow?: typeof updateWorkflow;
+	resolveWorkflow?: typeof resolveWorkflow;
 	pullMarketplaceRepo?: typeof pullMarketplaceRepo;
 	listMarketplaceWorkflows?: typeof listMarketplaceWorkflows;
 	listMarketplaceWorkflowsFromRepo?: typeof listMarketplaceWorkflowsFromRepo;
@@ -56,6 +60,7 @@ export function runWorkflowCommand(
 	const install = deps.installWorkflow ?? installWorkflow;
 	const list = deps.listWorkflows ?? listWorkflows;
 	const remove = deps.removeWorkflow ?? removeWorkflow;
+	const resolveInstalledWorkflow = deps.resolveWorkflow ?? resolveWorkflow;
 	const update = deps.updateWorkflow ?? updateWorkflow;
 	const pullMarketplace = deps.pullMarketplaceRepo ?? pullMarketplaceRepo;
 	const listMarketplace =
@@ -71,6 +76,30 @@ export function runWorkflowCommand(
 	const logError = deps.logError ?? console.error;
 	const logOut = deps.logOut ?? console.log;
 
+	const fmtError = (error: unknown): string =>
+		`Error: ${error instanceof Error ? error.message : String(error)}`;
+
+	const formatMarketplaceWorkflow = (entry: {
+		name: string;
+		version?: string;
+		description?: string;
+	}): string => {
+		const version = entry.version ? ` (${entry.version})` : '';
+		const description = entry.description ? ` - ${entry.description}` : '';
+		return `${entry.name}${version}${description}`;
+	};
+
+	const formatWorkflowLabel = (name: string): string => {
+		try {
+			const workflow = resolveInstalledWorkflow(name);
+			return workflow.version
+				? `${workflow.name} (${workflow.version})`
+				: workflow.name;
+		} catch {
+			return name;
+		}
+	};
+
 	switch (input.subcommand) {
 		case 'install': {
 			const source = input.subcommandArgs[0];
@@ -84,12 +113,10 @@ export function runWorkflowCommand(
 					readConfig().workflowMarketplaceSource ?? DEFAULT_MARKETPLACE_SLUG,
 				);
 				const name = install(installSource);
-				logOut(`Installed workflow: ${name}`);
+				logOut(`Installed workflow: ${formatWorkflowLabel(name)}`);
 				return 0;
 			} catch (error) {
-				logError(
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				);
+				logError(fmtError(error));
 				return 1;
 			}
 		}
@@ -100,10 +127,44 @@ export function runWorkflowCommand(
 				logOut('No workflows installed.');
 			} else {
 				for (const name of workflows) {
-					logOut(name);
+					logOut(formatWorkflowLabel(name));
 				}
 			}
 			return 0;
+		}
+
+		case 'remote': {
+			const [remoteSubcommand, sourceArg] = input.subcommandArgs;
+			if (remoteSubcommand !== 'list') {
+				logError('Usage: athena-flow workflow remote list [source]');
+				return 1;
+			}
+
+			const source =
+				sourceArg ??
+				readConfig().workflowMarketplaceSource ??
+				DEFAULT_MARKETPLACE_SLUG;
+
+			try {
+				const resolvedSource = resolveMarketplaceSource(source);
+				const workflows =
+					resolvedSource.kind === 'remote'
+						? listMarketplace(resolvedSource.owner, resolvedSource.repo)
+						: listMarketplaceFromRepo(resolvedSource.repoDir);
+
+				if (workflows.length === 0) {
+					logOut('No remote workflows found.');
+					return 0;
+				}
+
+				for (const workflow of workflows) {
+					logOut(formatMarketplaceWorkflow(workflow));
+				}
+				return 0;
+			} catch (error) {
+				logError(fmtError(error));
+				return 1;
+			}
 		}
 
 		case 'update': {
@@ -115,12 +176,10 @@ export function runWorkflowCommand(
 			}
 			try {
 				const updatedName = update(name);
-				logOut(`Updated workflow: ${updatedName}`);
+				logOut(`Updated workflow: ${formatWorkflowLabel(updatedName)}`);
 				return 0;
 			} catch (error) {
-				logError(
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				);
+				logError(fmtError(error));
 				return 1;
 			}
 		}
@@ -141,9 +200,7 @@ export function runWorkflowCommand(
 				}
 				return 0;
 			} catch (error) {
-				logError(
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				);
+				logError(fmtError(error));
 				return 1;
 			}
 		}
@@ -167,9 +224,7 @@ export function runWorkflowCommand(
 				}
 				return 0;
 			} catch (error) {
-				logError(
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				);
+				logError(fmtError(error));
 				return 1;
 			}
 		}
@@ -189,9 +244,7 @@ export function runWorkflowCommand(
 				logOut(`Removed workflow: ${name}`);
 				return 0;
 			} catch (error) {
-				logError(
-					`Error: ${error instanceof Error ? error.message : String(error)}`,
-				);
+				logError(fmtError(error));
 				return 1;
 			}
 		}
@@ -210,7 +263,7 @@ export function runWorkflowCommand(
 			}
 
 			writeConfig({activeWorkflow: name});
-			logOut(`Active workflow: ${name}`);
+			logOut(`Active workflow: ${formatWorkflowLabel(name)}`);
 			return 0;
 		}
 

@@ -15,5 +15,8 @@ function isTaskToolEvent(event: FeedEvent): boolean {
 }
 
 export function shouldExcludeFromFeed(event: FeedEvent): boolean {
-	return isTaskToolEvent(event);
+	if (isTaskToolEvent(event)) return true;
+	// Plan-delta todo.update events are render-invalidation signals only.
+	if (event.kind === 'todo.update') return true;
+	return false;
 }

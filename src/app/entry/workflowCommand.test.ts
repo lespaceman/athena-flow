@@ -6,6 +6,10 @@ describe('runWorkflowCommand', () => {
 		it('installs a workflow and prints the name', () => {
 			const logOut = vi.fn();
 			const installWorkflow = vi.fn().mockReturnValue('my-workflow');
+			const resolveWorkflow = vi.fn().mockReturnValue({
+				name: 'my-workflow',
+				version: '1.0.0',
+			});
 			const resolveWorkflowInstallSource = vi
 				.fn()
 				.mockReturnValue('/path/to/workflow.json');
@@ -18,6 +22,7 @@ describe('runWorkflowCommand', () => {
 				{subcommand: 'install', subcommandArgs: ['/path/to/workflow.json']},
 				{
 					installWorkflow,
+					resolveWorkflow,
 					resolveWorkflowInstallSource,
 					readGlobalConfig,
 					logOut,
@@ -30,12 +35,19 @@ describe('runWorkflowCommand', () => {
 				'lespaceman/athena-workflow-marketplace',
 			);
 			expect(installWorkflow).toHaveBeenCalledWith('/path/to/workflow.json');
-			expect(logOut).toHaveBeenCalledWith('Installed workflow: my-workflow');
+			expect(resolveWorkflow).toHaveBeenCalledWith('my-workflow');
+			expect(logOut).toHaveBeenCalledWith(
+				'Installed workflow: my-workflow (1.0.0)',
+			);
 		});
 
 		it('resolves bare workflow names from the configured marketplace source', () => {
 			const logOut = vi.fn();
 			const installWorkflow = vi.fn().mockReturnValue('e2e-test-builder');
+			const resolveWorkflow = vi.fn().mockReturnValue({
+				name: 'e2e-test-builder',
+				version: '2.4.1',
+			});
 			const resolveWorkflowInstallSource = vi
 				.fn()
 				.mockReturnValue(
@@ -51,6 +63,7 @@ describe('runWorkflowCommand', () => {
 				{subcommand: 'install', subcommandArgs: ['e2e-test-builder']},
 				{
 					installWorkflow,
+					resolveWorkflow,
 					resolveWorkflowInstallSource,
 					readGlobalConfig,
 					logOut,
@@ -66,7 +79,7 @@ describe('runWorkflowCommand', () => {
 				'/local/workflow-marketplace/workflows/e2e-test-builder/workflow.json',
 			);
 			expect(logOut).toHaveBeenCalledWith(
-				'Installed workflow: e2e-test-builder',
+				'Installed workflow: e2e-test-builder (2.4.1)',
 			);
 		});
 
@@ -114,6 +127,10 @@ describe('runWorkflowCommand', () => {
 		it('updates a workflow by name', () => {
 			const logOut = vi.fn();
 			const updateWorkflow = vi.fn().mockReturnValue('alpha');
+			const resolveWorkflow = vi.fn().mockReturnValue({
+				name: 'alpha',
+				version: '0.9.0',
+			});
 			const readGlobalConfig = vi.fn().mockReturnValue({
 				plugins: [],
 				additionalDirectories: [],
@@ -121,17 +138,21 @@ describe('runWorkflowCommand', () => {
 
 			const code = runWorkflowCommand(
 				{subcommand: 'update', subcommandArgs: ['alpha']},
-				{updateWorkflow, readGlobalConfig, logOut},
+				{updateWorkflow, resolveWorkflow, readGlobalConfig, logOut},
 			);
 
 			expect(code).toBe(0);
 			expect(updateWorkflow).toHaveBeenCalledWith('alpha');
-			expect(logOut).toHaveBeenCalledWith('Updated workflow: alpha');
+			expect(logOut).toHaveBeenCalledWith('Updated workflow: alpha (0.9.0)');
 		});
 
 		it('defaults update to the active workflow', () => {
 			const logOut = vi.fn();
 			const updateWorkflow = vi.fn().mockReturnValue('active-wf');
+			const resolveWorkflow = vi.fn().mockReturnValue({
+				name: 'active-wf',
+				version: '3.0.0',
+			});
 			const readGlobalConfig = vi.fn().mockReturnValue({
 				plugins: [],
 				additionalDirectories: [],
@@ -140,12 +161,14 @@ describe('runWorkflowCommand', () => {
 
 			const code = runWorkflowCommand(
 				{subcommand: 'update', subcommandArgs: []},
-				{updateWorkflow, readGlobalConfig, logOut},
+				{updateWorkflow, resolveWorkflow, readGlobalConfig, logOut},
 			);
 
 			expect(code).toBe(0);
 			expect(updateWorkflow).toHaveBeenCalledWith('active-wf');
-			expect(logOut).toHaveBeenCalledWith('Updated workflow: active-wf');
+			expect(logOut).toHaveBeenCalledWith(
+				'Updated workflow: active-wf (3.0.0)',
+			);
 		});
 
 		it('prints usage when update target is missing and no active workflow is set', () => {
@@ -163,6 +186,162 @@ describe('runWorkflowCommand', () => {
 			expect(code).toBe(1);
 			expect(logError).toHaveBeenCalledWith(
 				'Usage: athena-flow workflow update [name]',
+			);
+		});
+	});
+
+	describe('remote list', () => {
+		it('lists workflows from the default remote marketplace', () => {
+			const logOut = vi.fn();
+			const listMarketplaceWorkflows = vi.fn().mockReturnValue([
+				{
+					name: 'e2e-test-builder',
+					version: '1.2.3',
+					description: 'Build Playwright coverage',
+				},
+			]);
+			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
+				kind: 'remote',
+				slug: 'lespaceman/athena-workflow-marketplace',
+				owner: 'lespaceman',
+				repo: 'athena-workflow-marketplace',
+			});
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				plugins: [],
+				additionalDirectories: [],
+			});
+
+			const code = runWorkflowCommand(
+				{subcommand: 'remote', subcommandArgs: ['list']},
+				{
+					listMarketplaceWorkflows,
+					resolveWorkflowMarketplaceSource,
+					readGlobalConfig,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(resolveWorkflowMarketplaceSource).toHaveBeenCalledWith(
+				'lespaceman/athena-workflow-marketplace',
+			);
+			expect(listMarketplaceWorkflows).toHaveBeenCalledWith(
+				'lespaceman',
+				'athena-workflow-marketplace',
+			);
+			expect(logOut).toHaveBeenCalledWith(
+				'e2e-test-builder (1.2.3) - Build Playwright coverage',
+			);
+		});
+
+		it('uses the configured marketplace source when present', () => {
+			const logOut = vi.fn();
+			const listMarketplaceWorkflows = vi
+				.fn()
+				.mockReturnValue([{name: 'code-review'}]);
+			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
+				kind: 'remote',
+				slug: 'owner/custom-marketplace',
+				owner: 'owner',
+				repo: 'custom-marketplace',
+			});
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				plugins: [],
+				additionalDirectories: [],
+				workflowMarketplaceSource: 'owner/custom-marketplace',
+			});
+
+			const code = runWorkflowCommand(
+				{subcommand: 'remote', subcommandArgs: ['list']},
+				{
+					listMarketplaceWorkflows,
+					resolveWorkflowMarketplaceSource,
+					readGlobalConfig,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(resolveWorkflowMarketplaceSource).toHaveBeenCalledWith(
+				'owner/custom-marketplace',
+			);
+			expect(listMarketplaceWorkflows).toHaveBeenCalledWith(
+				'owner',
+				'custom-marketplace',
+			);
+			expect(logOut).toHaveBeenCalledWith('code-review');
+		});
+
+		it('lists workflows from an explicit local marketplace source', () => {
+			const logOut = vi.fn();
+			const listMarketplaceWorkflowsFromRepo = vi
+				.fn()
+				.mockReturnValue([{name: 'local-flow', description: 'From disk'}]);
+			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
+				kind: 'local',
+				path: '/tmp/workflow-marketplace',
+				repoDir: '/tmp/workflow-marketplace',
+			});
+
+			const code = runWorkflowCommand(
+				{
+					subcommand: 'remote',
+					subcommandArgs: ['list', '/tmp/workflow-marketplace'],
+				},
+				{
+					listMarketplaceWorkflowsFromRepo,
+					resolveWorkflowMarketplaceSource,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(resolveWorkflowMarketplaceSource).toHaveBeenCalledWith(
+				'/tmp/workflow-marketplace',
+			);
+			expect(listMarketplaceWorkflowsFromRepo).toHaveBeenCalledWith(
+				'/tmp/workflow-marketplace',
+			);
+			expect(logOut).toHaveBeenCalledWith('local-flow - From disk');
+		});
+
+		it('prints a friendly message when the marketplace is empty', () => {
+			const logOut = vi.fn();
+			const listMarketplaceWorkflows = vi.fn().mockReturnValue([]);
+			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
+				kind: 'remote',
+				slug: 'owner/custom-marketplace',
+				owner: 'owner',
+				repo: 'custom-marketplace',
+			});
+
+			const code = runWorkflowCommand(
+				{
+					subcommand: 'remote',
+					subcommandArgs: ['list', 'owner/custom-marketplace'],
+				},
+				{
+					listMarketplaceWorkflows,
+					resolveWorkflowMarketplaceSource,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(logOut).toHaveBeenCalledWith('No remote workflows found.');
+		});
+
+		it('prints usage for unsupported remote subcommands', () => {
+			const logError = vi.fn();
+
+			const code = runWorkflowCommand(
+				{subcommand: 'remote', subcommandArgs: ['install']},
+				{logError},
+			);
+
+			expect(code).toBe(1);
+			expect(logError).toHaveBeenCalledWith(
+				'Usage: athena-flow workflow remote list [source]',
 			);
 		});
 	});
@@ -384,17 +563,23 @@ describe('runWorkflowCommand', () => {
 	});
 
 	describe('list', () => {
-		it('prints workflow names', () => {
+		it('prints workflow names with versions when available', () => {
 			const logOut = vi.fn();
 			const listWorkflows = vi.fn().mockReturnValue(['alpha', 'beta']);
+			const resolveWorkflow = vi.fn().mockImplementation((name: string) => {
+				if (name === 'alpha') {
+					return {name: 'alpha', version: '1.0.0'};
+				}
+				return {name: 'beta'};
+			});
 
 			const code = runWorkflowCommand(
 				{subcommand: 'list', subcommandArgs: []},
-				{listWorkflows, logOut},
+				{listWorkflows, resolveWorkflow, logOut},
 			);
 
 			expect(code).toBe(0);
-			expect(logOut).toHaveBeenCalledWith('alpha');
+			expect(logOut).toHaveBeenCalledWith('alpha (1.0.0)');
 			expect(logOut).toHaveBeenCalledWith('beta');
 		});
 
@@ -495,12 +680,17 @@ describe('runWorkflowCommand', () => {
 		it('sets active workflow when workflow exists', () => {
 			const logOut = vi.fn();
 			const listWorkflows = vi.fn().mockReturnValue(['alpha', 'beta']);
+			const resolveWorkflow = vi.fn().mockReturnValue({
+				name: 'beta',
+				version: '2.1.0',
+			});
 			const writeGlobalConfig = vi.fn();
 
 			const code = runWorkflowCommand(
 				{subcommand: 'use', subcommandArgs: ['beta']},
 				{
 					listWorkflows,
+					resolveWorkflow,
 					writeGlobalConfig,
 					logOut,
 				},
@@ -508,7 +698,7 @@ describe('runWorkflowCommand', () => {
 
 			expect(code).toBe(0);
 			expect(writeGlobalConfig).toHaveBeenCalledWith({activeWorkflow: 'beta'});
-			expect(logOut).toHaveBeenCalledWith('Active workflow: beta');
+			expect(logOut).toHaveBeenCalledWith('Active workflow: beta (2.1.0)');
 		});
 
 		it('prints usage when name is missing', () => {

@@ -10,9 +10,10 @@ import {
 	resolveMarketplacePluginTargetFromRepo,
 } from '../../infra/plugins/marketplace';
 import type {
+	CodexWorkflowPluginRef,
+	ResolvedLocalWorkflowPlugin,
 	ResolvedWorkflowConfig,
 	WorkflowConfig,
-	WorkflowPluginTarget,
 } from './types';
 
 /**
@@ -23,13 +24,18 @@ import type {
 export function installWorkflowPlugins(
 	workflow: WorkflowConfig | ResolvedWorkflowConfig,
 ): string[] {
-	return resolveWorkflowPluginTargets(workflow).map(target => target.pluginDir);
+	return resolveWorkflowPlugins(workflow).localPlugins.map(p => p.pluginDir);
 }
 
-export function resolveWorkflowPluginTargets(
+export type ResolvedWorkflowPlugins = {
+	localPlugins: ResolvedLocalWorkflowPlugin[];
+	codexPlugins: CodexWorkflowPluginRef[];
+};
+
+export function resolveWorkflowPlugins(
 	workflow: WorkflowConfig | ResolvedWorkflowConfig,
-): WorkflowPluginTarget[] {
-	return workflow.plugins.map(ref => {
+): ResolvedWorkflowPlugins {
+	const resolved = workflow.plugins.map(ref => {
 		try {
 			const source = '__source' in workflow ? workflow.__source : undefined;
 			if (source?.kind === 'local' && source.repoDir) {
@@ -42,4 +48,13 @@ export function resolveWorkflowPluginTargets(
 			);
 		}
 	});
+
+	return {
+		localPlugins: resolved.map(p => ({ref: p.ref, pluginDir: p.pluginDir})),
+		codexPlugins: resolved.map(p => ({
+			ref: p.ref,
+			pluginName: p.pluginName,
+			marketplacePath: p.marketplacePath,
+		})),
+	};
 }

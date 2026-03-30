@@ -1,7 +1,4 @@
-import {
-	resolveWorkflowCodexPluginRefs,
-	resolveWorkflowLocalPlugins,
-} from './installer';
+import {resolveWorkflowPlugins} from './installer';
 import type {
 	CodexWorkflowPluginRef,
 	ResolvedLocalWorkflowPlugin,
@@ -26,19 +23,12 @@ export function compileWorkflowPlan(input: {
 		return undefined;
 	}
 
-	const localPlugins =
-		input.localPlugins ??
-		resolveWorkflowLocalPlugins(input.workflow).map(plugin => ({
-			ref: plugin.ref,
-			pluginDir: plugin.pluginDir,
-		}));
-	const codexPlugins =
-		input.codexPlugins ??
-		resolveWorkflowCodexPluginRefs(input.workflow).map(plugin => ({
-			ref: plugin.ref,
-			pluginName: plugin.pluginName,
-			marketplacePath: plugin.marketplacePath,
-		}));
+	const resolved =
+		!input.localPlugins || !input.codexPlugins
+			? resolveWorkflowPlugins(input.workflow)
+			: undefined;
+	const localPlugins = input.localPlugins ?? resolved?.localPlugins ?? [];
+	const codexPlugins = input.codexPlugins ?? resolved?.codexPlugins ?? [];
 
 	return {
 		workflow: input.workflow,

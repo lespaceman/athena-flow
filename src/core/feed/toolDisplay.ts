@@ -353,22 +353,27 @@ const KNOWN_TOOL_DISPLAY = new Map<string, ToolDisplayConfig>([
 	],
 
 	// ── Agent & task tools ──
-	[
-		'Task',
-		{
-			display: 'Task',
-			extractDetails: input => [
+	...(['Task', 'Agent'] as const).map(
+		name =>
+			[
+				name,
 				{
-					text: truncate(String(prop(input, 'description') ?? ''), 50),
-					role: 'plain',
+					display: 'Task',
+					extractDetails: (input: unknown) => [
+						{
+							text: truncate(String(prop(input, 'description') ?? ''), 50),
+							role: 'plain' as const,
+						},
+					],
+					extractOutcome: (output: unknown) => {
+						const agentType = prop(output, 'subagent_type');
+						return agentType
+							? {text: String(agentType), zero: false}
+							: undefined;
+					},
 				},
-			],
-			extractOutcome: output => {
-				const agentType = prop(output, 'subagent_type');
-				return agentType ? {text: String(agentType), zero: false} : undefined;
-			},
-		},
-	],
+			] satisfies [string, ToolDisplayConfig],
+	),
 	[
 		'TaskOutput',
 		{
@@ -439,6 +444,61 @@ const KNOWN_TOOL_DISPLAY = new Map<string, ToolDisplayConfig>([
 				{text: String(prop(input, 'branch') ?? ''), role: 'target'},
 			],
 			extractOutcome: () => ({text: 'created', zero: false}),
+		},
+	],
+	[
+		'ExitWorktree',
+		{
+			display: 'Worktree',
+			extractDetails: input => [
+				{text: String(prop(input, 'action') ?? ''), role: 'target'},
+			],
+			extractOutcome: () => ({text: 'exited', zero: false}),
+		},
+	],
+
+	// ── Cron / scheduling ──
+	[
+		'CronCreate',
+		{
+			display: 'Cron',
+			extractDetails: input => [
+				{text: truncate(String(prop(input, 'cron') ?? ''), 30), role: 'target'},
+			],
+			extractOutcome: () => ({text: 'created', zero: false}),
+		},
+	],
+	[
+		'CronDelete',
+		{
+			display: 'Cron',
+			extractDetails: input => [
+				{text: String(prop(input, 'id') ?? ''), role: 'target'},
+			],
+			extractOutcome: () => ({text: 'deleted', zero: false}),
+		},
+	],
+	[
+		'CronList',
+		{
+			display: 'Cron',
+			extractDetails: () => [{text: 'list', role: 'target'}],
+			extractOutcome: output => countOutcome(output, 'triggers'),
+		},
+	],
+
+	// ── Remote triggers ──
+	[
+		'RemoteTrigger',
+		{
+			display: 'Trigger',
+			extractDetails: input => {
+				const action = String(prop(input, 'action') ?? '');
+				const triggerId = prop(input, 'trigger_id');
+				const text = triggerId ? `${action} ${String(triggerId)}` : action;
+				return [{text, role: 'target'}];
+			},
+			extractOutcome: () => undefined,
 		},
 	],
 	[

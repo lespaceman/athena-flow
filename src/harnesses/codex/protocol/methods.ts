@@ -45,6 +45,7 @@ export const THREAD_NAME_UPDATED = 'thread/name/updated';
 export const CMD_EXEC_REQUEST_APPROVAL =
 	'item/commandExecution/requestApproval';
 export const FILE_CHANGE_REQUEST_APPROVAL = 'item/fileChange/requestApproval';
+export const PERMISSIONS_REQUEST_APPROVAL = 'item/permissions/requestApproval';
 export const TOOL_REQUEST_USER_INPUT = 'item/tool/requestUserInput';
 export const MCP_SERVER_ELICITATION_REQUEST = 'mcpServer/elicitation/request';
 export const DYNAMIC_TOOL_CALL = 'item/tool/call';

@@ -12,7 +12,7 @@ vi.mock('../../../infra/plugins/marketplace', () => ({
 		resolveMarketplacePluginTargetFromRepoMock(ref, repoDir),
 }));
 
-const {installWorkflowPlugins, resolveWorkflowPluginTargets} =
+const {installWorkflowPlugins, resolveWorkflowPlugins} =
 	await import('../installer');
 
 beforeEach(() => {
@@ -99,8 +99,8 @@ describe('installWorkflowPlugins', () => {
 	});
 });
 
-describe('resolveWorkflowPluginTargets', () => {
-	it('returns structured workflow plugin targets', () => {
+describe('resolveWorkflowPlugins', () => {
+	it('returns both local plugins and codex plugin refs in a single pass', () => {
 		resolveMarketplacePluginTargetMock.mockReturnValue({
 			ref: 'plugin-a@owner/repo',
 			pluginName: 'plugin-a',
@@ -108,19 +108,26 @@ describe('resolveWorkflowPluginTargets', () => {
 			pluginDir: '/resolved/plugin-a',
 		});
 
-		expect(
-			resolveWorkflowPluginTargets({
-				name: 'test-workflow',
-				plugins: ['plugin-a@owner/repo'],
-				promptTemplate: '{input}',
-			}),
-		).toEqual([
+		const result = resolveWorkflowPlugins({
+			name: 'test-workflow',
+			plugins: ['plugin-a@owner/repo'],
+			promptTemplate: '{input}',
+		});
+
+		expect(result.localPlugins).toEqual([
+			{
+				ref: 'plugin-a@owner/repo',
+				pluginDir: '/resolved/plugin-a',
+			},
+		]);
+		expect(result.codexPlugins).toEqual([
 			{
 				ref: 'plugin-a@owner/repo',
 				pluginName: 'plugin-a',
 				marketplacePath: '/repo/.agents/plugins/marketplace.json',
-				pluginDir: '/resolved/plugin-a',
 			},
 		]);
+		// Single pass — resolver called once, not twice.
+		expect(resolveMarketplacePluginTargetMock).toHaveBeenCalledTimes(1);
 	});
 });

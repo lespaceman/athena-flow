@@ -432,6 +432,7 @@ const EXTRACTORS: Record<string, Extractor> = {
 	WebSearch: extractWebSearch,
 	NotebookEdit: extractNotebookEdit,
 	Task: extractTask,
+	Agent: extractTask,
 	Skill: extractSkill,
 };
 

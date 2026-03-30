@@ -141,6 +141,7 @@ const SUMMARIZERS: Record<string, Summarizer> = {
 	Grep: summarizeGrep,
 	WebSearch: summarizeWebSearch,
 	Task: summarizeTask,
+	Agent: summarizeTask,
 };
 
 function summarizeFindElements(

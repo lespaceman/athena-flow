@@ -78,6 +78,13 @@ export type AgentToolInput = {
 	description: string;
 	subagent_type?: string;
 	model?: string;
+	run_in_background?: boolean;
+	name?: string;
+	isolation?: 'worktree';
+	team_name?: string;
+	mode?: 'acceptEdits' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
+	resume?: string;
+	max_turns?: number;
 };
 
 // ── Task management tools ───────────────────────────────
@@ -108,6 +115,11 @@ export type TaskGetToolInput = {
 // TaskList takes no parameters
 export type TaskListToolInput = Record<string, never>;
 
+/**
+ * @deprecated Prefer using the Read tool on the task's output file path instead.
+ * Background tasks return their output file path in the tool result,
+ * and task-notification includes the same path when the task completes.
+ */
 export type TaskOutputToolInput = {
 	task_id: string;
 	block: boolean;
@@ -151,6 +163,19 @@ export type ExitPlanModeToolInput = {
 
 export type EnterWorktreeToolInput = {
 	name?: string;
+};
+
+export type ExitWorktreeToolInput = {
+	action: 'keep' | 'remove';
+	discard_changes?: boolean;
+};
+
+// ── Remote triggers ────────────────────────────────────
+
+export type RemoteTriggerToolInput = {
+	action: 'list' | 'get' | 'create' | 'update' | 'run';
+	trigger_id?: string;
+	body?: Record<string, unknown>;
 };
 
 // ── Notebook tools ──────────────────────────────────────
@@ -247,6 +272,8 @@ export type ToolInputMap = {
 	EnterPlanMode: EnterPlanModeToolInput;
 	ExitPlanMode: ExitPlanModeToolInput;
 	EnterWorktree: EnterWorktreeToolInput;
+	ExitWorktree: ExitWorktreeToolInput;
+	RemoteTrigger: RemoteTriggerToolInput;
 	NotebookEdit: NotebookEditToolInput;
 	Skill: SkillToolInput;
 	AskUserQuestion: AskUserQuestionToolInput;

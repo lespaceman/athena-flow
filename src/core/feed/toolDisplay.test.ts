@@ -20,11 +20,18 @@ describe('resolveToolColumn', () => {
 		expect(resolveToolColumn('WebFetch')).toBe('WebFetch');
 		expect(resolveToolColumn('WebSearch')).toBe('WebSearch');
 		expect(resolveToolColumn('Task')).toBe('Task');
+		expect(resolveToolColumn('Agent')).toBe('Task');
 		expect(resolveToolColumn('Skill')).toBe('Skill');
 		expect(resolveToolColumn('NotebookEdit')).toBe('Notebook');
 		expect(resolveToolColumn('AskUserQuestion')).toBe('AskUser');
 		expect(resolveToolColumn('EnterPlanMode')).toBe('PlanMode');
 		expect(resolveToolColumn('ExitPlanMode')).toBe('PlanMode');
+		expect(resolveToolColumn('EnterWorktree')).toBe('Worktree');
+		expect(resolveToolColumn('ExitWorktree')).toBe('Worktree');
+		expect(resolveToolColumn('CronCreate')).toBe('Cron');
+		expect(resolveToolColumn('CronDelete')).toBe('Cron');
+		expect(resolveToolColumn('CronList')).toBe('Cron');
+		expect(resolveToolColumn('RemoteTrigger')).toBe('Trigger');
 	});
 
 	it('returns display name for known MCP actions', () => {
@@ -173,6 +180,17 @@ describe('resolveToolDisplay', () => {
 			);
 			expect(result.toolColumn).toBe('Task');
 			expect(result.segments[0]?.text).toContain('Explore codebase');
+		});
+
+		it('Agent: maps to Task display and extracts description', () => {
+			const result = resolveToolDisplay(
+				'Agent',
+				{description: 'Search for patterns'},
+				undefined,
+				undefined,
+			);
+			expect(result.toolColumn).toBe('Task');
+			expect(result.segments[0]?.text).toContain('Search for patterns');
 		});
 
 		it('Skill: strips prefix from skill name', () => {

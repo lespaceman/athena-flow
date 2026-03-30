@@ -4,6 +4,7 @@ import {getGlyphs} from '../glyphs/index';
 import {
 	type PermissionDecision,
 	type PermissionQueueItem,
+	isScopedPermissionsRequest,
 } from '../../core/controller/permission';
 import {parseToolName} from '../../shared/utils/toolNameParser';
 import {useTheme} from '../theme/index';
@@ -22,8 +23,17 @@ export default function PermissionDialog({
 }: Props) {
 	const rawToolName = request.tool_name;
 	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
+	const isPermissionsRequest = isScopedPermissionsRequest(request.hookName);
 
 	const options: OptionItem[] = useMemo(() => {
+		if (isPermissionsRequest) {
+			return [
+				{label: 'Allow this turn', value: 'allow'},
+				{label: 'Deny', value: 'deny'},
+				{label: 'Allow for this session', value: 'always-allow'},
+			];
+		}
+
 		const items: OptionItem[] = [
 			{label: 'Allow', value: 'allow'},
 			{label: 'Deny', value: 'deny'},
@@ -38,7 +48,7 @@ export default function PermissionDialog({
 		}
 
 		return items;
-	}, [displayName, serverLabel, isMcp]);
+	}, [displayName, isMcp, isPermissionsRequest, serverLabel]);
 
 	const handleSelect = useCallback(
 		(value: string) => {
@@ -53,9 +63,16 @@ export default function PermissionDialog({
 		}
 	});
 
-	const title = serverLabel
-		? `Allow "${displayName}" (${serverLabel})?`
-		: `Allow "${displayName}"?`;
+	const title = isPermissionsRequest
+		? 'Grant requested permissions?'
+		: serverLabel
+			? `Allow "${displayName}" (${serverLabel})?`
+			: `Allow "${displayName}"?`;
+
+	const requestReason =
+		typeof request.tool_input.reason === 'string'
+			? request.tool_input.reason
+			: null;
 
 	const theme = useTheme();
 	const g = getGlyphs();
@@ -79,6 +96,12 @@ export default function PermissionDialog({
 				<Box marginTop={1}>
 					<OptionList options={options} onSelect={handleSelect} />
 				</Box>
+
+				{requestReason && (
+					<Box marginTop={1}>
+						<Text dimColor>{requestReason}</Text>
+					</Box>
+				)}
 
 				<Box marginTop={1} gap={2}>
 					<Text>

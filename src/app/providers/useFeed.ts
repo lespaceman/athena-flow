@@ -22,6 +22,7 @@ import {
 	type PermissionDecision,
 	type PermissionQueueItem,
 	extractPermissionSnapshot,
+	isScopedPermissionsRequest,
 } from '../../core/controller/permission';
 import {type FeedItem, mergeFeedItems} from '../../core/feed/items';
 import type {Message} from '../../shared/types/common';
@@ -253,12 +254,14 @@ export function useFeed(
 	const resolvePermission = useCallback(
 		(requestId: string, decision: PermissionDecision) => {
 			const isAllow = decision !== 'deny' && decision !== 'always-deny';
-
 			const queueItem = permissionQueue.find(
 				item => item.request_id === requestId,
 			);
+			const isPermissionsRequest = isScopedPermissionsRequest(
+				queueItem?.hookName,
+			);
 			const toolName = queueItem?.tool_name;
-			if (toolName) {
+			if (toolName && !isPermissionsRequest) {
 				if (decision === 'always-allow') {
 					addRule({toolName, action: 'approve', addedBy: 'permission-dialog'});
 				} else if (decision === 'always-deny') {
@@ -286,6 +289,11 @@ export function useFeed(
 							kind: isPreToolUse ? 'pre_tool_deny' : 'permission_deny',
 							reason: 'Denied by user via permission dialog',
 						},
+				data: isPermissionsRequest
+					? {
+							scope: decision === 'always-allow' ? 'session' : 'turn',
+						}
+					: undefined,
 			};
 
 			runtime.sendDecision(requestId, runtimeDecision);

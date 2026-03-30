@@ -234,6 +234,7 @@ function extractToolSubject(
 			return query ? `"${query}"` : undefined;
 		}
 		case 'Task':
+		case 'Agent':
 			return str(input, 'description');
 		case 'NotebookEdit':
 			return str(input, 'notebook_path');

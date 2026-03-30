@@ -10,6 +10,7 @@
 
 import type {RuntimeEvent, RuntimeDecision} from '../runtime/types';
 import {type HookRule, matchRule} from './rules';
+import {isScopedPermissionsRequest} from './permission';
 
 export type ControllerCallbacks = {
 	getRules: () => HookRule[];
@@ -27,6 +28,7 @@ export function handleEvent(
 	cb: ControllerCallbacks,
 ): ControllerResult {
 	const eventKind = event.kind;
+	const isScoped = isScopedPermissionsRequest(event.hookName);
 	const eventData = event.data as Record<string, unknown>;
 	const toolName =
 		event.toolName ??
@@ -41,6 +43,11 @@ export function handleEvent(
 
 	// ── PermissionRequest: check rules, enqueue if no match ──
 	if (eventKind === 'permission.request' && toolName) {
+		if (isScoped) {
+			cb.enqueuePermission(event);
+			return {handled: true};
+		}
+
 		const rule = matchRule(cb.getRules(), toolName);
 
 		if (rule?.action === 'deny') {

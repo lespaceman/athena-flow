@@ -14,7 +14,10 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type {WorkflowPluginTarget} from '../../core/workflows/types';
+import type {
+	CodexWorkflowPluginRef,
+	ResolvedLocalWorkflowPlugin,
+} from '../../core/workflows/types';
 
 /** A single plugin entry inside a marketplace manifest. */
 export type MarketplaceEntry = {
@@ -63,7 +66,16 @@ const MARKETPLACE_REF_RE = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 const MARKETPLACE_SLUG_RE = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 
 function resolvePluginManifestPath(repoDir: string): string {
-	return path.join(repoDir, '.agents', 'plugins', 'marketplace.json');
+	const preferredManifestPath = path.join(
+		repoDir,
+		'.agents',
+		'plugins',
+		'marketplace.json',
+	);
+	const legacyManifestPath = resolveLegacyPluginManifestPath(repoDir);
+	return fs.existsSync(preferredManifestPath)
+		? preferredManifestPath
+		: legacyManifestPath;
 }
 
 function resolveLegacyPluginManifestPath(repoDir: string): string {
@@ -293,11 +305,11 @@ function parseRef(ref: string): {
 	};
 }
 
-function buildMarketplacePluginTarget(
+function buildMarketplacePluginResolution(
 	ref: string,
 	repoDir: string,
 	manifestPath: string,
-): WorkflowPluginTarget {
+): CodexWorkflowPluginRef & ResolvedLocalWorkflowPlugin {
 	const {pluginName} = parseRef(ref);
 	return {
 		ref,
@@ -394,7 +406,7 @@ export function resolveMarketplacePlugin(ref: string): string {
 
 export function resolveMarketplacePluginTarget(
 	ref: string,
-): WorkflowPluginTarget {
+): CodexWorkflowPluginRef & ResolvedLocalWorkflowPlugin {
 	try {
 		execFileSync('git', ['--version'], {stdio: 'ignore'});
 	} catch {
@@ -406,7 +418,7 @@ export function resolveMarketplacePluginTarget(
 	const {owner, repo} = parseRef(ref);
 	const cacheDir = path.join(os.homedir(), '.config', 'athena', 'marketplaces');
 	const repoDir = ensureRepo(cacheDir, owner, repo);
-	return buildMarketplacePluginTarget(
+	return buildMarketplacePluginResolution(
 		ref,
 		repoDir,
 		resolvePluginManifestPath(repoDir),
@@ -423,8 +435,8 @@ export function resolveMarketplacePluginFromRepo(
 export function resolveMarketplacePluginTargetFromRepo(
 	ref: string,
 	repoDir: string,
-): WorkflowPluginTarget {
-	return buildMarketplacePluginTarget(
+): CodexWorkflowPluginRef & ResolvedLocalWorkflowPlugin {
+	return buildMarketplacePluginResolution(
 		ref,
 		repoDir,
 		resolvePluginManifestPath(repoDir),

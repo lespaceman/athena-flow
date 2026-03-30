@@ -27,6 +27,7 @@ describe('ISOLATION_PRESETS', () => {
 		expect(preset.allowedTools).toContain('WebSearch');
 		expect(preset.allowedTools).toContain('WebFetch');
 		expect(preset.allowedTools).toContain('Task');
+		expect(preset.allowedTools).toContain('Agent');
 		// MCP wildcard — minimal allows project MCP servers, so must allow MCP tools
 		expect(preset.allowedTools).toContain('mcp__*');
 	});
@@ -36,6 +37,7 @@ describe('ISOLATION_PRESETS', () => {
 		expect(preset.allowedTools).toBeDefined();
 		expect(preset.allowedTools).toContain('WebSearch');
 		expect(preset.allowedTools).toContain('Task');
+		expect(preset.allowedTools).toContain('Agent');
 		expect(preset.allowedTools).toContain('mcp__*');
 	});
 

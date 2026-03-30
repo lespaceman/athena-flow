@@ -25,6 +25,8 @@ import {
 	resolveEventToolColumn,
 } from '../../core/feed/toolDisplay';
 
+import {isSubagentTool} from '../../core/feed/todo';
+
 const detailCache = new WeakMap<TimelineEntry, string>();
 const searchTextCache = new WeakMap<TimelineEntry, string>();
 
@@ -153,7 +155,7 @@ function mergedToolUseId(
 ): string | undefined {
 	if (
 		(event.kind !== 'tool.post' && event.kind !== 'tool.failure') ||
-		event.data.tool_name === 'Task' ||
+		isSubagentTool(event.data.tool_name) ||
 		!postByToolUseId
 	) {
 		return undefined;
@@ -169,7 +171,7 @@ function pairedPostForEvent(
 ): FeedEvent | undefined {
 	if (
 		(event.kind !== 'tool.pre' && event.kind !== 'permission.request') ||
-		event.data.tool_name === 'Task' ||
+		isSubagentTool(event.data.tool_name) ||
 		!event.data.tool_use_id
 	) {
 		return undefined;
@@ -185,7 +187,7 @@ function pendingToolUpdateUseId(event: FeedEvent): string | undefined {
 	) {
 		return undefined;
 	}
-	if (event.data.tool_name === 'Task') {
+	if (isSubagentTool(event.data.tool_name)) {
 		return undefined;
 	}
 	return event.data.tool_use_id;
@@ -263,7 +265,7 @@ function rememberPendingEntry(
 	if (!event) return;
 	if (
 		(event.kind !== 'tool.pre' && event.kind !== 'permission.request') ||
-		event.data.tool_name === 'Task' ||
+		isSubagentTool(event.data.tool_name) ||
 		!event.data.tool_use_id ||
 		entry.pairedPostEvent
 	) {

@@ -94,6 +94,27 @@ describe('PermissionDialog', () => {
 			expect(lastFrame()).not.toContain('Always allow all from');
 		});
 
+		it('shows session-scoped options for permissions approval requests', () => {
+			const event = {
+				...makePermissionEvent('Permissions', {reason: 'Needs network access'}),
+				hookName: 'item/permissions/requestApproval',
+			};
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			const frame = lastFrame() ?? '';
+			expect(frame).toContain('Grant requested permissions?');
+			expect(frame).toContain('Allow this turn');
+			expect(frame).toContain('Allow for this session');
+			expect(frame).toContain('Needs network access');
+			expect(frame).not.toContain('Always allow "Permissions"');
+		});
+
 		it('shows option list for all tools (no type-to-confirm)', () => {
 			const event = makePermissionEvent('Bash', {command: 'rm -rf /'});
 			const {lastFrame} = render(

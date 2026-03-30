@@ -398,12 +398,52 @@ describe('resolveMarketplacePlugin', () => {
 			),
 		).toThrow('"plugins" must be an array');
 	});
+
+	it('falls back to legacy .claude-plugin/marketplace.json for plugin resolution', () => {
+		dirs.add(cacheBase);
+		files[`${cacheBase}/.claude-plugin/marketplace.json`] = JSON.stringify({
+			name: 'marketplace',
+			owner: {name: 'Test'},
+			plugins: [
+				{
+					name: 'web-testing-toolkit',
+					source: './plugins/web-testing-toolkit',
+				},
+			],
+		});
+		dirs.add(`${cacheBase}/plugins/web-testing-toolkit`);
+
+		execFileSyncMock.mockImplementation(() => {});
+
+		const result = resolveMarketplacePlugin(
+			'web-testing-toolkit@lespaceman/athena-workflow-marketplace',
+		);
+
+		expect(result).toBe(`${cacheBase}/plugins/web-testing-toolkit`);
+	});
 });
 
 describe('resolveMarketplacePluginFromRepo', () => {
 	it('resolves a plugin directly from a local marketplace repo', () => {
 		const repoDir = '/tmp/workflow-marketplace';
 		files[`${repoDir}/.agents/plugins/marketplace.json`] = JSON.stringify({
+			name: 'athena-workflow-marketplace',
+			owner: {name: 'Test Team'},
+			plugins: [{name: 'local-plugin', source: './plugins/local-plugin'}],
+		});
+		dirs.add(`${repoDir}/plugins/local-plugin`);
+
+		const result = resolveMarketplacePluginFromRepo(
+			'local-plugin@owner/repo',
+			repoDir,
+		);
+
+		expect(result).toBe(`${repoDir}/plugins/local-plugin`);
+	});
+
+	it('falls back to legacy .claude-plugin/marketplace.json for local repos', () => {
+		const repoDir = '/tmp/workflow-marketplace';
+		files[`${repoDir}/.claude-plugin/marketplace.json`] = JSON.stringify({
 			name: 'athena-workflow-marketplace',
 			owner: {name: 'Test Team'},
 			plugins: [{name: 'local-plugin', source: './plugins/local-plugin'}],
