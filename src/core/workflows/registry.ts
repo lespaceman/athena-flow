@@ -141,13 +141,17 @@ export function resolveWorkflow(name: string): ResolvedWorkflowConfig {
 
 	for (const entry of raw['plugins'] as unknown[]) {
 		if (typeof entry === 'string') continue;
-		if (
-			typeof entry === 'object' &&
-			entry !== null &&
-			typeof (entry as Record<string, unknown>)['ref'] === 'string' &&
-			typeof (entry as Record<string, unknown>)['version'] === 'string'
-		) {
-			continue;
+		if (typeof entry === 'object' && entry !== null) {
+			const r = (entry as Record<string, unknown>)['ref'];
+			const v = (entry as Record<string, unknown>)['version'];
+			if (
+				typeof r === 'string' &&
+				r.trim().length > 0 &&
+				typeof v === 'string' &&
+				v.trim().length > 0
+			) {
+				continue;
+			}
 		}
 		throw new Error(
 			`Invalid workflow.json: each plugin must be a string or {ref, version} object`,

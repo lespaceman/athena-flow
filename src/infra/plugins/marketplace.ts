@@ -485,12 +485,14 @@ function versionedPluginCacheDir(): string {
  * Returns the cached plugin directory if the version exists, undefined otherwise.
  */
 export function resolveVersionedPluginDir(
+	owner: string,
 	repo: string,
 	pluginName: string,
 	version: string,
 ): string | undefined {
 	const cacheDir = path.join(
 		versionedPluginCacheDir(),
+		owner,
 		repo,
 		pluginName,
 		version,
@@ -503,6 +505,7 @@ export function resolveVersionedPluginDir(
  * Returns the path to the unpacked plugin directory.
  */
 function fetchPluginPackage(
+	owner: string,
 	repo: string,
 	pluginName: string,
 	version: string,
@@ -510,6 +513,7 @@ function fetchPluginPackage(
 	const npmPkg = pluginNpmPackageName(pluginName);
 	const destDir = path.join(
 		versionedPluginCacheDir(),
+		owner,
 		repo,
 		pluginName,
 		version,
@@ -608,7 +612,7 @@ export function resolveVersionedMarketplacePluginTarget(
 ): CodexWorkflowPluginRef & ResolvedLocalWorkflowPlugin {
 	const {pluginName, owner, repo} = parseRef(ref);
 
-	const cachedDir = resolveVersionedPluginDir(repo, pluginName, version);
+	const cachedDir = resolveVersionedPluginDir(owner, repo, pluginName, version);
 	if (cachedDir) {
 		const manifestPath = writeSyntheticCodexManifest(pluginName, cachedDir);
 		return {
@@ -621,7 +625,7 @@ export function resolveVersionedMarketplacePluginTarget(
 
 	let npmError: Error | undefined;
 	try {
-		const fetchedDir = fetchPluginPackage(repo, pluginName, version);
+		const fetchedDir = fetchPluginPackage(owner, repo, pluginName, version);
 		const manifestPath = writeSyntheticCodexManifest(pluginName, fetchedDir);
 		return {
 			ref,
