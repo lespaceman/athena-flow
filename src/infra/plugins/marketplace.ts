@@ -485,10 +485,16 @@ function versionedPluginCacheDir(): string {
  * Returns the cached plugin directory if the version exists, undefined otherwise.
  */
 export function resolveVersionedPluginDir(
+	repo: string,
 	pluginName: string,
 	version: string,
 ): string | undefined {
-	const cacheDir = path.join(versionedPluginCacheDir(), pluginName, version);
+	const cacheDir = path.join(
+		versionedPluginCacheDir(),
+		repo,
+		pluginName,
+		version,
+	);
 	return fs.existsSync(cacheDir) ? cacheDir : undefined;
 }
 
@@ -496,9 +502,18 @@ export function resolveVersionedPluginDir(
  * Fetch a specific plugin version from npm and cache it locally.
  * Returns the path to the unpacked plugin directory.
  */
-function fetchPluginPackage(pluginName: string, version: string): string {
+function fetchPluginPackage(
+	repo: string,
+	pluginName: string,
+	version: string,
+): string {
 	const npmPkg = pluginNpmPackageName(pluginName);
-	const destDir = path.join(versionedPluginCacheDir(), pluginName, version);
+	const destDir = path.join(
+		versionedPluginCacheDir(),
+		repo,
+		pluginName,
+		version,
+	);
 
 	if (fs.existsSync(destDir)) {
 		return destDir;
@@ -551,13 +566,19 @@ function fetchPluginPackage(pluginName: string, version: string): string {
  * it cannot install from a bare plugin directory. This generates a minimal
  * manifest pointing at the cached version so Codex can install natively.
  */
+/**
+ * Write a per-version synthetic marketplace manifest for a cached plugin.
+ *
+ * Codex's plugin/install requires a marketplace manifest file on disk —
+ * it cannot install from a bare plugin directory. This generates a minimal
+ * manifest inside the version directory so each pinned version has its own
+ * manifest and concurrent resolves of different versions don't collide.
+ */
 function writeSyntheticCodexManifest(
 	pluginName: string,
-	version: string,
 	pluginDir: string,
 ): string {
-	const marketplaceRoot = path.dirname(pluginDir);
-	const manifestDir = path.join(marketplaceRoot, '.agents', 'plugins');
+	const manifestDir = path.join(pluginDir, '.agents', 'plugins');
 	const manifestPath = path.join(manifestDir, 'marketplace.json');
 	fs.mkdirSync(manifestDir, {recursive: true});
 	fs.writeFileSync(
@@ -567,7 +588,7 @@ function writeSyntheticCodexManifest(
 			plugins: [
 				{
 					name: pluginName,
-					source: {source: 'local', path: `./${version}`},
+					source: {source: 'local', path: '../..'},
 				},
 			],
 		}) + '\n',
@@ -587,13 +608,9 @@ export function resolveVersionedMarketplacePluginTarget(
 ): CodexWorkflowPluginRef & ResolvedLocalWorkflowPlugin {
 	const {pluginName, owner, repo} = parseRef(ref);
 
-	const cachedDir = resolveVersionedPluginDir(pluginName, version);
+	const cachedDir = resolveVersionedPluginDir(repo, pluginName, version);
 	if (cachedDir) {
-		const manifestPath = writeSyntheticCodexManifest(
-			pluginName,
-			version,
-			cachedDir,
-		);
+		const manifestPath = writeSyntheticCodexManifest(pluginName, cachedDir);
 		return {
 			ref,
 			pluginName,
@@ -604,12 +621,8 @@ export function resolveVersionedMarketplacePluginTarget(
 
 	let npmError: Error | undefined;
 	try {
-		const fetchedDir = fetchPluginPackage(pluginName, version);
-		const manifestPath = writeSyntheticCodexManifest(
-			pluginName,
-			version,
-			fetchedDir,
-		);
+		const fetchedDir = fetchPluginPackage(repo, pluginName, version);
+		const manifestPath = writeSyntheticCodexManifest(pluginName, fetchedDir);
 		return {
 			ref,
 			pluginName,

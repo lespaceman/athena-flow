@@ -139,8 +139,33 @@ export function resolveWorkflow(name: string): ResolvedWorkflowConfig {
 		);
 	}
 
+	for (const entry of raw['plugins'] as unknown[]) {
+		if (typeof entry === 'string') continue;
+		if (
+			typeof entry === 'object' &&
+			entry !== null &&
+			typeof (entry as Record<string, unknown>)['ref'] === 'string' &&
+			typeof (entry as Record<string, unknown>)['version'] === 'string'
+		) {
+			continue;
+		}
+		throw new Error(
+			`Invalid workflow.json: each plugin must be a string or {ref, version} object`,
+		);
+	}
+
 	if (typeof raw['promptTemplate'] !== 'string') {
 		throw new Error(`Invalid workflow.json: "promptTemplate" must be a string`);
+	}
+
+	if (
+		raw['examplePrompts'] !== undefined &&
+		(!Array.isArray(raw['examplePrompts']) ||
+			!raw['examplePrompts'].every((e: unknown) => typeof e === 'string'))
+	) {
+		throw new Error(
+			`Invalid workflow.json: "examples" must be an array of strings`,
+		);
 	}
 
 	// Resolve trackerTemplate file reference if it ends with .md
