@@ -258,9 +258,11 @@ function AppContent({
 	initialTelemetryDiagnosticsConsent?: boolean;
 }) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
-	const [workflowPickerVisible, setWorkflowPickerVisible] = useState(
-		!hasProjectWorkflow(projectDir),
-	);
+	const hadWorkflowOnMount = useRef(hasProjectWorkflow(projectDir)).current;
+	const [workflowPickerVisible, setWorkflowPickerVisible] =
+		useState(!hadWorkflowOnMount);
+	const [workflowPickerDismissible, setWorkflowPickerDismissible] =
+		useState(hadWorkflowOnMount);
 	const [uiState, setUiState] = useState(initialSessionUiState);
 	const [toastMessage, setToastMessage] = useState<string | null>(null);
 	const [diagnosticsConsent, setDiagnosticsConsent] = useState<
@@ -277,6 +279,7 @@ function AppContent({
 	const runtimeStartupDiagnosticsSignatureRef = useRef<string | null>(null);
 	const inputMode = uiState.inputMode;
 	const hintsForced = uiState.hintsForced;
+	const previousWorkflowPickerVisibleRef = useRef(workflowPickerVisible);
 	const showRunOverlay = uiState.showRunOverlay;
 	const searchQuery = uiState.searchQuery;
 	const perfEnabled = isPerfEnabled();
@@ -712,6 +715,13 @@ function AppContent({
 		);
 	}, []);
 
+	useEffect(() => {
+		if (previousWorkflowPickerVisibleRef.current && !workflowPickerVisible) {
+			dispatchUi({type: 'set_focus_mode', focusMode: 'input'});
+		}
+		previousWorkflowPickerVisibleRef.current = workflowPickerVisible;
+	}, [dispatchUi, workflowPickerVisible]);
+
 	const submitPromptOrSlashCommand = useCallback(
 		(value: string) => {
 			if (!value.trim()) return;
@@ -770,7 +780,10 @@ function AppContent({
 					clearScreen,
 					showSessions: onShowSessions,
 					showSetup: onShowSetup,
-					showWorkflowPicker: () => setWorkflowPickerVisible(true),
+					showWorkflowPicker: () => {
+						setWorkflowPickerDismissible(true);
+						setWorkflowPickerVisible(true);
+					},
 					sessionStats: {
 						metrics: {
 							...metrics,
@@ -1051,7 +1064,7 @@ function AppContent({
 	});
 
 	useGlobalKeyboard({
-		isActive: !dialogActive && !pagerActive,
+		isActive: !dialogActive && !pagerActive && !workflowPickerVisible,
 		isHarnessRunning,
 		focusMode,
 		dialogActive,
@@ -1342,7 +1355,7 @@ function AppContent({
 						projectDir={projectDir}
 						rows={feedHeaderRows + feedContentRows}
 						onClose={
-							hasProjectWorkflow(projectDir)
+							workflowPickerDismissible
 								? () => setWorkflowPickerVisible(false)
 								: undefined
 						}

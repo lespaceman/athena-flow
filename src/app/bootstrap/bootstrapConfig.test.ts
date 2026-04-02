@@ -325,17 +325,29 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.workflowRef).toBe('default');
 	});
 
-	it('always resolves workflow from global activeWorkflow only', () => {
+	it('prefers project activeWorkflow over global activeWorkflow', () => {
 		readGlobalConfigMock.mockReturnValue({
 			...emptyConfig,
+			plugins: ['/global-plugin'],
 			activeWorkflow: 'global-workflow',
+			workflowSelections: {
+				'global-workflow': {
+					mcpServerOptions: {globalServer: {GLOBAL: 'true'}},
+				},
+			},
 		});
 		readConfigMock.mockReturnValue({
 			...emptyConfig,
-			workflow: 'project-workflow',
+			plugins: ['/project-plugin'],
+			activeWorkflow: 'project-workflow',
+			workflowSelections: {
+				'project-workflow': {
+					mcpServerOptions: {projectServer: {PROJECT: 'true'}},
+				},
+			},
 		});
 		resolveWorkflowMock.mockReturnValue({
-			name: 'global-workflow',
+			name: 'project-workflow',
 			plugins: [],
 			promptTemplate: '{input}',
 		});
@@ -352,7 +364,12 @@ describe('bootstrapRuntimeConfig', () => {
 			isolationPreset: 'strict',
 		});
 
-		expect(resolveWorkflowMock).toHaveBeenCalledWith('global-workflow');
+		expect(resolveWorkflowMock).toHaveBeenCalledWith('project-workflow');
+		expect(registerPluginsMock).toHaveBeenCalledWith(
+			['/global-plugin', '/project-plugin'],
+			{projectServer: {PROJECT: 'true'}},
+			true,
+		);
 	});
 
 	it('does not probe Claude-specific model sources for non-claude harnesses', () => {

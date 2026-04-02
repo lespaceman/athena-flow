@@ -75,8 +75,12 @@ export default function WorkflowPicker({
 	}, []);
 
 	useInput((_input, key) => {
-		if (key.escape && onClose && phase.type === 'selecting') {
-			onClose();
+		if (key.escape && phase.type === 'selecting') {
+			if (onClose) {
+				onClose();
+			} else {
+				handleSelect('default');
+			}
 		}
 	});
 
@@ -116,7 +120,7 @@ export default function WorkflowPicker({
 				}
 			}, 0);
 		},
-		[projectDir, onComplete],
+		[onComplete, projectDir],
 	);
 
 	const handleMcpComplete = useCallback(
@@ -132,7 +136,7 @@ export default function WorkflowPicker({
 			setPhase({type: 'done'});
 			onComplete(workflowName, choices);
 		},
-		[phase, projectDir, onComplete],
+		[phase, onComplete, projectDir],
 	);
 
 	const hints: string[] = [];

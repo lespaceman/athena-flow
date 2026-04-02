@@ -88,7 +88,10 @@ export function bootstrapRuntimeConfig({
 		projectConfig.harness ??
 		globalConfig.harness ??
 		DEFAULT_HARNESS;
-	const configuredActiveWorkflow = globalConfig.activeWorkflow ?? 'default';
+	const activeWorkflowConfig =
+		projectConfig.activeWorkflow !== undefined ? projectConfig : globalConfig;
+	const configuredActiveWorkflow =
+		activeWorkflowConfig.activeWorkflow ?? 'default';
 
 	let workflowPluginDirs: string[] = [];
 	let workflowResolvedPlugins: ResolvedWorkflowPlugin[] = [];
@@ -121,7 +124,7 @@ export function bootstrapRuntimeConfig({
 			? registerPlugins(
 					pluginDirs,
 					workflowToResolve
-						? globalConfig.workflowSelections?.[workflowToResolve]
+						? activeWorkflowConfig.workflowSelections?.[workflowToResolve]
 								?.mcpServerOptions
 						: undefined,
 					harness !== 'openai-codex',
@@ -132,7 +135,7 @@ export function bootstrapRuntimeConfig({
 			? buildPluginMcpConfig(
 					workflowPluginDirs,
 					workflowToResolve
-						? globalConfig.workflowSelections?.[workflowToResolve]
+						? activeWorkflowConfig.workflowSelections?.[workflowToResolve]
 								?.mcpServerOptions
 						: undefined,
 				)
