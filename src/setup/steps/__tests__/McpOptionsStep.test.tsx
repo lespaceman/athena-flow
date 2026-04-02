@@ -17,15 +17,15 @@ const TWO_SERVERS: McpServerWithOptions[] = [
 	{
 		serverName: 'agent-web-interface',
 		options: [
-			{label: 'Visible browser', args: []},
-			{label: 'Headless browser', args: ['--headless']},
+			{label: 'Visible browser', env: {}},
+			{label: 'Headless browser', env: {AWI_HEADLESS: 'true'}},
 		],
 	},
 	{
 		serverName: 'db-server',
 		options: [
-			{label: 'Local DB', args: ['--local']},
-			{label: 'Remote DB', args: ['--remote']},
+			{label: 'Local DB', env: {DB_MODE: 'local'}},
+			{label: 'Remote DB', env: {DB_MODE: 'remote'}},
 		],
 	},
 ];
@@ -70,8 +70,8 @@ describe('McpOptionsStep', () => {
 		act(() => stdin.write('\r'));
 
 		expect(onComplete).toHaveBeenCalledWith({
-			'agent-web-interface': [],
-			'db-server': ['--remote'],
+			'agent-web-interface': {},
+			'db-server': {DB_MODE: 'remote'},
 		});
 	});
 
