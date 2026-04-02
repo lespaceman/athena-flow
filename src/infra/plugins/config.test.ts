@@ -43,18 +43,18 @@ describe('writeProjectConfig', () => {
 		fs.writeFileSync(
 			path.join(configDir, 'config.json'),
 			JSON.stringify({
-				workflowSelections: {old: {mcpServerOptions: {s1: ['a']}}},
+				workflowSelections: {old: {mcpServerOptions: {s1: {A: 'true'}}}},
 			}),
 		);
 		writeProjectConfig(tmpDir, {
-			workflowSelections: {new: {mcpServerOptions: {s2: ['b']}}},
+			workflowSelections: {new: {mcpServerOptions: {s2: {B: 'true'}}}},
 		});
 		const raw = JSON.parse(
 			fs.readFileSync(path.join(configDir, 'config.json'), 'utf-8'),
 		);
 		expect(raw.workflowSelections).toEqual({
-			old: {mcpServerOptions: {s1: ['a']}},
-			new: {mcpServerOptions: {s2: ['b']}},
+			old: {mcpServerOptions: {s1: {A: 'true'}}},
+			new: {mcpServerOptions: {s2: {B: 'true'}}},
 		});
 	});
 });

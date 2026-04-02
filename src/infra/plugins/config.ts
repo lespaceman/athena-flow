@@ -15,11 +15,11 @@ export type AthenaHarness = 'claude-code' | 'openai-codex' | 'opencode';
 
 export type McpServerOption = {
 	label: string;
-	args: string[];
+	env: Record<string, string>;
 };
 
-/** Server name → chosen args array */
-export type McpServerChoices = Record<string, string[]>;
+/** Server name → chosen env overrides */
+export type McpServerChoices = Record<string, Record<string, string>>;
 export type WorkflowSelection = {
 	mcpServerOptions?: McpServerChoices;
 };
@@ -35,7 +35,12 @@ export type AthenaConfig = {
 	theme?: string;
 	/** Globally selected workflow name */
 	activeWorkflow?: string;
-	/** Workflow marketplace source: owner/repo slug or local marketplace path */
+	/** Workflow marketplace sources: owner/repo slugs or local marketplace paths */
+	workflowMarketplaceSources?: string[];
+	/**
+	 * @deprecated Use `workflowMarketplaceSources` instead.
+	 * Kept for migration — single source is wrapped into the array on read.
+	 */
 	workflowMarketplaceSource?: string;
 	/** Per-workflow saved selections (for MCP option args, etc.) */
 	workflowSelections?: WorkflowSelections;
@@ -85,6 +90,7 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		model?: string;
 		theme?: string;
 		activeWorkflow?: string;
+		workflowMarketplaceSources?: string[];
 		workflowMarketplaceSource?: string;
 		workflowSelections?: WorkflowSelections;
 		setupComplete?: boolean;
@@ -115,12 +121,20 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
+	// Migrate legacy single source → array
+	const workflowMarketplaceSources =
+		raw.workflowMarketplaceSources ??
+		(raw.workflowMarketplaceSource
+			? [raw.workflowMarketplaceSource]
+			: undefined);
+
 	return {
 		plugins,
 		additionalDirectories,
 		model: raw.model,
 		theme: raw.theme,
 		activeWorkflow: raw.activeWorkflow,
+		workflowMarketplaceSources,
 		workflowMarketplaceSource: raw.workflowMarketplaceSource,
 		workflowSelections: raw.workflowSelections,
 		setupComplete: raw.setupComplete as boolean | undefined,
@@ -175,7 +189,11 @@ function writeConfigFile(
 }
 
 // Legacy keys from pre-workflowSelection configs.
-const GLOBAL_CONFIG_LEGACY_KEYS = ['workflow', 'mcpServerOptions'];
+const GLOBAL_CONFIG_LEGACY_KEYS = [
+	'workflow',
+	'mcpServerOptions',
+	'workflowMarketplaceSource',
+];
 
 /**
  * Write global config to `~/.config/athena/config.json`.
@@ -201,11 +219,7 @@ export function writeProjectConfig(
 	writeConfigFile(configDir, configPath, updates);
 }
 
-/**
- * Check whether a project-level config has an active workflow selected.
- */
-export function hasProjectWorkflow(projectDir: string): boolean {
-	const configPath = path.join(projectDir, '.athena', 'config.json');
+function hasActiveWorkflow(configPath: string): boolean {
 	try {
 		const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
 			activeWorkflow?: string;
@@ -214,4 +228,20 @@ export function hasProjectWorkflow(projectDir: string): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Check whether a project-level config has an active workflow selected.
+ */
+export function hasProjectWorkflow(projectDir: string): boolean {
+	return hasActiveWorkflow(path.join(projectDir, '.athena', 'config.json'));
+}
+
+/**
+ * Check whether the global config has an active workflow selected.
+ */
+export function hasGlobalWorkflow(): boolean {
+	return hasActiveWorkflow(
+		path.join(os.homedir(), '.config', 'athena', 'config.json'),
+	);
 }

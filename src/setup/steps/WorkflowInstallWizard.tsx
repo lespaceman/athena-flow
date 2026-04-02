@@ -49,7 +49,7 @@ export default function WorkflowInstallWizard({source, onDone}: Props) {
 				} else {
 					const defaults: McpServerChoices = {};
 					for (const server of servers) {
-						defaults[server.serverName] = server.options[0].args;
+						defaults[server.serverName] = server.options[0].env;
 					}
 					console.log(
 						`Non-interactive mode: auto-selected defaults for MCP servers: ${servers.map(s => s.serverName).join(', ')}`,

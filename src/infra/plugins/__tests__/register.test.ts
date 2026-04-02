@@ -201,31 +201,33 @@ describe('registerPlugins', () => {
 		expect(result.workflows).toEqual([]);
 	});
 
-	it('applies mcpServerOptions to override server args', async () => {
+	it('applies mcpServerOptions to merge env overrides', async () => {
 		const fs = await import('node:fs');
 
 		addPlugin('/plugins/a', {
 			mcpServers: {
 				'agent-web-interface': {
 					command: 'npx',
-					args: ['agent-web-interface'],
+					args: ['-y', 'agent-web-interface@latest'],
+					env: {NODE_ENV: 'production'},
 					options: [
-						{label: 'Visible', args: []},
-						{label: 'Headless', args: ['--headless']},
+						{label: 'Auto', env: {}},
+						{label: 'Headless', env: {AWI_HEADLESS: 'true'}},
 					],
 				},
 			},
 		});
 
 		registerPlugins(['/plugins/a'], {
-			'agent-web-interface': ['--headless'],
+			'agent-web-interface': {AWI_HEADLESS: 'true'},
 		});
 
 		const writeCall = vi.mocked(fs.default.writeFileSync).mock.calls[0];
 		const written = JSON.parse(writeCall![1] as string);
-		expect(written.mcpServers['agent-web-interface'].args).toEqual([
-			'--headless',
-		]);
+		expect(written.mcpServers['agent-web-interface'].env).toEqual({
+			NODE_ENV: 'production',
+			AWI_HEADLESS: 'true',
+		});
 	});
 
 	it('strips options field from written MCP config', async () => {
@@ -235,10 +237,10 @@ describe('registerPlugins', () => {
 			mcpServers: {
 				'my-server': {
 					command: 'npx',
-					args: ['my-server'],
+					args: ['-y', 'my-server'],
 					options: [
-						{label: 'Default', args: []},
-						{label: 'Custom', args: ['--custom']},
+						{label: 'Default', env: {}},
+						{label: 'Custom', env: {CUSTOM: 'true'}},
 					],
 				},
 			},
@@ -251,15 +253,16 @@ describe('registerPlugins', () => {
 		expect(written.mcpServers['my-server']).not.toHaveProperty('options');
 	});
 
-	it('preserves original args when no mcpServerOptions provided', async () => {
+	it('preserves original env when no mcpServerOptions provided', async () => {
 		const fs = await import('node:fs');
 
 		addPlugin('/plugins/a', {
 			mcpServers: {
 				'my-server': {
 					command: 'npx',
-					args: ['my-server', '--default'],
-					options: [{label: 'Default', args: ['--default']}],
+					args: ['-y', 'my-server'],
+					env: {NODE_ENV: 'production'},
+					options: [{label: 'Default', env: {}}],
 				},
 			},
 		});
@@ -268,10 +271,9 @@ describe('registerPlugins', () => {
 
 		const writeCall = vi.mocked(fs.default.writeFileSync).mock.calls[0];
 		const written = JSON.parse(writeCall![1] as string);
-		expect(written.mcpServers['my-server'].args).toEqual([
-			'my-server',
-			'--default',
-		]);
+		expect(written.mcpServers['my-server'].env).toEqual({
+			NODE_ENV: 'production',
+		});
 	});
 });
 

@@ -31,7 +31,7 @@ export default function McpOptionsStep({servers, onComplete}: Props) {
 
 			choicesRef.current = {
 				...choicesRef.current,
-				[server.serverName]: selectedOption.args,
+				[server.serverName]: selectedOption.env,
 			};
 
 			if (serverIndex + 1 < servers.length) {

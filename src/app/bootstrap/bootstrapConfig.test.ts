@@ -14,12 +14,12 @@ vi.mock('../../infra/plugins/index', () => ({
 	readConfig: (projectDir: string) => readConfigMock(projectDir),
 	registerPlugins: (
 		dirs: string[],
-		mcpServerOptions?: Record<string, string[]>,
+		mcpServerOptions?: Record<string, Record<string, string>>,
 		includeMcpConfig?: boolean,
 	) => registerPluginsMock(dirs, mcpServerOptions, includeMcpConfig),
 	buildPluginMcpConfig: (
 		dirs: string[],
-		mcpServerOptions?: Record<string, string[]>,
+		mcpServerOptions?: Record<string, Record<string, string>>,
 	) => buildPluginMcpConfigMock(dirs, mcpServerOptions),
 }));
 
@@ -132,7 +132,7 @@ describe('bootstrapRuntimeConfig', () => {
 			workflowSelections: {
 				'e2e-test-builder': {
 					mcpServerOptions: {
-						'agent-web-interface': ['--headless'],
+						'agent-web-interface': {AWI_HEADLESS: 'true'},
 					},
 				},
 			},
@@ -188,7 +188,7 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(registerPluginsMock).toHaveBeenCalledWith(
 			['/workflow-plugin', '/global-plugin', '/project-plugin', '/cli-plugin'],
 			{
-				'agent-web-interface': ['--headless'],
+				'agent-web-interface': {AWI_HEADLESS: 'true'},
 			},
 			true,
 		);

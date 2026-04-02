@@ -271,7 +271,7 @@ describe('workflowSelections field', () => {
 			workflowSelections: {
 				'e2e-test-builder': {
 					mcpServerOptions: {
-						'agent-web-interface': ['--headless'],
+						'agent-web-interface': {AWI_HEADLESS: 'true'},
 					},
 				},
 			},
@@ -280,7 +280,7 @@ describe('workflowSelections field', () => {
 		expect(readGlobalConfig().workflowSelections).toEqual({
 			'e2e-test-builder': {
 				mcpServerOptions: {
-					'agent-web-interface': ['--headless'],
+					'agent-web-interface': {AWI_HEADLESS: 'true'},
 				},
 			},
 		});
@@ -346,7 +346,7 @@ describe('writeGlobalConfig', () => {
 			workflowSelections: {
 				workflowA: {
 					mcpServerOptions: {
-						serverA: ['--a'],
+						serverA: {A: 'true'},
 					},
 				},
 			},
@@ -356,7 +356,7 @@ describe('writeGlobalConfig', () => {
 			workflowSelections: {
 				workflowB: {
 					mcpServerOptions: {
-						serverB: ['--b'],
+						serverB: {B: 'true'},
 					},
 				},
 			},
@@ -368,12 +368,12 @@ describe('writeGlobalConfig', () => {
 		expect(written.workflowSelections).toEqual({
 			workflowA: {
 				mcpServerOptions: {
-					serverA: ['--a'],
+					serverA: {A: 'true'},
 				},
 			},
 			workflowB: {
 				mcpServerOptions: {
-					serverB: ['--b'],
+					serverB: {B: 'true'},
 				},
 			},
 		});
@@ -382,7 +382,7 @@ describe('writeGlobalConfig', () => {
 	it('removes deprecated workflow and top-level mcpServerOptions keys', () => {
 		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
 			workflow: 'legacy-workflow',
-			mcpServerOptions: {legacyServer: ['--legacy']},
+			mcpServerOptions: {legacyServer: {LEGACY: 'true'}},
 			activeWorkflow: 'e2e-test-builder',
 		});
 

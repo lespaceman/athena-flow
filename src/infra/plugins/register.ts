@@ -47,7 +47,11 @@ export function buildPluginMcpConfig(
 			const {options: _options, ...rest} = serverConfig;
 
 			if (mcpServerOptions && serverName in mcpServerOptions) {
-				rest.args = mcpServerOptions[serverName];
+				const chosenEnv = mcpServerOptions[serverName];
+				rest.env = {
+					...(rest.env as Record<string, string> | undefined),
+					...chosenEnv,
+				};
 			}
 
 			mergedServers[serverName] = rest;
@@ -68,8 +72,8 @@ export function buildPluginMcpConfig(
  * and return merged MCP config + discovered workflows.
  *
  * When `mcpServerOptions` is provided, matching server entries get their
- * `args` replaced with the user's chosen args. The `options` field is
- * always stripped before writing — Claude Code doesn't understand it.
+ * `env` merged with the user's chosen env overrides. The `options` field
+ * is always stripped before writing — Claude Code doesn't understand it.
  */
 export function registerPlugins(
 	pluginDirs: string[],
