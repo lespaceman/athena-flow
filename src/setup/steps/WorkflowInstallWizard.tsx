@@ -43,8 +43,24 @@ export default function WorkflowInstallWizard({source, onDone}: Props) {
 			setMessage(`Installed workflow: ${name}`);
 
 			if (servers.length > 0) {
-				setMcpServers(servers);
-				setPhase('mcp-options');
+				if (process.stdin.isTTY) {
+					setMcpServers(servers);
+					setPhase('mcp-options');
+				} else {
+					const defaults: McpServerChoices = {};
+					for (const server of servers) {
+						defaults[server.serverName] = server.options[0].args;
+					}
+					console.log(
+						`Non-interactive mode: auto-selected defaults for MCP servers: ${servers.map(s => s.serverName).join(', ')}`,
+					);
+					writeGlobalConfig({
+						workflowSelections: {
+							[name]: {mcpServerOptions: defaults},
+						},
+					});
+					setPhase('done');
+				}
 			} else {
 				setPhase('done');
 			}
