@@ -2035,6 +2035,8 @@ export default function App({
 
 	const handleWorkflowSelected = useCallback(() => {
 		refreshRuntime();
+		// Force AppContent remount so sessionStore + runtime are created fresh
+		setClearCount(c => c + 1);
 	}, [refreshRuntime]);
 
 	if (phase.type === 'setup') {
