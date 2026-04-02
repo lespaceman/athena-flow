@@ -138,23 +138,24 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 	};
 }
 
-/**
- * Write global config to `~/.config/athena/config.json`.
- * Merges with existing config if present. Creates directories as needed.
- */
-export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
-	const homeDir = os.homedir();
-	const configDir = path.join(homeDir, '.config', 'athena');
-	const configPath = path.join(configDir, 'config.json');
-
-	let existing: Record<string, unknown> = {};
-	if (fs.existsSync(configPath)) {
-		existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
+function readExistingConfig(configPath: string): Record<string, unknown> {
+	try {
+		return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
 			string,
 			unknown
 		>;
+	} catch {
+		return {};
 	}
+}
 
+function writeConfigFile(
+	configDir: string,
+	configPath: string,
+	updates: Partial<AthenaConfig>,
+	deleteKeys?: string[],
+): void {
+	const existing = readExistingConfig(configPath);
 	const merged: Record<string, unknown> = {...existing, ...updates};
 	if (updates.workflowSelections) {
 		const existingSelections =
@@ -164,11 +165,27 @@ export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
 			...updates.workflowSelections,
 		};
 	}
-	// Legacy keys from pre-workflowSelection configs are no longer valid.
-	delete merged['workflow'];
-	delete merged['mcpServerOptions'];
+	if (deleteKeys) {
+		for (const key of deleteKeys) {
+			delete merged[key];
+		}
+	}
 	fs.mkdirSync(configDir, {recursive: true});
 	fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+}
+
+// Legacy keys from pre-workflowSelection configs.
+const GLOBAL_CONFIG_LEGACY_KEYS = ['workflow', 'mcpServerOptions'];
+
+/**
+ * Write global config to `~/.config/athena/config.json`.
+ * Merges with existing config if present. Creates directories as needed.
+ */
+export function writeGlobalConfig(updates: Partial<AthenaConfig>): void {
+	const homeDir = os.homedir();
+	const configDir = path.join(homeDir, '.config', 'athena');
+	const configPath = path.join(configDir, 'config.json');
+	writeConfigFile(configDir, configPath, updates, GLOBAL_CONFIG_LEGACY_KEYS);
 }
 
 /**
@@ -181,26 +198,7 @@ export function writeProjectConfig(
 ): void {
 	const configDir = path.join(projectDir, '.athena');
 	const configPath = path.join(configDir, 'config.json');
-
-	let existing: Record<string, unknown> = {};
-	if (fs.existsSync(configPath)) {
-		existing = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<
-			string,
-			unknown
-		>;
-	}
-
-	const merged: Record<string, unknown> = {...existing, ...updates};
-	if (updates.workflowSelections) {
-		const existingSelections =
-			(existing['workflowSelections'] as WorkflowSelections | undefined) ?? {};
-		merged['workflowSelections'] = {
-			...existingSelections,
-			...updates.workflowSelections,
-		};
-	}
-	fs.mkdirSync(configDir, {recursive: true});
-	fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n', 'utf-8');
+	writeConfigFile(configDir, configPath, updates);
 }
 
 /**
@@ -208,11 +206,12 @@ export function writeProjectConfig(
  */
 export function hasProjectWorkflow(projectDir: string): boolean {
 	const configPath = path.join(projectDir, '.athena', 'config.json');
-	if (!fs.existsSync(configPath)) {
+	try {
+		const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+			activeWorkflow?: string;
+		};
+		return typeof raw.activeWorkflow === 'string' && raw.activeWorkflow !== '';
+	} catch {
 		return false;
 	}
-	const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
-		activeWorkflow?: string;
-	};
-	return typeof raw.activeWorkflow === 'string' && raw.activeWorkflow !== '';
 }

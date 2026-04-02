@@ -1992,65 +1992,44 @@ export default function App({
 		return () => clearTimeout(timer);
 	}, [projectDir, phase.type]);
 
+	const refreshRuntime = useCallback(() => {
+		try {
+			const refreshed = bootstrapRuntimeConfig({
+				projectDir,
+				showSetup: false,
+				pluginFlags,
+				isolationPreset,
+				verbose,
+			});
+			for (const warning of refreshed.warnings) {
+				console.error(warning);
+			}
+			setRuntimeState({
+				harness: refreshed.harness,
+				isolation: refreshed.isolationConfig,
+				pluginMcpConfig: refreshed.pluginMcpConfig,
+				modelName: refreshed.modelName,
+				workflowRef: refreshed.workflowRef,
+				workflow: refreshed.workflow,
+				workflowPlan: refreshed.workflowPlan,
+			});
+		} catch (error) {
+			console.error(`Error: ${(error as Error).message}`);
+		}
+	}, [projectDir, pluginFlags, isolationPreset, verbose]);
+
 	const handleSetupComplete = useCallback(
 		(setupResult: import('../../setup/SetupWizard').SetupResult) => {
 			setActiveTheme(resolveTheme(setupResult.theme));
-			try {
-				const refreshed = bootstrapRuntimeConfig({
-					projectDir,
-					showSetup: false,
-					pluginFlags,
-					isolationPreset,
-					verbose,
-				});
-				for (const warning of refreshed.warnings) {
-					console.error(warning);
-				}
-				setRuntimeState({
-					harness: refreshed.harness,
-					isolation: refreshed.isolationConfig,
-					pluginMcpConfig: refreshed.pluginMcpConfig,
-					modelName: refreshed.modelName,
-					workflowRef: refreshed.workflowRef,
-					workflow: refreshed.workflow,
-					workflowPlan: refreshed.workflowPlan,
-				});
-			} catch (error) {
-				console.error(`Error: ${(error as Error).message}`);
-			}
+			refreshRuntime();
 			setPhase({type: 'main'});
 		},
-		[projectDir, pluginFlags, isolationPreset, verbose],
+		[refreshRuntime],
 	);
 
-	const handleWorkflowSelected = useCallback(
-		(_workflowName: string) => {
-			try {
-				const refreshed = bootstrapRuntimeConfig({
-					projectDir,
-					showSetup: false,
-					pluginFlags,
-					isolationPreset,
-					verbose,
-				});
-				for (const warning of refreshed.warnings) {
-					console.error(warning);
-				}
-				setRuntimeState({
-					harness: refreshed.harness,
-					isolation: refreshed.isolationConfig,
-					pluginMcpConfig: refreshed.pluginMcpConfig,
-					modelName: refreshed.modelName,
-					workflowRef: refreshed.workflowRef,
-					workflow: refreshed.workflow,
-					workflowPlan: refreshed.workflowPlan,
-				});
-			} catch (error) {
-				console.error(`Error: ${(error as Error).message}`);
-			}
-		},
-		[projectDir, pluginFlags, isolationPreset, verbose],
-	);
+	const handleWorkflowSelected = useCallback(() => {
+		refreshRuntime();
+	}, [refreshRuntime]);
 
 	if (phase.type === 'setup') {
 		return (

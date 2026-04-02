@@ -9,15 +9,10 @@ import {
 	installWorkflowPlugins,
 } from '../../core/workflows/index';
 import {
-	isMarketplaceRef,
-	listMarketplaceWorkflows,
-	listMarketplaceWorkflowsFromRepo,
-	resolveWorkflowMarketplaceSource,
-	resolveMarketplaceWorkflow,
-	findMarketplaceRepoDir,
-} from '../../infra/plugins/marketplace';
+	loadWorkflowOptions,
+	type WorkflowOption,
+} from '../../core/workflows/workflowOptions';
 import {
-	readGlobalConfig,
 	writeProjectConfig,
 	type McpServerChoices,
 } from '../../infra/plugins/config';
@@ -26,21 +21,11 @@ import {
 	type McpServerWithOptions,
 } from '../../infra/plugins/mcpOptions';
 import {useTheme} from '../../ui/theme/index';
-import fs from 'node:fs';
-
-const DEFAULT_MARKETPLACE_OWNER = 'lespaceman';
-const DEFAULT_MARKETPLACE_REPO = 'athena-workflow-marketplace';
 
 const DEFAULT_WORKFLOW_OPTION: WorkflowOption = {
 	label: 'default',
 	value: 'default',
 	description: 'Built-in default workflow',
-};
-
-type WorkflowOption = {
-	label: string;
-	value: string;
-	description: string;
 };
 
 type PickerPhase =
@@ -51,7 +36,6 @@ type PickerPhase =
 			type: 'mcp-options';
 			workflowName: string;
 			servers: McpServerWithOptions[];
-			pluginDirs: string[];
 	  }
 	| {type: 'done'}
 	| {type: 'error'; message: string};
@@ -64,77 +48,6 @@ type Props = {
 	) => void;
 };
 
-function loadWorkflowOptions(): WorkflowOption[] {
-	const sourceOverride = process.env.ATHENA_STARTER_WORKFLOW_SOURCE;
-
-	if (!sourceOverride) {
-		const configuredSource =
-			readGlobalConfig().workflowMarketplaceSource ??
-			`${DEFAULT_MARKETPLACE_OWNER}/${DEFAULT_MARKETPLACE_REPO}`;
-		const marketplaceSource =
-			resolveWorkflowMarketplaceSource(configuredSource);
-
-		if (marketplaceSource.kind === 'remote') {
-			return listMarketplaceWorkflows(
-				marketplaceSource.owner,
-				marketplaceSource.repo,
-			).map(workflow => ({
-				label: workflow.name,
-				value: workflow.ref,
-				description: workflow.description ?? 'Marketplace workflow',
-			}));
-		}
-
-		return listMarketplaceWorkflowsFromRepo(marketplaceSource.repoDir).map(
-			workflow => ({
-				label: workflow.name,
-				value: workflow.workflowPath,
-				description: workflow.description ?? 'Local marketplace workflow',
-			}),
-		);
-	}
-
-	if (isMarketplaceRef(sourceOverride)) {
-		const workflowPath = resolveMarketplaceWorkflow(sourceOverride);
-		const raw = JSON.parse(fs.readFileSync(workflowPath, 'utf-8')) as {
-			name?: string;
-			description?: string;
-		};
-		return [
-			{
-				label: raw.name ?? sourceOverride,
-				value: sourceOverride,
-				description: raw.description ?? 'Marketplace workflow',
-			},
-		];
-	}
-
-	const repoDir = findMarketplaceRepoDir(sourceOverride);
-	if (repoDir) {
-		return listMarketplaceWorkflowsFromRepo(repoDir).map(workflow => ({
-			label: workflow.name,
-			value: workflow.workflowPath,
-			description: workflow.description ?? 'Local marketplace workflow',
-		}));
-	}
-
-	if (!fs.existsSync(sourceOverride)) {
-		throw new Error(`Workflow source not found: ${sourceOverride}`);
-	}
-
-	const raw = JSON.parse(fs.readFileSync(sourceOverride, 'utf-8')) as {
-		name?: string;
-		description?: string;
-	};
-	return [
-		{
-			label: raw.name ?? 'Local workflow',
-			value: sourceOverride,
-			description: raw.description ?? 'Local workflow',
-		},
-	];
-}
-
 export default function WorkflowPicker({projectDir, onComplete}: Props) {
 	const theme = useTheme();
 	const [phase, setPhase] = useState<PickerPhase>({type: 'loading'});
@@ -142,7 +55,6 @@ export default function WorkflowPicker({projectDir, onComplete}: Props) {
 	useEffect(() => {
 		try {
 			const marketplaceOptions = loadWorkflowOptions();
-			// Default workflow always first, then marketplace
 			const options = [DEFAULT_WORKFLOW_OPTION, ...marketplaceOptions];
 			setPhase({type: 'selecting', options});
 		} catch {
@@ -173,7 +85,6 @@ export default function WorkflowPicker({projectDir, onComplete}: Props) {
 							type: 'mcp-options',
 							workflowName: name,
 							servers,
-							pluginDirs,
 						});
 					} else {
 						writeProjectConfig(projectDir, {activeWorkflow: name});

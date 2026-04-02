@@ -1,4 +1,3 @@
-import fs from 'node:fs';
 import {useState, useCallback, useEffect} from 'react';
 import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
@@ -9,97 +8,10 @@ import {
 	installWorkflowPlugins,
 } from '../../core/workflows/index';
 import {
-	findMarketplaceRepoDir,
-	isMarketplaceRef,
-	listMarketplaceWorkflows,
-	listMarketplaceWorkflowsFromRepo,
-	resolveWorkflowMarketplaceSource,
-	resolveMarketplaceWorkflow,
-} from '../../infra/plugins/marketplace';
-import {readGlobalConfig} from '../../infra/plugins/config';
+	loadWorkflowOptions,
+	type WorkflowOption,
+} from '../../core/workflows/workflowOptions';
 import {useTheme} from '../../ui/theme/index';
-
-const DEFAULT_MARKETPLACE_OWNER = 'lespaceman';
-const DEFAULT_MARKETPLACE_REPO = 'athena-workflow-marketplace';
-
-type WorkflowOption = {
-	label: string;
-	value: string;
-	description: string;
-};
-
-function readLocalWorkflowOption(sourcePath: string): WorkflowOption {
-	const raw = JSON.parse(fs.readFileSync(sourcePath, 'utf-8')) as {
-		name?: string;
-		description?: string;
-	};
-
-	if (!raw.name) {
-		throw new Error(
-			`Workflow source at ${sourcePath} is missing a "name" field.`,
-		);
-	}
-
-	return {
-		label: raw.name,
-		value: sourcePath,
-		description: raw.description ?? 'Local workflow',
-	};
-}
-
-function loadWorkflowOptions(): WorkflowOption[] {
-	const sourceOverride = process.env.ATHENA_STARTER_WORKFLOW_SOURCE;
-
-	if (!sourceOverride) {
-		const configuredSource =
-			readGlobalConfig().workflowMarketplaceSource ??
-			`${DEFAULT_MARKETPLACE_OWNER}/${DEFAULT_MARKETPLACE_REPO}`;
-		const marketplaceSource =
-			resolveWorkflowMarketplaceSource(configuredSource);
-
-		if (marketplaceSource.kind === 'remote') {
-			return listMarketplaceWorkflows(
-				marketplaceSource.owner,
-				marketplaceSource.repo,
-			).map(workflow => ({
-				label: workflow.name,
-				value: workflow.ref,
-				description: workflow.description ?? 'Marketplace workflow',
-			}));
-		}
-
-		return listMarketplaceWorkflowsFromRepo(marketplaceSource.repoDir).map(
-			workflow => ({
-				label: workflow.name,
-				value: workflow.workflowPath,
-				description: workflow.description ?? 'Local marketplace workflow',
-			}),
-		);
-	}
-
-	if (isMarketplaceRef(sourceOverride)) {
-		const workflowPath = resolveMarketplaceWorkflow(sourceOverride);
-		return [readLocalWorkflowOption(workflowPath)].map(option => ({
-			...option,
-			value: sourceOverride,
-		}));
-	}
-
-	const repoDir = findMarketplaceRepoDir(sourceOverride);
-	if (repoDir) {
-		return listMarketplaceWorkflowsFromRepo(repoDir).map(workflow => ({
-			label: workflow.name,
-			value: workflow.workflowPath,
-			description: workflow.description ?? 'Local marketplace workflow',
-		}));
-	}
-
-	if (!fs.existsSync(sourceOverride)) {
-		throw new Error(`Workflow source not found: ${sourceOverride}`);
-	}
-
-	return [readLocalWorkflowOption(sourceOverride)];
-}
 
 type Props = {
 	onComplete: (workflowName: string, pluginDirs: string[]) => void;
