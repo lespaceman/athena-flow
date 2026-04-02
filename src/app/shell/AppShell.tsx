@@ -76,6 +76,8 @@ import {detectHarness} from '../../shared/utils/detectHarness';
 import type {WorkflowConfig, WorkflowPlan} from '../../core/workflows';
 import type {TurnContinuation} from '../../core/runtime/process';
 import SetupWizard from '../../setup/SetupWizard';
+import WorkflowPicker from '../workflow/WorkflowPicker';
+import {hasProjectWorkflow} from '../../infra/plugins/config';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
 import {useRuntimeSelectors} from './useRuntimeSelectors';
 import {useSessionScope, useTimelineCurrentRun} from './useSessionScope';
@@ -227,6 +229,7 @@ function AppContent({
 	onClear,
 	onShowSessions,
 	onShowSetup,
+	onWorkflowSelected,
 	inputHistory,
 	sessionTelemetryMetricsRef,
 	onSessionTelemetrySnapshot,
@@ -248,12 +251,16 @@ function AppContent({
 	onClear: () => void;
 	onShowSessions: () => void;
 	onShowSetup: () => void;
+	onWorkflowSelected: (workflowName: string) => void;
 	inputHistory: InputHistory;
 	sessionTelemetryMetricsRef: React.MutableRefObject<SessionMetrics>;
 	onSessionTelemetrySnapshot: (metrics: SessionMetrics) => void;
 	initialTelemetryDiagnosticsConsent?: boolean;
 }) {
 	const [messages, setMessages] = useState<MessageType[]>([]);
+	const [workflowPickerVisible, setWorkflowPickerVisible] = useState(
+		!hasProjectWorkflow(projectDir),
+	);
 	const [uiState, setUiState] = useState(initialSessionUiState);
 	const [toastMessage, setToastMessage] = useState<string | null>(null);
 	const [diagnosticsConsent, setDiagnosticsConsent] = useState<
@@ -763,6 +770,7 @@ function AppContent({
 					clearScreen,
 					showSessions: onShowSessions,
 					showSetup: onShowSetup,
+					showWorkflowPicker: () => setWorkflowPickerVisible(true),
 					sessionStats: {
 						metrics: {
 							...metrics,
@@ -1329,22 +1337,32 @@ function AppContent({
 				id="app.main.feed"
 				onRender={handleSectionProfilerRender}
 			>
-				<FeedGrid
-					feedHeaderRows={feedHeaderRows}
-					feedContentRows={feedContentRows}
-					feedViewportStart={feedNav.feedViewportStart}
-					filteredEntries={filteredEntries}
-					feedCursor={feedNav.feedCursor}
-					focusMode={focusMode}
-					searchMatchSet={searchMatchSet}
-					ascii={useAscii}
-					theme={theme}
-					innerWidth={innerWidth}
-					cols={feedCols}
-					feedStartRow={feedStartRow}
-					backend={feedBackend}
-					onboarding={feedOnboarding}
-				/>
+				{workflowPickerVisible ? (
+					<WorkflowPicker
+						projectDir={projectDir}
+						onComplete={name => {
+							setWorkflowPickerVisible(false);
+							onWorkflowSelected(name);
+						}}
+					/>
+				) : (
+					<FeedGrid
+						feedHeaderRows={feedHeaderRows}
+						feedContentRows={feedContentRows}
+						feedViewportStart={feedNav.feedViewportStart}
+						filteredEntries={filteredEntries}
+						feedCursor={feedNav.feedCursor}
+						focusMode={focusMode}
+						searchMatchSet={searchMatchSet}
+						ascii={useAscii}
+						theme={theme}
+						innerWidth={innerWidth}
+						cols={feedCols}
+						feedStartRow={feedStartRow}
+						backend={feedBackend}
+						onboarding={feedOnboarding}
+					/>
+				)}
 			</MaybeProfiler>
 			<MaybeProfiler
 				enabled={perfEnabled}
@@ -1377,7 +1395,9 @@ function AppContent({
 					textInputPlaceholder={textInputPlaceholder}
 					textColor={theme.text}
 					inputPlaceholderColor={inputPlaceholderColor}
-					isInputActive={focusMode === 'input' && !dialogActive}
+					isInputActive={
+						focusMode === 'input' && !dialogActive && !workflowPickerVisible
+					}
 					handleInputChange={handleMainInputChange}
 					handleInputSubmit={handleInputSubmit}
 					handleHistoryBack={handleHistoryBack}
@@ -2003,6 +2023,35 @@ export default function App({
 		[projectDir, pluginFlags, isolationPreset, verbose],
 	);
 
+	const handleWorkflowSelected = useCallback(
+		(_workflowName: string) => {
+			try {
+				const refreshed = bootstrapRuntimeConfig({
+					projectDir,
+					showSetup: false,
+					pluginFlags,
+					isolationPreset,
+					verbose,
+				});
+				for (const warning of refreshed.warnings) {
+					console.error(warning);
+				}
+				setRuntimeState({
+					harness: refreshed.harness,
+					isolation: refreshed.isolationConfig,
+					pluginMcpConfig: refreshed.pluginMcpConfig,
+					modelName: refreshed.modelName,
+					workflowRef: refreshed.workflowRef,
+					workflow: refreshed.workflow,
+					workflowPlan: refreshed.workflowPlan,
+				});
+			} catch (error) {
+				console.error(`Error: ${(error as Error).message}`);
+			}
+		},
+		[projectDir, pluginFlags, isolationPreset, verbose],
+	);
+
 	if (phase.type === 'setup') {
 		return (
 			<MaybeProfiler
@@ -2071,6 +2120,7 @@ export default function App({
 					onClear={() => setClearCount(c => c + 1)}
 					onShowSessions={handleShowSessions}
 					onShowSetup={handleShowSetup}
+					onWorkflowSelected={handleWorkflowSelected}
 					inputHistory={inputHistory}
 					sessionTelemetryMetricsRef={sessionTelemetryMetricsRef}
 					onSessionTelemetrySnapshot={metrics => {

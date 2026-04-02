@@ -63,6 +63,7 @@ export type UICommandContext = {
 	clearScreen: () => void;
 	showSessions: () => void;
 	showSetup: () => void;
+	showWorkflowPicker: () => void;
 	sessionStats: SessionStatsSnapshot;
 };
 
