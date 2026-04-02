@@ -40,12 +40,7 @@ export type FlagDef = {
 export const FLAG_REGISTRY: FlagDef[] = [
 	// === MCP Configuration ===
 	{field: 'mcpConfig', flag: '--mcp-config', kind: 'value'},
-	{
-		field: 'strictMcpConfig',
-		flag: '--strict-mcp-config',
-		kind: 'boolean',
-		suppressedBy: 'mcpConfig',
-	},
+	{field: 'strictMcpConfig', flag: '--strict-mcp-config', kind: 'boolean'},
 
 	// === Tool Access ===
 	// allowedTools is intentionally excluded — consumed as hook rules, not CLI flags.

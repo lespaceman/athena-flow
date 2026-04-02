@@ -262,7 +262,7 @@ describe('spawnClaude', () => {
 			expect(args).toContain('10');
 		});
 
-		it('mcpConfig takes precedence over strictMcpConfig', () => {
+		it('emits both --mcp-config and --strict-mcp-config together', () => {
 			spawnClaude({
 				prompt: 'Test',
 				projectDir: '/test',
@@ -275,10 +275,10 @@ describe('spawnClaude', () => {
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
 			expect(args).toContain('--mcp-config');
-			expect(args).not.toContain('--strict-mcp-config');
+			expect(args).toContain('--strict-mcp-config');
 		});
 
-		it('minimal preset disables strict MCP config', () => {
+		it('minimal preset enables strict MCP config', () => {
 			spawnClaude({
 				prompt: 'Test',
 				projectDir: '/test',
@@ -287,7 +287,7 @@ describe('spawnClaude', () => {
 			});
 
 			const args = vi.mocked(childProcess.spawn).mock.calls[0]?.[1] as string[];
-			expect(args).not.toContain('--strict-mcp-config');
+			expect(args).toContain('--strict-mcp-config');
 		});
 
 		it('merges preset with custom overrides', () => {

@@ -10,16 +10,7 @@
  * and doesn't inherit unexpected behavior from user's Claude settings.
  */
 
-/**
- * Preset isolation levels for common use cases.
- *
- * All presets use full settings isolation (`--setting-sources ""`).
- * The difference is in MCP server access:
- *
- * - `strict`: Block all MCP servers (default)
- * - `minimal`: Allow project MCP servers
- * - `permissive`: Allow project MCP servers (same as minimal for now)
- */
+/** Preset key selecting an isolation profile from {@link ISOLATION_PRESETS}. */
 export type IsolationPreset = 'strict' | 'minimal' | 'permissive';
 
 /**
@@ -126,10 +117,30 @@ export type IsolationConfig = {
 };
 
 /**
+ * Claude Code first-party cloud integrations to explicitly block.
+ *
+ * These are Anthropic-hosted MCP services (Gmail, Calendar, Atlassian) that
+ * Claude Code injects regardless of `--setting-sources` or `--strict-mcp-config`.
+ * We block them via `--disallowedTools` as a belt-and-suspenders measure.
+ */
+const DISALLOWED_FIRST_PARTY_MCPS = [
+	'mcp__claude_ai_Gmail__*',
+	'mcp__claude_ai_Google_Calendar__*',
+	'mcp__claude_ai_Atlassian__*',
+];
+
+/**
  * Preset configurations for common isolation use cases.
  *
- * All presets use `--setting-sources ""` for full isolation from Claude's
- * settings. The presets differ in MCP server access and allowed tools.
+ * All presets share:
+ * - `--setting-sources ""` — full isolation from Claude Code settings
+ * - `--strict-mcp-config` — only MCP servers from athena's `--mcp-config`
+ * - `--disallowedTools` — explicitly block first-party cloud integrations
+ *
+ * Presets differ only in the allowedTools whitelist:
+ * - `strict`:     Core code tools only (default)
+ * - `minimal`:    Core + web + subagents + MCP wildcard
+ * - `permissive`: Core + web + subagents + notebooks + MCP wildcard
  */
 export const ISOLATION_PRESETS: Record<
 	IsolationPreset,
@@ -138,23 +149,23 @@ export const ISOLATION_PRESETS: Record<
 	/**
 	 * Strict isolation (default):
 	 * - No Claude settings loaded (full isolation)
-	 * - Block all MCP servers
+	 * - Only MCP servers from athena's --mcp-config
 	 * - Allow core code tools (read, edit, search, bash)
-	 * - No network or MCP tools
 	 */
 	strict: {
 		strictMcpConfig: true,
 		allowedTools: ['Read', 'Edit', 'Glob', 'Grep', 'Bash', 'Write'],
+		disallowedTools: DISALLOWED_FIRST_PARTY_MCPS,
 	},
 
 	/**
 	 * Minimal isolation:
 	 * - No Claude settings loaded (full isolation)
-	 * - Allow project MCP servers
-	 * - Allow core tools + web access + subagents
+	 * - Only MCP servers from athena's --mcp-config
+	 * - Allow core tools + web access + subagents + plugin MCP
 	 */
 	minimal: {
-		strictMcpConfig: false,
+		strictMcpConfig: true,
 		allowedTools: [
 			'Read',
 			'Edit',
@@ -169,16 +180,17 @@ export const ISOLATION_PRESETS: Record<
 			'Skill',
 			'mcp__*',
 		],
+		disallowedTools: DISALLOWED_FIRST_PARTY_MCPS,
 	},
 
 	/**
 	 * Permissive:
 	 * - No Claude settings loaded (full isolation)
-	 * - Allow project MCP servers
-	 * - Allow all tools including MCP wildcard
+	 * - Only MCP servers from athena's --mcp-config
+	 * - Allow all tools including MCP wildcard + notebooks
 	 */
 	permissive: {
-		strictMcpConfig: false,
+		strictMcpConfig: true,
 		allowedTools: [
 			'Read',
 			'Edit',
@@ -194,6 +206,7 @@ export const ISOLATION_PRESETS: Record<
 			'NotebookEdit',
 			'mcp__*',
 		],
+		disallowedTools: DISALLOWED_FIRST_PARTY_MCPS,
 	},
 };
 

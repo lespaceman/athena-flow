@@ -216,16 +216,16 @@ describe('buildIsolationArgs', () => {
 		});
 	});
 
-	// === suppressedBy ===
-	describe('suppressedBy logic', () => {
-		it('should suppress strictMcpConfig when mcpConfig is set', () => {
+	// === strictMcpConfig + mcpConfig ===
+	describe('strictMcpConfig with mcpConfig', () => {
+		it('should emit both --mcp-config and --strict-mcp-config together', () => {
 			const args = buildIsolationArgs({
 				mcpConfig: '/path/to/mcp.json',
 				strictMcpConfig: true,
 			});
 			expect(args).toContain('--mcp-config');
 			expect(args).toContain('/path/to/mcp.json');
-			expect(args).not.toContain('--strict-mcp-config');
+			expect(args).toContain('--strict-mcp-config');
 		});
 
 		it('should emit strictMcpConfig when mcpConfig is not set', () => {
@@ -233,13 +233,14 @@ describe('buildIsolationArgs', () => {
 			expect(args).toEqual(['--strict-mcp-config']);
 		});
 
-		it('should not emit strictMcpConfig when mcpConfig is set even if strictMcpConfig is true', () => {
+		it('should emit both flags when both are set', () => {
 			const args = buildIsolationArgs({
 				mcpConfig: 'config.json',
 				strictMcpConfig: true,
 			});
-			// strictMcpConfig should be suppressed
-			expect(args).toEqual(['--mcp-config', 'config.json']);
+			expect(args).toContain('--mcp-config');
+			expect(args).toContain('config.json');
+			expect(args).toContain('--strict-mcp-config');
 		});
 	});
 
@@ -248,7 +249,7 @@ describe('buildIsolationArgs', () => {
 		it('should produce correct args for a fully populated config', () => {
 			const config: IsolationConfig = {
 				mcpConfig: '/mcp.json',
-				strictMcpConfig: true, // suppressed by mcpConfig
+				strictMcpConfig: true,
 				allowedTools: ['Bash', 'Read'],
 				disallowedTools: ['Write'],
 				tools: 'default',
@@ -280,9 +281,9 @@ describe('buildIsolationArgs', () => {
 
 			const args = buildIsolationArgs(config);
 
-			// mcpConfig present, strictMcpConfig suppressed
+			// mcpConfig and strictMcpConfig both emitted
 			expect(args).toContain('--mcp-config');
-			expect(args).not.toContain('--strict-mcp-config');
+			expect(args).toContain('--strict-mcp-config');
 
 			// Value flags
 			expect(args).toContain('--tools');

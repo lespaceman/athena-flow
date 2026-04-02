@@ -41,10 +41,10 @@ describe('ISOLATION_PRESETS', () => {
 		expect(preset.allowedTools).toContain('mcp__*');
 	});
 
-	it('all presets should include strictMcpConfig', () => {
+	it('all presets should enable strictMcpConfig', () => {
 		expect(ISOLATION_PRESETS.strict.strictMcpConfig).toBe(true);
-		expect(ISOLATION_PRESETS.minimal.strictMcpConfig).toBe(false);
-		expect(ISOLATION_PRESETS.permissive.strictMcpConfig).toBe(false);
+		expect(ISOLATION_PRESETS.minimal.strictMcpConfig).toBe(true);
+		expect(ISOLATION_PRESETS.permissive.strictMcpConfig).toBe(true);
 	});
 });
 
