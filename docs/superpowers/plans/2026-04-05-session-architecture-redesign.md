@@ -622,7 +622,7 @@ git commit -m "feat(sessions): add schema v5 with workflow_runs table and adapte
 
 - [ ] **Step 1: Write the tests**
 
-Add to `src/infra/sessions/store.test.ts`:
+Add to `src/infra/sessions/store.test.ts`. Note: the `makeRuntimeEvent` helper already exists in this test file (defined around line 8). The new tests use it.
 
 ```typescript
 it('persists a workflow run via upsert', () => {
@@ -992,6 +992,9 @@ describe('createWorkflowRunner', () => {
 		const trackerPath = path.join(trackerDir, 'tracker.md');
 
 		let turnCount = 0;
+		// handleRef is declared here and assigned after createWorkflowRunner returns.
+		// The mock captures it via closure. This is safe because startTurn runs async —
+		// by the time the mock executes, handleRef has already been assigned.
 		let handleRef: ReturnType<typeof createWorkflowRunner>;
 
 		const startTurn = vi.fn().mockImplementation(async () => {
@@ -1462,12 +1465,39 @@ git commit -m "feat(workflows): add WorkflowRunner unified core loop"
 
 - Modify: `src/app/exec/runner.ts`
 
+**Design notes:**
+
+- The outer `currentIteration` variable is **removed**. The runner tracks iterations internally. The `onIterationComplete` callback receives the snapshot with `iteration` for JSON event emission.
+- The `startTurn` callback is a **thin passthrough** — it calls `sessionController.startTurn` and returns the raw result. No `hasFailure()` check, no event emission, no token accumulation inside the callback. External failures (registered by the runtime event handler concurrently) are checked **after** `handle.result` resolves.
+- Token recording and `process.started`/`process.exited` events move to `onIterationComplete` or are emitted around the `handle.result` await.
+
 - [ ] **Step 1: Replace the while loop in `runExec`**
 
 In `src/app/exec/runner.ts`, add the import:
 
 ```typescript
 import {createWorkflowRunner} from '../../core/workflows/workflowRunner';
+```
+
+Remove these imports (no longer used):
+
+```typescript
+// Remove:
+import {
+	cleanupWorkflowRun,
+	createWorkflowRunState,
+	prepareWorkflowTurn,
+	shouldContinueWorkflowRun,
+} from '../../core/workflows/sessionPlan';
+import {DEFAULT_TRACKER_PATH} from '../../core/workflows/loopManager';
+```
+
+Remove these variables that are no longer needed:
+
+```typescript
+// Remove:
+let currentIteration = 0;
+let workflowState: ReturnType<typeof createWorkflowRunState> | null = null;
 ```
 
 Replace the block from `const workflow = options.workflow;` through the end of the `while` loop (approximately lines 365-488) with:
@@ -1491,15 +1521,6 @@ const handle = createWorkflowRunner({
 	prompt: options.prompt,
 	initialContinuation: nextContinuation,
 	startTurn: async turnInput => {
-		currentIteration += 1;
-		output.emitJsonEvent('process.started', {
-			iteration: currentIteration,
-			resumeSessionId:
-				turnInput.continuation.mode === 'resume'
-					? turnInput.continuation.handle
-					: null,
-		});
-
 		const turnResult = await sessionController.startTurn({
 			prompt: turnInput.prompt,
 			continuation: turnInput.continuation,
@@ -1507,16 +1528,9 @@ const handle = createWorkflowRunner({
 			onStderrLine: message => output.log(message),
 		});
 
-		cumulativeTokens = mergeTokenUsage(cumulativeTokens, turnResult.tokens);
 		if (turnResult.streamMessage) {
 			streamFinalMessage = turnResult.streamMessage;
 		}
-
-		output.emitJsonEvent('process.exited', {
-			iteration: currentIteration,
-			exitCode: turnResult.exitCode,
-			tokens: turnResult.tokens,
-		});
 
 		const sessionIdForTokens = currentAdapterSessionId();
 		if (sessionIdForTokens !== null) {
@@ -1526,14 +1540,6 @@ const handle = createWorkflowRunner({
 				message => output.warn(message),
 				'recordTokens failed',
 			);
-		}
-
-		if (hasFailure()) {
-			return {
-				...turnResult,
-				exitCode: turnResult.exitCode ?? 1,
-				error: new Error(failure!.message),
-			};
 		}
 
 		return turnResult;
@@ -1548,7 +1554,10 @@ const handle = createWorkflowRunner({
 	},
 	abortCurrentTurn: () => void sessionController.kill(),
 	onIterationComplete: runSnapshot => {
-		output.emitJsonEvent('iteration.complete', runSnapshot);
+		output.emitJsonEvent('iteration.complete', {
+			iteration: runSnapshot.iteration,
+			status: runSnapshot.status,
+		});
 	},
 });
 
@@ -1557,67 +1566,53 @@ const activeRunId = handle.runId;
 
 const runResult = await handle.result;
 
-// Map runner terminal status to exec failure if applicable
-if (runResult.status === 'blocked') {
-	registerFailure(
-		workflowFailure(
-			'blocked',
-			runResult.stopReason
-				? `Workflow blocked: ${runResult.stopReason}`
-				: 'Workflow blocked.',
-		),
-	);
-} else if (runResult.status === 'exhausted') {
-	registerFailure(
-		workflowFailure(
-			'exhausted',
-			`Workflow reached the maximum of ${workflow?.loop?.maxIterations ?? 0} iterations.`,
-		),
-	);
-} else if (runResult.status === 'failed' && !failure) {
-	registerFailure({
-		kind: 'process',
-		message: runResult.stopReason ?? 'Workflow run failed.',
-	});
+// Accumulate tokens from the runner result
+cumulativeTokens = runResult.tokens;
+
+// Map runner terminal status to exec failure if applicable.
+// External failures (from runtime event handler) take precedence — check !failure first.
+if (!failure) {
+	if (runResult.status === 'blocked') {
+		registerFailure(
+			workflowFailure(
+				'blocked',
+				runResult.stopReason
+					? `Workflow blocked: ${runResult.stopReason}`
+					: 'Workflow blocked.',
+			),
+		);
+	} else if (runResult.status === 'exhausted') {
+		registerFailure(
+			workflowFailure(
+				'exhausted',
+				`Workflow reached the maximum of ${workflow?.loop?.maxIterations ?? 0} iterations.`,
+			),
+		);
+	} else if (runResult.status === 'failed') {
+		registerFailure({
+			kind: 'process',
+			message: runResult.stopReason ?? 'Workflow run failed.',
+		});
+	}
 }
 ```
 
-Also remove the now-unused imports from `sessionPlan`:
+Remove the `workflowState` cleanup from the `finally` block:
 
 ```typescript
-// Remove: cleanupWorkflowRun, createWorkflowRunState, shouldContinueWorkflowRun
-// Keep: prepareWorkflowTurn (still needed? No — the runner handles it. Remove all sessionPlan imports.)
-```
-
-Actually, remove the entire sessionPlan import line and the `DEFAULT_TRACKER_PATH` import from loopManager:
-
-```typescript
-// Remove these:
-import {
-	cleanupWorkflowRun,
-	createWorkflowRunState,
-	prepareWorkflowTurn,
-	shouldContinueWorkflowRun,
-} from '../../core/workflows/sessionPlan';
-import {DEFAULT_TRACKER_PATH} from '../../core/workflows/loopManager';
-```
-
-The `workflowFailure` helper and `ExecWorkflowFailureState` type are still used. But `missing_tracker` is now handled inside the runner (maps to `failed` status). Update the post-result mapping: remove `missing_tracker` from the runner result handling since it comes through as `failed` with a stop reason.
-
-Remove the `workflowState` variable and its cleanup in the `finally` block:
-
-```typescript
-// Remove:
-let workflowState: ReturnType<typeof createWorkflowRunState> | null = null;
-// ...
+// Remove from finally:
 if (workflowState) {
 	cleanupWorkflowRun(workflowState);
 }
 ```
 
-In the runtime event handler, add `linkAdapterSession`:
+In the runtime event handler, add `linkAdapterSession`. The `activeRunId` variable is declared before `handle` is created, so it's available in the closure. However, the event handler is registered before the runner starts. Initialize `activeRunId` as `let` and set it after creating the handle:
 
 ```typescript
+// Declare before the event handler:
+let activeRunId: string | null = null;
+
+// Inside the existing runtime.onEvent handler, after the adapterSessionId assignment:
 const unsubscribeEvent = runtime.onEvent((runtimeEvent: RuntimeEvent) => {
 	adapterSessionId = runtimeEvent.sessionId;
 
@@ -1625,12 +1620,18 @@ const unsubscribeEvent = runtime.onEvent((runtimeEvent: RuntimeEvent) => {
 	if (runtimeEvent.sessionId && activeRunId) {
 		safePersist(
 			store,
-			() => store.linkAdapterSession(runtimeEvent.sessionId!, activeRunId),
+			() => store.linkAdapterSession(runtimeEvent.sessionId!, activeRunId!),
 			message => output.warn(message),
 			'linkAdapterSession failed',
 		);
 	}
 	// ... rest of handler unchanged
+```
+
+Then after `createWorkflowRunner`:
+
+```typescript
+activeRunId = handle.runId;
 ```
 
 Note: `linkAdapterSession` uses UPDATE so calling it multiple times for the same adapter session is idempotent.
@@ -1666,8 +1667,101 @@ git commit -m "refactor(exec): replace while loop with WorkflowRunner"
 - Modify: `src/core/workflows/useWorkflowSessionController.ts`
 - Modify: `src/core/workflows/useWorkflowSessionController.test.ts`
 - Modify: `src/app/providers/RuntimeProvider.tsx`
+- Modify: `src/app/process/useHarnessProcess.ts`
 
-- [ ] **Step 1: Replace the while loop in `useWorkflowSessionController`**
+**Design notes:**
+
+The `persistRunState` and `activeRunId` wiring requires threading session store access to `useHarnessProcess`. Currently:
+
+- `HookProvider` (in `RuntimeProvider.tsx`) creates `sessionStore` but does NOT expose it via context
+- `useHarnessProcess` (in `useHarnessProcess.ts`) calls `useWorkflowSessionController` but has no access to the session store
+- `AppShell` calls `useHarnessProcess` and is a child of `HookProvider`
+
+**Solution:** Add a `SessionStoreContext` in `RuntimeProvider.tsx` and a `useSessionStore()` hook. Then `useHarnessProcess` can access the store to wire `persistRunState`.
+
+The `activeRunId` property is added to the hook's return type. `useHarnessProcess` already spreads the result (`...workflowController`), so `activeRunId` flows through to `AppShell` automatically. `HarnessProcessResult` doesn't constrain against extra properties since it uses `UseSessionControllerResult & { tokenUsage }`. No type changes needed in the intermediate layer — `activeRunId` is available on the spread result.
+
+- [ ] **Step 1: Add SessionStoreContext to RuntimeProvider**
+
+In `src/app/providers/RuntimeProvider.tsx`, add a new context after the existing ones (after line 17):
+
+```typescript
+import type {SessionStore} from '../../infra/sessions/store';
+
+const SessionStoreContext = createContext<SessionStore | null>(null);
+```
+
+Wrap the children in the new provider inside `HookProvider`, after the existing `RuntimeRefContext.Provider` (around line 122-130):
+
+```typescript
+return (
+	<RuntimeRefContext.Provider value={runtime}>
+		<SessionStoreContext.Provider value={sessionStore}>
+			<HookProviderContent
+				runtime={runtime}
+				allowedTools={allowedTools}
+				sessionStore={sessionStore}
+			>
+				{children}
+			</HookProviderContent>
+		</SessionStoreContext.Provider>
+	</RuntimeRefContext.Provider>
+);
+```
+
+Add the hook export after the existing `useRuntime`:
+
+```typescript
+export function useSessionStore(): SessionStore | null {
+	return useContext(SessionStoreContext);
+}
+```
+
+- [ ] **Step 2: Wire `persistRunState` in `useHarnessProcess`**
+
+In `src/app/process/useHarnessProcess.ts`, add the import:
+
+```typescript
+import {useSessionStore} from '../providers/RuntimeProvider';
+```
+
+Inside `useHarnessProcess`, get the store and pass it:
+
+```typescript
+export function useHarnessProcess(
+	input: UseHarnessProcessInput,
+): HarnessProcessResult {
+	const runtime = useRuntime();
+	const sessionStore = useSessionStore();
+	const adapter = resolveHarnessAdapter(input.harness);
+	const controller = adapter.useSessionController({
+		projectDir: input.projectDir,
+		instanceId: input.instanceId,
+		processConfig: input.isolation,
+		pluginMcpConfig: input.pluginMcpConfig,
+		verbose: input.verbose,
+		workflow: input.workflow,
+		workflowPlan: input.workflowPlan,
+		options: input.options,
+		runtime,
+	});
+	const workflowController = useWorkflowSessionController(controller, {
+		projectDir: input.projectDir,
+		sessionId: input.athenaSessionId,
+		workflow: input.workflow,
+		persistRunState: sessionStore
+			? snapshot => sessionStore.persistRun(snapshot)
+			: undefined,
+	});
+
+	return {
+		...workflowController,
+		tokenUsage: workflowController.usage,
+	};
+}
+```
+
+- [ ] **Step 3: Replace the while loop in `useWorkflowSessionController`**
 
 Replace the entire content of `src/core/workflows/useWorkflowSessionController.ts`:
 
@@ -1814,46 +1908,24 @@ export function useWorkflowSessionController(
 }
 ```
 
-- [ ] **Step 2: Update the test file**
-
-The existing tests in `useWorkflowSessionController.test.ts` test the loop behavior via the hook. They should still pass with the new implementation since the external contract is the same. Run them first:
+- [ ] **Step 4: Run the hook tests**
 
 Run: `npx vitest run src/core/workflows/useWorkflowSessionController.test.ts`
 
-If tests fail due to the new `persistRunState` parameter, update the test's `renderHook` calls to pass it:
+The existing tests should pass — `persistRunState` is optional (defaults to no-op) and `activeRunId` is an additive property that doesn't affect existing assertions.
 
-In each `renderHook` call that uses `useWorkflowSessionController`, the second argument object needs no change — `persistRunState` is optional and defaults to a no-op.
-
-If the hook's return type changed (added `activeRunId`), tests accessing `result.current` may need updating, but since `activeRunId` is additive, existing tests should pass.
-
-- [ ] **Step 3: Expose `activeRunId` in RuntimeProvider**
-
-In `src/app/providers/RuntimeProvider.tsx`, find where `useWorkflowSessionController` is used and ensure the `persistRunState` callback is wired to the session store. Search for the usage:
-
-The hook is actually used in `src/app/process/useHarnessProcess.ts` (which calls `useWorkflowSessionController`). Read that file to understand the wiring, then determine where to pass `persistRunState`.
-
-If `useHarnessProcess.ts` passes through to `useWorkflowSessionController`, add `persistRunState` to the input it passes. The session store is available from `HookProvider` context — the `persistRunState` callback should be:
-
-```typescript
-persistRunState: (snapshot) => {
-	sessionStore?.persistRun(snapshot);
-},
-```
-
-The exact wiring depends on how `useHarnessProcess.ts` accesses the session store. If it doesn't have access, thread it through from the provider.
-
-- [ ] **Step 4: Run all tests**
+- [ ] **Step 5: Run all tests**
 
 Run: `npx vitest run`
 Expected: All tests pass
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/core/workflows/useWorkflowSessionController.ts \
   src/core/workflows/useWorkflowSessionController.test.ts \
   src/app/providers/RuntimeProvider.tsx src/app/process/useHarnessProcess.ts
-git commit -m "refactor(interactive): replace while loop with WorkflowRunner"
+git commit -m "refactor(interactive): replace while loop with WorkflowRunner, add SessionStoreContext"
 ```
 
 ---
