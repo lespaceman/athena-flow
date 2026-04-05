@@ -1,19 +1,49 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "PluginListResponse",
+	"type": "object",
+	"required": ["marketplaces"],
+	"properties": {
+		"featuredPluginIds": {
+			"default": [],
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
+		},
+		"marketplaceLoadErrors": {
+			"default": [],
+			"type": "array",
+			"items": {
+				"$ref": "#/definitions/MarketplaceLoadErrorInfo"
+			}
+		},
+		"marketplaces": {
+			"type": "array",
+			"items": {
+				"$ref": "#/definitions/PluginMarketplaceEntry"
+			}
+		},
+		"remoteSyncError": {
+			"type": ["string", "null"]
+		}
+	},
 	"definitions": {
 		"AbsolutePathBuf": {
 			"description": "A path that is guaranteed to be absolute and normalized (though it is not guaranteed to be canonicalized or exist on the filesystem).\n\nIMPORTANT: When deserializing an `AbsolutePathBuf`, a base path must be set using [AbsolutePathBufGuard::new]. If no base path is set, the deserialization will fail unless the path being deserialized is already absolute.",
 			"type": "string"
 		},
 		"MarketplaceInterface": {
+			"type": "object",
 			"properties": {
 				"displayName": {
 					"type": ["string", "null"]
 				}
-			},
-			"type": "object"
+			}
 		},
 		"MarketplaceLoadErrorInfo": {
+			"type": "object",
+			"required": ["marketplacePath", "message"],
 			"properties": {
 				"marketplacePath": {
 					"$ref": "#/definitions/AbsolutePathBuf"
@@ -21,28 +51,28 @@
 				"message": {
 					"type": "string"
 				}
-			},
-			"required": ["marketplacePath", "message"],
-			"type": "object"
+			}
 		},
 		"PluginAuthPolicy": {
-			"enum": ["ON_INSTALL", "ON_USE"],
-			"type": "string"
+			"type": "string",
+			"enum": ["ON_INSTALL", "ON_USE"]
 		},
 		"PluginInstallPolicy": {
-			"enum": ["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"],
-			"type": "string"
+			"type": "string",
+			"enum": ["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"]
 		},
 		"PluginInterface": {
+			"type": "object",
+			"required": ["capabilities", "screenshots"],
 			"properties": {
 				"brandColor": {
 					"type": ["string", "null"]
 				},
 				"capabilities": {
+					"type": "array",
 					"items": {
 						"type": "string"
-					},
-					"type": "array"
+					}
 				},
 				"category": {
 					"type": ["string", "null"]
@@ -59,10 +89,10 @@
 				},
 				"defaultPrompt": {
 					"description": "Starter prompts for the plugin. Capped at 3 entries with a maximum of 128 characters per entry.",
+					"type": ["array", "null"],
 					"items": {
 						"type": "string"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"developerName": {
 					"type": ["string", "null"]
@@ -87,10 +117,10 @@
 					"type": ["string", "null"]
 				},
 				"screenshots": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/AbsolutePathBuf"
-					},
-					"type": "array"
+					}
 				},
 				"shortDescription": {
 					"type": ["string", "null"]
@@ -101,11 +131,11 @@
 				"websiteUrl": {
 					"type": ["string", "null"]
 				}
-			},
-			"required": ["capabilities", "screenshots"],
-			"type": "object"
+			}
 		},
 		"PluginMarketplaceEntry": {
+			"type": "object",
+			"required": ["name", "path", "plugins"],
 			"properties": {
 				"interface": {
 					"anyOf": [
@@ -124,35 +154,43 @@
 					"$ref": "#/definitions/AbsolutePathBuf"
 				},
 				"plugins": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/PluginSummary"
-					},
-					"type": "array"
+					}
 				}
-			},
-			"required": ["name", "path", "plugins"],
-			"type": "object"
+			}
 		},
 		"PluginSource": {
 			"oneOf": [
 				{
+					"type": "object",
+					"required": ["path", "type"],
 					"properties": {
 						"path": {
 							"$ref": "#/definitions/AbsolutePathBuf"
 						},
 						"type": {
+							"type": "string",
 							"enum": ["local"],
-							"title": "LocalPluginSourceType",
-							"type": "string"
+							"title": "LocalPluginSourceType"
 						}
 					},
-					"required": ["path", "type"],
-					"title": "LocalPluginSource",
-					"type": "object"
+					"title": "LocalPluginSource"
 				}
 			]
 		},
 		"PluginSummary": {
+			"type": "object",
+			"required": [
+				"authPolicy",
+				"enabled",
+				"id",
+				"installPolicy",
+				"installed",
+				"name",
+				"source"
+			],
 			"properties": {
 				"authPolicy": {
 					"$ref": "#/definitions/PluginAuthPolicy"
@@ -185,45 +223,7 @@
 				"source": {
 					"$ref": "#/definitions/PluginSource"
 				}
-			},
-			"required": [
-				"authPolicy",
-				"enabled",
-				"id",
-				"installPolicy",
-				"installed",
-				"name",
-				"source"
-			],
-			"type": "object"
+			}
 		}
-	},
-	"properties": {
-		"featuredPluginIds": {
-			"default": [],
-			"items": {
-				"type": "string"
-			},
-			"type": "array"
-		},
-		"marketplaceLoadErrors": {
-			"default": [],
-			"items": {
-				"$ref": "#/definitions/MarketplaceLoadErrorInfo"
-			},
-			"type": "array"
-		},
-		"marketplaces": {
-			"items": {
-				"$ref": "#/definitions/PluginMarketplaceEntry"
-			},
-			"type": "array"
-		},
-		"remoteSyncError": {
-			"type": ["string", "null"]
-		}
-	},
-	"required": ["marketplaces"],
-	"title": "PluginListResponse",
-	"type": "object"
+	}
 }

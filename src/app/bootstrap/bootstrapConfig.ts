@@ -129,7 +129,7 @@ export function bootstrapRuntimeConfig({
 						: undefined,
 					harness !== 'openai-codex',
 				)
-			: {mcpConfig: undefined, workflows: [] as WorkflowConfig[]};
+			: {mcpConfig: undefined};
 	const workflowPluginMcpConfig =
 		harness === 'openai-codex'
 			? buildPluginMcpConfig(
@@ -142,16 +142,8 @@ export function bootstrapRuntimeConfig({
 			: undefined;
 	const pluginMcpConfig =
 		harness === 'openai-codex' ? undefined : pluginResult.mcpConfig;
-	const workflows = pluginResult.workflows;
 
-	let activeWorkflow: WorkflowConfig | undefined = resolvedWorkflow;
-	if (!activeWorkflow && workflows.length === 1) {
-		activeWorkflow = workflows[0];
-	} else if (!activeWorkflow && workflows.length > 1) {
-		warnings.push(
-			`Multiple workflows found: ${workflows.map(w => w.name).join(', ')}. Set one with \`athena-flow workflow use <name>\`.`,
-		);
-	}
+	const activeWorkflow: WorkflowConfig | undefined = resolvedWorkflow;
 
 	const additionalDirectories = [
 		...globalConfig.additionalDirectories,

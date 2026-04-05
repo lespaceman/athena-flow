@@ -81,7 +81,6 @@ describe('registerPlugins', () => {
 		const result = registerPlugins(['/plugins/a']);
 
 		expect(result.mcpConfig).toBeUndefined();
-		expect(result.workflows).toEqual([]);
 	});
 
 	it('returns a merged MCP config path when plugins have .mcp.json', () => {
@@ -171,34 +170,16 @@ describe('registerPlugins', () => {
 		expect(() => registerPlugins(['/plugins/a', '/plugins/b'])).not.toThrow();
 	});
 
-	it('discovers workflow.json from plugin directories', () => {
-		const workflow = {
-			name: 'e2e-test-builder',
-			promptTemplate: 'Use /add-e2e-tests {input}',
-			loop: {
-				enabled: true,
-				completionPromise: 'E2E COMPLETE',
-				maxIterations: 15,
+	it('ignores workflow.json files in plugin directories', () => {
+		addPlugin('/plugins/a', {
+			workflow: {
+				name: 'plugin-workflow',
+				promptTemplate: '{input}',
+				workflowFile: 'workflow.md',
 			},
-			isolation: 'minimal',
-		};
-		addPlugin('/plugins/a', {workflow});
+		});
 
-		const result = registerPlugins(['/plugins/a']);
-
-		expect(result.workflows).toHaveLength(1);
-		expect(result.workflows[0]!.name).toBe('e2e-test-builder');
-		expect(result.workflows[0]!.promptTemplate).toBe(
-			'Use /add-e2e-tests {input}',
-		);
-	});
-
-	it('returns empty workflows array when no workflow.json exists', () => {
-		addPlugin('/plugins/a');
-
-		const result = registerPlugins(['/plugins/a']);
-
-		expect(result.workflows).toEqual([]);
+		expect(() => registerPlugins(['/plugins/a'])).not.toThrow();
 	});
 
 	it('applies mcpServerOptions to merge env overrides', async () => {
@@ -297,7 +278,7 @@ describe('buildPluginMcpConfig', () => {
 });
 
 describe('registerPlugins with MCP disabled', () => {
-	it('discovers workflows and commands without building MCP config', async () => {
+	it('registers commands without building MCP config', async () => {
 		const fs = await import('node:fs');
 		addPlugin('/plugins/a', {
 			mcpServers: {serverA: {command: 'node', args: ['a.js']}},
@@ -312,13 +293,6 @@ describe('registerPlugins with MCP disabled', () => {
 		const result = registerPlugins(['/plugins/a'], undefined, false);
 
 		expect(result.mcpConfig).toBeUndefined();
-		expect(result.workflows).toEqual([
-			{
-				name: 'test-workflow',
-				plugins: [],
-				promptTemplate: '{input}',
-			},
-		]);
 		expect(get('cmd-a')).toBeDefined();
 		expect(vi.mocked(fs.default.writeFileSync)).not.toHaveBeenCalled();
 	});

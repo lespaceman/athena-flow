@@ -200,14 +200,14 @@ describe('createCodexServer', () => {
 		await runtime.start();
 		await runtime.sendPrompt('Hello Codex', {
 			developerInstructions: 'Use the workflow tracker.',
+			plugins: [
+				{
+					ref: 'plugin-a@owner/repo',
+					pluginName: 'plugin-a',
+					marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
+				},
+			],
 			config: {
-				_athenaWorkflowCodexPlugins: [
-					{
-						ref: 'plugin-a@owner/repo',
-						pluginName: 'plugin-a',
-						marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
-					},
-				],
 				mcp_servers: {
 					'agent-web-interface': {
 						command: 'npx',
@@ -272,15 +272,14 @@ describe('createCodexServer', () => {
 
 		await runtime.start();
 		await runtime.sendPrompt('Hello Codex', {
-			config: {
-				_athenaWorkflowCodexPlugins: [
-					{
-						ref: 'plugin-a@owner/repo',
-						pluginName: 'plugin-a',
-						marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
-					},
-				],
-			},
+			plugins: [
+				{
+					ref: 'plugin-a@owner/repo',
+					pluginName: 'plugin-a',
+					marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
+				},
+			],
+			config: {},
 		});
 
 		const manager = mockState.current;

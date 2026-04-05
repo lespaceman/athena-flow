@@ -7,15 +7,37 @@
 
 export type LoopConfig = {
 	enabled: boolean;
-	completionMarker: string;
+	/**
+	 * Substring that signals the workflow completed successfully.
+	 * Defaults to `<!-- WORKFLOW_COMPLETE -->` when omitted.
+	 */
+	completionMarker?: string;
 	maxIterations: number;
-	/** Optional prefix to detect blocked state (e.g. "<!-- E2E_BLOCKED") */
+	/**
+	 * Prefix that signals the workflow is blocked.
+	 * Defaults to `<!-- WORKFLOW_BLOCKED` when omitted.
+	 */
 	blockedMarker?: string;
-	/** Relative path to tracker file in project root (e.g. "e2e-tracker.md") */
+	/**
+	 * Relative path to the tracker file. Supports `{sessionId}` substitution.
+	 * Defaults to `.athena/{sessionId}/tracker.md` when omitted.
+	 */
 	trackerPath?: string;
 	/** Prompt template for iterations 2+; supports {trackerPath} placeholder */
 	continuePrompt?: string;
 };
+
+/**
+ * Terminal reasons for a workflow loop.
+ *
+ * The runner uses this to distinguish a clean completion from an execution
+ * problem such as the tracker file disappearing.
+ */
+export type LoopStopReason =
+	| 'completed'
+	| 'blocked'
+	| 'max_iterations'
+	| 'missing_tracker';
 
 /**
  * A plugin dependency with an explicit version pin.
@@ -52,8 +74,8 @@ export type WorkflowConfig = {
 	isolation?: string;
 	model?: string;
 	env?: Record<string, string>;
-	/** Path to system prompt file, passed as --append-system-prompt-file */
-	systemPromptFile?: string;
+	/** Path to workflow orchestration doc, passed as --append-system-prompt-file */
+	workflowFile?: string;
 	/** Example prompts shown in the empty-state onboarding screen */
 	examplePrompts?: string[];
 };

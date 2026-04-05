@@ -245,15 +245,13 @@ describe('bootstrapRuntimeConfig', () => {
 			activeWorkflow: 'e2e-test-builder',
 		});
 		readConfigMock.mockReturnValue(emptyConfig);
+		resolveWorkflowMock.mockReturnValue({
+			name: 'e2e-test-builder',
+			plugins: [],
+			promptTemplate: '{input}',
+		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: undefined,
-			workflows: [
-				{
-					name: 'plugin-workflow',
-					plugins: [],
-					promptTemplate: '{input}',
-				},
-			],
 		});
 		readClaudeSettingsModelMock.mockReturnValue('claude-settings-model');
 
@@ -263,9 +261,9 @@ describe('bootstrapRuntimeConfig', () => {
 			isolationPreset: 'strict',
 		});
 
-		expect(resolveWorkflowMock).not.toHaveBeenCalled();
-		expect(result.workflow?.name).toBe('plugin-workflow');
-		expect(result.workflowRef).toBe('plugin-workflow');
+		expect(resolveWorkflowMock).toHaveBeenCalledWith('e2e-test-builder');
+		expect(result.workflow?.name).toBe('e2e-test-builder');
+		expect(result.workflowRef).toBe('e2e-test-builder');
 		expect(result.workflowPlan).toEqual({
 			workflow: result.workflow,
 			resolvedPlugins: [],
@@ -278,18 +276,19 @@ describe('bootstrapRuntimeConfig', () => {
 		expect(result.modelName).toBe('claude-settings-model');
 	});
 
-	it('warns with workflow use command when multiple plugin workflows are found', () => {
+	it('does not fall back to plugin-discovered workflows', () => {
 		readGlobalConfigMock.mockReturnValue({
 			...emptyConfig,
 			plugins: ['/global-plugin'],
 		});
 		readConfigMock.mockReturnValue(emptyConfig);
+		resolveWorkflowMock.mockReturnValue({
+			name: 'default',
+			plugins: [],
+			promptTemplate: '{input}',
+		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: undefined,
-			workflows: [
-				{name: 'alpha', plugins: [], promptTemplate: '{input}'},
-				{name: 'beta', plugins: [], promptTemplate: '{input}'},
-			],
 		});
 		readClaudeSettingsModelMock.mockReturnValue('claude-settings-model');
 
@@ -299,9 +298,9 @@ describe('bootstrapRuntimeConfig', () => {
 			isolationPreset: 'strict',
 		});
 
-		expect(result.warnings).toEqual([
-			'Multiple workflows found: alpha, beta. Set one with `athena-flow workflow use <name>`.',
-		]);
+		expect(resolveWorkflowMock).toHaveBeenCalledWith('default');
+		expect(result.workflowRef).toBe('default');
+		expect(result.warnings).toEqual([]);
 	});
 
 	it('defaults to "default" workflow when no active workflow is configured', () => {
@@ -354,7 +353,6 @@ describe('bootstrapRuntimeConfig', () => {
 		installWorkflowPluginsMock.mockReturnValue([]);
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: undefined,
-			workflows: [],
 		});
 		readClaudeSettingsModelMock.mockReturnValue('claude-settings-model');
 
@@ -388,7 +386,6 @@ describe('bootstrapRuntimeConfig', () => {
 		installWorkflowPluginsMock.mockReturnValue([]);
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: undefined,
-			workflows: [],
 		});
 		readClaudeSettingsModelMock.mockReturnValue('claude-settings-model');
 
@@ -411,7 +408,6 @@ describe('bootstrapRuntimeConfig', () => {
 		readConfigMock.mockReturnValue(emptyConfig);
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: undefined,
-			workflows: [],
 		});
 
 		const result = bootstrapRuntimeConfig({
@@ -464,7 +460,6 @@ describe('bootstrapRuntimeConfig', () => {
 		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/workflow-mcp.json',
-			workflows: [],
 		});
 
 		const result = bootstrapRuntimeConfig({
@@ -550,7 +545,6 @@ describe('bootstrapRuntimeConfig', () => {
 		});
 		registerPluginsMock.mockReturnValue({
 			mcpConfig: '/tmp/all-plugin-mcp.json',
-			workflows: [],
 		});
 		buildPluginMcpConfigMock.mockReturnValue('/tmp/workflow-only-mcp.json');
 

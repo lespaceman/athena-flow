@@ -31,7 +31,8 @@ describe('useWorkflowSessionController', () => {
 	it('applies workflow prompt/system instructions and continues loop turns', async () => {
 		const projectDir = makeTempDir();
 		const promptPath = path.join(projectDir, 'workflow-prompt.md');
-		const trackerPath = path.join(projectDir, 'tracker.md');
+		const trackerPath = path.join(projectDir, '.athena', 'session-1.md');
+		fs.mkdirSync(path.dirname(trackerPath), {recursive: true});
 		fs.writeFileSync(promptPath, 'Always read the tracker.', 'utf-8');
 
 		const spawn = vi
@@ -91,16 +92,17 @@ describe('useWorkflowSessionController', () => {
 				},
 				{
 					projectDir,
+					sessionId: 'session-1',
 					workflow: {
 						name: 'wf',
 						plugins: [],
 						promptTemplate: 'Execute: {input}',
-						systemPromptFile: 'workflow-prompt.md',
+						workflowFile: 'workflow-prompt.md',
 						loop: {
 							enabled: true,
 							completionMarker: '<!-- DONE -->',
 							maxIterations: 5,
-							trackerPath: 'tracker.md',
+							trackerPath: '.athena/{sessionId}.md',
 							continuePrompt: 'Continue with {trackerPath}',
 						},
 					},
@@ -115,26 +117,31 @@ describe('useWorkflowSessionController', () => {
 			});
 		});
 
+		const composedPath = path.join(projectDir, '.composed-system-prompt.md');
 		expect(spawn).toHaveBeenNthCalledWith(
 			1,
 			'Execute: ship it',
 			{mode: 'resume', handle: 'session-1'},
 			{
-				appendSystemPromptFile: promptPath,
-				developerInstructions: 'Always read the tracker.',
+				appendSystemPromptFile: composedPath,
+				developerInstructions: expect.stringContaining(
+					'Always read the tracker.',
+				),
 			},
 		);
 		expect(spawn).toHaveBeenNthCalledWith(
 			2,
-			'Continue with tracker.md',
+			'Continue with .athena/session-1.md',
 			{mode: 'fresh'},
 			{
-				appendSystemPromptFile: promptPath,
-				developerInstructions: 'Always read the tracker.',
+				appendSystemPromptFile: composedPath,
+				developerInstructions: expect.stringContaining(
+					'Always read the tracker.',
+				),
 			},
 		);
 		expect(result.current.isRunning).toBe(false);
-		expect(fs.existsSync(trackerPath)).toBe(false);
+		expect(fs.existsSync(trackerPath)).toBe(true);
 	});
 
 	it('kills an in-flight run before starting a new spawn', async () => {

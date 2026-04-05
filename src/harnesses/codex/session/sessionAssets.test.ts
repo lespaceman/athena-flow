@@ -1,7 +1,10 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
-import {resolveCodexMcpConfig} from './sessionAssets';
+import {
+	resolveCodexMcpConfig,
+	resolveCodexWorkflowPlugins,
+} from './sessionAssets';
 
 vi.mock('node:fs');
 vi.mock('node:os');
@@ -305,7 +308,7 @@ describe('resolveCodexMcpConfig', () => {
 	});
 
 	it('includes Codex workflow plugin refs for Codex-native plugin install', () => {
-		const result = resolveCodexMcpConfig(undefined, {
+		const result = resolveCodexWorkflowPlugins({
 			workflow: {
 				name: 'wf',
 				plugins: [],
@@ -327,14 +330,12 @@ describe('resolveCodexMcpConfig', () => {
 			codexPlugins: [],
 		});
 
-		expect(result).toEqual({
-			_athenaWorkflowCodexPlugins: [
-				{
-					ref: 'plugin-a@owner/repo',
-					pluginName: 'plugin-a',
-					marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
-				},
-			],
-		});
+		expect(result).toEqual([
+			{
+				ref: 'plugin-a@owner/repo',
+				pluginName: 'plugin-a',
+				marketplacePath: '/cache/repo/.agents/plugins/marketplace.json',
+			},
+		]);
 	});
 });

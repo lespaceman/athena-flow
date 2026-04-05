@@ -1,6 +1,8 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "AppsListParams",
 	"description": "EXPERIMENTAL - list available apps/connectors.",
+	"type": "object",
 	"properties": {
 		"cursor": {
 			"description": "Opaque pagination cursor returned by a previous call.",
@@ -12,15 +14,13 @@
 		},
 		"limit": {
 			"description": "Optional page size; defaults to a reasonable server-side value.",
+			"type": ["integer", "null"],
 			"format": "uint32",
-			"minimum": 0.0,
-			"type": ["integer", "null"]
+			"minimum": 0.0
 		},
 		"threadId": {
 			"description": "Optional thread id used to evaluate app feature gating from that thread's config.",
 			"type": ["string", "null"]
 		}
-	},
-	"title": "AppsListParams",
-	"type": "object"
+	}
 }

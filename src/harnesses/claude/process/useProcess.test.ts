@@ -920,7 +920,7 @@ describe('useClaudeProcess', () => {
 			name: 'wf',
 			plugins: [],
 			promptTemplate: 'Wrapped: {input}',
-			systemPromptFile: 'workflow-prompt.md',
+			workflowFile: 'workflow-prompt.md',
 			env: {ATHENA_WORKFLOW: '1'},
 			loop: {
 				enabled: true,

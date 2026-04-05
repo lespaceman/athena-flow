@@ -15,6 +15,7 @@ import {
 	prepareWorkflowTurn,
 	shouldContinueWorkflowRun,
 } from '../../core/workflows/sessionPlan';
+import {DEFAULT_TRACKER_PATH} from '../../core/workflows/loopManager';
 import type {TurnContinuation} from '../../core/runtime/process';
 import {
 	createSessionStore,
@@ -28,7 +29,12 @@ import {findLastMappedAgentMessage, resolveFinalMessage} from './finalMessage';
 import {createExecOutputWriter} from './output';
 import {resolvePermissionPolicy} from './policies';
 import {resolveQuestionPolicy, type PolicyResolution} from './policies';
-import type {ExecRunFailure, ExecRunOptions, ExecRunResult} from './types';
+import type {
+	ExecRunFailure,
+	ExecRunOptions,
+	ExecRunResult,
+	ExecWorkflowFailureState,
+} from './types';
 import {EXEC_EXIT_CODE} from './types';
 
 const NULL_TOKENS: TokenUsage = {
@@ -83,6 +89,17 @@ function policyFailure(
 	return {
 		kind: 'policy',
 		message: resolution.reason || fallbackMessage,
+	};
+}
+
+function workflowFailure(
+	state: ExecWorkflowFailureState,
+	message: string,
+): ExecRunFailure {
+	return {
+		kind: 'workflow',
+		state,
+		message,
 	};
 }
 
@@ -348,6 +365,7 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 		const workflow = options.workflow;
 		workflowState = createWorkflowRunState({
 			projectDir: options.projectDir,
+			sessionId: athenaSessionId,
 			workflow,
 		});
 		for (const warning of workflowState.warnings) {
@@ -434,7 +452,34 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 				break;
 			}
 
-			if (!shouldContinueWorkflowRun(workflowState)) {
+			const stopInfo = shouldContinueWorkflowRun(workflowState);
+			if (stopInfo) {
+				if (stopInfo.reason === 'missing_tracker') {
+					registerFailure(
+						workflowFailure(
+							'missing_tracker',
+							`Workflow tracker missing: ${
+								workflowState.trackerPathForPrompt ?? DEFAULT_TRACKER_PATH
+							}`,
+						),
+					);
+				} else if (stopInfo.reason === 'blocked') {
+					registerFailure(
+						workflowFailure(
+							'blocked',
+							stopInfo.blockedReason
+								? `Workflow blocked: ${stopInfo.blockedReason}`
+								: 'Workflow blocked.',
+						),
+					);
+				} else if (stopInfo.reason === 'max_iterations') {
+					registerFailure(
+						workflowFailure(
+							'exhausted',
+							`Workflow reached the maximum of ${stopInfo.maxIterations} iterations.`,
+						),
+					);
+				}
 				break;
 			}
 
@@ -499,6 +544,11 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 		exitCode = EXEC_EXIT_CODE.TIMEOUT;
 	} else if (failure?.kind === 'output') {
 		exitCode = EXEC_EXIT_CODE.OUTPUT;
+	} else if (failure?.kind === 'workflow') {
+		exitCode =
+			failure.state === 'exhausted'
+				? EXEC_EXIT_CODE.WORKFLOW_EXHAUSTED
+				: EXEC_EXIT_CODE.WORKFLOW_BLOCKED;
 	} else if (failure) {
 		exitCode = EXEC_EXIT_CODE.RUNTIME;
 	}

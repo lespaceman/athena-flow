@@ -1,5 +1,13 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "PluginReadResponse",
+	"type": "object",
+	"required": ["plugin"],
+	"properties": {
+		"plugin": {
+			"$ref": "#/definitions/PluginDetail"
+		}
+	},
 	"definitions": {
 		"AbsolutePathBuf": {
 			"description": "A path that is guaranteed to be absolute and normalized (though it is not guaranteed to be canonicalized or exist on the filesystem).\n\nIMPORTANT: When deserializing an `AbsolutePathBuf`, a base path must be set using [AbsolutePathBufGuard::new]. If no base path is set, the deserialization will fail unless the path being deserialized is already absolute.",
@@ -7,6 +15,8 @@
 		},
 		"AppSummary": {
 			"description": "EXPERIMENTAL - app metadata summary for plugin responses.",
+			"type": "object",
+			"required": ["id", "name", "needsAuth"],
 			"properties": {
 				"description": {
 					"type": ["string", "null"]
@@ -23,21 +33,28 @@
 				"needsAuth": {
 					"type": "boolean"
 				}
-			},
-			"required": ["id", "name", "needsAuth"],
-			"type": "object"
+			}
 		},
 		"PluginAuthPolicy": {
-			"enum": ["ON_INSTALL", "ON_USE"],
-			"type": "string"
+			"type": "string",
+			"enum": ["ON_INSTALL", "ON_USE"]
 		},
 		"PluginDetail": {
+			"type": "object",
+			"required": [
+				"apps",
+				"marketplaceName",
+				"marketplacePath",
+				"mcpServers",
+				"skills",
+				"summary"
+			],
 			"properties": {
 				"apps": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/AppSummary"
-					},
-					"type": "array"
+					}
 				},
 				"description": {
 					"type": ["string", "null"]
@@ -49,45 +66,38 @@
 					"$ref": "#/definitions/AbsolutePathBuf"
 				},
 				"mcpServers": {
+					"type": "array",
 					"items": {
 						"type": "string"
-					},
-					"type": "array"
+					}
 				},
 				"skills": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/SkillSummary"
-					},
-					"type": "array"
+					}
 				},
 				"summary": {
 					"$ref": "#/definitions/PluginSummary"
 				}
-			},
-			"required": [
-				"apps",
-				"marketplaceName",
-				"marketplacePath",
-				"mcpServers",
-				"skills",
-				"summary"
-			],
-			"type": "object"
+			}
 		},
 		"PluginInstallPolicy": {
-			"enum": ["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"],
-			"type": "string"
+			"type": "string",
+			"enum": ["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"]
 		},
 		"PluginInterface": {
+			"type": "object",
+			"required": ["capabilities", "screenshots"],
 			"properties": {
 				"brandColor": {
 					"type": ["string", "null"]
 				},
 				"capabilities": {
+					"type": "array",
 					"items": {
 						"type": "string"
-					},
-					"type": "array"
+					}
 				},
 				"category": {
 					"type": ["string", "null"]
@@ -104,10 +114,10 @@
 				},
 				"defaultPrompt": {
 					"description": "Starter prompts for the plugin. Capped at 3 entries with a maximum of 128 characters per entry.",
+					"type": ["array", "null"],
 					"items": {
 						"type": "string"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"developerName": {
 					"type": ["string", "null"]
@@ -132,10 +142,10 @@
 					"type": ["string", "null"]
 				},
 				"screenshots": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/AbsolutePathBuf"
-					},
-					"type": "array"
+					}
 				},
 				"shortDescription": {
 					"type": ["string", "null"]
@@ -146,30 +156,38 @@
 				"websiteUrl": {
 					"type": ["string", "null"]
 				}
-			},
-			"required": ["capabilities", "screenshots"],
-			"type": "object"
+			}
 		},
 		"PluginSource": {
 			"oneOf": [
 				{
+					"type": "object",
+					"required": ["path", "type"],
 					"properties": {
 						"path": {
 							"$ref": "#/definitions/AbsolutePathBuf"
 						},
 						"type": {
+							"type": "string",
 							"enum": ["local"],
-							"title": "LocalPluginSourceType",
-							"type": "string"
+							"title": "LocalPluginSourceType"
 						}
 					},
-					"required": ["path", "type"],
-					"title": "LocalPluginSource",
-					"type": "object"
+					"title": "LocalPluginSource"
 				}
 			]
 		},
 		"PluginSummary": {
+			"type": "object",
+			"required": [
+				"authPolicy",
+				"enabled",
+				"id",
+				"installPolicy",
+				"installed",
+				"name",
+				"source"
+			],
 			"properties": {
 				"authPolicy": {
 					"$ref": "#/definitions/PluginAuthPolicy"
@@ -202,19 +220,10 @@
 				"source": {
 					"$ref": "#/definitions/PluginSource"
 				}
-			},
-			"required": [
-				"authPolicy",
-				"enabled",
-				"id",
-				"installPolicy",
-				"installed",
-				"name",
-				"source"
-			],
-			"type": "object"
+			}
 		},
 		"SkillInterface": {
+			"type": "object",
 			"properties": {
 				"brandColor": {
 					"type": ["string", "null"]
@@ -234,10 +243,11 @@
 				"shortDescription": {
 					"type": ["string", "null"]
 				}
-			},
-			"type": "object"
+			}
 		},
 		"SkillSummary": {
+			"type": "object",
+			"required": ["description", "enabled", "name", "path"],
 			"properties": {
 				"description": {
 					"type": "string"
@@ -264,17 +274,7 @@
 				"shortDescription": {
 					"type": ["string", "null"]
 				}
-			},
-			"required": ["description", "enabled", "name", "path"],
-			"type": "object"
+			}
 		}
-	},
-	"properties": {
-		"plugin": {
-			"$ref": "#/definitions/PluginDetail"
-		}
-	},
-	"required": ["plugin"],
-	"title": "PluginReadResponse",
-	"type": "object"
+	}
 }

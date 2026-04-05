@@ -4,17 +4,25 @@ import type {HarnessProcessOverride} from '../runtime/process';
 import {applyPromptTemplate} from './applyWorkflow';
 import {
 	buildContinuePrompt,
-	cleanupTrackerFile,
 	createLoopManager,
+	DEFAULT_TRACKER_PATH,
 	type LoopManager,
 } from './loopManager';
-import type {WorkflowConfig} from './types';
+import {STATE_MACHINE_CONTENT} from './stateMachine';
+import type {LoopStopReason, WorkflowConfig} from './types';
 
 export type WorkflowRunState = {
 	workflow?: WorkflowConfig;
 	loopManager: LoopManager | null;
+	trackerPathForPrompt?: string;
 	workflowOverride?: HarnessProcessOverride;
 	warnings: string[];
+};
+
+export type LoopStopInfo = {
+	reason: LoopStopReason;
+	blockedReason?: string;
+	maxIterations: number;
 };
 
 export type PreparedWorkflowTurn = {
@@ -27,26 +35,40 @@ function readWorkflowOverride(
 	projectDir: string,
 	workflow?: WorkflowConfig,
 ): Pick<WorkflowRunState, 'workflowOverride' | 'warnings'> {
-	if (!workflow?.systemPromptFile) {
+	if (!workflow?.workflowFile) {
 		return {workflowOverride: undefined, warnings: []};
 	}
 
-	const resolvedPath = path.isAbsolute(workflow.systemPromptFile)
-		? workflow.systemPromptFile
-		: path.resolve(projectDir, workflow.systemPromptFile);
-	if (!fs.existsSync(resolvedPath)) {
+	const resolvedPath = path.isAbsolute(workflow.workflowFile)
+		? workflow.workflowFile
+		: path.resolve(projectDir, workflow.workflowFile);
+
+	let workflowContent: string;
+	try {
+		workflowContent = fs.readFileSync(resolvedPath, 'utf-8');
+	} catch {
 		return {
 			workflowOverride: undefined,
 			warnings: [
-				`Workflow system prompt file not found: ${workflow.systemPromptFile}. Continuing without workflow system instructions.`,
+				`Workflow file not found: ${workflow.workflowFile}. Continuing without workflow system instructions.`,
 			],
 		};
 	}
 
+	const composed = workflow.loop?.enabled
+		? STATE_MACHINE_CONTENT + '\n\n' + workflowContent
+		: workflowContent;
+
+	// Write composed prompt to a stable file so Claude can read it via
+	// --append-system-prompt-file without a temp-file cleanup concern.
+	const workflowDir = path.dirname(resolvedPath);
+	const composedPath = path.join(workflowDir, '.composed-system-prompt.md');
+	fs.writeFileSync(composedPath, composed, 'utf-8');
+
 	return {
 		workflowOverride: {
-			appendSystemPromptFile: resolvedPath,
-			developerInstructions: fs.readFileSync(resolvedPath, 'utf-8'),
+			appendSystemPromptFile: composedPath,
+			developerInstructions: composed,
 		},
 		warnings: [],
 	};
@@ -64,17 +86,48 @@ function mergeOverrides(
 	};
 }
 
+function resolveTrackerPath(input: {
+	projectDir: string;
+	sessionId?: string;
+	workflow?: WorkflowConfig;
+}): {absolutePath: string; promptPath: string} | null {
+	const loop = input.workflow?.loop;
+	if (!loop?.enabled) {
+		return null;
+	}
+
+	const rawPath = loop.trackerPath ?? DEFAULT_TRACKER_PATH;
+
+	// The default tracker path requires a session ID for substitution.
+	// If neither a session ID nor an explicit tracker path was provided, the
+	// loop cannot operate.
+	if (!input.sessionId && rawPath.includes('{sessionId}')) {
+		return null;
+	}
+
+	const promptPath = input.sessionId
+		? rawPath.replaceAll('{sessionId}', input.sessionId)
+		: rawPath;
+	const absolutePath = path.isAbsolute(promptPath)
+		? promptPath
+		: path.resolve(input.projectDir, promptPath);
+
+	return {
+		absolutePath,
+		promptPath,
+	};
+}
+
 export function createWorkflowRunState(input: {
 	projectDir: string;
+	sessionId?: string;
 	workflow?: WorkflowConfig;
 }): WorkflowRunState {
-	const {projectDir, workflow} = input;
+	const {projectDir, sessionId, workflow} = input;
+	const trackerPath = resolveTrackerPath({projectDir, sessionId, workflow});
 	const loopManager =
-		workflow?.loop?.enabled === true
-			? createLoopManager(
-					path.resolve(projectDir, workflow.loop.trackerPath ?? 'tracker.md'),
-					workflow.loop,
-				)
+		workflow?.loop?.enabled === true && trackerPath
+			? createLoopManager(trackerPath.absolutePath, workflow.loop)
 			: null;
 	const {workflowOverride, warnings} = readWorkflowOverride(
 		projectDir,
@@ -84,6 +137,7 @@ export function createWorkflowRunState(input: {
 	return {
 		workflow,
 		loopManager,
+		trackerPathForPrompt: trackerPath?.promptPath,
 		workflowOverride,
 		warnings,
 	};
@@ -99,7 +153,10 @@ export function prepareWorkflowTurn(
 	const {workflow, loopManager} = state;
 	const prompt =
 		workflow && loopManager && loopManager.getState().iteration > 0
-			? buildContinuePrompt(workflow.loop!)
+			? buildContinuePrompt({
+					...workflow.loop!,
+					trackerPath: state.trackerPathForPrompt ?? workflow.loop?.trackerPath,
+				})
 			: workflow
 				? applyPromptTemplate(workflow.promptTemplate, input.prompt)
 				: input.prompt;
@@ -114,21 +171,51 @@ export function prepareWorkflowTurn(
 	};
 }
 
-export function shouldContinueWorkflowRun(state: WorkflowRunState): boolean {
+/**
+ * Check whether the workflow loop should continue.
+ *
+ * Returns `null` when the loop should run another iteration (and increments
+ * the iteration counter). Returns stop info when the loop is done (and
+ * cleans up the loop manager).
+ */
+export function shouldContinueWorkflowRun(
+	state: WorkflowRunState,
+): LoopStopInfo | null {
 	const {workflow, loopManager} = state;
 	if (!workflow?.loop?.enabled || !loopManager) {
-		return false;
+		return null;
 	}
 
-	const shouldContinue =
-		fs.existsSync(loopManager.trackerPath) && !loopManager.isTerminal();
-	if (!shouldContinue) {
+	const loopState = loopManager.getState();
+
+	if (!fs.existsSync(loopManager.trackerPath)) {
 		cleanupWorkflowRun(state);
-		return false;
+		return {
+			reason: 'missing_tracker',
+			maxIterations: loopState.maxIterations,
+		};
+	}
+
+	let reason: LoopStopReason | undefined;
+	if (loopState.completed) {
+		reason = 'completed';
+	} else if (loopState.blocked) {
+		reason = 'blocked';
+	} else if (loopState.iteration + 1 >= loopState.maxIterations) {
+		reason = 'max_iterations';
+	}
+
+	if (reason) {
+		cleanupWorkflowRun(state);
+		return {
+			reason,
+			blockedReason: loopState.blockedReason,
+			maxIterations: loopState.maxIterations,
+		};
 	}
 
 	loopManager.incrementIteration();
-	return true;
+	return null;
 }
 
 export function cleanupWorkflowRun(state: WorkflowRunState): void {
@@ -136,9 +223,6 @@ export function cleanupWorkflowRun(state: WorkflowRunState): void {
 		return;
 	}
 
-	if (fs.existsSync(state.loopManager.trackerPath)) {
-		cleanupTrackerFile(state.loopManager.trackerPath);
-	}
 	state.loopManager.deactivate();
 	state.loopManager = null;
 }

@@ -17,6 +17,7 @@ export function useWorkflowSessionController(
 	base: HarnessProcess<HarnessProcessOverride>,
 	input: {
 		projectDir: string;
+		sessionId?: string;
 		workflow?: WorkflowConfig;
 	},
 ): HarnessProcess<HarnessProcessOverride> {
@@ -66,6 +67,7 @@ export function useWorkflowSessionController(
 			const runPromise = (async () => {
 				const workflowState = createWorkflowRunState({
 					projectDir: input.projectDir,
+					sessionId: input.sessionId,
 					workflow: input.workflow,
 				});
 				let nextContinuation = continuation;
@@ -96,7 +98,8 @@ export function useWorkflowSessionController(
 							activeRunIdRef.current !== runId ||
 							lastResult.error !== null ||
 							(lastResult.exitCode !== null && lastResult.exitCode !== 0) ||
-							!shouldContinueWorkflowRun(workflowState)
+							!workflowState.workflow?.loop?.enabled ||
+							shouldContinueWorkflowRun(workflowState) !== null
 						) {
 							break;
 						}
@@ -116,7 +119,7 @@ export function useWorkflowSessionController(
 			activeSpawnPromiseRef.current = runPromise;
 			return await runPromise;
 		},
-		[base, cancelRun, input.projectDir, input.workflow],
+		[base, cancelRun, input.projectDir, input.sessionId, input.workflow],
 	);
 
 	useEffect(() => {

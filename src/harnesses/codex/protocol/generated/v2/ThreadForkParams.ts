@@ -17,18 +17,21 @@ import type {SandboxMode} from './SandboxMode';
  * Prefer using thread_id whenever possible.
  */
 export type ThreadForkParams = {
-	threadId: string; /**
+	threadId: string;
+	/**
 	 * [UNSTABLE] Specify the rollout path to fork from.
 	 * If specified, the thread_id param will be ignored.
 	 */
-	path?: string | null; /**
+	path?: string | null;
+	/**
 	 * Configuration overrides for the forked thread, if any.
 	 */
 	model?: string | null;
 	modelProvider?: string | null;
 	serviceTier?: ServiceTier | null | null;
 	cwd?: string | null;
-	approvalPolicy?: AskForApproval | null; /**
+	approvalPolicy?: AskForApproval | null;
+	/**
 	 * Override where approval requests are routed for review on this thread
 	 * and subsequent turns.
 	 */
@@ -37,7 +40,8 @@ export type ThreadForkParams = {
 	config?: {[key in string]?: JsonValue} | null;
 	baseInstructions?: string | null;
 	developerInstructions?: string | null;
-	ephemeral?: boolean; /**
+	ephemeral?: boolean;
+	/**
 	 * If true, persist additional rollout EventMsg variants required to
 	 * reconstruct a richer thread history on subsequent resume/fork/read.
 	 */

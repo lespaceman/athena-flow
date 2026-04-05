@@ -1,16 +1,34 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "ConfigRequirementsReadResponse",
+	"type": "object",
+	"properties": {
+		"requirements": {
+			"description": "Null if no requirements are configured (e.g. no requirements.toml/MDM entries).",
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ConfigRequirements"
+				},
+				{
+					"type": "null"
+				}
+			]
+		}
+	},
 	"definitions": {
 		"AskForApproval": {
 			"oneOf": [
 				{
-					"enum": ["untrusted", "on-failure", "on-request", "never"],
-					"type": "string"
+					"type": "string",
+					"enum": ["untrusted", "on-failure", "on-request", "never"]
 				},
 				{
-					"additionalProperties": false,
+					"type": "object",
+					"required": ["granular"],
 					"properties": {
 						"granular": {
+							"type": "object",
+							"required": ["mcp_elicitations", "rules", "sandbox_approval"],
 							"properties": {
 								"mcp_elicitations": {
 									"type": "boolean"
@@ -29,36 +47,34 @@
 									"default": false,
 									"type": "boolean"
 								}
-							},
-							"required": ["mcp_elicitations", "rules", "sandbox_approval"],
-							"type": "object"
+							}
 						}
 					},
-					"required": ["granular"],
-					"title": "GranularAskForApproval",
-					"type": "object"
+					"additionalProperties": false,
+					"title": "GranularAskForApproval"
 				}
 			]
 		},
 		"ConfigRequirements": {
+			"type": "object",
 			"properties": {
 				"allowedApprovalPolicies": {
+					"type": ["array", "null"],
 					"items": {
 						"$ref": "#/definitions/AskForApproval"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"allowedSandboxModes": {
+					"type": ["array", "null"],
 					"items": {
 						"$ref": "#/definitions/SandboxMode"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"allowedWebSearchModes": {
+					"type": ["array", "null"],
 					"items": {
 						"$ref": "#/definitions/WebSearchMode"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"enforceResidency": {
 					"anyOf": [
@@ -71,39 +87,39 @@
 					]
 				},
 				"featureRequirements": {
+					"type": ["object", "null"],
 					"additionalProperties": {
 						"type": "boolean"
-					},
-					"type": ["object", "null"]
+					}
 				}
-			},
-			"type": "object"
+			}
 		},
 		"NetworkDomainPermission": {
-			"enum": ["allow", "deny"],
-			"type": "string"
+			"type": "string",
+			"enum": ["allow", "deny"]
 		},
 		"NetworkRequirements": {
+			"type": "object",
 			"properties": {
 				"allowLocalBinding": {
 					"type": ["boolean", "null"]
 				},
 				"allowUnixSockets": {
 					"description": "Legacy compatibility view derived from `unix_sockets`.",
+					"type": ["array", "null"],
 					"items": {
 						"type": "string"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"allowUpstreamProxy": {
 					"type": ["boolean", "null"]
 				},
 				"allowedDomains": {
 					"description": "Legacy compatibility view derived from `domains`.",
+					"type": ["array", "null"],
 					"items": {
 						"type": "string"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"dangerouslyAllowAllUnixSockets": {
 					"type": ["boolean", "null"]
@@ -113,75 +129,59 @@
 				},
 				"deniedDomains": {
 					"description": "Legacy compatibility view derived from `domains`.",
+					"type": ["array", "null"],
 					"items": {
 						"type": "string"
-					},
-					"type": ["array", "null"]
+					}
 				},
 				"domains": {
+					"description": "Canonical network permission map for `experimental_network`.",
+					"type": ["object", "null"],
 					"additionalProperties": {
 						"$ref": "#/definitions/NetworkDomainPermission"
-					},
-					"description": "Canonical network permission map for `experimental_network`.",
-					"type": ["object", "null"]
+					}
 				},
 				"enabled": {
 					"type": ["boolean", "null"]
 				},
 				"httpPort": {
+					"type": ["integer", "null"],
 					"format": "uint16",
-					"minimum": 0.0,
-					"type": ["integer", "null"]
+					"minimum": 0.0
 				},
 				"managedAllowedDomainsOnly": {
 					"description": "When true, only managed allowlist entries are respected while managed network enforcement is active.",
 					"type": ["boolean", "null"]
 				},
 				"socksPort": {
+					"type": ["integer", "null"],
 					"format": "uint16",
-					"minimum": 0.0,
-					"type": ["integer", "null"]
+					"minimum": 0.0
 				},
 				"unixSockets": {
+					"description": "Canonical unix socket permission map for `experimental_network`.",
+					"type": ["object", "null"],
 					"additionalProperties": {
 						"$ref": "#/definitions/NetworkUnixSocketPermission"
-					},
-					"description": "Canonical unix socket permission map for `experimental_network`.",
-					"type": ["object", "null"]
+					}
 				}
-			},
-			"type": "object"
+			}
 		},
 		"NetworkUnixSocketPermission": {
-			"enum": ["allow", "none"],
-			"type": "string"
+			"type": "string",
+			"enum": ["allow", "none"]
 		},
 		"ResidencyRequirement": {
-			"enum": ["us"],
-			"type": "string"
+			"type": "string",
+			"enum": ["us"]
 		},
 		"SandboxMode": {
-			"enum": ["read-only", "workspace-write", "danger-full-access"],
-			"type": "string"
+			"type": "string",
+			"enum": ["read-only", "workspace-write", "danger-full-access"]
 		},
 		"WebSearchMode": {
-			"enum": ["disabled", "cached", "live"],
-			"type": "string"
+			"type": "string",
+			"enum": ["disabled", "cached", "live"]
 		}
-	},
-	"properties": {
-		"requirements": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/ConfigRequirements"
-				},
-				{
-					"type": "null"
-				}
-			],
-			"description": "Null if no requirements are configured (e.g. no requirements.toml/MDM entries)."
-		}
-	},
-	"title": "ConfigRequirementsReadResponse",
-	"type": "object"
+	}
 }

@@ -48,6 +48,7 @@ describe('buildCodexPromptOptions', () => {
 			model: 'gpt-5.3-codex',
 			developerInstructions: 'Use the workflow tracker.',
 			agentRoots: undefined,
+			plugins: [],
 			config: undefined,
 			ephemeral: undefined,
 			approvalPolicy: 'on-request',
@@ -66,6 +67,7 @@ describe('buildCodexPromptOptions', () => {
 			model: 'gpt-5.4-codex',
 			developerInstructions: undefined,
 			agentRoots: undefined,
+			plugins: [],
 			config: undefined,
 			ephemeral: undefined,
 			approvalPolicy: 'on-request',
@@ -138,19 +140,19 @@ describe('buildCodexPromptOptions', () => {
 				'/plugins/e2e-test-builder/agents',
 				'/plugins/md-export/agents',
 			],
+			plugins: [
+				{
+					ref: 'e2e-test-builder@owner/repo',
+					pluginName: 'e2e-test-builder',
+					marketplacePath: '/marketplace/e2e-test-builder.json',
+				},
+				{
+					ref: 'md-export@owner/repo',
+					pluginName: 'md-export',
+					marketplacePath: '/marketplace/md-export.json',
+				},
+			],
 			config: {
-				_athenaWorkflowCodexPlugins: [
-					{
-						ref: 'e2e-test-builder@owner/repo',
-						pluginName: 'e2e-test-builder',
-						marketplacePath: '/marketplace/e2e-test-builder.json',
-					},
-					{
-						ref: 'md-export@owner/repo',
-						pluginName: 'md-export',
-						marketplacePath: '/marketplace/md-export.json',
-					},
-				],
 				mcp_servers: {
 					'agent-web-interface': {
 						command: 'npx',
@@ -172,6 +174,7 @@ describe('buildCodexPromptOptions', () => {
 			}),
 		).toEqual(
 			expect.objectContaining({
+				plugins: [],
 				approvalPolicy: 'on-request',
 				sandbox: 'read-only',
 			}),
@@ -183,6 +186,7 @@ describe('buildCodexPromptOptions', () => {
 			}),
 		).toEqual(
 			expect.objectContaining({
+				plugins: [],
 				approvalPolicy: 'auto-edit',
 				sandbox: 'danger-full-access',
 			}),
@@ -194,6 +198,7 @@ describe('buildCodexPromptOptions', () => {
 			}),
 		).toEqual(
 			expect.objectContaining({
+				plugins: [],
 				approvalPolicy: 'on-request',
 				sandbox: 'workspace-write',
 			}),
@@ -203,6 +208,7 @@ describe('buildCodexPromptOptions', () => {
 	it('defaults to on-request / workspace-write when no isolation is specified', () => {
 		expect(buildCodexPromptOptions({})).toEqual(
 			expect.objectContaining({
+				plugins: [],
 				approvalPolicy: 'on-request',
 				sandbox: 'workspace-write',
 			}),
@@ -253,6 +259,7 @@ describe('buildCodexPromptOptions', () => {
 				},
 			},
 		});
+		expect(result.plugins).toEqual([]);
 	});
 
 	it('passes pluginMcpConfig even without a workflowPlan', () => {
@@ -275,6 +282,7 @@ describe('buildCodexPromptOptions', () => {
 				},
 			},
 		});
+		expect(result.plugins).toEqual([]);
 	});
 
 	it('threads ephemeral through to Codex prompt options', () => {
@@ -287,6 +295,7 @@ describe('buildCodexPromptOptions', () => {
 			model: undefined,
 			developerInstructions: undefined,
 			agentRoots: undefined,
+			plugins: [],
 			config: undefined,
 			ephemeral: true,
 			approvalPolicy: 'on-request',
@@ -324,5 +333,12 @@ describe('buildCodexPromptOptions', () => {
 			},
 		});
 		expect(result.agentRoots).toEqual(['/plugins/my-plugin/agents']);
+		expect(result.plugins).toEqual([
+			{
+				ref: 'my-plugin@owner/repo',
+				pluginName: 'my-plugin',
+				marketplacePath: '/marketplace/my-plugin.json',
+			},
+		]);
 	});
 });

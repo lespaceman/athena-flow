@@ -1,5 +1,8 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "AccountLoginCompletedNotification",
+	"type": "object",
+	"required": ["success"],
 	"properties": {
 		"error": {
 			"type": ["string", "null"]
@@ -10,8 +13,5 @@
 		"success": {
 			"type": "boolean"
 		}
-	},
-	"required": ["success"],
-	"title": "AccountLoginCompletedNotification",
-	"type": "object"
+	}
 }

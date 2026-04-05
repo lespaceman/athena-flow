@@ -4,11 +4,11 @@ type ShouldResolveWorkflowInputs = {
 };
 
 /**
- * Setup mode should not depend on existing workflow validity.
+ * Workflows are always resolved through the registry path so they stay synced
+ * with their recorded source on every startup.
  */
 export function shouldResolveWorkflow({
-	showSetup,
 	workflowName,
 }: ShouldResolveWorkflowInputs): boolean {
-	return Boolean(workflowName) && !showSetup;
+	return Boolean(workflowName);
 }

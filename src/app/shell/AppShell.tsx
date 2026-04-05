@@ -440,6 +440,7 @@ function AppContent({
 	} = useHarnessProcess({
 		harness,
 		projectDir,
+		athenaSessionId,
 		instanceId,
 		isolation,
 		pluginMcpConfig,
@@ -925,7 +926,7 @@ function AppContent({
 						examplePrompts: workflow.examplePrompts,
 					}
 				: undefined,
-		[workflow?.name, workflow?.description, workflow?.examplePrompts],
+		[workflow],
 	);
 	// Rows above the feed region in Ink's render tree:
 	//   3  = header frame (topBorder + headerLine + sectionBorder)

@@ -397,12 +397,33 @@ describe('writeGlobalConfig', () => {
 		expect(written.theme).toBe('dark');
 	});
 
-	it('normalizes legacy codex harness to openai-codex when reading config', () => {
+	it('throws when reading config with legacy codex harness', () => {
 		files['/project/.athena/config.json'] = JSON.stringify({
 			plugins: [],
 			harness: 'codex',
 		});
-		const config = readConfig('/project');
-		expect(config.harness).toBe('openai-codex');
+		expect(() => readConfig('/project')).toThrow(
+			/field "harness" must be one of/,
+		);
+	});
+
+	it('throws when reading config with deprecated workflowMarketplaceSource', () => {
+		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
+			workflowMarketplaceSource: 'owner/repo',
+		});
+
+		expect(() => readGlobalConfig()).toThrow(
+			/deprecated "workflowMarketplaceSource"/,
+		);
+	});
+
+	it('throws when workflowMarketplaceSources is not an array of strings', () => {
+		files['/home/testuser/.config/athena/config.json'] = JSON.stringify({
+			workflowMarketplaceSources: ['owner/repo', 123],
+		});
+
+		expect(() => readGlobalConfig()).toThrow(
+			/workflowMarketplaceSources" must be an array of strings/,
+		);
 	});
 });

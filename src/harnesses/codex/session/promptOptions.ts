@@ -5,7 +5,10 @@ import type {
 	TurnContinuation,
 } from '../../../core/runtime/process';
 import type {WorkflowPlan} from '../../../core/workflows';
-import {resolveCodexMcpConfig} from './sessionAssets';
+import {
+	resolveCodexMcpConfig,
+	resolveCodexWorkflowPlugins,
+} from './sessionAssets';
 
 export type CodexApprovalPolicy = 'on-request' | 'auto-edit' | 'full-auto';
 export type CodexSandbox =
@@ -18,6 +21,11 @@ export type CodexPromptOptions = {
 	model?: string;
 	developerInstructions?: string;
 	agentRoots?: string[];
+	plugins: Array<{
+		ref: string;
+		pluginName: string;
+		marketplacePath: string;
+	}>;
 	config?: Record<string, unknown>;
 	ephemeral?: boolean;
 	approvalPolicy: CodexApprovalPolicy;
@@ -75,6 +83,7 @@ export function buildCodexPromptOptions(input: {
 			input.workflowPlan?.agentRoots && input.workflowPlan.agentRoots.length > 0
 				? input.workflowPlan.agentRoots
 				: undefined,
+		plugins: resolveCodexWorkflowPlugins(input.workflowPlan),
 		config: resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan),
 		ephemeral: input.ephemeral,
 		approvalPolicy: isolation.approvalPolicy,

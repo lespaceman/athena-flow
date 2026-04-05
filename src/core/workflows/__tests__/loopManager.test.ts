@@ -10,13 +10,10 @@ vi.mock('node:fs', () => ({
 			if (!(p in files)) throw new Error(`ENOENT: ${p}`);
 			return files[p]!;
 		},
-		unlinkSync: (p: string) => {
-			delete files[p];
-		},
 	},
 }));
 
-const {createLoopManager, buildContinuePrompt, cleanupTrackerFile} =
+const {createLoopManager, buildContinuePrompt, DEFAULT_TRACKER_PATH} =
 	await import('../loopManager');
 
 beforeEach(() => {
@@ -57,6 +54,27 @@ describe('createLoopManager', () => {
 			const state = mgr.getState();
 
 			expect(state.completed).toBe(true);
+		});
+
+		it('uses default WORKFLOW_COMPLETE marker when none specified', () => {
+			files['/project/tracker.md'] = '<!-- WORKFLOW_COMPLETE -->';
+			const mgr = createLoopManager('/project/tracker.md', {
+				enabled: true,
+				maxIterations: 5,
+			});
+			expect(mgr.getState().completed).toBe(true);
+		});
+
+		it('uses default WORKFLOW_BLOCKED marker when none specified', () => {
+			files['/project/tracker.md'] =
+				'<!-- WORKFLOW_BLOCKED: browser unavailable -->';
+			const mgr = createLoopManager('/project/tracker.md', {
+				enabled: true,
+				maxIterations: 5,
+			});
+			const state = mgr.getState();
+			expect(state.blocked).toBe(true);
+			expect(state.blockedReason).toBe('browser unavailable');
 		});
 
 		it('detects blocked marker with reason extraction', () => {
@@ -120,40 +138,6 @@ describe('createLoopManager', () => {
 		});
 	});
 
-	describe('isTerminal', () => {
-		it('returns false when loop should continue', () => {
-			files['/project/e2e-tracker.md'] = '# In progress';
-			const mgr = createLoopManager('/project/e2e-tracker.md', DEFAULT_CONFIG);
-			expect(mgr.isTerminal()).toBe(false);
-		});
-
-		it('returns true when completion marker found', () => {
-			files['/project/e2e-tracker.md'] = '# Done\n<!-- E2E_COMPLETE -->';
-			const mgr = createLoopManager('/project/e2e-tracker.md', DEFAULT_CONFIG);
-			expect(mgr.isTerminal()).toBe(true);
-		});
-
-		it('returns true when blocked marker found', () => {
-			files['/project/e2e-tracker.md'] = '<!-- E2E_BLOCKED: reason -->';
-			const config = {
-				...DEFAULT_CONFIG,
-				blockedMarker: '<!-- E2E_BLOCKED',
-			};
-			const mgr = createLoopManager('/project/e2e-tracker.md', config);
-			expect(mgr.isTerminal()).toBe(true);
-		});
-
-		it('returns true when max iterations reached', () => {
-			const mgr = createLoopManager('/project/e2e-tracker.md', {
-				...DEFAULT_CONFIG,
-				maxIterations: 2,
-			});
-			mgr.incrementIteration();
-			mgr.incrementIteration();
-			expect(mgr.isTerminal()).toBe(true);
-		});
-	});
-
 	describe('trackerPath', () => {
 		it('exposes the tracker path', () => {
 			const mgr = createLoopManager('/project/e2e-tracker.md', DEFAULT_CONFIG);
@@ -185,28 +169,11 @@ describe('buildContinuePrompt', () => {
 		expect(result).toBe('Read my-tracker.md and continue.');
 	});
 
-	it('falls back to tracker.md when trackerPath not specified', () => {
+	it('falls back to default tracker path when trackerPath not specified', () => {
 		const result = buildContinuePrompt({
 			enabled: true,
-			completionMarker: 'DONE',
 			maxIterations: 5,
 		});
-		expect(result).toContain('tracker.md');
-	});
-});
-
-describe('cleanupTrackerFile', () => {
-	it('removes the tracker file when it exists', () => {
-		files['/project/e2e-tracker.md'] = '# tracker';
-
-		cleanupTrackerFile('/project/e2e-tracker.md');
-
-		expect(files['/project/e2e-tracker.md']).toBeUndefined();
-	});
-
-	it('fails open when the tracker file is missing', () => {
-		expect(() =>
-			cleanupTrackerFile('/project/missing-tracker.md'),
-		).not.toThrow();
+		expect(result).toContain(DEFAULT_TRACKER_PATH);
 	});
 });

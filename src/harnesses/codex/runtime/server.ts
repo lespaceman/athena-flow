@@ -478,6 +478,11 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				model?: string;
 				developerInstructions?: string;
 				agentRoots?: string[];
+				plugins?: Array<{
+					ref: string;
+					pluginName: string;
+					marketplacePath: string;
+				}>;
 				config?: Record<string, unknown>;
 				ephemeral?: boolean;
 				approvalPolicy?: string;
@@ -502,28 +507,13 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 				const shouldReuseCurrent = continuation?.mode === 'reuse-current';
 				const shouldConfigureThread =
 					shouldResume || shouldStartFresh || (shouldReuseCurrent && !threadId);
-				const workflowPluginTargets = Array.isArray(
-					(options?.config as Record<string, unknown> | undefined)?.[
-						'_athenaWorkflowCodexPlugins'
-					],
-				)
-					? (
-							(options?.config as Record<string, unknown>)[
-								'_athenaWorkflowCodexPlugins'
-							] as Array<Record<string, unknown>>
-						)
-							.map(plugin => ({
-								ref: String(plugin['ref'] ?? ''),
-								pluginName: String(plugin['pluginName'] ?? ''),
-								marketplacePath: String(plugin['marketplacePath'] ?? ''),
-							}))
-							.filter(
-								plugin =>
-									plugin.ref.length > 0 &&
-									plugin.pluginName.length > 0 &&
-									plugin.marketplacePath.length > 0,
-							)
-					: [];
+				const workflowPluginTargets =
+					options?.plugins?.filter(
+						plugin =>
+							plugin.ref.length > 0 &&
+							plugin.pluginName.length > 0 &&
+							plugin.marketplacePath.length > 0,
+					) ?? [];
 				if (shouldConfigureThread && workflowPluginTargets.length > 0) {
 					try {
 						const installedPlugins = await ensureCodexWorkflowPluginsInstalled({
@@ -652,15 +642,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 						cwd: projectDir,
 						...(options?.model ? {model: options.model} : {}),
 						...(developerInstructions ? {developerInstructions} : {}),
-						...(options?.config
-							? {
-									config: Object.fromEntries(
-										Object.entries(options.config).filter(
-											([key]) => key !== '_athenaWorkflowCodexPlugins',
-										),
-									),
-								}
-							: {}),
+						...(options?.config ? {config: options.config} : {}),
 						persistExtendedHistory: !options?.ephemeral,
 					});
 					const response = asRecord(result);
@@ -679,15 +661,7 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 						cwd: projectDir,
 						...(options?.model ? {model: options.model} : {}),
 						...(developerInstructions ? {developerInstructions} : {}),
-						...(options?.config
-							? {
-									config: Object.fromEntries(
-										Object.entries(options.config).filter(
-											([key]) => key !== '_athenaWorkflowCodexPlugins',
-										),
-									),
-								}
-							: {}),
+						...(options?.config ? {config: options.config} : {}),
 						experimentalRawEvents: false,
 						...(options?.ephemeral ? {ephemeral: true} : {}),
 						persistExtendedHistory: !options?.ephemeral,

@@ -1,7 +1,17 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "AccountRateLimitsUpdatedNotification",
+	"type": "object",
+	"required": ["rateLimits"],
+	"properties": {
+		"rateLimits": {
+			"$ref": "#/definitions/RateLimitSnapshot"
+		}
+	},
 	"definitions": {
 		"CreditsSnapshot": {
+			"type": "object",
+			"required": ["hasCredits", "unlimited"],
 			"properties": {
 				"balance": {
 					"type": ["string", "null"]
@@ -12,11 +22,10 @@
 				"unlimited": {
 					"type": "boolean"
 				}
-			},
-			"required": ["hasCredits", "unlimited"],
-			"type": "object"
+			}
 		},
 		"PlanType": {
+			"type": "string",
 			"enum": [
 				"free",
 				"go",
@@ -29,10 +38,10 @@
 				"enterprise",
 				"edu",
 				"unknown"
-			],
-			"type": "string"
+			]
 		},
 		"RateLimitSnapshot": {
+			"type": "object",
 			"properties": {
 				"credits": {
 					"anyOf": [
@@ -80,34 +89,25 @@
 						}
 					]
 				}
-			},
-			"type": "object"
+			}
 		},
 		"RateLimitWindow": {
+			"type": "object",
+			"required": ["usedPercent"],
 			"properties": {
 				"resetsAt": {
-					"format": "int64",
-					"type": ["integer", "null"]
+					"type": ["integer", "null"],
+					"format": "int64"
 				},
 				"usedPercent": {
-					"format": "int32",
-					"type": "integer"
+					"type": "integer",
+					"format": "int32"
 				},
 				"windowDurationMins": {
-					"format": "int64",
-					"type": ["integer", "null"]
+					"type": ["integer", "null"],
+					"format": "int64"
 				}
-			},
-			"required": ["usedPercent"],
-			"type": "object"
+			}
 		}
-	},
-	"properties": {
-		"rateLimits": {
-			"$ref": "#/definitions/RateLimitSnapshot"
-		}
-	},
-	"required": ["rateLimits"],
-	"title": "AccountRateLimitsUpdatedNotification",
-	"type": "object"
+	}
 }

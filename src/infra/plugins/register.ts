@@ -10,12 +10,10 @@ import os from 'node:os';
 import path from 'node:path';
 import {register} from '../../app/commands/registry';
 import {loadPlugin} from './loader';
-import type {WorkflowConfig} from '../../core/workflows/types';
 import type {McpServerChoices} from './config';
 
 export type PluginRegistrationResult = {
 	mcpConfig?: string;
-	workflows: WorkflowConfig[];
 };
 
 export function buildPluginMcpConfig(
@@ -80,21 +78,10 @@ export function registerPlugins(
 	mcpServerOptions?: McpServerChoices,
 	includeMcpConfig = true,
 ): PluginRegistrationResult {
-	const workflows: WorkflowConfig[] = [];
-
 	for (const dir of pluginDirs) {
 		const commands = loadPlugin(dir);
 		for (const command of commands) {
 			register(command);
-		}
-
-		// Discover workflow config
-		const workflowPath = path.join(dir, 'workflow.json');
-		if (fs.existsSync(workflowPath)) {
-			const workflow = JSON.parse(
-				fs.readFileSync(workflowPath, 'utf-8'),
-			) as WorkflowConfig;
-			workflows.push(workflow);
 		}
 	}
 
@@ -102,5 +89,5 @@ export function registerPlugins(
 		? buildPluginMcpConfig(pluginDirs, mcpServerOptions)
 		: undefined;
 
-	return {mcpConfig, workflows};
+	return {mcpConfig};
 }

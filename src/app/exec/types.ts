@@ -16,6 +16,8 @@ export const EXEC_EXIT_CODE = {
 	POLICY: 5,
 	TIMEOUT: 6,
 	OUTPUT: 7,
+	WORKFLOW_BLOCKED: 8,
+	WORKFLOW_EXHAUSTED: 9,
 } as const;
 
 export type ExecExitCode = (typeof EXEC_EXIT_CODE)[keyof typeof EXEC_EXIT_CODE];
@@ -65,12 +67,21 @@ export type ExecRunOptions = {
 	now?: () => number;
 };
 
-export type ExecRunFailureKind = 'process' | 'policy' | 'timeout' | 'output';
+export type ExecWorkflowFailureState =
+	| 'blocked'
+	| 'exhausted'
+	| 'missing_tracker';
 
-export type ExecRunFailure = {
-	kind: ExecRunFailureKind;
-	message: string;
-};
+export type ExecRunFailure =
+	| {
+			kind: 'process' | 'policy' | 'timeout' | 'output';
+			message: string;
+	  }
+	| {
+			kind: 'workflow';
+			state: ExecWorkflowFailureState;
+			message: string;
+	  };
 
 export type ExecRunResult = {
 	success: boolean;

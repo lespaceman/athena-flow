@@ -51,37 +51,35 @@ function readStoredWorkflowSource(
 	const sourceFile = path.join(workflowDir, 'source.json');
 	if (!fs.existsSync(sourceFile)) return;
 
+	let source: unknown;
 	try {
-		const source = JSON.parse(fs.readFileSync(sourceFile, 'utf-8')) as unknown;
-		if (!source || typeof source !== 'object') {
-			return undefined;
-		}
-		const record = source as Record<string, unknown>;
-		if (typeof record['ref'] === 'string') {
-			return {kind: 'marketplace', ref: record['ref']};
-		}
-		if (
-			typeof record['path'] === 'string' &&
-			typeof record['kind'] !== 'string'
-		) {
-			return {kind: 'local', path: record['path']};
-		}
-		if (record['kind'] === 'marketplace' && typeof record['ref'] === 'string') {
-			return {kind: 'marketplace', ref: record['ref']};
-		}
-		if (record['kind'] === 'local' && typeof record['path'] === 'string') {
-			return {
-				kind: 'local',
-				path: record['path'],
-				repoDir:
-					typeof record['repoDir'] === 'string' ? record['repoDir'] : undefined,
-			};
-		}
+		source = JSON.parse(fs.readFileSync(sourceFile, 'utf-8')) as unknown;
 	} catch {
-		// Ignore malformed source metadata and use the installed copy.
+		throw new Error(`Invalid source.json: ${sourceFile} is not valid JSON`);
 	}
 
-	return undefined;
+	if (!source || typeof source !== 'object') {
+		throw new Error(
+			`Invalid source.json: ${sourceFile} must contain an object`,
+		);
+	}
+
+	const record = source as Record<string, unknown>;
+	if (record['kind'] === 'marketplace' && typeof record['ref'] === 'string') {
+		return {kind: 'marketplace', ref: record['ref']};
+	}
+	if (record['kind'] === 'local' && typeof record['path'] === 'string') {
+		return {
+			kind: 'local',
+			path: record['path'],
+			repoDir:
+				typeof record['repoDir'] === 'string' ? record['repoDir'] : undefined,
+		};
+	}
+
+	throw new Error(
+		`Invalid source.json: ${sourceFile} must use {kind: "marketplace", ref} or {kind: "local", path}`,
+	);
 }
 
 function syncFromSource(
@@ -180,52 +178,29 @@ export function resolveWorkflow(name: string): ResolvedWorkflowConfig {
 		);
 	}
 
-	// Resolve trackerTemplate file reference if it ends with .md
-	const loop = raw['loop'] as Record<string, unknown> | undefined;
-	// Backward compatibility: older marketplace workflows used trackerFile.
 	if (
-		loop &&
-		typeof loop['trackerPath'] !== 'string' &&
-		typeof loop['trackerFile'] === 'string'
+		typeof raw['workflowFile'] !== 'string' ||
+		raw['workflowFile'].length === 0
 	) {
-		loop['trackerPath'] = loop['trackerFile'];
-	}
-	// Backward compatibility: older workflows used completionMarkers: [done, blocked?].
-	if (
-		loop &&
-		typeof loop['completionMarker'] !== 'string' &&
-		Array.isArray(loop['completionMarkers'])
-	) {
-		const markers = loop['completionMarkers'].filter(
-			(v): v is string => typeof v === 'string' && v.length > 0,
+		throw new Error(
+			'Invalid workflow.json: "workflowFile" is required and must point to the workflow instructions file',
 		);
-		if (markers[0]) loop['completionMarker'] = markers[0];
-		if (markers[1] && typeof loop['blockedMarker'] !== 'string') {
-			loop['blockedMarker'] = markers[1];
-		}
 	}
 
-	// Resolve systemPromptFile relative to workflow directory when present.
-	const systemPromptFile = raw['systemPromptFile'];
-	if (
-		typeof systemPromptFile === 'string' &&
-		!path.isAbsolute(systemPromptFile)
-	) {
-		const systemPromptPath = path.resolve(workflowDir, systemPromptFile);
-		if (fs.existsSync(systemPromptPath)) {
-			raw['systemPromptFile'] = systemPromptPath;
-		}
-	}
-
-	const tmpl = loop?.['trackerTemplate'];
-	if (typeof tmpl === 'string' && tmpl.endsWith('.md')) {
-		const tmplPath = path.resolve(workflowDir, tmpl);
-		if (!fs.existsSync(tmplPath)) {
+	// Resolve workflowFile relative to workflow directory when present.
+	const workflowFile = raw['workflowFile'];
+	if (typeof workflowFile === 'string' && !path.isAbsolute(workflowFile)) {
+		const workflowFilePath = path.resolve(workflowDir, workflowFile);
+		if (!fs.existsSync(workflowFilePath)) {
 			throw new Error(
-				`Invalid workflow.json: trackerTemplate "${tmpl}" not found at ${tmplPath}`,
+				`Invalid workflow.json: workflowFile "${workflowFile}" not found at ${workflowFilePath}`,
 			);
 		}
-		loop!['trackerTemplate'] = fs.readFileSync(tmplPath, 'utf-8');
+		raw['workflowFile'] = workflowFilePath;
+	} else if (typeof workflowFile === 'string' && !fs.existsSync(workflowFile)) {
+		throw new Error(
+			`Invalid workflow.json: workflowFile "${workflowFile}" not found`,
+		);
 	}
 
 	return {
@@ -273,13 +248,14 @@ function copyWorkflowFiles(sourcePath: string, destDir: string): void {
 		fs.mkdirSync(path.dirname(destAssetPath), {recursive: true});
 		fs.copyFileSync(sourceAssetPath, destAssetPath);
 	};
-	copyRelativeAsset(workflow.systemPromptFile);
-	const trackerTemplate = (
-		workflow.loop as {trackerTemplate?: unknown} | undefined
-	)?.trackerTemplate;
-	if (typeof trackerTemplate === 'string' && trackerTemplate.endsWith('.md')) {
-		copyRelativeAsset(trackerTemplate);
+	const rawWorkflow = workflow as Record<string, unknown>;
+	const promptAsset = rawWorkflow['workflowFile'];
+	if (typeof promptAsset !== 'string' || promptAsset.length === 0) {
+		throw new Error(
+			'Invalid workflow.json: "workflowFile" is required and must point to the workflow instructions file',
+		);
 	}
+	copyRelativeAsset(promptAsset);
 }
 
 /**

@@ -1,25 +1,41 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "HookStartedNotification",
+	"type": "object",
+	"required": ["run", "threadId"],
+	"properties": {
+		"run": {
+			"$ref": "#/definitions/HookRunSummary"
+		},
+		"threadId": {
+			"type": "string"
+		},
+		"turnId": {
+			"type": ["string", "null"]
+		}
+	},
 	"definitions": {
 		"HookEventName": {
+			"type": "string",
 			"enum": [
 				"preToolUse",
 				"postToolUse",
 				"sessionStart",
 				"userPromptSubmit",
 				"stop"
-			],
-			"type": "string"
+			]
 		},
 		"HookExecutionMode": {
-			"enum": ["sync", "async"],
-			"type": "string"
+			"type": "string",
+			"enum": ["sync", "async"]
 		},
 		"HookHandlerType": {
-			"enum": ["command", "prompt", "agent"],
-			"type": "string"
+			"type": "string",
+			"enum": ["command", "prompt", "agent"]
 		},
 		"HookOutputEntry": {
+			"type": "object",
+			"required": ["kind", "text"],
 			"properties": {
 				"kind": {
 					"$ref": "#/definitions/HookOutputEntryKind"
@@ -27,37 +43,48 @@
 				"text": {
 					"type": "string"
 				}
-			},
-			"required": ["kind", "text"],
-			"type": "object"
+			}
 		},
 		"HookOutputEntryKind": {
-			"enum": ["warning", "stop", "feedback", "context", "error"],
-			"type": "string"
+			"type": "string",
+			"enum": ["warning", "stop", "feedback", "context", "error"]
 		},
 		"HookRunStatus": {
-			"enum": ["running", "completed", "failed", "blocked", "stopped"],
-			"type": "string"
+			"type": "string",
+			"enum": ["running", "completed", "failed", "blocked", "stopped"]
 		},
 		"HookRunSummary": {
+			"type": "object",
+			"required": [
+				"displayOrder",
+				"entries",
+				"eventName",
+				"executionMode",
+				"handlerType",
+				"id",
+				"scope",
+				"sourcePath",
+				"startedAt",
+				"status"
+			],
 			"properties": {
 				"completedAt": {
-					"format": "int64",
-					"type": ["integer", "null"]
+					"type": ["integer", "null"],
+					"format": "int64"
 				},
 				"displayOrder": {
-					"format": "int64",
-					"type": "integer"
+					"type": "integer",
+					"format": "int64"
 				},
 				"durationMs": {
-					"format": "int64",
-					"type": ["integer", "null"]
+					"type": ["integer", "null"],
+					"format": "int64"
 				},
 				"entries": {
+					"type": "array",
 					"items": {
 						"$ref": "#/definitions/HookOutputEntry"
-					},
-					"type": "array"
+					}
 				},
 				"eventName": {
 					"$ref": "#/definitions/HookEventName"
@@ -78,8 +105,8 @@
 					"type": "string"
 				},
 				"startedAt": {
-					"format": "int64",
-					"type": "integer"
+					"type": "integer",
+					"format": "int64"
 				},
 				"status": {
 					"$ref": "#/definitions/HookRunStatus"
@@ -87,38 +114,11 @@
 				"statusMessage": {
 					"type": ["string", "null"]
 				}
-			},
-			"required": [
-				"displayOrder",
-				"entries",
-				"eventName",
-				"executionMode",
-				"handlerType",
-				"id",
-				"scope",
-				"sourcePath",
-				"startedAt",
-				"status"
-			],
-			"type": "object"
+			}
 		},
 		"HookScope": {
-			"enum": ["thread", "turn"],
-			"type": "string"
+			"type": "string",
+			"enum": ["thread", "turn"]
 		}
-	},
-	"properties": {
-		"run": {
-			"$ref": "#/definitions/HookRunSummary"
-		},
-		"threadId": {
-			"type": "string"
-		},
-		"turnId": {
-			"type": ["string", "null"]
-		}
-	},
-	"required": ["run", "threadId"],
-	"title": "HookStartedNotification",
-	"type": "object"
+	}
 }

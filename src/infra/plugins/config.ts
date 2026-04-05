@@ -37,11 +37,6 @@ export type AthenaConfig = {
 	activeWorkflow?: string;
 	/** Workflow marketplace sources: owner/repo slugs or local marketplace paths */
 	workflowMarketplaceSources?: string[];
-	/**
-	 * @deprecated Use `workflowMarketplaceSources` instead.
-	 * Kept for migration — single source is wrapped into the array on read.
-	 */
-	workflowMarketplaceSource?: string;
 	/** Per-workflow saved selections (for MCP option args, etc.) */
 	workflowSelections?: WorkflowSelections;
 	/** Whether the setup wizard has been completed */
@@ -91,7 +86,6 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		theme?: string;
 		activeWorkflow?: string;
 		workflowMarketplaceSources?: string[];
-		workflowMarketplaceSource?: string;
 		workflowSelections?: WorkflowSelections;
 		setupComplete?: boolean;
 		harness?: string;
@@ -99,6 +93,33 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		telemetryDiagnostics?: boolean;
 		deviceId?: string;
 	};
+
+	if ('workflowMarketplaceSource' in (raw as Record<string, unknown>)) {
+		throw new Error(
+			`Invalid config: "${configPath}" uses deprecated "workflowMarketplaceSource"; use "workflowMarketplaceSources"`,
+		);
+	}
+	if (
+		raw.workflowMarketplaceSources !== undefined &&
+		(!Array.isArray(raw.workflowMarketplaceSources) ||
+			!raw.workflowMarketplaceSources.every(
+				(source): source is string => typeof source === 'string',
+			))
+	) {
+		throw new Error(
+			`Invalid config: "${configPath}" field "workflowMarketplaceSources" must be an array of strings`,
+		);
+	}
+	if (
+		raw.harness !== undefined &&
+		raw.harness !== 'claude-code' &&
+		raw.harness !== 'openai-codex' &&
+		raw.harness !== 'opencode'
+	) {
+		throw new Error(
+			`Invalid config: "${configPath}" field "harness" must be one of claude-code, openai-codex, opencode`,
+		);
+	}
 
 	const plugins = (raw.plugins ?? [])
 		.map((p): string | null => {
@@ -121,31 +142,16 @@ function readConfigFile(configPath: string, baseDir: string): AthenaConfig {
 		path.isAbsolute(dir) ? dir : path.resolve(baseDir, dir),
 	);
 
-	// Migrate legacy single source → array
-	const workflowMarketplaceSources =
-		raw.workflowMarketplaceSources ??
-		(raw.workflowMarketplaceSource
-			? [raw.workflowMarketplaceSource]
-			: undefined);
-
 	return {
 		plugins,
 		additionalDirectories,
 		model: raw.model,
 		theme: raw.theme,
 		activeWorkflow: raw.activeWorkflow,
-		workflowMarketplaceSources,
-		workflowMarketplaceSource: raw.workflowMarketplaceSource,
+		workflowMarketplaceSources: raw.workflowMarketplaceSources,
 		workflowSelections: raw.workflowSelections,
 		setupComplete: raw.setupComplete as boolean | undefined,
-		harness:
-			raw.harness === 'claude-code' ||
-			raw.harness === 'openai-codex' ||
-			raw.harness === 'opencode'
-				? raw.harness
-				: raw.harness === 'codex'
-					? 'openai-codex'
-					: undefined,
+		harness: raw.harness,
 		telemetry: raw.telemetry,
 		telemetryDiagnostics: raw.telemetryDiagnostics,
 		deviceId: raw.deviceId,

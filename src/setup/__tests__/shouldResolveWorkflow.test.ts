@@ -11,13 +11,13 @@ describe('shouldResolveWorkflow', () => {
 		).toBe(true);
 	});
 
-	it('does not resolve when setup is shown', () => {
+	it('still resolves when setup is shown', () => {
 		expect(
 			shouldResolveWorkflow({
 				showSetup: true,
 				workflowName: 'e2e-test-builder',
 			}),
-		).toBe(false);
+		).toBe(true);
 	});
 
 	it('does not resolve when workflow is not configured', () => {

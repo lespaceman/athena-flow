@@ -1,7 +1,24 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "ExperimentalFeatureListResponse",
+	"type": "object",
+	"required": ["data"],
+	"properties": {
+		"data": {
+			"type": "array",
+			"items": {
+				"$ref": "#/definitions/ExperimentalFeature"
+			}
+		},
+		"nextCursor": {
+			"description": "Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
+			"type": ["string", "null"]
+		}
+	},
 	"definitions": {
 		"ExperimentalFeature": {
+			"type": "object",
+			"required": ["defaultEnabled", "enabled", "name", "stage"],
 			"properties": {
 				"announcement": {
 					"description": "Announcement copy shown to users when the feature is introduced. Null when this feature is not in beta.",
@@ -28,60 +45,43 @@
 					"type": "string"
 				},
 				"stage": {
+					"description": "Lifecycle stage of this feature flag.",
 					"allOf": [
 						{
 							"$ref": "#/definitions/ExperimentalFeatureStage"
 						}
-					],
-					"description": "Lifecycle stage of this feature flag."
+					]
 				}
-			},
-			"required": ["defaultEnabled", "enabled", "name", "stage"],
-			"type": "object"
+			}
 		},
 		"ExperimentalFeatureStage": {
 			"oneOf": [
 				{
 					"description": "Feature is available for user testing and feedback.",
-					"enum": ["beta"],
-					"type": "string"
+					"type": "string",
+					"enum": ["beta"]
 				},
 				{
 					"description": "Feature is still being built and not ready for broad use.",
-					"enum": ["underDevelopment"],
-					"type": "string"
+					"type": "string",
+					"enum": ["underDevelopment"]
 				},
 				{
 					"description": "Feature is production-ready.",
-					"enum": ["stable"],
-					"type": "string"
+					"type": "string",
+					"enum": ["stable"]
 				},
 				{
 					"description": "Feature is deprecated and should be avoided.",
-					"enum": ["deprecated"],
-					"type": "string"
+					"type": "string",
+					"enum": ["deprecated"]
 				},
 				{
 					"description": "Feature flag is retained only for backwards compatibility.",
-					"enum": ["removed"],
-					"type": "string"
+					"type": "string",
+					"enum": ["removed"]
 				}
 			]
 		}
-	},
-	"properties": {
-		"data": {
-			"items": {
-				"$ref": "#/definitions/ExperimentalFeature"
-			},
-			"type": "array"
-		},
-		"nextCursor": {
-			"description": "Opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.",
-			"type": ["string", "null"]
-		}
-	},
-	"required": ["data"],
-	"title": "ExperimentalFeatureListResponse",
-	"type": "object"
+	}
 }

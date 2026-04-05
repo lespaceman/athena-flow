@@ -11,6 +11,10 @@
 import fs from 'node:fs';
 import type {LoopConfig} from './types';
 
+export const DEFAULT_COMPLETION_MARKER = '<!-- WORKFLOW_COMPLETE -->';
+export const DEFAULT_BLOCKED_MARKER = '<!-- WORKFLOW_BLOCKED';
+export const DEFAULT_TRACKER_PATH = '.athena/{sessionId}/tracker.md';
+
 const DEFAULT_CONTINUE_PROMPT =
 	'Continue the task. Read the tracker at {trackerPath} for current progress.';
 
@@ -19,7 +23,7 @@ export type LoopState = {
 	iteration: number;
 	maxIterations: number;
 	completionMarker: string;
-	blockedMarker?: string;
+	blockedMarker: string;
 	completed: boolean;
 	blocked: boolean;
 	blockedReason?: string;
@@ -33,8 +37,6 @@ export type LoopManager = {
 	incrementIteration(): void;
 	/** Mark loop as inactive (in memory). */
 	deactivate(): void;
-	/** Check if loop has reached a terminal condition. */
-	isTerminal(): boolean;
 	/** Absolute path to the tracker file. */
 	readonly trackerPath: string;
 };
@@ -46,9 +48,11 @@ export function createLoopManager(
 	let iteration = 0;
 	let active = true;
 
+	const completionMarker = config.completionMarker ?? DEFAULT_COMPLETION_MARKER;
+	const blockedMarker = config.blockedMarker ?? DEFAULT_BLOCKED_MARKER;
+
 	function readTracker(): string {
 		try {
-			if (!fs.existsSync(trackerPath)) return '';
 			return fs.readFileSync(trackerPath, 'utf-8');
 		} catch {
 			return '';
@@ -56,21 +60,17 @@ export function createLoopManager(
 	}
 
 	function extractBlockedReason(content: string): string | undefined {
-		if (!config.blockedMarker) return undefined;
-		const idx = content.indexOf(config.blockedMarker);
+		const idx = content.indexOf(blockedMarker);
 		if (idx === -1) return undefined;
-		// Extract reason from "<!-- E2E_BLOCKED: reason -->" pattern
-		const afterMarker = content.slice(idx + config.blockedMarker.length);
+		const afterMarker = content.slice(idx + blockedMarker.length);
 		const match = afterMarker.match(/^:\s*(.+?)(?:\s*-->|$)/);
 		return match?.[1]?.trim();
 	}
 
 	function getState(): LoopState {
 		const content = readTracker();
-		const completed = content.includes(config.completionMarker);
-		const blocked = config.blockedMarker
-			? content.includes(config.blockedMarker)
-			: false;
+		const completed = content.includes(completionMarker);
+		const blocked = content.includes(blockedMarker);
 		const blockedReason = blocked ? extractBlockedReason(content) : undefined;
 		const reachedLimit = iteration >= config.maxIterations;
 
@@ -78,18 +78,13 @@ export function createLoopManager(
 			active,
 			iteration,
 			maxIterations: config.maxIterations,
-			completionMarker: config.completionMarker,
-			blockedMarker: config.blockedMarker,
+			completionMarker,
+			blockedMarker,
 			completed,
 			blocked,
 			blockedReason,
 			reachedLimit,
 		};
-	}
-
-	function isTerminal(): boolean {
-		const state = getState();
-		return state.completed || state.blocked || state.reachedLimit;
 	}
 
 	function incrementIteration(): void {
@@ -104,26 +99,14 @@ export function createLoopManager(
 		getState,
 		incrementIteration,
 		deactivate,
-		isTerminal,
 		trackerPath,
 	};
 }
 
-/**
- * Best-effort cleanup for tracker files once a loop has stopped.
- */
-export function cleanupTrackerFile(trackerPath: string): void {
-	try {
-		fs.unlinkSync(trackerPath);
-	} catch {
-		// Fail open: ENOENT or permission errors should not break a completed run.
-	}
-}
-
-/**
- * Build the continuation prompt for loop iterations 2+.
- */
 export function buildContinuePrompt(loop: LoopConfig): string {
 	const template = loop.continuePrompt ?? DEFAULT_CONTINUE_PROMPT;
-	return template.replace('{trackerPath}', loop.trackerPath ?? 'tracker.md');
+	return template.replace(
+		'{trackerPath}',
+		loop.trackerPath ?? DEFAULT_TRACKER_PATH,
+	);
 }

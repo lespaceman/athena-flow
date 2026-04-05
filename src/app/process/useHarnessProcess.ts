@@ -20,6 +20,7 @@ export type HarnessProcessResult =
 export type UseHarnessProcessInput = {
 	harness: AthenaHarness;
 	projectDir: string;
+	athenaSessionId: string;
 	instanceId: number;
 	isolation?: HarnessProcessConfig | HarnessProcessPreset;
 	pluginMcpConfig?: string;
@@ -47,6 +48,7 @@ export function useHarnessProcess(
 	});
 	const workflowController = useWorkflowSessionController(controller, {
 		projectDir: input.projectDir,
+		sessionId: input.athenaSessionId,
 		workflow: input.workflow,
 	});
 

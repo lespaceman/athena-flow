@@ -106,7 +106,7 @@ export function resolveBuiltinWorkflow(
 			maxIterations: 20,
 		},
 		plugins: [],
-		systemPromptFile: ensureSystemPromptFile(),
+		workflowFile: ensureSystemPromptFile(),
 	};
 }
 

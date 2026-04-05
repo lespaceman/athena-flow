@@ -1,11 +1,14 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
+	"title": "FsGetMetadataResponse",
 	"description": "Metadata returned by `fs/getMetadata`.",
+	"type": "object",
+	"required": ["createdAtMs", "isDirectory", "isFile", "modifiedAtMs"],
 	"properties": {
 		"createdAtMs": {
 			"description": "File creation time in Unix milliseconds when available, otherwise `0`.",
-			"format": "int64",
-			"type": "integer"
+			"type": "integer",
+			"format": "int64"
 		},
 		"isDirectory": {
 			"description": "Whether the path currently resolves to a directory.",
@@ -17,11 +20,8 @@
 		},
 		"modifiedAtMs": {
 			"description": "File modification time in Unix milliseconds when available, otherwise `0`.",
-			"format": "int64",
-			"type": "integer"
+			"type": "integer",
+			"format": "int64"
 		}
-	},
-	"required": ["createdAtMs", "isDirectory", "isFile", "modifiedAtMs"],
-	"title": "FsGetMetadataResponse",
-	"type": "object"
+	}
 }

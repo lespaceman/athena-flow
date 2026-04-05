@@ -405,11 +405,13 @@ describe('runExec', () => {
 		}
 	});
 
-	it('removes the tracker file when a workflow loop reaches a terminal state', async () => {
+	it('preserves the tracker file when a workflow loop reaches a terminal state', async () => {
 		const runtime = new MockRuntime();
 		const stdout = createWriteCapture();
 		const stderr = createWriteCapture();
-		const trackerPath = '/tmp/tracker.md';
+		const projectDir = '/tmp/runner-terminal-project';
+		const trackerPath = `${projectDir}/.athena/session-1.md`;
+		fs.mkdirSync(`${projectDir}/.athena`, {recursive: true});
 		fs.writeFileSync(trackerPath, '<!-- DONE -->', 'utf-8');
 
 		const spawnProcess = (opts: SpawnArgs): ChildProcess => {
@@ -421,6 +423,122 @@ describe('runExec', () => {
 						type: 'message',
 						role: 'assistant',
 						content: [{type: 'text', text: 'done message'}],
+					}) + '\n',
+				);
+				opts.onExit?.(0);
+			});
+
+			return child;
+		};
+
+		try {
+			const result = await runExec({
+				prompt: 'hello',
+				projectDir,
+				harness: 'claude-code',
+				athenaSessionId: 'session-1',
+				isolationConfig: {},
+				onPermission: 'fail',
+				onQuestion: 'fail',
+				ephemeral: true,
+				stdout: stdout.writer,
+				stderr: stderr.writer,
+				runtimeFactory: () => runtime,
+				spawnProcess,
+				workflow: {
+					name: 'test-loop',
+					plugins: [],
+					promptTemplate: '{input}',
+					loop: {
+						enabled: true,
+						completionMarker: '<!-- DONE -->',
+						maxIterations: 5,
+						trackerPath: '.athena/{sessionId}.md',
+					},
+				},
+			});
+
+			expect(result.success).toBe(true);
+			expect(fs.existsSync(trackerPath)).toBe(true);
+		} finally {
+			fs.rmSync(projectDir, {recursive: true, force: true});
+		}
+	});
+
+	it('fails when a looped workflow cannot find its tracker file', async () => {
+		const runtime = new MockRuntime();
+		const stdout = createWriteCapture();
+		const stderr = createWriteCapture();
+
+		const spawnProcess = (opts: SpawnArgs): ChildProcess => {
+			const child = makeChildProcess();
+
+			setImmediate(() => {
+				opts.onStdout?.(
+					JSON.stringify({
+						type: 'message',
+						role: 'assistant',
+						content: [{type: 'text', text: 'done message'}],
+					}) + '\n',
+				);
+				opts.onExit?.(0);
+			});
+
+			return child;
+		};
+
+		const result = await runExec({
+			prompt: 'hello',
+			projectDir: '/tmp',
+			harness: 'claude-code',
+			isolationConfig: {},
+			onPermission: 'fail',
+			onQuestion: 'fail',
+			ephemeral: true,
+			stdout: stdout.writer,
+			stderr: stderr.writer,
+			runtimeFactory: () => runtime,
+			spawnProcess,
+			workflow: {
+				name: 'test-loop',
+				plugins: [],
+				promptTemplate: '{input}',
+				loop: {
+					enabled: true,
+					completionMarker: '<!-- DONE -->',
+					maxIterations: 5,
+					trackerPath: 'tracker.md',
+				},
+			},
+		});
+
+		expect(result.success).toBe(false);
+		expect(result.exitCode).toBe(EXEC_EXIT_CODE.WORKFLOW_BLOCKED);
+		expect(result.failure?.kind).toBe('workflow');
+		expect(result.failure?.message).toContain('Workflow tracker missing');
+		expect(result.finalMessage).toBeNull();
+	});
+
+	it('fails when a looped workflow is blocked', async () => {
+		const runtime = new MockRuntime();
+		const stdout = createWriteCapture();
+		const stderr = createWriteCapture();
+		const trackerPath = '/tmp/runner-blocked-tracker.md';
+
+		const spawnProcess = (opts: SpawnArgs): ChildProcess => {
+			const child = makeChildProcess();
+
+			setImmediate(() => {
+				fs.writeFileSync(
+					trackerPath,
+					'<!-- E2E_BLOCKED: browser initialization failed -->',
+					'utf-8',
+				);
+				opts.onStdout?.(
+					JSON.stringify({
+						type: 'message',
+						role: 'assistant',
+						content: [{type: 'text', text: 'blocked'}],
 					}) + '\n',
 				);
 				opts.onExit?.(0);
@@ -449,14 +567,91 @@ describe('runExec', () => {
 					loop: {
 						enabled: true,
 						completionMarker: '<!-- DONE -->',
+						blockedMarker: '<!-- E2E_BLOCKED',
 						maxIterations: 5,
-						trackerPath: 'tracker.md',
+						trackerPath: 'runner-blocked-tracker.md',
 					},
 				},
 			});
 
-			expect(result.success).toBe(true);
-			expect(fs.existsSync(trackerPath)).toBe(false);
+			expect(result.success).toBe(false);
+			expect(result.exitCode).toBe(EXEC_EXIT_CODE.WORKFLOW_BLOCKED);
+			expect(result.failure?.kind).toBe('workflow');
+			expect(result.failure).toEqual(
+				expect.objectContaining({
+					kind: 'workflow',
+					state: 'blocked',
+				}),
+			);
+			expect(result.failure?.message).toContain('Workflow blocked');
+			expect(result.finalMessage).toBeNull();
+		} finally {
+			fs.rmSync(trackerPath, {force: true});
+		}
+	});
+
+	it('fails when maxIterations is exhausted', async () => {
+		const runtime = new MockRuntime();
+		const stdout = createWriteCapture();
+		const stderr = createWriteCapture();
+		const trackerPath = '/tmp/runner-max-iterations-tracker.md';
+
+		const spawnProcess = vi.fn((opts: SpawnArgs): ChildProcess => {
+			const child = makeChildProcess();
+
+			setImmediate(() => {
+				fs.writeFileSync(trackerPath, 'still running', 'utf-8');
+				opts.onStdout?.(
+					JSON.stringify({
+						type: 'message',
+						role: 'assistant',
+						content: [{type: 'text', text: 'done message'}],
+					}) + '\n',
+				);
+				opts.onExit?.(0);
+			});
+
+			return child;
+		});
+
+		try {
+			const result = await runExec({
+				prompt: 'hello',
+				projectDir: '/tmp',
+				harness: 'claude-code',
+				isolationConfig: {},
+				onPermission: 'fail',
+				onQuestion: 'fail',
+				ephemeral: true,
+				stdout: stdout.writer,
+				stderr: stderr.writer,
+				runtimeFactory: () => runtime,
+				spawnProcess,
+				workflow: {
+					name: 'test-loop',
+					plugins: [],
+					promptTemplate: '{input}',
+					loop: {
+						enabled: true,
+						completionMarker: '<!-- DONE -->',
+						maxIterations: 1,
+						trackerPath: 'runner-max-iterations-tracker.md',
+					},
+				},
+			});
+
+			expect(result.success).toBe(false);
+			expect(result.exitCode).toBe(EXEC_EXIT_CODE.WORKFLOW_EXHAUSTED);
+			expect(result.failure?.kind).toBe('workflow');
+			expect(result.failure).toEqual(
+				expect.objectContaining({
+					kind: 'workflow',
+					state: 'exhausted',
+				}),
+			);
+			expect(result.failure?.message).toContain('maximum of 1 iterations');
+			expect(result.finalMessage).toBeNull();
+			expect(spawnProcess).toHaveBeenCalledTimes(1);
 		} finally {
 			fs.rmSync(trackerPath, {force: true});
 		}

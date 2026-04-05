@@ -24,12 +24,15 @@ export {
 	createWorkflowRunState,
 	prepareWorkflowTurn,
 	shouldContinueWorkflowRun,
+	type LoopStopInfo,
 } from './sessionPlan';
 export {useWorkflowSessionController} from './useWorkflowSessionController';
 export {
 	createLoopManager,
 	buildContinuePrompt,
-	cleanupTrackerFile,
+	DEFAULT_COMPLETION_MARKER,
+	DEFAULT_BLOCKED_MARKER,
+	DEFAULT_TRACKER_PATH,
 	type LoopState,
 	type LoopManager,
 } from './loopManager';
