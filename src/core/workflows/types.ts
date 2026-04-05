@@ -116,3 +116,14 @@ export type CodexWorkflowPluginRef = {
 	pluginName: string;
 	marketplacePath: string;
 };
+
+/**
+ * Terminal and non-terminal states for a workflow run.
+ */
+export type RunStatus =
+	| 'running'
+	| 'completed'
+	| 'blocked'
+	| 'exhausted'
+	| 'failed'
+	| 'cancelled';

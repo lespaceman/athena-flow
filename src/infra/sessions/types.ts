@@ -26,3 +26,29 @@ export type StoredSession = {
 	feedEvents: FeedEvent[];
 	adapterSessions: AdapterSessionRecord[];
 };
+
+import type {RunStatus} from '../../core/workflows/types';
+
+export type WorkflowRunSnapshot = {
+	runId: string;
+	sessionId: string;
+	workflowName?: string;
+	iteration: number;
+	maxIterations?: number;
+	status: RunStatus;
+	stopReason?: string;
+	trackerPath?: string;
+};
+
+export type PersistedWorkflowRun = {
+	id: string;
+	sessionId: string;
+	workflowName?: string;
+	startedAt: number;
+	endedAt?: number;
+	iteration: number;
+	maxIterations: number;
+	status: RunStatus;
+	stopReason?: string;
+	trackerPath?: string;
+};

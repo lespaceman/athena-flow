@@ -6,6 +6,7 @@ export type {
 	LoopConfig,
 	ResolvedWorkflowConfig,
 	WorkflowSourceMetadata,
+	RunStatus,
 } from './types';
 export type {WorkflowPlan} from './plan';
 export {applyPromptTemplate} from './applyWorkflow';

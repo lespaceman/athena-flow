@@ -1,5 +1,11 @@
 // Types
-export type {AthenaSession, AdapterSessionRecord, StoredSession} from './types';
+export type {
+	AthenaSession,
+	AdapterSessionRecord,
+	StoredSession,
+	WorkflowRunSnapshot,
+	PersistedWorkflowRun,
+} from './types';
 export type {SessionStore} from './store';
 
 // Factories
