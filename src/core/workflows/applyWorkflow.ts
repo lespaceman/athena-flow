@@ -1,4 +1,3 @@
-// src/core/workflows/applyWorkflow.ts
 import {substituteVariables, type TemplateContext} from './templateVars';
 
 /**

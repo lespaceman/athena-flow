@@ -95,7 +95,7 @@ function mergeOverrides(
 	};
 }
 
-function resolveTrackerPath(input: {
+export function resolveTrackerPath(input: {
 	projectDir: string;
 	sessionId?: string;
 	workflow?: WorkflowConfig;

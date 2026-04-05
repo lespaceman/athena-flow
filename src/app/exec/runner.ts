@@ -245,11 +245,18 @@ export async function runExec(options: ExecRunOptions): Promise<ExecRunResult> {
 		},
 	};
 
+	const linkedAdapterSessions = new Set<string>();
+
 	const unsubscribeEvent = runtime.onEvent((runtimeEvent: RuntimeEvent) => {
 		adapterSessionId = runtimeEvent.sessionId;
 
 		// Link new adapter sessions to the active workflow run
-		if (runtimeEvent.sessionId && activeRunId) {
+		if (
+			runtimeEvent.sessionId &&
+			activeRunId &&
+			!linkedAdapterSessions.has(runtimeEvent.sessionId)
+		) {
+			linkedAdapterSessions.add(runtimeEvent.sessionId);
 			safePersist(
 				store,
 				() => store.linkAdapterSession(runtimeEvent.sessionId!, activeRunId!),

@@ -7,16 +7,16 @@ import type {
 	TurnExecutionResult,
 } from '../runtime/process';
 import type {TokenUsage} from '../../shared/types/headerMetrics';
-import type {RunStatus} from './types';
-import type {WorkflowConfig} from './types';
+import type {RunStatus, WorkflowConfig} from './types';
 import type {WorkflowRunSnapshot} from '../../infra/sessions/types';
 import {
 	createWorkflowRunState,
 	prepareWorkflowTurn,
 	shouldContinueWorkflowRun,
 	cleanupWorkflowRun,
+	resolveTrackerPath,
 } from './sessionPlan';
-import {DEFAULT_TRACKER_PATH, TRACKER_SKELETON_MARKER} from './loopManager';
+import {TRACKER_SKELETON_MARKER} from './loopManager';
 import {substituteVariables} from './templateVars';
 
 export type TurnInput = {
@@ -98,7 +98,11 @@ function mergeTokens(base: TokenUsage, next: TokenUsage): TokenUsage {
 		base.input !== null ||
 		next.input !== null ||
 		base.output !== null ||
-		next.output !== null;
+		next.output !== null ||
+		base.cacheRead !== null ||
+		next.cacheRead !== null ||
+		base.cacheWrite !== null ||
+		next.cacheWrite !== null;
 	if (!hasAny)
 		return {
 			...NULL_TOKENS,
@@ -116,23 +120,13 @@ function mergeTokens(base: TokenUsage, next: TokenUsage): TokenUsage {
 	};
 }
 
-function resolveTrackerAbsolutePath(
-	projectDir: string,
-	sessionId: string,
-	workflow?: WorkflowConfig,
-): string | null {
-	const loop = workflow?.loop;
-	if (!loop?.enabled) return null;
-	const rawPath = loop.trackerPath ?? DEFAULT_TRACKER_PATH;
-	const substituted = rawPath.replaceAll('{sessionId}', sessionId);
-	return path.isAbsolute(substituted)
-		? substituted
-		: path.resolve(projectDir, substituted);
-}
-
 function defaultCreateTracker(trackerPath: string, content: string): void {
 	fs.mkdirSync(path.dirname(trackerPath), {recursive: true});
-	fs.writeFileSync(trackerPath, content, 'utf-8');
+	try {
+		fs.writeFileSync(trackerPath, content, {encoding: 'utf-8', flag: 'wx'});
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
+	}
 }
 
 export function createWorkflowRunner(
@@ -145,15 +139,13 @@ export function createWorkflowRunner(
 	let cumulativeTokens: TokenUsage = {...NULL_TOKENS};
 	let stopReason: string | undefined;
 
-	const trackerAbsPath = resolveTrackerAbsolutePath(
-		input.projectDir,
-		input.sessionId,
-		input.workflow,
-	);
-
-	const trackerPromptPath = trackerAbsPath
-		? path.relative(input.projectDir, trackerAbsPath)
-		: undefined;
+	const trackerResolved = resolveTrackerPath({
+		projectDir: input.projectDir,
+		sessionId: input.sessionId,
+		workflow: input.workflow,
+	});
+	const trackerAbsPath = trackerResolved?.absolutePath ?? null;
+	const trackerPromptPath = trackerResolved?.promptPath;
 
 	function snapshot(): WorkflowRunSnapshot {
 		return {
@@ -185,15 +177,13 @@ export function createWorkflowRunner(
 
 		// Create tracker skeleton if needed
 		if (trackerAbsPath && input.workflow?.loop?.enabled) {
-			if (!fs.existsSync(trackerAbsPath)) {
-				const content = substituteVariables(TRACKER_SKELETON_TEMPLATE, {
-					sessionId: input.sessionId,
-					trackerPath: trackerPromptPath,
-					input: input.prompt,
-				});
-				const write = input.createTracker ?? defaultCreateTracker;
-				write(trackerAbsPath, content);
-			}
+			const content = substituteVariables(TRACKER_SKELETON_TEMPLATE, {
+				sessionId: input.sessionId,
+				trackerPath: trackerPromptPath,
+				input: input.prompt,
+			});
+			const write = input.createTracker ?? defaultCreateTracker;
+			write(trackerAbsPath, content);
 		}
 
 		// Persist initial running state
@@ -225,7 +215,7 @@ export function createWorkflowRunner(
 				});
 
 				// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- cancelled is mutated externally during await
-				if (cancelled || !turnResult) {
+				if (cancelled) {
 					status = 'cancelled';
 					persist();
 					break;

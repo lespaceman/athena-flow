@@ -43,6 +43,8 @@ export function useWorkflowSessionController(
 		const runner = runnerRef.current;
 		if (runner) {
 			runner.kill();
+			runnerRef.current = null;
+			activeRunIdRef.current = null;
 		} else {
 			void base.kill().catch(() => {});
 		}
@@ -50,17 +52,13 @@ export function useWorkflowSessionController(
 	}, [base]);
 
 	const kill = useCallback(async (): Promise<void> => {
-		const runner = runnerRef.current;
-		if (runner) {
-			runner.kill();
-			await runner.result.catch(() => {});
-			runnerRef.current = null;
-			activeRunIdRef.current = null;
+		if (runnerRef.current) {
+			await cancelCurrentRun();
 		} else {
 			await base.kill();
 		}
 		setIsRunning(false);
-	}, [base]);
+	}, [base, cancelCurrentRun]);
 
 	const spawn = useCallback(
 		async (
@@ -121,7 +119,7 @@ export function useWorkflowSessionController(
 
 	useEffect(() => {
 		return () => {
-			runnerRef.current?.cancel();
+			runnerRef.current?.kill();
 			runnerRef.current = null;
 			activeRunIdRef.current = null;
 		};
