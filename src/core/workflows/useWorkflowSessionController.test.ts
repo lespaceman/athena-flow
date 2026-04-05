@@ -21,6 +21,30 @@ function makeTempDir(): string {
 	return dir;
 }
 
+const NULL_USAGE = {
+	input: null,
+	output: null,
+	cacheRead: null,
+	cacheWrite: null,
+	total: null,
+	contextSize: null,
+	contextWindowSize: null,
+};
+
+const OK_RESULT: TurnExecutionResult = {
+	exitCode: 0,
+	error: null,
+	tokens: NULL_USAGE,
+	streamMessage: null,
+};
+
+const KILLED_RESULT: TurnExecutionResult = {
+	exitCode: null,
+	error: new Error('killed'),
+	tokens: NULL_USAGE,
+	streamMessage: null,
+};
+
 afterEach(() => {
 	for (const dir of tempDirs.splice(0)) {
 		fs.rmSync(dir, {recursive: true, force: true});
@@ -41,37 +65,11 @@ describe('useWorkflowSessionController', () => {
 				const call = spawn.mock.calls.length;
 				if (call === 1) {
 					fs.writeFileSync(trackerPath, 'still running', 'utf-8');
-					return {
-						exitCode: 0,
-						error: null,
-						tokens: {
-							input: null,
-							output: null,
-							cacheRead: null,
-							cacheWrite: null,
-							total: null,
-							contextSize: null,
-							contextWindowSize: null,
-						},
-						streamMessage: null,
-					};
+					return OK_RESULT;
 				}
 
 				fs.writeFileSync(trackerPath, '<!-- DONE -->', 'utf-8');
-				return {
-					exitCode: 0,
-					error: null,
-					tokens: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-						contextWindowSize: null,
-					},
-					streamMessage: null,
-				};
+				return OK_RESULT;
 			});
 
 		const {result} = renderHook(() =>
@@ -81,14 +79,7 @@ describe('useWorkflowSessionController', () => {
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill: vi.fn().mockResolvedValue(undefined),
-					usage: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-					},
+					usage: NULL_USAGE,
 				},
 				{
 					projectDir,
@@ -145,9 +136,10 @@ describe('useWorkflowSessionController', () => {
 	});
 
 	it('kills an in-flight run before starting a new spawn', async () => {
-		let releaseFirstSpawn: (() => void) | null = null;
+		let releaseFirstSpawn: ((result: TurnExecutionResult) => void) | null =
+			null;
 		const kill = vi.fn().mockImplementation(async () => {
-			releaseFirstSpawn?.();
+			releaseFirstSpawn?.(KILLED_RESULT);
 		});
 		const spawn = vi
 			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
@@ -157,20 +149,7 @@ describe('useWorkflowSessionController', () => {
 						releaseFirstSpawn = resolve;
 					}),
 			)
-			.mockResolvedValueOnce({
-				exitCode: 0,
-				error: null,
-				tokens: {
-					input: null,
-					output: null,
-					cacheRead: null,
-					cacheWrite: null,
-					total: null,
-					contextSize: null,
-					contextWindowSize: null,
-				},
-				streamMessage: null,
-			});
+			.mockResolvedValueOnce(OK_RESULT);
 
 		const {result} = renderHook(() =>
 			useWorkflowSessionController(
@@ -179,14 +158,7 @@ describe('useWorkflowSessionController', () => {
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill,
-					usage: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-					},
+					usage: NULL_USAGE,
 				},
 				{
 					projectDir: makeTempDir(),
@@ -202,6 +174,9 @@ describe('useWorkflowSessionController', () => {
 		let firstSpawnPromise: Promise<TurnExecutionResult>;
 		await act(async () => {
 			firstSpawnPromise = result.current.startTurn('first');
+			// Yield so the runner's initial await Promise.resolve() runs and
+			// the turn actually starts (making the first spawn block).
+			await Promise.resolve();
 		});
 
 		await act(async () => {
@@ -212,29 +187,28 @@ describe('useWorkflowSessionController', () => {
 			await firstSpawnPromise!;
 		});
 
+		// base.kill() should have been called to abort the first turn
 		expect(kill).toHaveBeenCalledTimes(1);
-		expect(spawn).toHaveBeenNthCalledWith(1, 'first', undefined, undefined);
-		expect(spawn).toHaveBeenNthCalledWith(2, 'second', undefined, undefined);
+		// The runner defaults continuation to {mode: 'fresh'} when not provided
+		expect(spawn).toHaveBeenNthCalledWith(
+			1,
+			'first',
+			{mode: 'fresh'},
+			undefined,
+		);
+		expect(spawn).toHaveBeenNthCalledWith(
+			2,
+			'second',
+			{mode: 'fresh'},
+			undefined,
+		);
 	});
 
 	it('interrupt immediately ends the session via kill', async () => {
 		let releaseTurn: ((result: TurnExecutionResult) => void) | null = null;
 		const baseInterrupt = vi.fn();
 		const baseKill = vi.fn().mockImplementation(async () => {
-			releaseTurn?.({
-				exitCode: null,
-				error: new Error('killed'),
-				tokens: {
-					input: null,
-					output: null,
-					cacheRead: null,
-					cacheWrite: null,
-					total: null,
-					contextSize: null,
-					contextWindowSize: null,
-				},
-				streamMessage: null,
-			});
+			releaseTurn?.(KILLED_RESULT);
 		});
 		const spawn = vi
 			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
@@ -252,15 +226,7 @@ describe('useWorkflowSessionController', () => {
 					isRunning: false,
 					interrupt: baseInterrupt,
 					kill: baseKill,
-					usage: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-						contextWindowSize: null,
-					},
+					usage: NULL_USAGE,
 				},
 				{
 					projectDir: makeTempDir(),
@@ -268,10 +234,12 @@ describe('useWorkflowSessionController', () => {
 			),
 		);
 
-		// Start a turn (don't await — it blocks until the turn completes)
+		// Start a turn and let it begin executing inside the runner
 		let turnPromise: Promise<TurnExecutionResult>;
-		act(() => {
+		await act(async () => {
 			turnPromise = result.current.startTurn('test prompt');
+			// Yield so the runner's initial await Promise.resolve() runs
+			await Promise.resolve();
 		});
 
 		expect(result.current.isRunning).toBe(true);
@@ -302,15 +270,7 @@ describe('useWorkflowSessionController', () => {
 				return {
 					exitCode: 1,
 					error: null,
-					tokens: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-						contextWindowSize: null,
-					},
+					tokens: NULL_USAGE,
 					streamMessage: null,
 				};
 			});
@@ -322,15 +282,7 @@ describe('useWorkflowSessionController', () => {
 					isRunning: false,
 					interrupt: vi.fn(),
 					kill: vi.fn().mockResolvedValue(undefined),
-					usage: {
-						input: null,
-						output: null,
-						cacheRead: null,
-						cacheWrite: null,
-						total: null,
-						contextSize: null,
-						contextWindowSize: null,
-					},
+					usage: NULL_USAGE,
 				},
 				{
 					projectDir: path.dirname(trackerPath),
@@ -353,7 +305,57 @@ describe('useWorkflowSessionController', () => {
 			return await result.current.startTurn('ship it');
 		});
 
+		// The runner returns exitCode 1 for failed status
 		expect(turnResult.exitCode).toBe(1);
 		expect(spawn).toHaveBeenCalledTimes(1);
+	});
+
+	it('exposes activeRunId while a run is active', async () => {
+		let releaseTurn: ((result: TurnExecutionResult) => void) | null = null;
+		const spawn = vi
+			.fn<HarnessProcess<HarnessProcessOverride>['startTurn']>()
+			.mockImplementation(
+				() =>
+					new Promise<TurnExecutionResult>(resolve => {
+						releaseTurn = resolve;
+					}),
+			);
+
+		const {result} = renderHook(() =>
+			useWorkflowSessionController(
+				{
+					startTurn: spawn,
+					isRunning: false,
+					interrupt: vi.fn(),
+					kill: vi.fn().mockResolvedValue(undefined),
+					usage: NULL_USAGE,
+				},
+				{
+					projectDir: makeTempDir(),
+				},
+			),
+		);
+
+		expect(result.current.activeRunId).toBeNull();
+
+		let turnPromise: Promise<TurnExecutionResult>;
+		await act(async () => {
+			turnPromise = result.current.startTurn('test');
+			await Promise.resolve();
+		});
+
+		expect(result.current.activeRunId).not.toBeNull();
+		expect(typeof result.current.activeRunId).toBe('string');
+
+		// Complete the turn
+		act(() => {
+			releaseTurn?.(OK_RESULT);
+		});
+
+		await act(async () => {
+			await turnPromise!;
+		});
+
+		expect(result.current.activeRunId).toBeNull();
 	});
 });

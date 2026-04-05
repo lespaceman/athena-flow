@@ -6,127 +6,124 @@ import type {
 	TurnExecutionResult,
 } from '../runtime/process';
 import {
-	cleanupWorkflowRun,
-	createWorkflowRunState,
-	prepareWorkflowTurn,
-	shouldContinueWorkflowRun,
-} from './sessionPlan';
+	createWorkflowRunner,
+	type WorkflowRunnerHandle,
+} from './workflowRunner';
 import type {WorkflowConfig} from './types';
+import type {WorkflowRunSnapshot} from '../../infra/sessions/types';
+
+export type UseWorkflowSessionControllerInput = {
+	projectDir: string;
+	sessionId?: string;
+	workflow?: WorkflowConfig;
+	persistRunState?: (snapshot: WorkflowRunSnapshot) => void;
+};
 
 export function useWorkflowSessionController(
 	base: HarnessProcess<HarnessProcessOverride>,
-	input: {
-		projectDir: string;
-		sessionId?: string;
-		workflow?: WorkflowConfig;
-	},
-): HarnessProcess<HarnessProcessOverride> {
+	input: UseWorkflowSessionControllerInput,
+): HarnessProcess<HarnessProcessOverride> & {
+	readonly activeRunId: string | null;
+} {
 	const [isRunning, setIsRunning] = useState(false);
-	const cancelledRef = useRef(false);
-	const activeRunIdRef = useRef(0);
-	const activeSpawnPromiseRef = useRef<Promise<TurnExecutionResult> | null>(
-		null,
-	);
-	const isCancelled = (): boolean => cancelledRef.current;
+	const runnerRef = useRef<WorkflowRunnerHandle | null>(null);
+	const activeRunIdRef = useRef<string | null>(null);
 
-	const cancelRun = useCallback((): void => {
-		cancelledRef.current = true;
-		activeRunIdRef.current += 1;
-		setIsRunning(false);
+	const cancelCurrentRun = useCallback(async (): Promise<void> => {
+		const runner = runnerRef.current;
+		if (runner) {
+			runner.kill();
+			await runner.result.catch(() => {});
+			runnerRef.current = null;
+			activeRunIdRef.current = null;
+		}
 	}, []);
 
 	const interrupt = useCallback((): void => {
-		cancelRun();
-		void base.kill().catch(() => {});
-	}, [base, cancelRun]);
+		const runner = runnerRef.current;
+		if (runner) {
+			runner.kill();
+		} else {
+			void base.kill().catch(() => {});
+		}
+		setIsRunning(false);
+	}, [base]);
 
 	const kill = useCallback(async (): Promise<void> => {
-		cancelRun();
-		await base.kill();
-		await activeSpawnPromiseRef.current?.catch(() => {});
-	}, [base, cancelRun]);
+		const runner = runnerRef.current;
+		if (runner) {
+			runner.kill();
+			await runner.result.catch(() => {});
+			runnerRef.current = null;
+			activeRunIdRef.current = null;
+		} else {
+			await base.kill();
+		}
+		setIsRunning(false);
+	}, [base]);
 
 	const spawn = useCallback(
 		async (
 			prompt: string,
 			continuation?: TurnContinuation,
-			configOverride?: HarnessProcessOverride,
+			_configOverride?: HarnessProcessOverride,
 		): Promise<TurnExecutionResult> => {
-			const previousSpawn = activeSpawnPromiseRef.current;
-			if (previousSpawn) {
-				cancelRun();
-				await base.kill();
-				await previousSpawn.catch(() => {});
-			}
-
-			cancelledRef.current = false;
-			const runId = activeRunIdRef.current + 1;
-			activeRunIdRef.current = runId;
+			await cancelCurrentRun();
 			setIsRunning(true);
 
-			const runPromise = (async () => {
-				const workflowState = createWorkflowRunState({
-					projectDir: input.projectDir,
-					sessionId: input.sessionId,
-					workflow: input.workflow,
-				});
-				let nextContinuation = continuation;
-				let lastResult: TurnExecutionResult = {
-					exitCode: 0,
-					error: null,
-					tokens: base.usage,
+			const handle = createWorkflowRunner({
+				sessionId: input.sessionId ?? '',
+				projectDir: input.projectDir,
+				workflow: input.workflow,
+				prompt,
+				initialContinuation: continuation,
+				startTurn: turnInput =>
+					base.startTurn(
+						turnInput.prompt,
+						turnInput.continuation,
+						turnInput.configOverride,
+					),
+				persistRunState: input.persistRunState ?? (() => {}),
+				abortCurrentTurn: () => void base.kill().catch(() => {}),
+			});
+
+			runnerRef.current = handle;
+			activeRunIdRef.current = handle.runId;
+
+			try {
+				const runResult = await handle.result;
+				return {
+					exitCode: runResult.status === 'failed' ? 1 : 0,
+					error:
+						runResult.status === 'failed'
+							? new Error(runResult.stopReason ?? 'Run failed')
+							: null,
+					tokens: runResult.tokens,
 					streamMessage: null,
 				};
-
-				try {
-					while (!isCancelled() && activeRunIdRef.current === runId) {
-						const prepared = prepareWorkflowTurn(workflowState, {
-							prompt,
-							configOverride,
-						});
-						for (const warning of prepared.warnings) {
-							console.error(`[athena] ${warning}`);
-						}
-
-						lastResult = await base.startTurn(
-							prepared.prompt,
-							nextContinuation,
-							prepared.configOverride,
-						);
-						if (
-							isCancelled() ||
-							activeRunIdRef.current !== runId ||
-							lastResult.error !== null ||
-							(lastResult.exitCode !== null && lastResult.exitCode !== 0) ||
-							!workflowState.workflow?.loop?.enabled ||
-							shouldContinueWorkflowRun(workflowState) !== null
-						) {
-							break;
-						}
-
-						nextContinuation = {mode: 'fresh'};
-					}
-					return lastResult;
-				} finally {
-					cleanupWorkflowRun(workflowState);
-					if (activeRunIdRef.current === runId) {
-						activeSpawnPromiseRef.current = null;
-						setIsRunning(false);
-					}
+			} finally {
+				if (runnerRef.current === handle) {
+					runnerRef.current = null;
+					activeRunIdRef.current = null;
+					setIsRunning(false);
 				}
-			})();
-
-			activeSpawnPromiseRef.current = runPromise;
-			return await runPromise;
+			}
 		},
-		[base, cancelRun, input.projectDir, input.sessionId, input.workflow],
+		[
+			base,
+			cancelCurrentRun,
+			input.projectDir,
+			input.sessionId,
+			input.workflow,
+			input.persistRunState,
+		],
 	);
 
 	useEffect(() => {
 		return () => {
-			cancelledRef.current = true;
-			activeRunIdRef.current += 1;
-			activeSpawnPromiseRef.current = null;
+			runnerRef.current?.cancel();
+			runnerRef.current = null;
+			activeRunIdRef.current = null;
 		};
 	}, []);
 
@@ -136,5 +133,8 @@ export function useWorkflowSessionController(
 		isRunning,
 		interrupt,
 		kill,
+		get activeRunId() {
+			return activeRunIdRef.current;
+		},
 	};
 }

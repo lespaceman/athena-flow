@@ -12,9 +12,11 @@ import {sessionsDir} from '../../infra/sessions/registry';
 import {type HookContextValue, type HookProviderProps} from './types';
 import {createRuntime} from '../runtime/createRuntime';
 import type {Runtime} from '../../core/runtime/types';
+import type {SessionStore} from '../../infra/sessions/store';
 
 const HookContext = createContext<HookContextValue | null>(null);
 const RuntimeRefContext = createContext<Runtime | null>(null);
+const SessionStoreContext = createContext<SessionStore | null>(null);
 const EMPTY_MESSAGES: never[] = [];
 const MISSING_CONTEXT = Symbol('missing-hook-context');
 
@@ -120,13 +122,15 @@ export function HookProvider({
 
 	return (
 		<RuntimeRefContext.Provider value={runtime}>
-			<HookProviderContent
-				runtime={runtime}
-				allowedTools={allowedTools}
-				sessionStore={sessionStore}
-			>
-				{children}
-			</HookProviderContent>
+			<SessionStoreContext.Provider value={sessionStore}>
+				<HookProviderContent
+					runtime={runtime}
+					allowedTools={allowedTools}
+					sessionStore={sessionStore}
+				>
+					{children}
+				</HookProviderContent>
+			</SessionStoreContext.Provider>
 		</RuntimeRefContext.Provider>
 	);
 }
@@ -166,4 +170,8 @@ export function useOptionalHookContext(): HookContextValue | null {
  */
 export function useRuntime(): Runtime | null {
 	return useContext(RuntimeRefContext);
+}
+
+export function useSessionStore(): SessionStore | null {
+	return useContext(SessionStoreContext);
 }

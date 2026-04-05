@@ -10,7 +10,7 @@ import type {TokenUsage} from '../../shared/types/headerMetrics';
 import type {UseSessionControllerResult} from '../../harnesses/contracts/session';
 import {resolveHarnessAdapter} from '../../harnesses/registry';
 import {useWorkflowSessionController} from '../../core/workflows/useWorkflowSessionController';
-import {useRuntime} from '../providers/RuntimeProvider';
+import {useRuntime, useSessionStore} from '../providers/RuntimeProvider';
 
 export type HarnessProcessResult =
 	UseSessionControllerResult<HarnessProcessOverride> & {
@@ -34,6 +34,7 @@ export function useHarnessProcess(
 	input: UseHarnessProcessInput,
 ): HarnessProcessResult {
 	const runtime = useRuntime();
+	const sessionStore = useSessionStore();
 	const adapter = resolveHarnessAdapter(input.harness);
 	const controller = adapter.useSessionController({
 		projectDir: input.projectDir,
@@ -50,6 +51,9 @@ export function useHarnessProcess(
 		projectDir: input.projectDir,
 		sessionId: input.athenaSessionId,
 		workflow: input.workflow,
+		persistRunState: sessionStore
+			? snapshot => sessionStore.persistRun(snapshot)
+			: undefined,
 	});
 
 	return {
