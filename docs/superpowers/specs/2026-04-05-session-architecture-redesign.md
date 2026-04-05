@@ -356,12 +356,11 @@ Callers wire `persistRunState` directly to `store.persistRun(snapshot)` — no c
 
 ### Removed Code
 
-| What                                             | Where                                           | Replaced by                                           |
-| ------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------- |
-| `while (!hasFailure()) { ... }` loop             | `runner.ts` ~lines 386-488                      | `createWorkflowRunner()` call                         |
-| `while (!isCancelled()) { ... }` loop            | `useWorkflowSessionController.ts` ~lines 67-117 | `createWorkflowRunner()` call                         |
-| `composed.replaceAll('<session_id>', sessionId)` | `sessionPlan.ts` `readWorkflowOverride`         | `substituteVariables()` call                          |
-| `TurnContinuation` `'reuse-current'` variant     | `src/core/runtime/process.ts`                   | Removed entirely — unused, rejected by Claude adapter |
+| What                                             | Where                                           | Replaced by                   |
+| ------------------------------------------------ | ----------------------------------------------- | ----------------------------- |
+| `while (!hasFailure()) { ... }` loop             | `runner.ts` ~lines 386-488                      | `createWorkflowRunner()` call |
+| `while (!isCancelled()) { ... }` loop            | `useWorkflowSessionController.ts` ~lines 67-117 | `createWorkflowRunner()` call |
+| `composed.replaceAll('<session_id>', sessionId)` | `sessionPlan.ts` `readWorkflowOverride`         | `substituteVariables()` call  |
 
 ### File-Level Impact
 
@@ -385,7 +384,6 @@ Callers wire `persistRunState` directly to `store.persistRun(snapshot)` — no c
 | `src/core/workflows/types.ts`                        | Add `RunStatus` type                                                                                          |
 | `src/core/workflows/useWorkflowSessionController.ts` | Replace while loop with `createWorkflowRunner()`                                                              |
 | `src/core/workflows/index.ts`                        | Re-export new types and `createWorkflowRunner`                                                                |
-| `src/core/runtime/process.ts`                        | Remove `'reuse-current'` from `TurnContinuation`                                                              |
 | `src/infra/sessions/schema.ts`                       | Schema v5 migration                                                                                           |
 | `src/infra/sessions/store.ts`                        | Add `persistRun()`, `getLatestRun()`, `linkAdapterSession()`                                                  |
 | `src/infra/sessions/types.ts`                        | Add `PersistedWorkflowRun`, `WorkflowRunSnapshot`, `RunStatus`                                                |
