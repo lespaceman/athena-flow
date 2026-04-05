@@ -10,10 +10,12 @@
 
 import fs from 'node:fs';
 import type {LoopConfig} from './types';
+import {substituteVariables} from './templateVars';
 
 export const DEFAULT_COMPLETION_MARKER = '<!-- WORKFLOW_COMPLETE -->';
 export const DEFAULT_BLOCKED_MARKER = '<!-- WORKFLOW_BLOCKED';
 export const DEFAULT_TRACKER_PATH = '.athena/{sessionId}/tracker.md';
+export const TRACKER_SKELETON_MARKER = '<!-- TRACKER_SKELETON -->';
 
 const DEFAULT_CONTINUE_PROMPT =
 	'Continue the task. Read the tracker at {trackerPath} for current progress.';
@@ -105,8 +107,7 @@ export function createLoopManager(
 
 export function buildContinuePrompt(loop: LoopConfig): string {
 	const template = loop.continuePrompt ?? DEFAULT_CONTINUE_PROMPT;
-	return template.replace(
-		'{trackerPath}',
-		loop.trackerPath ?? DEFAULT_TRACKER_PATH,
-	);
+	return substituteVariables(template, {
+		trackerPath: loop.trackerPath ?? DEFAULT_TRACKER_PATH,
+	});
 }

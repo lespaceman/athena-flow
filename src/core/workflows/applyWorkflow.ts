@@ -1,12 +1,15 @@
-/**
- * Workflow application utilities.
- *
- * Transforms user prompts via workflow templates.
- */
+// src/core/workflows/applyWorkflow.ts
+import {substituteVariables, type TemplateContext} from './templateVars';
 
 /**
- * Replace `{input}` placeholder in a prompt template with the user's input.
+ * Apply a prompt template by substituting variables.
+ * For backward compatibility, `input` is a positional argument.
+ * Additional context (sessionId, trackerPath) is optional.
  */
-export function applyPromptTemplate(template: string, input: string): string {
-	return template.replace('{input}', input);
+export function applyPromptTemplate(
+	template: string,
+	input: string,
+	ctx?: Omit<TemplateContext, 'input'>,
+): string {
+	return substituteVariables(template, {input, ...ctx});
 }

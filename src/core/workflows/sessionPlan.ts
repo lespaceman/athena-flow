@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type {HarnessProcessOverride} from '../runtime/process';
 import {applyPromptTemplate} from './applyWorkflow';
+import {substituteVariables} from './templateVars';
 import {
 	buildContinuePrompt,
 	createLoopManager,
@@ -34,6 +35,8 @@ export type PreparedWorkflowTurn = {
 function readWorkflowOverride(
 	projectDir: string,
 	workflow?: WorkflowConfig,
+	sessionId?: string,
+	trackerPath?: string,
 ): Pick<WorkflowRunState, 'workflowOverride' | 'warnings'> {
 	if (!workflow?.workflowFile) {
 		return {workflowOverride: undefined, warnings: []};
@@ -55,9 +58,15 @@ function readWorkflowOverride(
 		};
 	}
 
-	const composed = workflow.loop?.enabled
+	let composed = workflow.loop?.enabled
 		? STATE_MACHINE_CONTENT + '\n\n' + workflowContent
 		: workflowContent;
+
+	// Substitute session-scoped variables into the composed content.
+	composed = substituteVariables(composed, {
+		sessionId,
+		trackerPath: trackerPath ?? undefined,
+	});
 
 	// Write composed prompt to a stable file so Claude can read it via
 	// --append-system-prompt-file without a temp-file cleanup concern.
@@ -124,20 +133,22 @@ export function createWorkflowRunState(input: {
 	workflow?: WorkflowConfig;
 }): WorkflowRunState {
 	const {projectDir, sessionId, workflow} = input;
-	const trackerPath = resolveTrackerPath({projectDir, sessionId, workflow});
+	const trackerResolved = resolveTrackerPath({projectDir, sessionId, workflow});
 	const loopManager =
-		workflow?.loop?.enabled === true && trackerPath
-			? createLoopManager(trackerPath.absolutePath, workflow.loop)
+		workflow?.loop?.enabled === true && trackerResolved
+			? createLoopManager(trackerResolved.absolutePath, workflow.loop)
 			: null;
 	const {workflowOverride, warnings} = readWorkflowOverride(
 		projectDir,
 		workflow,
+		sessionId,
+		trackerResolved?.promptPath,
 	);
 
 	return {
 		workflow,
 		loopManager,
-		trackerPathForPrompt: trackerPath?.promptPath,
+		trackerPathForPrompt: trackerResolved?.promptPath,
 		workflowOverride,
 		warnings,
 	};

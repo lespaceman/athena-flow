@@ -17,9 +17,22 @@ describe('applyPromptTemplate', () => {
 		);
 	});
 
-	it('replaces only the first {input} occurrence', () => {
+	it('replaces all {input} occurrences', () => {
 		expect(applyPromptTemplate('{input} and {input}', 'hello')).toBe(
-			'hello and {input}',
+			'hello and hello',
 		);
+	});
+
+	it('substitutes {sessionId} and {trackerPath} when context provided', () => {
+		expect(
+			applyPromptTemplate(
+				'Run {input} at {trackerPath} for {sessionId}',
+				'task',
+				{
+					sessionId: 's1',
+					trackerPath: '.athena/s1/tracker.md',
+				},
+			),
+		).toBe('Run task at .athena/s1/tracker.md for s1');
 	});
 });
