@@ -1,5 +1,23 @@
 import {describe, expect, it, vi} from 'vitest';
-import {runWorkflowCommand} from './workflowCommand';
+import {
+	runWorkflowCommand,
+	type WorkflowCommandDeps,
+	type WorkflowCommandInput,
+} from './workflowCommand';
+
+const TEST_PROJECT_DIR = '/test/project';
+
+const emptyConfig = {
+	plugins: [],
+	additionalDirectories: [],
+};
+
+function runCmd(
+	input: Omit<WorkflowCommandInput, 'projectDir'>,
+	deps: WorkflowCommandDeps = {},
+): number {
+	return runWorkflowCommand({...input, projectDir: TEST_PROJECT_DIR}, deps);
+}
 
 describe('runWorkflowCommand', () => {
 	describe('install', () => {
@@ -13,13 +31,13 @@ describe('runWorkflowCommand', () => {
 			const resolveWorkflowInstallSourceFromSources = vi
 				.fn()
 				.mockReturnValue('/path/to/workflow.json');
-			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
-			});
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'install', subcommandArgs: ['/path/to/workflow.json']},
+			const code = runCmd(
+				{
+					subcommand: 'install',
+					subcommandArgs: ['/path/to/workflow.json'],
+				},
 				{
 					installWorkflow,
 					resolveWorkflow,
@@ -54,13 +72,15 @@ describe('runWorkflowCommand', () => {
 					'/local/workflow-marketplace/workflows/e2e-test-builder/workflow.json',
 				);
 			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
+				...emptyConfig,
 				workflowMarketplaceSources: ['/local/workflow-marketplace'],
 			});
 
-			const code = runWorkflowCommand(
-				{subcommand: 'install', subcommandArgs: ['e2e-test-builder']},
+			const code = runCmd(
+				{
+					subcommand: 'install',
+					subcommandArgs: ['e2e-test-builder'],
+				},
 				{
 					installWorkflow,
 					resolveWorkflow,
@@ -83,6 +103,37 @@ describe('runWorkflowCommand', () => {
 			);
 		});
 
+		it('forwards version-pinned identifiers to the resolver', () => {
+			const installWorkflow = vi.fn().mockReturnValue('e2e-test-builder');
+			const resolveWorkflow = vi
+				.fn()
+				.mockReturnValue({name: 'e2e-test-builder', version: '0.0.2'});
+			const resolveWorkflowInstallSourceFromSources = vi
+				.fn()
+				.mockReturnValue('/resolved/path');
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
+
+			const code = runCmd(
+				{
+					subcommand: 'install',
+					subcommandArgs: ['e2e-test-builder@0.0.2'],
+				},
+				{
+					installWorkflow,
+					resolveWorkflow,
+					resolveWorkflowInstallSourceFromSources,
+					readGlobalConfig,
+					logOut: vi.fn(),
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(resolveWorkflowInstallSourceFromSources).toHaveBeenCalledWith(
+				'e2e-test-builder@0.0.2',
+				['lespaceman/athena-workflow-marketplace'],
+			);
+		});
+
 		it('prints error when install fails', () => {
 			const logError = vi.fn();
 			const installWorkflow = vi.fn().mockImplementation(() => {
@@ -91,13 +142,13 @@ describe('runWorkflowCommand', () => {
 			const resolveWorkflowInstallSourceFromSources = vi
 				.fn()
 				.mockReturnValue('/bad/path');
-			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
-			});
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'install', subcommandArgs: ['/bad/path']},
+			const code = runCmd(
+				{
+					subcommand: 'install',
+					subcommandArgs: ['/bad/path'],
+				},
 				{
 					installWorkflow,
 					resolveWorkflowInstallSourceFromSources,
@@ -113,8 +164,11 @@ describe('runWorkflowCommand', () => {
 		it('prints usage when source is missing', () => {
 			const logError = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'install', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'install',
+					subcommandArgs: [],
+				},
 				{logError},
 			);
 
@@ -126,13 +180,21 @@ describe('runWorkflowCommand', () => {
 	});
 
 	describe('search', () => {
-		it('lists workflows from the default marketplace when no sources configured', () => {
+		it('lists workflows from the default marketplace and shows their source', () => {
 			const logOut = vi.fn();
 			const listMarketplaceWorkflows = vi.fn().mockReturnValue([
 				{
 					name: 'e2e-test-builder',
 					version: '1.2.3',
 					description: 'Build Playwright coverage',
+					workflowPath: '/cache/e2e-test-builder/workflow.json',
+					ref: 'e2e-test-builder@lespaceman/athena-workflow-marketplace',
+					source: {
+						kind: 'remote',
+						slug: 'lespaceman/athena-workflow-marketplace',
+						owner: 'lespaceman',
+						repo: 'athena-workflow-marketplace',
+					},
 				},
 			]);
 			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
@@ -141,13 +203,13 @@ describe('runWorkflowCommand', () => {
 				owner: 'lespaceman',
 				repo: 'athena-workflow-marketplace',
 			});
-			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
-			});
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'search', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'search',
+					subcommandArgs: [],
+				},
 				{
 					listMarketplaceWorkflows,
 					resolveWorkflowMarketplaceSource,
@@ -161,18 +223,35 @@ describe('runWorkflowCommand', () => {
 				'lespaceman/athena-workflow-marketplace',
 			);
 			expect(logOut).toHaveBeenCalledWith(
-				'e2e-test-builder (1.2.3) - Build Playwright coverage',
+				'e2e-test-builder (1.2.3) - Build Playwright coverage [from lespaceman/athena-workflow-marketplace]',
 			);
 		});
 
-		it('aggregates workflows from multiple configured sources', () => {
+		it('disambiguates duplicate names across remote and local sources', () => {
 			const logOut = vi.fn();
-			const listMarketplaceWorkflows = vi
-				.fn()
-				.mockReturnValue([{name: 'remote-flow'}]);
-			const listMarketplaceWorkflowsFromRepo = vi
-				.fn()
-				.mockReturnValue([{name: 'local-flow'}]);
+			const listMarketplaceWorkflows = vi.fn().mockReturnValue([
+				{
+					name: 'e2e-test-builder',
+					version: '0.0.1',
+					workflowPath: '/cache/remote/workflow.json',
+					ref: 'e2e-test-builder@owner/repo',
+					source: {
+						kind: 'remote',
+						slug: 'owner/repo',
+						owner: 'owner',
+						repo: 'repo',
+					},
+				},
+			]);
+			const listMarketplaceWorkflowsFromRepo = vi.fn().mockReturnValue([
+				{
+					name: 'e2e-test-builder',
+					version: '0.0.2',
+					workflowPath: '/local/path/workflows/e2e-test-builder/workflow.json',
+					ref: undefined,
+					source: {kind: 'local', repoDir: '/local/path'},
+				},
+			]);
 			const resolveWorkflowMarketplaceSource = vi
 				.fn()
 				.mockImplementation((source: string) => {
@@ -187,13 +266,15 @@ describe('runWorkflowCommand', () => {
 					return {kind: 'local', repoDir: '/local/path'};
 				});
 			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
+				...emptyConfig,
 				workflowMarketplaceSources: ['owner/repo', '/local/path'],
 			});
 
-			const code = runWorkflowCommand(
-				{subcommand: 'search', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'search',
+					subcommandArgs: [],
+				},
 				{
 					listMarketplaceWorkflows,
 					listMarketplaceWorkflowsFromRepo,
@@ -204,8 +285,12 @@ describe('runWorkflowCommand', () => {
 			);
 
 			expect(code).toBe(0);
-			expect(logOut).toHaveBeenCalledWith('remote-flow');
-			expect(logOut).toHaveBeenCalledWith('local-flow');
+			expect(logOut).toHaveBeenCalledWith(
+				'e2e-test-builder (0.0.1) [from owner/repo]',
+			);
+			expect(logOut).toHaveBeenCalledWith(
+				'e2e-test-builder (0.0.2) [from local:/local/path]',
+			);
 		});
 
 		it('prints message when no workflows found', () => {
@@ -217,13 +302,13 @@ describe('runWorkflowCommand', () => {
 				owner: 'lespaceman',
 				repo: 'athena-workflow-marketplace',
 			});
-			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
-			});
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'search', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'search',
+					subcommandArgs: [],
+				},
 				{
 					listMarketplaceWorkflows,
 					resolveWorkflowMarketplaceSource,
@@ -248,8 +333,11 @@ describe('runWorkflowCommand', () => {
 				version: '0.9.0',
 			});
 
-			const code = runWorkflowCommand(
-				{subcommand: 'upgrade', subcommandArgs: ['alpha']},
+			const code = runCmd(
+				{
+					subcommand: 'upgrade',
+					subcommandArgs: ['alpha'],
+				},
 				{updateWorkflow, resolveWorkflow, logOut},
 			);
 
@@ -269,8 +357,11 @@ describe('runWorkflowCommand', () => {
 				.fn()
 				.mockImplementation((name: string) => ({name}));
 
-			const code = runWorkflowCommand(
-				{subcommand: 'upgrade', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'upgrade',
+					subcommandArgs: [],
+				},
 				{
 					listWorkflows,
 					listBuiltinWorkflows,
@@ -291,8 +382,11 @@ describe('runWorkflowCommand', () => {
 			const listWorkflows = vi.fn().mockReturnValue(['default']);
 			const listBuiltinWorkflows = vi.fn().mockReturnValue(['default']);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'upgrade', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'upgrade',
+					subcommandArgs: [],
+				},
 				{listWorkflows, listBuiltinWorkflows, logOut},
 			);
 
@@ -315,8 +409,11 @@ describe('runWorkflowCommand', () => {
 				.fn()
 				.mockImplementation((name: string) => ({name}));
 
-			const code = runWorkflowCommand(
-				{subcommand: 'upgrade', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'upgrade',
+					subcommandArgs: [],
+				},
 				{
 					listWorkflows,
 					listBuiltinWorkflows,
@@ -346,8 +443,11 @@ describe('runWorkflowCommand', () => {
 				return {name: 'beta'};
 			});
 
-			const code = runWorkflowCommand(
-				{subcommand: 'list', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'list',
+					subcommandArgs: [],
+				},
 				{listWorkflows, resolveWorkflow, logOut},
 			);
 
@@ -360,8 +460,11 @@ describe('runWorkflowCommand', () => {
 			const logOut = vi.fn();
 			const listWorkflows = vi.fn().mockReturnValue([]);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'list', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'list',
+					subcommandArgs: [],
+				},
 				{listWorkflows, logOut},
 			);
 
@@ -374,14 +477,15 @@ describe('runWorkflowCommand', () => {
 		it('removes a workflow and prints confirmation', () => {
 			const logOut = vi.fn();
 			const removeWorkflow = vi.fn();
-			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
-			});
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
+			const readProjectConfig = vi.fn().mockReturnValue(emptyConfig);
 
-			const code = runWorkflowCommand(
-				{subcommand: 'remove', subcommandArgs: ['my-workflow']},
-				{removeWorkflow, readGlobalConfig, logOut},
+			const code = runCmd(
+				{
+					subcommand: 'remove',
+					subcommandArgs: ['my-workflow'],
+				},
+				{removeWorkflow, readGlobalConfig, readProjectConfig, logOut},
 			);
 
 			expect(code).toBe(0);
@@ -389,22 +493,28 @@ describe('runWorkflowCommand', () => {
 			expect(logOut).toHaveBeenCalledWith('Removed workflow: my-workflow');
 		});
 
-		it('clears active workflow when removing the selected workflow', () => {
+		it('clears global active workflow when removing the selected workflow', () => {
 			const logOut = vi.fn();
 			const removeWorkflow = vi.fn();
 			const readGlobalConfig = vi.fn().mockReturnValue({
-				plugins: [],
-				additionalDirectories: [],
+				...emptyConfig,
 				activeWorkflow: 'my-workflow',
 			});
+			const readProjectConfig = vi.fn().mockReturnValue(emptyConfig);
 			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'remove', subcommandArgs: ['my-workflow']},
+			const code = runCmd(
+				{
+					subcommand: 'remove',
+					subcommandArgs: ['my-workflow'],
+				},
 				{
 					removeWorkflow,
 					readGlobalConfig,
+					readProjectConfig,
 					writeGlobalConfig,
+					writeProjectConfig,
 					logOut,
 				},
 			);
@@ -413,8 +523,43 @@ describe('runWorkflowCommand', () => {
 			expect(writeGlobalConfig).toHaveBeenCalledWith({
 				activeWorkflow: undefined,
 			});
+			expect(writeProjectConfig).not.toHaveBeenCalled();
 			expect(logOut).toHaveBeenCalledWith('Active workflow cleared.');
 			expect(logOut).toHaveBeenCalledWith('Removed workflow: my-workflow');
+		});
+
+		it('clears project active workflow when removing the project-pinned workflow', () => {
+			const logOut = vi.fn();
+			const removeWorkflow = vi.fn();
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
+			const readProjectConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'project-pinned',
+			});
+			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
+
+			const code = runCmd(
+				{
+					subcommand: 'remove',
+					subcommandArgs: ['project-pinned'],
+				},
+				{
+					removeWorkflow,
+					readGlobalConfig,
+					readProjectConfig,
+					writeGlobalConfig,
+					writeProjectConfig,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(writeProjectConfig).toHaveBeenCalledWith(TEST_PROJECT_DIR, {
+				activeWorkflow: undefined,
+			});
+			expect(writeGlobalConfig).not.toHaveBeenCalled();
+			expect(logOut).toHaveBeenCalledWith('Project active workflow cleared.');
 		});
 
 		it('prints error when workflow not found', () => {
@@ -423,8 +568,11 @@ describe('runWorkflowCommand', () => {
 				throw new Error('Workflow "ghost" not found.');
 			});
 
-			const code = runWorkflowCommand(
-				{subcommand: 'remove', subcommandArgs: ['ghost']},
+			const code = runCmd(
+				{
+					subcommand: 'remove',
+					subcommandArgs: ['ghost'],
+				},
 				{removeWorkflow, logError},
 			);
 
@@ -437,8 +585,11 @@ describe('runWorkflowCommand', () => {
 		it('prints usage when name is missing', () => {
 			const logError = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'remove', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'remove',
+					subcommandArgs: [],
+				},
 				{logError},
 			);
 
@@ -450,41 +601,184 @@ describe('runWorkflowCommand', () => {
 	});
 
 	describe('use', () => {
-		it('sets active workflow when workflow exists', () => {
+		it('writes to global when no project pin exists', () => {
 			const logOut = vi.fn();
 			const listWorkflows = vi.fn().mockReturnValue(['alpha', 'beta']);
 			const resolveWorkflow = vi.fn().mockReturnValue({
 				name: 'beta',
 				version: '2.1.0',
 			});
+			const readProjectConfig = vi.fn().mockReturnValue(emptyConfig);
 			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'use', subcommandArgs: ['beta']},
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['beta'],
+				},
 				{
 					listWorkflows,
 					resolveWorkflow,
+					readProjectConfig,
 					writeGlobalConfig,
+					writeProjectConfig,
 					logOut,
 				},
 			);
 
 			expect(code).toBe(0);
 			expect(writeGlobalConfig).toHaveBeenCalledWith({activeWorkflow: 'beta'});
-			expect(logOut).toHaveBeenCalledWith('Active workflow: beta (2.1.0)');
+			expect(writeProjectConfig).not.toHaveBeenCalled();
+			expect(logOut).toHaveBeenCalledWith(
+				'Active workflow: beta (2.1.0) [global]',
+			);
+		});
+
+		it('still writes to global by default when a project pin exists', () => {
+			const logOut = vi.fn();
+			const listWorkflows = vi.fn().mockReturnValue(['beta']);
+			const resolveWorkflow = vi.fn().mockImplementation((name: string) => ({
+				name,
+			}));
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'alpha',
+			});
+			const readProjectConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'gamma',
+			});
+			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
+
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['beta'],
+				},
+				{
+					listWorkflows,
+					resolveWorkflow,
+					readGlobalConfig,
+					readProjectConfig,
+					writeGlobalConfig,
+					writeProjectConfig,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(writeGlobalConfig).toHaveBeenCalledWith({activeWorkflow: 'beta'});
+			expect(writeProjectConfig).not.toHaveBeenCalled();
+			expect(logOut).toHaveBeenCalledWith('Active workflow: beta [global]');
+			expect(logOut).toHaveBeenCalledWith(
+				`Effective workflow remains gamma [project: ${TEST_PROJECT_DIR}/.athena/config.json] because the project config overrides global.`,
+			);
+			expect(logOut).toHaveBeenCalledWith(
+				`Use --project to update ${TEST_PROJECT_DIR}/.athena/config.json.`,
+			);
+		});
+
+		it('respects --project flag even when no project pin exists yet', () => {
+			const listWorkflows = vi.fn().mockReturnValue(['beta']);
+			const resolveWorkflow = vi.fn().mockReturnValue({name: 'beta'});
+			const readProjectConfig = vi.fn().mockReturnValue(emptyConfig);
+			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
+
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['--project', 'beta'],
+				},
+				{
+					listWorkflows,
+					resolveWorkflow,
+					readProjectConfig,
+					writeGlobalConfig,
+					writeProjectConfig,
+					logOut: vi.fn(),
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(writeProjectConfig).toHaveBeenCalledWith(TEST_PROJECT_DIR, {
+				activeWorkflow: 'beta',
+			});
+			expect(writeGlobalConfig).not.toHaveBeenCalled();
+		});
+
+		it('explains shadowing when --global is used while a project pin exists', () => {
+			const logOut = vi.fn();
+			const listWorkflows = vi.fn().mockReturnValue(['beta']);
+			const resolveWorkflow = vi.fn().mockImplementation((name: string) => ({
+				name,
+			}));
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'alpha',
+			});
+			const readProjectConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'gamma',
+			});
+			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
+
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['--global', 'beta'],
+				},
+				{
+					listWorkflows,
+					resolveWorkflow,
+					readGlobalConfig,
+					readProjectConfig,
+					writeGlobalConfig,
+					writeProjectConfig,
+					logOut,
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(writeGlobalConfig).toHaveBeenCalledWith({activeWorkflow: 'beta'});
+			expect(writeProjectConfig).not.toHaveBeenCalled();
+			expect(logOut).toHaveBeenCalledWith(
+				`Effective workflow remains gamma [project: ${TEST_PROJECT_DIR}/.athena/config.json] because the project config overrides global.`,
+			);
+		});
+
+		it('errors on conflicting --project and --global flags', () => {
+			const logError = vi.fn();
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['--project', '--global', 'beta'],
+				},
+				{logError},
+			);
+			expect(code).toBe(1);
+			expect(logError).toHaveBeenCalledWith(
+				expect.stringContaining('mutually exclusive'),
+			);
 		});
 
 		it('prints usage when name is missing', () => {
 			const logError = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'use', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: [],
+				},
 				{logError},
 			);
 
 			expect(code).toBe(1);
 			expect(logError).toHaveBeenCalledWith(
-				'Usage: athena-flow workflow use <name>',
+				expect.stringContaining('Usage: athena-flow workflow use'),
 			);
 		});
 
@@ -492,21 +786,84 @@ describe('runWorkflowCommand', () => {
 			const logError = vi.fn();
 			const listWorkflows = vi.fn().mockReturnValue(['alpha']);
 			const writeGlobalConfig = vi.fn();
+			const writeProjectConfig = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'use', subcommandArgs: ['beta']},
+			const code = runCmd(
+				{
+					subcommand: 'use',
+					subcommandArgs: ['beta'],
+				},
 				{
 					listWorkflows,
 					writeGlobalConfig,
+					writeProjectConfig,
 					logError,
 				},
 			);
 
 			expect(code).toBe(1);
 			expect(writeGlobalConfig).not.toHaveBeenCalled();
+			expect(writeProjectConfig).not.toHaveBeenCalled();
 			expect(logError).toHaveBeenCalledWith(
 				'Error: Workflow "beta" is not installed.',
 			);
+		});
+	});
+
+	describe('status', () => {
+		it('reports project pin as the effective layer when both layers are set', () => {
+			const logOut = vi.fn();
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'alpha',
+			});
+			const readProjectConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				activeWorkflow: 'beta',
+			});
+			const resolveWorkflow = vi
+				.fn()
+				.mockReturnValue({name: 'beta', version: '0.0.2'});
+
+			const code = runCmd(
+				{
+					subcommand: 'status',
+					subcommandArgs: [],
+				},
+				{readGlobalConfig, readProjectConfig, resolveWorkflow, logOut},
+			);
+
+			expect(code).toBe(0);
+			expect(logOut).toHaveBeenCalledWith(
+				'Active workflow: beta (0.0.2) [project]',
+			);
+			expect(logOut).toHaveBeenCalledWith('  global:  alpha');
+			expect(logOut).toHaveBeenCalledWith('  project: beta');
+			expect(logOut).toHaveBeenCalledWith(
+				`  note: project config overrides global at ${TEST_PROJECT_DIR}/.athena/config.json`,
+			);
+		});
+
+		it('reports default layer when neither config sets a workflow', () => {
+			const logOut = vi.fn();
+			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
+			const readProjectConfig = vi.fn().mockReturnValue(emptyConfig);
+			const resolveWorkflow = vi.fn().mockImplementation(() => {
+				throw new Error('not installed');
+			});
+
+			const code = runCmd(
+				{
+					subcommand: 'status',
+					subcommandArgs: [],
+				},
+				{readGlobalConfig, readProjectConfig, resolveWorkflow, logOut},
+			);
+
+			expect(code).toBe(0);
+			expect(logOut).toHaveBeenCalledWith('Active workflow: default [default]');
+			expect(logOut).toHaveBeenCalledWith('  global:  (unset)');
+			expect(logOut).toHaveBeenCalledWith('  project: (unset)');
 		});
 	});
 
@@ -514,8 +871,11 @@ describe('runWorkflowCommand', () => {
 		it('prints usage and returns 1', () => {
 			const logError = vi.fn();
 
-			const code = runWorkflowCommand(
-				{subcommand: 'bogus', subcommandArgs: []},
+			const code = runCmd(
+				{
+					subcommand: 'bogus',
+					subcommandArgs: [],
+				},
 				{logError},
 			);
 
