@@ -18,6 +18,7 @@ import type {
 	WorkflowConfig,
 	WorkflowSourceMetadata,
 } from './types';
+import {refreshPinnedWorkflowPlugins} from './installer';
 import {resolveBuiltinWorkflow, listBuiltinWorkflows} from './builtins/index';
 
 function registryDir(): string {
@@ -311,7 +312,9 @@ export function updateWorkflow(name: string): string {
 
 	const installSource =
 		source.kind === 'marketplace' ? source.ref : source.path;
-	return installWorkflow(installSource, name);
+	const installedName = installWorkflow(installSource, name);
+	refreshPinnedWorkflowPlugins(resolveWorkflow(installedName));
+	return installedName;
 }
 
 /**

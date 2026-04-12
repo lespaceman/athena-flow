@@ -6,6 +6,7 @@
  */
 
 import {
+	refreshVersionedMarketplacePluginTarget,
 	resolveMarketplacePluginTarget,
 	resolveMarketplacePluginTargetFromRepo,
 	resolveVersionedMarketplacePluginTarget,
@@ -108,4 +109,30 @@ export function resolveWorkflowPlugins(
 			marketplacePath: p.codexMarketplacePath,
 		})),
 	};
+}
+
+export function refreshPinnedWorkflowPlugins(
+	workflow: WorkflowConfig | ResolvedWorkflowConfig,
+): void {
+	const source = '__source' in workflow ? workflow.__source : undefined;
+
+	for (const spec of workflow.plugins) {
+		const ref = pluginSpecRef(spec);
+		const version = pluginSpecVersion(spec);
+		if (!version) {
+			continue;
+		}
+
+		try {
+			refreshVersionedMarketplacePluginTarget(
+				ref,
+				version,
+				source?.kind === 'local' ? source.repoDir : undefined,
+			);
+		} catch (error) {
+			throw new Error(
+				`Workflow "${workflow.name}": failed to refresh pinned plugin "${ref}" at version ${version}: ${(error as Error).message}`,
+			);
+		}
+	}
 }

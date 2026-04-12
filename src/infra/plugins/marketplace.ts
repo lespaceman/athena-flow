@@ -27,6 +27,7 @@ import {
 } from './marketplaceShared';
 import {
 	pluginNpmPackageName,
+	refreshVersionedMarketplacePluginTarget,
 	resolveVersionedMarketplacePluginTarget,
 	resolveVersionedPluginDir,
 } from './versionedPluginResolution';
@@ -111,6 +112,7 @@ export {
 	listMarketplaceWorkflows,
 	listMarketplaceWorkflowsFromRepo,
 	pluginNpmPackageName,
+	refreshVersionedMarketplacePluginTarget,
 	resolveMarketplaceWorkflow,
 	resolveVersionedMarketplacePluginTarget,
 	resolveVersionedPluginDir,

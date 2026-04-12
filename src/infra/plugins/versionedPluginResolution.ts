@@ -4,8 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {
 	buildMarketplacePluginResolution,
+	ensureRepo,
 	entryRelativeSourcePath,
-	marketplaceRepoCacheDir,
 	parseRef,
 	readManifest,
 	resolvePackagedArtifactLayout,
@@ -213,11 +213,13 @@ export function resolveVersionedMarketplacePluginTarget(
 	ref: string,
 	version: string,
 	sourceRepoDir?: string,
+	options?: {forceRefresh?: boolean},
 ): MarketplacePluginTarget {
 	const {pluginName, owner, repo} = parseRef(ref);
+	const forceRefresh = options?.forceRefresh === true;
 
 	const cachedDir = resolveVersionedPluginDir(owner, repo, pluginName, version);
-	if (cachedDir) {
+	if (cachedDir && !forceRefresh) {
 		const artifactLayout = resolvePackagedArtifactsOrThrow(
 			pluginName,
 			version,
@@ -253,7 +255,7 @@ export function resolveVersionedMarketplacePluginTarget(
 		npmError = error as Error;
 	}
 
-	const repoDir = sourceRepoDir ?? marketplaceRepoCacheDir(owner, repo);
+	const repoDir = sourceRepoDir ?? ensureRepo(owner, repo);
 	const fallbackTarget = fs.existsSync(repoDir)
 		? resolveMarketplaceSourceFallback(ref, pluginName, version, repoDir)
 		: undefined;
@@ -261,9 +263,7 @@ export function resolveVersionedMarketplacePluginTarget(
 		return fallbackTarget;
 	}
 
-	const npmStageMessage = npmError
-		? `npm package resolution failed for ${pluginNpmPackageName(pluginName)}@${version}: ${npmError.message}`
-		: `npm package ${pluginNpmPackageName(pluginName)}@${version} was not available`;
+	const npmStageMessage = `npm package resolution failed for ${pluginNpmPackageName(pluginName)}@${version}: ${npmError.message}`;
 	const fallbackMessage = describeSourceFallbackRejection(
 		owner,
 		repo,
@@ -275,4 +275,14 @@ export function resolveVersionedMarketplacePluginTarget(
 	throw new Error(
 		`Plugin "${pluginName}" version ${version} could not be resolved. ${npmStageMessage}. ${fallbackMessage}.`,
 	);
+}
+
+export function refreshVersionedMarketplacePluginTarget(
+	ref: string,
+	version: string,
+	sourceRepoDir?: string,
+): MarketplacePluginTarget {
+	return resolveVersionedMarketplacePluginTarget(ref, version, sourceRepoDir, {
+		forceRefresh: true,
+	});
 }

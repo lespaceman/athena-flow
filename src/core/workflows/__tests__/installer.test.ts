@@ -2,10 +2,16 @@ import {describe, it, expect, vi, beforeEach} from 'vitest';
 
 const resolveMarketplacePluginTargetMock = vi.fn();
 const resolveMarketplacePluginTargetFromRepoMock = vi.fn();
+const refreshVersionedMarketplacePluginTargetMock = vi.fn();
 
 vi.mock('../../../infra/plugins/marketplace', () => ({
 	isMarketplaceRef: (entry: string) =>
 		/^[a-zA-Z0-9_-]+@[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(entry),
+	refreshVersionedMarketplacePluginTarget: (
+		ref: string,
+		version: string,
+		sourceRepoDir?: string,
+	) => refreshVersionedMarketplacePluginTargetMock(ref, version, sourceRepoDir),
 	resolveMarketplacePluginTarget: (ref: string) =>
 		resolveMarketplacePluginTargetMock(ref),
 	resolveMarketplacePluginTargetFromRepo: (ref: string, repoDir: string) =>
@@ -14,12 +20,16 @@ vi.mock('../../../infra/plugins/marketplace', () => ({
 		resolveMarketplacePluginTargetMock(ref, version),
 }));
 
-const {installWorkflowPlugins, resolveWorkflowPlugins} =
-	await import('../installer');
+const {
+	installWorkflowPlugins,
+	refreshPinnedWorkflowPlugins,
+	resolveWorkflowPlugins,
+} = await import('../installer');
 
 beforeEach(() => {
 	resolveMarketplacePluginTargetMock.mockReset();
 	resolveMarketplacePluginTargetFromRepoMock.mockReset();
+	refreshVersionedMarketplacePluginTargetMock.mockReset();
 });
 
 describe('installWorkflowPlugins', () => {
@@ -146,5 +156,46 @@ describe('resolveWorkflowPlugins', () => {
 		]);
 		// Single pass — resolver called once, not twice.
 		expect(resolveMarketplacePluginTargetMock).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('refreshPinnedWorkflowPlugins', () => {
+	it('refreshes only pinned plugins', () => {
+		refreshPinnedWorkflowPlugins({
+			name: 'test-workflow',
+			plugins: [
+				'latest-plugin@owner/repo',
+				{ref: 'pinned-plugin@owner/repo', version: '1.2.3'},
+			],
+			promptTemplate: '{input}',
+		});
+
+		expect(refreshVersionedMarketplacePluginTargetMock).toHaveBeenCalledTimes(
+			1,
+		);
+		expect(refreshVersionedMarketplacePluginTargetMock).toHaveBeenCalledWith(
+			'pinned-plugin@owner/repo',
+			'1.2.3',
+			undefined,
+		);
+	});
+
+	it('uses the local source repo for pinned plugin refreshes', () => {
+		refreshPinnedWorkflowPlugins({
+			name: 'test-workflow',
+			plugins: [{ref: 'pinned-plugin@owner/repo', version: '1.2.3'}],
+			promptTemplate: '{input}',
+			__source: {
+				kind: 'local',
+				path: '/tmp/workflow.json',
+				repoDir: '/local/workflow-marketplace',
+			},
+		});
+
+		expect(refreshVersionedMarketplacePluginTargetMock).toHaveBeenCalledWith(
+			'pinned-plugin@owner/repo',
+			'1.2.3',
+			'/local/workflow-marketplace',
+		);
 	});
 });

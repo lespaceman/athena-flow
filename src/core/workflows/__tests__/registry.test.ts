@@ -2,6 +2,7 @@ import {describe, it, expect, vi, beforeEach} from 'vitest';
 
 const files: Record<string, string> = {};
 const dirs: Set<string> = new Set();
+const refreshPinnedWorkflowPluginsMock = vi.fn();
 
 vi.mock('node:fs', () => ({
 	default: {
@@ -61,6 +62,11 @@ vi.mock('../builtins/index', () => ({
 	listBuiltinWorkflows: () => [],
 }));
 
+vi.mock('../installer', () => ({
+	refreshPinnedWorkflowPlugins: (workflow: unknown) =>
+		refreshPinnedWorkflowPluginsMock(workflow),
+}));
+
 const {
 	resolveWorkflow,
 	installWorkflow,
@@ -74,6 +80,7 @@ beforeEach(() => {
 		delete files[key];
 	}
 	dirs.clear();
+	refreshPinnedWorkflowPluginsMock.mockReset();
 });
 
 describe('resolveWorkflow', () => {
@@ -584,7 +591,7 @@ describe('updateWorkflow', () => {
 	it('re-installs a marketplace workflow from its recorded source', () => {
 		files['/tmp/resolved-workflow.json'] = JSON.stringify({
 			name: 'update-me',
-			plugins: [],
+			plugins: [{ref: 'pinned-plugin@owner/repo', version: '1.2.3'}],
 			promptTemplate: 'new',
 			workflowFile: 'workflow.md',
 		});
@@ -614,6 +621,17 @@ describe('updateWorkflow', () => {
 				]!,
 			).promptTemplate,
 		).toBe('new');
+		expect(refreshPinnedWorkflowPluginsMock).toHaveBeenCalledWith({
+			name: 'update-me',
+			plugins: [{ref: 'pinned-plugin@owner/repo', version: '1.2.3'}],
+			promptTemplate: 'new',
+			workflowFile:
+				'/home/testuser/.config/athena/workflows/update-me/workflow.md',
+			__source: {
+				kind: 'marketplace',
+				ref: 'update-me@owner/repo',
+			},
+		});
 	});
 
 	it('re-installs a local workflow from its recorded source path', () => {
