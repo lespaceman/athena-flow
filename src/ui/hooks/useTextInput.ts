@@ -5,6 +5,7 @@ import {
 	cursorToVisualPosition,
 	visualPositionToOffset,
 } from '../../shared/utils/format';
+import {looksLikeMouseEscapeSequence} from './usePanelMouseWheel';
 
 export type TextInputState = {
 	value: string;
@@ -229,6 +230,8 @@ export function useTextInput(
 		(input, key) => {
 			const done = startInputMeasure('text.input', input, key);
 			try {
+				if (looksLikeMouseEscapeSequence(input)) return;
+
 				// Leave navigation/control keys for parent handlers
 				if (key.upArrow || key.downArrow || key.tab || key.escape) return;
 

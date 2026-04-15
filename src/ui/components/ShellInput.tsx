@@ -40,7 +40,6 @@ type Props = {
 	textInputPlaceholder: string;
 	textColor: string;
 	inputPlaceholderColor: string;
-	inputBackground: string;
 	isInputActive: boolean;
 	onChange?: (value: string) => void;
 	onSubmit?: (value: string) => void;
@@ -49,6 +48,7 @@ type Props = {
 	suppressArrows?: boolean;
 	setValueRef?: (setValue: (value: string) => void) => void;
 	border: (text: string) => string;
+	topBorder: string;
 	bottomBorder: string;
 	commandSuggestionsEnabled: boolean;
 	wrapSuggestionLine: (line: string) => string;
@@ -66,7 +66,6 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		textInputPlaceholder,
 		textColor,
 		inputPlaceholderColor,
-		inputBackground,
 		isInputActive,
 		onChange,
 		onSubmit,
@@ -75,6 +74,7 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		suppressArrows,
 		setValueRef,
 		border,
+		topBorder,
 		bottomBorder,
 		commandSuggestionsEnabled,
 		wrapSuggestionLine,
@@ -263,14 +263,15 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		isInputActive,
 		textInputPlaceholder,
 	);
-	const fill = useMemo(() => chalk.bgHex(inputBackground), [inputBackground]);
-	const paintCell = useCallback(
-		(text: string, color?: string) => {
-			const styled = color ? chalk.hex(color)(text) : text;
-			return fill(styled);
-		},
-		[fill],
-	);
+	const displayRows = Math.max(2, inputRows);
+	const displayLines = useMemo(() => {
+		const out = [...lines];
+		while (out.length < displayRows) out.push(' '.repeat(inputContentWidth));
+		return out;
+	}, [lines, displayRows, inputContentWidth]);
+	const paintCell = useCallback((text: string, color?: string) => {
+		return color ? chalk.hex(color)(text) : text;
+	}, []);
 
 	return (
 		<>
@@ -282,11 +283,12 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 					wrapLine={wrapSuggestionLine}
 				/>
 			)}
+			<Text>{border(topBorder)}</Text>
 			<FrameRow
 				innerWidth={innerWidth}
 				ascii={useAscii}
 				borderColor={borderColor}
-				height={inputRows}
+				height={displayRows}
 			>
 				<Box width={1} flexShrink={0}>
 					<Text>{paintCell(' ')}</Text>
@@ -298,11 +300,13 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 					<Text>{paintCell(' ')}</Text>
 				</Box>
 				<Box width={inputContentWidth} flexShrink={0} flexDirection="column">
-					{lines.map((line, index) => (
+					{displayLines.map((line, index) => (
 						<Text key={index}>
 							{paintCell(
 								line,
-								value.length === 0 ? inputPlaceholderColor : textColor,
+								value.length === 0 && index === 0
+									? inputPlaceholderColor
+									: textColor,
 							)}
 						</Text>
 					))}

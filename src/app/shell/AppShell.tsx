@@ -36,6 +36,10 @@ import {useTodoDisplayItems} from '../../ui/hooks/useTodoDisplayItems';
 import {useTimeline} from '../../ui/hooks/useTimeline';
 import {useLayout} from '../../ui/hooks/useLayout';
 import {usePager} from '../../ui/hooks/usePager';
+import {
+	buildPanelRects,
+	usePanelMouseWheel,
+} from '../../ui/hooks/usePanelMouseWheel';
 import {useFrameChrome} from '../../ui/hooks/useFrameChrome';
 import {
 	buildBodyLines,
@@ -888,6 +892,7 @@ function AppContent({
 		filteredEntriesRef,
 		getSelectedCommand: () => getSelectedCommandRef.current(),
 	});
+	const visualInputRows = Math.max(2, inputRows);
 
 	const shellInputRef = useRef<ShellInputHandle>(null);
 	getSelectedCommandRef.current = () =>
@@ -901,10 +906,8 @@ function AppContent({
 	);
 	// eslint-disable-next-line react-hooks/exhaustive-deps
 	const stableGetInputValue = useCallback(() => inputValueRef.current, []);
-	// Footer row budget for layout: hints row + gap row + input base row.
-	// buildFrameLines always produces non-null footerHelp when inputValue is
-	// empty (the provisional case), so this is a compile-time constant.
-	const provisionalFooterRows = 3;
+	// Footer row budget for layout: one external hint row below the input box.
+	const provisionalFooterRows = 1;
 	const hasMessages = useMemo(
 		() => filteredEntries.some(e => classifyEntry(e) !== 'feed'),
 		[filteredEntries],
@@ -917,7 +920,7 @@ function AppContent({
 		todoPanel,
 		feedEntryCount: filteredEntries.length,
 		footerRows: provisionalFooterRows,
-		inputRows,
+		inputRows: visualInputRows + 2,
 		hasMessages,
 	});
 
@@ -975,6 +978,32 @@ function AppContent({
 	);
 	const pageStep = Math.max(1, Math.floor(visibleFeedContentRows / 2));
 	const messagePageStep = Math.max(1, Math.floor(messageContentRows / 2));
+	const inputAreaStartRow = feedStartRow + (feedHeaderRows + feedContentRows);
+	const inputAreaRows = visualInputRows + 2;
+	const panelMouseRects = useMemo(
+		() =>
+			buildPanelRects({
+				splitMode,
+				frameWidth,
+				feedStartRow,
+				panelRows: feedHeaderRows + feedContentRows,
+				messagePanelWidth,
+				feedPanelWidth,
+				inputStartRow: inputAreaStartRow,
+				inputRows: inputAreaRows,
+			}),
+		[
+			splitMode,
+			frameWidth,
+			feedStartRow,
+			feedHeaderRows,
+			feedContentRows,
+			messagePanelWidth,
+			feedPanelWidth,
+			inputAreaStartRow,
+			inputAreaRows,
+		],
+	);
 	const uiContext = useMemo(
 		(): SessionUiContext => ({
 			feedEntryCount: displayedFeedEntries.length,
@@ -1207,6 +1236,19 @@ function AppContent({
 		},
 	});
 
+	usePanelMouseWheel({
+		isActive: !dialogActive && !pagerActive && !workflowPickerVisible,
+		rects: panelMouseRects,
+		onFeedFocus: () => dispatchUi({type: 'set_focus_mode', focusMode: 'feed'}),
+		onMessageFocus: splitMode
+			? () => dispatchUi({type: 'set_focus_mode', focusMode: 'messages'})
+			: undefined,
+		onInputFocus: () =>
+			dispatchUi({type: 'set_focus_mode', focusMode: 'input'}),
+		onFeedWheel: delta => feedNav.moveFeedCursor(delta),
+		onMessageWheel: delta => dispatchUi({type: 'move_message_cursor', delta}),
+	});
+
 	useTodoKeyboard({
 		isActive: focusMode === 'todo' && !dialogActive,
 		todoCursor: resolvedUiState.todoCursor,
@@ -1317,7 +1359,6 @@ function AppContent({
 	inputContentWidthRef.current = inputContentWidth;
 	const border = useMemo(() => chalk.hex(theme.border), [theme.border]);
 	const inputPlaceholderColor = theme.textMuted;
-	const inputBackground = theme.inputBackground;
 	const inputPromptStyled = useMemo(
 		() => chalk.hex(theme.inputPrompt).bold(inputPrefix),
 		[inputPrefix, theme.inputPrompt],
@@ -1338,22 +1379,6 @@ function AppContent({
 		},
 		[border, useAscii],
 	);
-	const footerSectionBorder = useMemo(() => {
-		if (!splitMode) return sectionBorder;
-		const glyphs = frameGlyphs(useAscii);
-		const dividerOffset = Math.max(
-			1,
-			Math.min(innerWidth - 1, messagePanelWidth),
-		);
-		return (
-			glyphs.teeLeft +
-			glyphs.horizontal.repeat(dividerOffset) +
-			(useAscii ? '+' : '┴') +
-			glyphs.horizontal.repeat(Math.max(0, innerWidth - dividerOffset - 1)) +
-			glyphs.teeRight
-		);
-	}, [splitMode, sectionBorder, useAscii, innerWidth, messagePanelWidth]);
-
 	// Stable callback for shell input suggestion rows — composes frameLine + border edges.
 	const wrapFrameLine = useCallback(
 		(line: string) => withBorderEdges(frameLine(line)),
@@ -1499,23 +1524,6 @@ function AppContent({
 			</MaybeProfiler>
 			<MaybeProfiler
 				enabled={perfEnabled}
-				id="app.main.footer"
-				onRender={handleSectionProfilerRender}
-			>
-				<FooterSection
-					border={border}
-					sectionBorder={footerSectionBorder}
-					frameFooterHelp={frame.footerHelp}
-					toastMessage={toastMessage}
-					inputBackground={theme.inputBackground}
-					hintTextColor={theme.textMuted}
-					innerWidth={innerWidth}
-					frameLine={frameLine}
-					withBorderEdges={withBorderEdges}
-				/>
-			</MaybeProfiler>
-			<MaybeProfiler
-				enabled={perfEnabled}
 				id="app.main.input"
 				onRender={handleSectionProfilerRender}
 			>
@@ -1523,14 +1531,13 @@ function AppContent({
 					innerWidth={innerWidth}
 					useAscii={useAscii}
 					borderColor={theme.border}
-					inputRows={inputRows}
+					inputRows={visualInputRows}
 					inputPrefix={inputPrefix}
 					inputPromptStyled={inputPromptStyled}
 					inputContentWidth={inputContentWidth}
 					textInputPlaceholder={textInputPlaceholder}
 					textColor={theme.text}
 					inputPlaceholderColor={inputPlaceholderColor}
-					inputBackground={inputBackground}
 					isInputActive={
 						focusMode === 'input' && !dialogActive && !workflowPickerVisible
 					}
@@ -1544,7 +1551,20 @@ function AppContent({
 					wrapSuggestionLine={wrapFrameLine}
 					inputRef={shellInputRef}
 					border={border}
+					topBorder={sectionBorder}
 					bottomBorder={bottomBorder}
+				/>
+			</MaybeProfiler>
+			<MaybeProfiler
+				enabled={perfEnabled}
+				id="app.main.footer"
+				onRender={handleSectionProfilerRender}
+			>
+				<FooterSection
+					frameFooterHelp={frame.footerHelp}
+					toastMessage={toastMessage}
+					hintTextColor={theme.textMuted}
+					innerWidth={frameWidth}
 				/>
 			</MaybeProfiler>
 			<MaybeProfiler
@@ -1851,57 +1871,25 @@ const TodoBodySection = React.memo(function TodoBodySection({
 });
 
 const FooterSection = React.memo(function FooterSection({
-	border,
-	sectionBorder,
 	frameFooterHelp,
 	toastMessage,
-	inputBackground,
 	hintTextColor,
 	innerWidth,
-	frameLine,
-	withBorderEdges,
 }: {
-	border: (text: string) => string;
-	sectionBorder: string;
 	frameFooterHelp: string | null;
 	toastMessage: string | null;
-	inputBackground: string;
 	hintTextColor: string;
 	innerWidth: number;
-	frameLine: (content: string) => string;
-	withBorderEdges: (line: string) => string;
 }) {
 	const output = useMemo(() => {
-		const fillBackground = chalk.bgHex(inputBackground);
-		const mutedHint = chalk.hex(hintTextColor);
-		const fillLine = (content: string) =>
-			fillBackground(fit(content, innerWidth));
-		const lines = [border(sectionBorder)];
-		if (frameFooterHelp !== null) {
-			lines.push(
-				withBorderEdges(
-					frameLine(
-						toastMessage
-							? fillLine(chalk.bold.green(`  ${toastMessage}`))
-							: fillLine(mutedHint(`  ${frameFooterHelp}`)),
-					),
-				),
-			);
-			lines.push(withBorderEdges(frameLine(fillLine(''))));
-		}
-		return lines.join('\n');
-	}, [
-		border,
-		sectionBorder,
-		frameFooterHelp,
-		toastMessage,
-		inputBackground,
-		hintTextColor,
-		innerWidth,
-		frameLine,
-		withBorderEdges,
-	]);
+		if (frameFooterHelp === null) return null;
+		const hint = toastMessage
+			? chalk.bold.green(`  ${toastMessage}`)
+			: chalk.hex(hintTextColor)(`  ${frameFooterHelp}`);
+		return fit(hint, innerWidth);
+	}, [frameFooterHelp, toastMessage, hintTextColor, innerWidth]);
 
+	if (output === null) return null;
 	return <Text>{output}</Text>;
 });
 
@@ -1916,7 +1904,6 @@ const InputSection = React.memo(function InputSection({
 	textInputPlaceholder,
 	textColor,
 	inputPlaceholderColor,
-	inputBackground,
 	isInputActive,
 	handleInputChange,
 	handleInputSubmit,
@@ -1928,6 +1915,7 @@ const InputSection = React.memo(function InputSection({
 	wrapSuggestionLine,
 	inputRef,
 	border,
+	topBorder,
 	bottomBorder,
 }: {
 	innerWidth: number;
@@ -1940,7 +1928,6 @@ const InputSection = React.memo(function InputSection({
 	textInputPlaceholder: string;
 	textColor: string;
 	inputPlaceholderColor: string;
-	inputBackground: string;
 	isInputActive: boolean;
 	handleInputChange: (value: string) => void;
 	handleInputSubmit: (value: string) => void;
@@ -1952,6 +1939,7 @@ const InputSection = React.memo(function InputSection({
 	wrapSuggestionLine: (line: string) => string;
 	inputRef: React.RefObject<ShellInputHandle | null>;
 	border: (text: string) => string;
+	topBorder: string;
 	bottomBorder: string;
 }) {
 	return (
@@ -1967,7 +1955,6 @@ const InputSection = React.memo(function InputSection({
 			textInputPlaceholder={textInputPlaceholder}
 			textColor={textColor}
 			inputPlaceholderColor={inputPlaceholderColor}
-			inputBackground={inputBackground}
 			isInputActive={isInputActive}
 			onChange={handleInputChange}
 			onSubmit={handleInputSubmit}
@@ -1978,6 +1965,7 @@ const InputSection = React.memo(function InputSection({
 			commandSuggestionsEnabled={commandSuggestionsEnabled}
 			wrapSuggestionLine={wrapSuggestionLine}
 			border={border}
+			topBorder={topBorder}
 			bottomBorder={bottomBorder}
 		/>
 	);
