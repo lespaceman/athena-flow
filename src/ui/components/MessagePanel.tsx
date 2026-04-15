@@ -13,6 +13,7 @@ type Props = {
 	width: number;
 	contentRows: number;
 	viewportStart: number;
+	messageCursorIndex?: number;
 	theme: Theme;
 	borderColor?: string;
 };
@@ -81,8 +82,10 @@ function sliceViewport(
 	frameBorder: string,
 	userIndicator: string,
 	agentIndicator: string,
+	focusIndicator: string,
 	theme: Theme,
 	width: number,
+	messageCursorIndex?: number,
 ): string[] {
 	const outputLines: string[] = [];
 	const contentWidth = width - INDICATOR_OVERHEAD;
@@ -122,7 +125,14 @@ function sliceViewport(
 			continue;
 		}
 
-		const indicator = line.kind === 'agent' ? agentIndicator : userIndicator;
+		const isFocused =
+			messageCursorIndex !== undefined &&
+			line.entryIndex === messageCursorIndex;
+		const indicator = isFocused
+			? focusIndicator
+			: line.kind === 'agent'
+				? agentIndicator
+				: userIndicator;
 		const content = line.text;
 
 		let row = frameBorder + indicator + ' ' + content;
@@ -147,8 +157,15 @@ function sliceViewport(
 }
 
 function MessagePanelImpl(props: Props) {
-	const {entries, width, contentRows, viewportStart, theme, borderColor} =
-		props;
+	const {
+		entries,
+		width,
+		contentRows,
+		viewportStart,
+		messageCursorIndex,
+		theme,
+		borderColor,
+	} = props;
 
 	const wrapped = useMemo(
 		() => buildRenderedLines(entries, width, theme),
@@ -159,6 +176,7 @@ function MessagePanelImpl(props: Props) {
 	const frameBorder = borderColor ? chalk.hex(borderColor)('\u2502') : '';
 	const userIndicator = chalk.hex(theme.userMessage.border)(glyphChar);
 	const agentIndicator = chalk.hex(theme.userMessage.agentBorder)(glyphChar);
+	const focusIndicator = chalk.hex(theme.userMessage.focusBorder)(glyphChar);
 
 	const lines = useMemo(
 		() =>
@@ -169,8 +187,10 @@ function MessagePanelImpl(props: Props) {
 				frameBorder,
 				userIndicator,
 				agentIndicator,
+				focusIndicator,
 				theme,
 				width,
+				messageCursorIndex,
 			),
 		[
 			wrapped,
@@ -179,8 +199,10 @@ function MessagePanelImpl(props: Props) {
 			frameBorder,
 			userIndicator,
 			agentIndicator,
+			focusIndicator,
 			theme,
 			width,
+			messageCursorIndex,
 		],
 	);
 

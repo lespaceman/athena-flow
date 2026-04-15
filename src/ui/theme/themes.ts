@@ -55,6 +55,7 @@ export const darkTheme: Theme = {
 		background: '#161b22', // Slightly lifted from terminal bg.
 		border: '#30363d', // Subtle border.
 		agentBorder: '#2a4a6a', // Steel blue left border for agent messages.
+		focusBorder: '#58a6ff', // Accent blue for focused message indicator.
 	},
 
 	// ── Badges ──────────────────────────────────────────────
@@ -139,6 +140,7 @@ export const lightTheme: Theme = {
 		background: '#f6f8fa',
 		border: '#8c959f',
 		agentBorder: '#6cb0e0', // Medium blue on white bg.
+		focusBorder: '#0969da', // Accent blue for focused message indicator.
 	},
 
 	// ── Badges ──────────────────────────────────────────────
@@ -227,6 +229,7 @@ export const highContrastTheme: Theme = {
 		background: '#1c2128', // Bumped from #161b22 for visible distinction.
 		border: '#444c56', // Bumped from #3d444d for HC visibility.
 		agentBorder: '#5599cc', // Brighter blue for HC.
+		focusBorder: '#71b7ff', // Accent blue for focused message indicator.
 	},
 
 	// ── Badges ──────────────────────────────────────────────

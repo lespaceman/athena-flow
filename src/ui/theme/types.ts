@@ -44,6 +44,7 @@ export type Theme = {
 		background: string;
 		border: string;
 		agentBorder: string;
+		focusBorder: string;
 	};
 	badge: {
 		error: {bg: string; fg: string};
