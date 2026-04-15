@@ -11,6 +11,33 @@ import {renderMarkdown} from '../../shared/markdown/renderMarkdown';
 import {wrapText} from '../../shared/utils/format';
 import {INDICATOR_OVERHEAD} from '../components/MessagePanel';
 
+const lineCountCache = new WeakMap<TimelineEntry, Map<number, number>>();
+
+function cachedLineCount(entry: TimelineEntry, contentWidth: number): number {
+	let widthMap = lineCountCache.get(entry);
+	if (widthMap) {
+		const cached = widthMap.get(contentWidth);
+		if (cached !== undefined) return cached;
+	}
+	const text = messageText(entry);
+	const kind = classifyEntry(entry) === 'user' ? 'user' : 'agent';
+	const lines =
+		kind === 'user'
+			? wrapText(text, contentWidth)
+			: renderMarkdown({
+					content: text,
+					width: contentWidth,
+					mode: 'inline-feed',
+				}).lines;
+	const count = lines.length;
+	if (!widthMap) {
+		widthMap = new Map();
+		lineCountCache.set(entry, widthMap);
+	}
+	widthMap.set(contentWidth, count);
+	return count;
+}
+
 export type FilteredPanels = {
 	messageEntries: TimelineEntry[];
 	feedEntries: TimelineEntry[];
@@ -40,18 +67,7 @@ export function useFilteredPanels(
 		const contentWidth = messagePanelWidth - INDICATOR_OVERHEAD;
 		let lineCount = 0;
 		for (let i = 0; i < tabFiltered.length; i++) {
-			const entry = tabFiltered[i]!;
-			const text = messageText(entry);
-			const kind = classifyEntry(entry) === 'user' ? 'user' : 'agent';
-			const lines =
-				kind === 'user'
-					? wrapText(text, contentWidth)
-					: renderMarkdown({
-							content: text,
-							width: contentWidth,
-							mode: 'inline-feed',
-						}).lines;
-			lineCount += lines.length;
+			lineCount += cachedLineCount(tabFiltered[i]!, contentWidth);
 			if (i < tabFiltered.length - 1) {
 				lineCount += 1; // separator
 			}

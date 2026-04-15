@@ -36,7 +36,7 @@ export type BuildFeedSurfaceParams = {
 	filteredEntries: TimelineEntry[];
 	feedCursor: number;
 	focusMode: string;
-	searchMatchSet: Set<number>;
+	searchMatchSet: ReadonlySet<number>;
 	ascii: boolean;
 	theme: Theme;
 	innerWidth: number;

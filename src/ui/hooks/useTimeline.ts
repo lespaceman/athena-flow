@@ -15,7 +15,6 @@ import {
 	expansionForEvent,
 	isEventError,
 	isEventExpandable,
-	toRunStatus,
 	VERBOSE_ONLY_KINDS,
 	computeDuplicateActors,
 } from '../../core/feed/timeline';
@@ -29,6 +28,9 @@ import {isSubagentTool} from '../../core/feed/todo';
 
 const detailCache = new WeakMap<TimelineEntry, string>();
 const searchTextCache = new WeakMap<TimelineEntry, string>();
+
+const EMPTY_MATCHES: readonly number[] = Object.freeze([] as number[]);
+const EMPTY_MATCH_SET: ReadonlySet<number> = Object.freeze(new Set<number>());
 
 function subagentActorLabel(agentType?: string, agentId?: string): string {
 	void agentType;
@@ -94,8 +96,8 @@ type UseTimelineResult = {
 	timelineEntries: TimelineEntry[];
 	runSummaries: RunSummary[];
 	filteredEntries: TimelineEntry[];
-	searchMatches: number[];
-	searchMatchSet: Set<number>;
+	searchMatches: readonly number[];
+	searchMatchSet: ReadonlySet<number>;
 };
 
 export type TimelineBuildCache = {
@@ -520,61 +522,33 @@ export function useTimeline({
 	}, [feedItems, feedEvents, postByToolUseId, verbose]);
 
 	const runSummaries = useMemo((): RunSummary[] => {
-		const map = new Map<string, RunSummary>();
+		const base = indexedRef.current!.getRunSummaries();
+		if (!currentRun) return base;
 
-		for (const event of feedEvents) {
-			if (event.kind === 'run.start') {
-				map.set(event.run_id, {
-					runId: event.run_id,
-					title: compactText(
-						event.data.trigger.prompt_preview || 'Untitled run',
-						46,
-					),
-					status: 'RUNNING',
-					startedAt: event.ts,
-				});
-				continue;
-			}
-			if (event.kind === 'run.end') {
-				const existing = map.get(event.run_id);
-				if (existing) {
-					existing.status = toRunStatus(event);
-					existing.endedAt = event.ts;
-				} else {
-					map.set(event.run_id, {
-						runId: event.run_id,
-						title: 'Untitled run',
-						status: toRunStatus(event),
-						startedAt: event.ts,
-						endedAt: event.ts,
-					});
-				}
-			}
+		const found = base.find(s => s.runId === currentRun.run_id);
+		if (found && found.status === 'RUNNING') return base;
+
+		// Clone to avoid mutating IndexedTimeline's cached objects.
+		if (found) {
+			return base.map(s =>
+				s.runId === currentRun.run_id ? {...s, status: 'RUNNING' as const} : s,
+			);
 		}
 
-		const summaries = Array.from(map.values()).sort(
-			(a, b) => a.startedAt - b.startedAt,
-		);
-
-		if (currentRun) {
-			const found = summaries.find(s => s.runId === currentRun.run_id);
-			if (found) {
-				found.status = 'RUNNING';
-			} else {
-				summaries.push({
-					runId: currentRun.run_id,
-					title: compactText(
-						currentRun.trigger.prompt_preview || 'Untitled run',
-						46,
-					),
-					status: 'RUNNING',
-					startedAt: currentRun.started_at,
-				});
-			}
-		}
-
-		return summaries;
-	}, [feedEvents, currentRun]);
+		return [
+			...base,
+			{
+				runId: currentRun.run_id,
+				title: compactText(
+					currentRun.trigger.prompt_preview || 'Untitled run',
+					46,
+				),
+				status: 'RUNNING' as const,
+				startedAt: currentRun.started_at,
+			},
+		];
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- timelineEntries triggers recompute after IndexedTimeline.update()
+	}, [timelineEntries, currentRun]);
 
 	const filteredEntries = useMemo(() => {
 		return indexedRef.current!.getFilteredView(runFilter, errorsOnly);
@@ -582,10 +556,17 @@ export function useTimeline({
 	}, [timelineEntries, runFilter, errorsOnly]);
 
 	const searchMatches = useMemo(() => {
+		if (!searchQuery.trim()) return EMPTY_MATCHES;
 		return indexedRef.current!.getSearchMatches(filteredEntries, searchQuery);
 	}, [filteredEntries, searchQuery]);
 
-	const searchMatchSet = useMemo(() => new Set(searchMatches), [searchMatches]);
+	const searchMatchSet = useMemo(
+		() =>
+			searchMatches === EMPTY_MATCHES
+				? EMPTY_MATCH_SET
+				: new Set(searchMatches),
+		[searchMatches],
+	);
 
 	return {
 		timelineEntries,

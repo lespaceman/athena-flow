@@ -7,7 +7,7 @@ import {type FeedColumnWidths, formatFeedRowLine} from './FeedRow';
 type Props = {
 	entries: TimelineEntry[];
 	startIndex: number;
-	searchMatchSet: Set<number>;
+	searchMatchSet: ReadonlySet<number>;
 	ascii: boolean;
 	theme: Theme;
 	innerWidth: number;

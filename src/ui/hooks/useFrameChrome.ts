@@ -9,7 +9,7 @@ export type UseFrameChromeOptions = {
 	focusMode: string;
 	inputMode: string;
 	searchQuery: string;
-	searchMatches: number[];
+	searchMatches: readonly number[];
 	searchMatchPos: number;
 	isHarnessRunning: boolean;
 	dialogActive: boolean;

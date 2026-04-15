@@ -1,7 +1,8 @@
 import type {FeedItem} from './items';
 import type {FeedEvent} from './types';
-import type {TimelineEntry} from './timeline';
-import {isEventExpandable, expansionForEvent} from './timeline';
+import type {TimelineEntry, RunSummary} from './timeline';
+import {isEventExpandable, expansionForEvent, toRunStatus} from './timeline';
+import {compactText} from '../../shared/utils/format';
 import {
 	buildTimelineCache,
 	appendTimelineCache,
@@ -23,6 +24,12 @@ export class IndexedTimeline {
 	// Secondary indexes (maintained on every update)
 	private runIndex = new Map<string, number[]>();
 	private errorPositions = new Set<number>();
+
+	// Run summary tracking (incremental)
+	private _runSummaryMap = new Map<string, RunSummary>();
+	private _runSummariesDirty = true;
+	private _runSummariesCache: RunSummary[] = [];
+	private _lastFeedEventsLength = 0;
 
 	// Search cache
 	private searchCache = new Map<string, SearchCacheEntry>();
@@ -55,6 +62,7 @@ export class IndexedTimeline {
 		);
 
 		if (incremental) {
+			this.updateRunSummaries(feedEvents);
 			this.cache = appendTimelineCache(
 				this.cache!,
 				feedItems,
@@ -62,6 +70,7 @@ export class IndexedTimeline {
 				postByToolUseId,
 			);
 		} else {
+			this.rebuildRunSummaries(feedEvents);
 			this.cache = buildTimelineCache(
 				feedItems,
 				feedEvents,
@@ -176,6 +185,66 @@ export class IndexedTimeline {
 			: '';
 		this.detailCache.set(entry, details);
 		return details;
+	}
+
+	// ── Run summary tracking ─────────────────────────────
+
+	/**
+	 * Returns sorted run summaries. Cached until a run.start/run.end
+	 * event invalidates the sorted array.
+	 */
+	getRunSummaries(): RunSummary[] {
+		if (this._runSummariesDirty) {
+			this._runSummariesCache = Array.from(this._runSummaryMap.values()).sort(
+				(a, b) => a.startedAt - b.startedAt,
+			);
+			this._runSummariesDirty = false;
+		}
+		return this._runSummariesCache;
+	}
+
+	private processRunEvent(event: FeedEvent): void {
+		if (event.kind === 'run.start') {
+			this._runSummaryMap.set(event.run_id, {
+				runId: event.run_id,
+				title: compactText(
+					event.data.trigger.prompt_preview || 'Untitled run',
+					46,
+				),
+				status: 'RUNNING',
+				startedAt: event.ts,
+			});
+			this._runSummariesDirty = true;
+		} else if (event.kind === 'run.end') {
+			const existing = this._runSummaryMap.get(event.run_id);
+			if (existing) {
+				existing.status = toRunStatus(event);
+				existing.endedAt = event.ts;
+			} else {
+				this._runSummaryMap.set(event.run_id, {
+					runId: event.run_id,
+					title: 'Untitled run',
+					status: toRunStatus(event),
+					startedAt: event.ts,
+					endedAt: event.ts,
+				});
+			}
+			this._runSummariesDirty = true;
+		}
+	}
+
+	private rebuildRunSummaries(feedEvents: FeedEvent[]): void {
+		this._runSummaryMap.clear();
+		this._runSummariesDirty = true;
+		this._lastFeedEventsLength = 0;
+		this.updateRunSummaries(feedEvents);
+	}
+
+	private updateRunSummaries(feedEvents: FeedEvent[]): void {
+		for (let i = this._lastFeedEventsLength; i < feedEvents.length; i++) {
+			this.processRunEvent(feedEvents[i]!);
+		}
+		this._lastFeedEventsLength = feedEvents.length;
 	}
 
 	// ── Index maintenance ─────────────────────────────────
