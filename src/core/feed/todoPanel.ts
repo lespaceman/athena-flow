@@ -102,11 +102,10 @@ export function todoGlyphs(
 			switch (item.status) {
 				case 'done':
 					return {
-						glyph: chalk.dim(chalk.hex(colors.done)(table.done)),
-						text: (raw: string) => chalk.dim(chalk.hex(colors.textMuted)(raw)),
+						glyph: chalk.hex(colors.done)(table.done),
+						text: (raw: string) => chalk.hex(colors.textMuted)(raw),
 						suffix: '',
-						elapsed: (raw: string) =>
-							chalk.dim(chalk.hex(colors.textMuted)(raw)),
+						elapsed: (raw: string) => chalk.hex(colors.textMuted)(raw),
 					};
 				case 'doing':
 					return {
