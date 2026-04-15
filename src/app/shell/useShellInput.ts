@@ -33,7 +33,7 @@ export type UseShellInputOptions = {
 	closeInput: () => void;
 	submitSearchQuery: (query: string, firstMatchIndex: number | null) => void;
 	submitPromptOrSlashCommand: (value: string) => void;
-	filteredEntriesRef: React.RefObject<TimelineEntry[]>;
+	displayedEntriesRef: React.RefObject<TimelineEntry[]>;
 	getSelectedCommand?: () => Command | undefined;
 };
 
@@ -54,7 +54,7 @@ export function useShellInput({
 	closeInput,
 	submitSearchQuery,
 	submitPromptOrSlashCommand,
-	filteredEntriesRef,
+	displayedEntriesRef,
 	getSelectedCommand,
 }: UseShellInputOptions): UseShellInputResult {
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
@@ -104,7 +104,7 @@ export function useShellInput({
 					const query = trimmed.replace(/^:/, '').trim();
 					const firstIdx =
 						query.length > 0
-							? findFirstSearchMatch(filteredEntriesRef.current, query, 0)
+							? findFirstSearchMatch(displayedEntriesRef.current, query, 0)
 							: -1;
 					submitSearchQuery(query, firstIdx >= 0 ? firstIdx : null);
 				} else {
@@ -124,7 +124,7 @@ export function useShellInput({
 			getSelectedCommand,
 			closeInput,
 			submitSearchQuery,
-			filteredEntriesRef,
+			displayedEntriesRef,
 		],
 	);
 

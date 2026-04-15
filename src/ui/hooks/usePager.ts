@@ -24,14 +24,14 @@ function pagerContentRows(): number {
 }
 
 export type UsePagerOptions = {
-	filteredEntriesRef: React.RefObject<TimelineEntry[]>;
-	feedCursor: number;
+	displayedEntriesRef: React.RefObject<TimelineEntry[]>;
+	feedCursorId: string | null;
 	theme?: Theme;
 };
 
 export function usePager({
-	filteredEntriesRef,
-	feedCursor,
+	displayedEntriesRef,
+	feedCursorId,
 	theme,
 }: UsePagerOptions): {
 	pagerActive: boolean;
@@ -103,13 +103,12 @@ export function usePager({
 	);
 
 	const handleExpandForPager = useCallback(() => {
-		const entry = filteredEntriesRef.current[feedCursor];
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- entry can be undefined at runtime when feedCursor is out of bounds
+		const entry = displayedEntriesRef.current.find(e => e.id === feedCursorId);
 		if (!entry?.expandable) return;
 		pendingPagerEntryRef.current = entry;
 		pagerEntryIdRef.current = entry.id;
 		setPagerActive(true);
-	}, [filteredEntriesRef, feedCursor]);
+	}, [displayedEntriesRef, feedCursorId]);
 
 	// Render pager content AFTER Ink has committed the empty <Box />.
 	useEffect(() => {
@@ -150,7 +149,7 @@ export function usePager({
 
 		const entryId = pagerEntryIdRef.current;
 		if (entryId) {
-			const currentEntry = filteredEntriesRef.current.find(
+			const currentEntry = displayedEntriesRef.current.find(
 				e => e.id === entryId,
 			);
 			if (

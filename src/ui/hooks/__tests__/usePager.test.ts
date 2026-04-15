@@ -89,7 +89,7 @@ describe('usePager', () => {
 		const entries = [makeEntry()];
 		const ref = {current: entries};
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		expect(result.current.pagerActive).toBe(false);
 	});
@@ -98,7 +98,7 @@ describe('usePager', () => {
 		const entries = [makeEntry({expandable: false})];
 		const ref = {current: entries};
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -110,7 +110,7 @@ describe('usePager', () => {
 		const entries = [makeEntry({expandable: true})];
 		const ref = {current: entries};
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -123,10 +123,10 @@ describe('usePager', () => {
 			makeEntry({expandable: true, feedEvent: {type: 'tool_use'} as never}),
 		];
 		const ref = {current: entries};
-		renderHook(() => usePager({filteredEntriesRef: ref, feedCursor: 0}));
+		renderHook(() => usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}));
 		// After expand, the effect should write to alternate screen
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -146,7 +146,7 @@ describe('usePager', () => {
 		const entries = [makeEntry({expandable: true})];
 		const ref = {current: entries};
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 
 		// Activate pager
@@ -159,7 +159,7 @@ describe('usePager', () => {
 		// Re-render to get fresh handlers
 		inputHandlers.length = 0;
 		const {result: result2} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result2.current.handleExpandForPager();
@@ -195,7 +195,7 @@ describe('usePager', () => {
 
 		inputHandlers.length = 0;
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -219,7 +219,7 @@ describe('usePager', () => {
 
 		inputHandlers.length = 0;
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 0}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'e1'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -243,7 +243,7 @@ describe('usePager', () => {
 		const entries = [makeEntry()];
 		const ref = {current: entries};
 		const {result} = renderHook(() =>
-			usePager({filteredEntriesRef: ref, feedCursor: 5}),
+			usePager({displayedEntriesRef: ref, feedCursorId: 'nonexistent'}),
 		);
 		act(() => {
 			result.current.handleExpandForPager();
@@ -257,9 +257,9 @@ describe('usePager', () => {
 		];
 		const ref = {current: entries};
 		const {result, rerender} = renderHook(
-			({cursor}: {cursor: number}) =>
-				usePager({filteredEntriesRef: ref, feedCursor: cursor}),
-			{initialProps: {cursor: 0}},
+			({cursorId}: {cursorId: string | null}) =>
+				usePager({displayedEntriesRef: ref, feedCursorId: cursorId}),
+			{initialProps: {cursorId: 'e1' as string | null}},
 		);
 
 		act(() => {
@@ -268,7 +268,7 @@ describe('usePager', () => {
 		expect(result.current.pagerActive).toBe(true);
 
 		stdoutWriteSpy.mockClear();
-		rerender({cursor: 1});
+		rerender({cursorId: null});
 
 		const writes = stdoutWriteSpy.mock.calls
 			.map(call => call[0])

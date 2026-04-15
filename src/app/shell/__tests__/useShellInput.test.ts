@@ -30,7 +30,7 @@ function makeOptions(
 		closeInput: vi.fn(),
 		submitSearchQuery: vi.fn(),
 		submitPromptOrSlashCommand: vi.fn(),
-		filteredEntriesRef: {current: []},
+		displayedEntriesRef: {current: []},
 		...overrides,
 	};
 }
@@ -86,7 +86,7 @@ describe('useShellInput', () => {
 		const opts = makeOptions({
 			inputMode: 'search',
 			submitSearchQuery,
-			filteredEntriesRef: {current: entries},
+			displayedEntriesRef: {current: entries},
 		});
 		const {result} = renderHook(() => useShellInput(opts));
 		act(() => {
@@ -104,7 +104,7 @@ describe('useShellInput', () => {
 		const opts = makeOptions({
 			inputMode: 'search',
 			submitSearchQuery,
-			filteredEntriesRef: {current: entries},
+			displayedEntriesRef: {current: entries},
 		});
 		const {result} = renderHook(() => useShellInput(opts));
 		act(() => {

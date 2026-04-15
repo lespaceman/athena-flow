@@ -652,8 +652,12 @@ function AppContent({
 		postByToolUseId,
 		verbose,
 	});
-	const {runSummaries, filteredEntries, searchMatches, searchMatchSet} =
-		timeline;
+	const {
+		runSummaries,
+		filteredEntries,
+		searchMatches,
+		searchMatchSet: _searchMatchSet,
+	} = timeline;
 
 	const todoPanel = useTodoPanel({
 		tasks,
@@ -709,11 +713,12 @@ function AppContent({
 	const frameWidth = safeTerminalWidth;
 	const innerWidth = frameWidth - 2;
 
-	const filteredEntriesRef = useRef(filteredEntries);
-	filteredEntriesRef.current = filteredEntries;
+	const displayedFeedEntriesRef =
+		useRef<typeof filteredEntries>(filteredEntries);
 	const uiContextRef = useRef<SessionUiContext>({
 		feedEntryCount: 0,
 		feedContentRows: 1,
+		feedEntries: [],
 		searchMatchCount: 0,
 		todoVisibleCount: 0,
 		todoListHeight: 0,
@@ -889,7 +894,7 @@ function AppContent({
 		submitSearchQuery: (query, firstMatchIndex) =>
 			dispatchUi({type: 'submit_search_query', query, firstMatchIndex}),
 		submitPromptOrSlashCommand,
-		filteredEntriesRef,
+		displayedEntriesRef: displayedFeedEntriesRef,
 		getSelectedCommand: () => getSelectedCommandRef.current(),
 	});
 	const visualInputRows = Math.max(2, inputRows);
@@ -942,6 +947,30 @@ function AppContent({
 		messagePanelWidth,
 	);
 	const displayedFeedEntries = splitMode ? feedEntries : filteredEntries;
+	displayedFeedEntriesRef.current = displayedFeedEntries;
+
+	const displayedSearchMatches = useMemo(() => {
+		if (!splitMode) return searchMatches;
+		const idToDisplayIdx = new Map<string, number>();
+		displayedFeedEntries.forEach((e, i) => idToDisplayIdx.set(e.id, i));
+		const remapped: number[] = [];
+		for (const matchIdx of searchMatches) {
+			const entry = filteredEntries[matchIdx];
+			// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- matchIdx can be out of bounds at runtime
+			if (entry) {
+				const displayIdx = idToDisplayIdx.get(entry.id);
+				if (displayIdx !== undefined) {
+					remapped.push(displayIdx);
+				}
+			}
+		}
+		return remapped;
+	}, [splitMode, searchMatches, filteredEntries, displayedFeedEntries]);
+
+	const displayedSearchMatchSet = useMemo(
+		() => new Set(displayedSearchMatches),
+		[displayedSearchMatches],
+	);
 
 	// ── Feed backend & feedStartRow ────────────────────────────────
 	// Resolve once per render so all consumers agree on the backend.
@@ -1003,7 +1032,8 @@ function AppContent({
 		(): SessionUiContext => ({
 			feedEntryCount: displayedFeedEntries.length,
 			feedContentRows: visibleFeedContentRows,
-			searchMatchCount: searchMatches.length,
+			feedEntries: displayedFeedEntries,
+			searchMatchCount: displayedSearchMatches.length,
 			todoVisibleCount: todoPanel.visibleTodoItems.length,
 			todoListHeight: layout.todoListHeight,
 			todoFocusable:
@@ -1014,9 +1044,9 @@ function AppContent({
 			messageContentRows,
 		}),
 		[
-			displayedFeedEntries.length,
+			displayedFeedEntries,
 			visibleFeedContentRows,
-			searchMatches.length,
+			displayedSearchMatches.length,
 			layout.todoListHeight,
 			uiState.todoVisible,
 			todoPanel.visibleTodoItems.length,
@@ -1032,8 +1062,16 @@ function AppContent({
 	);
 	const focusMode = resolvedUiState.focusMode;
 	const searchMatchPos = resolvedUiState.searchMatchPos;
+	const feedCursorIndex = useMemo(() => {
+		if (resolvedUiState.feedCursorId === null) return 0;
+		const idx = displayedFeedEntries.findIndex(
+			e => e.id === resolvedUiState.feedCursorId,
+		);
+		return idx >= 0 ? idx : 0;
+	}, [resolvedUiState.feedCursorId, displayedFeedEntries]);
 	const feedNav = {
-		feedCursor: resolvedUiState.feedCursor,
+		feedCursorId: resolvedUiState.feedCursorId,
+		feedCursorIndex,
 		feedViewportStart: resolvedUiState.feedViewportStart,
 		tailFollow: resolvedUiState.tailFollow,
 		moveFeedCursor: (delta: number) =>
@@ -1060,7 +1098,7 @@ function AppContent({
 		focusMode,
 		inputMode,
 		searchQuery,
-		searchMatches,
+		searchMatches: displayedSearchMatches,
 		searchMatchPos,
 		isHarnessRunning,
 		dialogActive,
@@ -1119,8 +1157,8 @@ function AppContent({
 	);
 
 	const {pagerActive, handleExpandForPager} = usePager({
-		filteredEntriesRef,
-		feedCursor: feedNav.feedCursor,
+		displayedEntriesRef: displayedFeedEntriesRef,
+		feedCursorId: feedNav.feedCursorId,
 		theme,
 	});
 
@@ -1165,12 +1203,14 @@ function AppContent({
 	}, []);
 
 	const yankAtCursor = useCallback(() => {
-		const entry = filteredEntriesRef.current.at(feedNav.feedCursor);
+		const entry = displayedFeedEntriesRef.current.find(
+			e => e.id === resolvedUiState.feedCursorId,
+		);
 		if (!entry) return;
 		const content = extractYankContent(entry, theme);
 		copyToClipboard(content);
 		showToast('Copied to clipboard!');
-	}, [feedNav.feedCursor, showToast, theme]);
+	}, [resolvedUiState.feedCursorId, showToast, theme]);
 
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive && !pagerActive,
@@ -1464,9 +1504,9 @@ function AppContent({
 								feedContentRows={feedContentRows}
 								feedViewportStart={feedNav.feedViewportStart}
 								filteredEntries={displayedFeedEntries}
-								feedCursor={feedNav.feedCursor}
+								feedCursor={feedNav.feedCursorIndex}
 								focusMode={focusMode}
-								searchMatchSet={searchMatchSet}
+								searchMatchSet={displayedSearchMatchSet}
 								ascii={useAscii}
 								theme={theme}
 								innerWidth={feedPanelWidth}
@@ -1483,9 +1523,9 @@ function AppContent({
 						feedContentRows={feedContentRows}
 						feedViewportStart={feedNav.feedViewportStart}
 						filteredEntries={displayedFeedEntries}
-						feedCursor={feedNav.feedCursor}
+						feedCursor={feedNav.feedCursorIndex}
 						focusMode={focusMode}
-						searchMatchSet={searchMatchSet}
+						searchMatchSet={displayedSearchMatchSet}
 						ascii={useAscii}
 						theme={theme}
 						innerWidth={innerWidth}
