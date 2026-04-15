@@ -68,4 +68,20 @@ describe('buildFrameLines contextual prompt', () => {
 		});
 		expect(footerHelp).toContain('Yank');
 	});
+
+	it('shows yank hint in messages mode', () => {
+		const {footerHelp} = buildFrameLines({
+			...baseCtx,
+			focusMode: 'messages',
+		});
+		expect(footerHelp).toContain('Yank');
+	});
+
+	it('shows filter hint in messages mode', () => {
+		const {footerHelp} = buildFrameLines({
+			...baseCtx,
+			focusMode: 'messages',
+		});
+		expect(footerHelp).toContain('Filter');
+	});
 });

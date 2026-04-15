@@ -71,6 +71,21 @@ export function buildFrameLines(ctx: FrameContext): FrameLines {
 			return buildHintPairs(inputPairs);
 		}
 
+		if (ctx.focusMode === 'messages') {
+			const messagePairs: Array<[string, string]> = [
+				[h.arrowsUpDown, 'Navigate'],
+				['y', 'Yank'],
+				['u/a/b', 'Filter'],
+				['/', 'Cmds'],
+				[':', 'Search'],
+				['End', 'Tail'],
+			];
+			if (ctx.isClaudeRunning) {
+				messagePairs.push([`${h.escape} ${h.escape}`, 'Interrupt']);
+			}
+			return buildHintPairs(messagePairs);
+		}
+
 		// Feed mode (default)
 		let searchPart = '';
 		if (ctx.searchQuery && ctx.searchMatches.length > 0) {
