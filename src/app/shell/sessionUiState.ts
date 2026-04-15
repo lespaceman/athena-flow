@@ -10,7 +10,7 @@ export type SessionUiState = {
 	showRunOverlay: boolean;
 	searchQuery: string;
 	searchMatchPos: number;
-	feedCursor: number;
+	feedCursorId: string | null;
 	feedViewportStart: number;
 	tailFollow: boolean;
 	todoVisible: boolean;
@@ -26,6 +26,7 @@ export type SessionUiState = {
 export type SessionUiContext = {
 	feedEntryCount: number;
 	feedContentRows: number;
+	feedEntries: ReadonlyArray<{id: string}>;
 	searchMatchCount: number;
 	todoVisibleCount: number;
 	todoListHeight: number;
@@ -71,7 +72,7 @@ type ScrollState = {cursor: number; viewportStart: number; tailFollow: boolean};
 
 type FeedState = Pick<
 	SessionUiState,
-	'feedCursor' | 'feedViewportStart' | 'tailFollow'
+	'feedCursorId' | 'feedViewportStart' | 'tailFollow'
 >;
 
 type MessageState = Pick<
@@ -88,7 +89,7 @@ export const initialSessionUiState: SessionUiState = {
 	showRunOverlay: false,
 	searchQuery: '',
 	searchMatchPos: 0,
-	feedCursor: 0,
+	feedCursorId: null,
 	feedViewportStart: 0,
 	tailFollow: true,
 	todoVisible: true,
@@ -164,15 +165,30 @@ function maxFeedViewportStart(ctx: SessionUiContext): number {
 		: Math.max(0, ctx.feedEntryCount - ctx.feedContentRows);
 }
 
+function resolveIdToIndex(
+	entries: ReadonlyArray<{id: string}>,
+	cursorId: string | null,
+): number {
+	if (cursorId === null) return -1;
+	return entries.findIndex(e => e.id === cursorId);
+}
+
+function resolveIndexToId(
+	entries: ReadonlyArray<{id: string}>,
+	index: number,
+): string | null {
+	return entries[index]?.id ?? null;
+}
+
 function computeFeedState(
-	cursor: number,
+	cursorIndex: number,
 	viewportStart: number,
 	tailFollow: boolean,
 	ctx: SessionUiContext,
 ): FeedState {
 	const floor = ctx.staticFloor ?? DEFAULT_STATIC_FLOOR;
 	const s = computeScrollState(
-		cursor,
+		cursorIndex,
 		viewportStart,
 		tailFollow,
 		ctx.feedEntryCount,
@@ -180,7 +196,7 @@ function computeFeedState(
 		floor,
 	);
 	return {
-		feedCursor: s.cursor,
+		feedCursorId: resolveIndexToId(ctx.feedEntries, s.cursor),
 		tailFollow: s.tailFollow,
 		feedViewportStart: s.viewportStart,
 	};
@@ -214,7 +230,7 @@ function withFeedChange(
 	feed: FeedState,
 ): SessionUiState {
 	if (
-		feed.feedCursor === current.feedCursor &&
+		feed.feedCursorId === current.feedCursorId &&
 		feed.feedViewportStart === current.feedViewportStart &&
 		feed.tailFollow === current.tailFollow
 	) {
@@ -277,8 +293,12 @@ export function resolveSessionUiState(
 	state: SessionUiState,
 	ctx: SessionUiContext,
 ): SessionUiState {
+	let cursorIndex = resolveIdToIndex(ctx.feedEntries, state.feedCursorId);
+	if (cursorIndex < 0 && ctx.feedEntryCount > 0) {
+		cursorIndex = ctx.feedEntryCount - 1;
+	}
 	const feedState = computeFeedState(
-		state.feedCursor,
+		cursorIndex,
 		state.feedViewportStart,
 		state.tailFollow,
 		ctx,
@@ -305,7 +325,7 @@ export function resolveSessionUiState(
 	if (
 		focusMode === state.focusMode &&
 		searchMatchPos === state.searchMatchPos &&
-		feedState.feedCursor === state.feedCursor &&
+		feedState.feedCursorId === state.feedCursorId &&
 		feedState.feedViewportStart === state.feedViewportStart &&
 		feedState.tailFollow === state.tailFollow &&
 		todoCursor === state.todoCursor &&
@@ -320,7 +340,7 @@ export function resolveSessionUiState(
 		...state,
 		focusMode,
 		searchMatchPos,
-		feedCursor: feedState.feedCursor,
+		feedCursorId: feedState.feedCursorId,
 		feedViewportStart: feedState.feedViewportStart,
 		tailFollow: feedState.tailFollow,
 		todoCursor,
@@ -445,29 +465,34 @@ export function reduceSessionUiState(
 				searchQuery: '',
 				searchMatchPos: 0,
 				showRunOverlay: false,
-				feedCursor: maxFeedCursor(ctx),
+				feedCursorId: resolveIndexToId(ctx.feedEntries, maxFeedCursor(ctx)),
 				feedViewportStart: maxFeedViewportStart(ctx),
 				tailFollow: true,
 			};
-		case 'move_feed_cursor':
+		case 'move_feed_cursor': {
+			const curIdx = resolveIdToIndex(ctx.feedEntries, current.feedCursorId);
 			return withFeedChange(
 				current,
 				computeFeedState(
-					current.feedCursor + action.delta,
+					(curIdx < 0 ? 0 : curIdx) + action.delta,
 					current.feedViewportStart,
 					false,
 					ctx,
 				),
 			);
+		}
 		case 'jump_feed_tail':
 			return withFeedChange(current, {
-				feedCursor: maxFeedCursor(ctx),
+				feedCursorId: resolveIndexToId(ctx.feedEntries, maxFeedCursor(ctx)),
 				feedViewportStart: maxFeedViewportStart(ctx),
 				tailFollow: true,
 			});
 		case 'jump_feed_top':
 			return withFeedChange(current, {
-				feedCursor: ctx.staticFloor ?? DEFAULT_STATIC_FLOOR,
+				feedCursorId: resolveIndexToId(
+					ctx.feedEntries,
+					ctx.staticFloor ?? DEFAULT_STATIC_FLOOR,
+				),
 				feedViewportStart: ctx.staticFloor ?? DEFAULT_STATIC_FLOOR,
 				tailFollow: false,
 			});
@@ -479,7 +504,7 @@ export function reduceSessionUiState(
 		case 'set_tail_follow':
 			if (action.tailFollow) {
 				return withFeedChange(current, {
-					feedCursor: maxFeedCursor(ctx),
+					feedCursorId: resolveIndexToId(ctx.feedEntries, maxFeedCursor(ctx)),
 					feedViewportStart: maxFeedViewportStart(ctx),
 					tailFollow: true,
 				});
@@ -550,7 +575,7 @@ export function reduceSessionUiState(
 			);
 			if (
 				current.focusMode === 'feed' &&
-				feed.feedCursor === current.feedCursor &&
+				feed.feedCursorId === current.feedCursorId &&
 				feed.feedViewportStart === current.feedViewportStart &&
 				feed.tailFollow === current.tailFollow
 			) {

@@ -10,9 +10,13 @@ import {
 function makeContext(
 	overrides: Partial<SessionUiContext> = {},
 ): SessionUiContext {
+	const count = overrides.feedEntryCount ?? 10;
 	return {
-		feedEntryCount: 10,
+		feedEntryCount: count,
 		feedContentRows: 4,
+		feedEntries:
+			overrides.feedEntries ??
+			Array.from({length: count}, (_, i) => ({id: `e${i}`})),
 		searchMatchCount: 0,
 		todoVisibleCount: 0,
 		todoListHeight: 0,
@@ -40,7 +44,7 @@ describe('sessionUiState', () => {
 		const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 		const state: SessionUiState = {
 			...initialSessionUiState,
-			feedCursor: 9,
+			feedCursorId: 'e9',
 			feedViewportStart: 6,
 			tailFollow: true,
 		};
@@ -130,7 +134,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 0,
+				feedCursorId: 'e0',
 				feedViewportStart: 0,
 				tailFollow: false,
 			};
@@ -146,7 +150,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				tailFollow: false,
 			};
@@ -162,7 +166,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				tailFollow: true,
 			};
@@ -174,7 +178,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 0,
+				feedCursorId: 'e0',
 				feedViewportStart: 0,
 				tailFollow: false,
 			};
@@ -186,7 +190,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 5,
+				feedCursorId: 'e5',
 				feedViewportStart: 3,
 				tailFollow: false,
 			};
@@ -202,7 +206,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				tailFollow: true,
 			};
@@ -218,7 +222,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({todoVisibleCount: 5, todoFocusable: true});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				todoCursor: 0,
 				todoCursorMode: 'manual',
@@ -235,7 +239,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({todoVisibleCount: 5, todoFocusable: true});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				todoCursor: 4,
 				todoCursorMode: 'manual',
@@ -252,7 +256,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({feedEntryCount: 10, feedContentRows: 4});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 5,
+				feedCursorId: 'e5',
 				feedViewportStart: 3,
 				tailFollow: false,
 			};
@@ -268,7 +272,7 @@ describe('sessionUiState', () => {
 			const ctx = makeContext({todoVisibleCount: 5, todoFocusable: true});
 			const state: SessionUiState = {
 				...initialSessionUiState,
-				feedCursor: 9,
+				feedCursorId: 'e9',
 				feedViewportStart: 6,
 				todoCursor: 2,
 				todoCursorMode: 'manual',
@@ -409,6 +413,153 @@ describe('sessionUiState', () => {
 				{messageEntryCount: 0, messageContentRows: 10},
 			);
 			expect(result.focusMode).toBe('feed');
+		});
+	});
+
+	describe('identity-based cursor', () => {
+		it('move_feed_cursor navigates by ID through provided entries', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}];
+			const ctx = makeContext({
+				feedEntryCount: 5,
+				feedContentRows: 3,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'b',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: 2},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('d');
+		});
+
+		it('move_feed_cursor clamps at array bounds', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 3,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'b',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: 10},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('c');
+		});
+
+		it('move_feed_cursor with null cursorId starts from top', () => {
+			const entries = [{id: 'a'}, {id: 'b'}];
+			const ctx = makeContext({
+				feedEntryCount: 2,
+				feedContentRows: 2,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: null,
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: 1},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('b');
+		});
+
+		it('jump_feed_tail sets cursorId to last entry', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 2,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'a',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(state, {type: 'jump_feed_tail'}, ctx);
+			expect(result.feedCursorId).toBe('c');
+			expect(result.tailFollow).toBe(true);
+		});
+
+		it('jump_feed_top sets cursorId to first entry', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 2,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'c',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(state, {type: 'jump_feed_top'}, ctx);
+			expect(result.feedCursorId).toBe('a');
+		});
+
+		it('set_feed_cursor sets cursorId by index lookup', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 3,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'a',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'set_feed_cursor', cursor: 2},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('c');
+		});
+
+		it('resolveSessionUiState snaps stale cursorId to last entry', () => {
+			const entries = [{id: 'x'}, {id: 'y'}];
+			const ctx = makeContext({
+				feedEntryCount: 2,
+				feedContentRows: 2,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'deleted-entry',
+				tailFollow: false,
+			};
+			const result = resolveSessionUiState(state, ctx);
+			expect(result.feedCursorId).toBe('y');
+		});
+
+		it('tailFollow sets cursorId to last entry on resolve', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 2,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'a',
+				tailFollow: true,
+			};
+			const result = resolveSessionUiState(state, ctx);
+			expect(result.feedCursorId).toBe('c');
 		});
 	});
 });
