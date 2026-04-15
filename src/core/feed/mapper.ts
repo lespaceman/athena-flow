@@ -247,6 +247,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		truncatedToolDeltaUseIds.clear();
 		eventIdByRequestId.clear();
 		eventKindByRequestId.clear();
+		resetAgentMessageDeduper();
 		activeSubagentStack.length = 0;
 		currentRun = {
 			run_id: getRunId(),
@@ -287,6 +288,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			scope: 'root' | 'subagent';
 		}
 	>();
+	const lastAgentMessageByActorScope = new Map<string, string>();
 	const transcriptReader = createTranscriptReader();
 
 	/**
@@ -300,19 +302,68 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		scope: 'root' | 'subagent',
 	): FeedEvent[] {
 		const msgs = transcriptReader.readNewAssistantMessages(transcriptPath);
-		return msgs.map(msg =>
-			makeEvent(
-				'agent.message',
-				'info',
-				actorId,
-				{
-					message: msg.text,
-					source: 'transcript',
-					scope,
-				} satisfies import('./types').AgentMessageData,
+		const results: FeedEvent[] = [];
+		for (const msg of msgs) {
+			const agentMsg = emitAgentMessage(
 				runtimeEvent,
-			),
+				actorId,
+				scope,
+				msg.text,
+				'transcript',
+			);
+			if (agentMsg) {
+				results.push(agentMsg);
+			}
+		}
+		return results;
+	}
+
+	function agentMessageKey(
+		actorId: string,
+		scope: 'root' | 'subagent',
+	): string {
+		return `${actorId}\0${scope}`;
+	}
+
+	function normalizeAgentMessage(message: string): string {
+		return message.replace(/\r\n/g, '\n').trimEnd();
+	}
+
+	function resetAgentMessageDeduper(): void {
+		lastAgentMessageByActorScope.clear();
+	}
+
+	function emitAgentMessage(
+		runtimeEvent: RuntimeEvent,
+		actorId: string,
+		scope: 'root' | 'subagent',
+		message: string,
+		source: 'hook' | 'transcript',
+		cause?: Partial<FeedEventCause>,
+	): FeedEvent | null {
+		const normalized = normalizeAgentMessage(message);
+		if (!normalized) return null;
+
+		const key = agentMessageKey(actorId, scope);
+		const previous = lastAgentMessageByActorScope.get(key);
+		if (previous === normalized) {
+			return null;
+		}
+
+		const event = makeEvent(
+			'agent.message',
+			'info',
+			actorId,
+			{
+				message: normalized,
+				source,
+				scope,
+			} satisfies import('./types').AgentMessageData,
+			runtimeEvent,
+			cause,
 		);
+		lastAgentMessageByActorScope.set(key, normalized);
+		return event;
 	}
 
 	function resolveToolActor(): string {
@@ -409,37 +460,31 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			const message = messageText ?? pending?.message ?? '';
 			if (!message) return;
 			const scope = pending ?? resolveMessageScope();
-			results.push(
-				makeEvent(
-					'agent.message',
-					'info',
-					scope.actorId,
-					{
-						message,
-						source: 'hook',
-						scope: scope.scope,
-					} satisfies import('./types').AgentMessageData,
-					event,
-				),
+			const agentMsg = emitAgentMessage(
+				event,
+				scope.actorId,
+				scope.scope,
+				message,
+				'hook',
 			);
+			if (agentMsg) {
+				results.push(agentMsg);
+			}
 			pendingMessages.delete(key);
 		};
 		const flushPendingMessages = (): void => {
 			for (const [itemId, pending] of pendingMessages) {
 				if (!pending.message) continue;
-				results.push(
-					makeEvent(
-						'agent.message',
-						'info',
-						pending.actorId,
-						{
-							message: pending.message,
-							source: 'hook',
-							scope: pending.scope,
-						} satisfies import('./types').AgentMessageData,
-						event,
-					),
+				const agentMsg = emitAgentMessage(
+					event,
+					pending.actorId,
+					pending.scope,
+					pending.message,
+					'hook',
 				);
+				if (agentMsg) {
+					results.push(agentMsg);
+				}
 				pendingMessages.delete(itemId);
 			}
 		};
@@ -454,20 +499,17 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			const msg = readString(d['last_assistant_message']);
 			if (!msg) return;
 			const parentEvt = results.find(r => r.kind === parentKind);
-			results.push(
-				makeEvent(
-					'agent.message',
-					'info',
-					actorId,
-					{
-						message: msg,
-						source: 'hook',
-						scope,
-					} satisfies import('./types').AgentMessageData,
-					event,
-					parentEvt ? {parent_event_id: parentEvt.event_id} : undefined,
-				),
+			const agentMsg = emitAgentMessage(
+				event,
+				actorId,
+				scope,
+				msg,
+				'hook',
+				parentEvt ? {parent_event_id: parentEvt.event_id} : undefined,
 			);
+			if (agentMsg) {
+				results.push(agentMsg);
+			}
 		}
 
 		// Extract new assistant messages from transcript BEFORE processing the

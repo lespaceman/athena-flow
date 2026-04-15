@@ -37,6 +37,8 @@ const TABLE_CHARS = {
 	middle: '\u2502',
 };
 
+const MIN_INLINE_FEED_TABLE_COLUMN_WIDTH = 12;
+
 function baseTerminalOptions(width: number): Record<string, unknown> {
 	return {
 		width,
@@ -144,10 +146,51 @@ function renderListItem(
 	return prefixBlock(normalizedBody, firstPrefix, restPrefix);
 }
 
-function tableRenderer(m: Marked, width: number) {
+function renderTableAsRecords(m: Marked, token: Tokens.Table): string {
+	const headers = token.header.map(cell => renderInline(m, cell.text));
+
+	return (
+		'\n' +
+		token.rows
+			.map(row =>
+				row
+					.map((cell, index) => {
+						const label = headers[index] ?? `Column ${index + 1}`;
+						const prefix = index === 0 ? '  \u2022 ' : '    ';
+						return `${prefix}${label}: ${renderInline(m, cell.text)}`;
+					})
+					.join('\n'),
+			)
+			.join('\n\n') +
+		'\n\n'
+	);
+}
+
+function shouldRenderTableAsRecords(
+	mode: MarkdownRenderMode,
+	token: Tokens.Table,
+	colWidths: number[],
+): boolean {
+	if (mode !== 'inline-feed') {
+		return false;
+	}
+
+	if (token.header.length <= 1) {
+		return false;
+	}
+
+	return colWidths.some(
+		colWidth => colWidth < MIN_INLINE_FEED_TABLE_COLUMN_WIDTH,
+	);
+}
+
+function tableRenderer(m: Marked, width: number, mode: MarkdownRenderMode) {
 	return {
 		table(token: Tokens.Table): string {
 			const colWidths = computeColWidths(token, width);
+			if (shouldRenderTableAsRecords(mode, token, colWidths)) {
+				return renderTableAsRecords(m, token);
+			}
 
 			const table = new Table({
 				head: token.header.map(cell => renderInline(m, cell.text)),
@@ -182,7 +225,7 @@ function listRenderer(m: Marked) {
 						const bullet = token.ordered ? `${start + index}. ` : '  \u2022 ';
 						return renderListItem(m, item, bullet);
 					})
-					.join('\n') + '\n'
+					.join('\n') + '\n\n'
 			);
 		},
 	};
@@ -191,10 +234,11 @@ function listRenderer(m: Marked) {
 function createDefaultRenderer(
 	m: Marked,
 	width: number,
+	mode: MarkdownRenderMode,
 ): Record<string, unknown> {
 	return {
 		...listRenderer(m),
-		...tableRenderer(m, width),
+		...tableRenderer(m, width, mode),
 		link({href, text}: Tokens.Link): string {
 			const displayText = typeof text === 'string' ? text : href;
 			return chalk.cyan(urlLink(href, displayText));
@@ -210,16 +254,59 @@ function renderCacheKey(options: RenderMarkdownOptions): string {
 	return `${options.mode}\0${options.width}\0${options.content}`;
 }
 
+function inferContinuationPrefix(line: string): string {
+	const fieldMatch = line.match(
+		/^(\s*(?:(?:[•*-]|\d+\.)\s+)?(?:\[[ xX]\]\s+)?[^:\n]{1,40}:\s+)/,
+	);
+	if (fieldMatch) {
+		return ' '.repeat(stringWidth(fieldMatch[1]));
+	}
+
+	const listMatch = line.match(/^(\s*(?:[•*-]|\d+\.)\s+(?:\[[ xX]\]\s+)?)/);
+	if (listMatch) {
+		return ' '.repeat(stringWidth(listMatch[1]));
+	}
+
+	const indentMatch = line.match(/^(\s+)/);
+	return indentMatch?.[1] ?? '';
+}
+
 function wrapAnsiLine(line: string, maxWidth: number): string[] {
 	if (maxWidth <= 0) return [''];
 	if (line.length === 0) return [''];
 	if (stringWidth(line) <= maxWidth) return [line];
 
 	const chunks: string[] = [];
-	const visualWidth = stringWidth(line);
-	for (let start = 0; start < visualWidth; start += maxWidth) {
-		chunks.push(sliceAnsi(line, start, start + maxWidth));
+	let remaining = line;
+	let firstLine = true;
+	const continuationPrefix = inferContinuationPrefix(line);
+	const continuationWidth = stringWidth(continuationPrefix);
+
+	while (remaining.length > 0) {
+		const availableWidth = firstLine
+			? maxWidth
+			: Math.max(1, maxWidth - continuationWidth);
+		if (stringWidth(remaining) <= availableWidth) {
+			chunks.push(firstLine ? remaining : continuationPrefix + remaining);
+			break;
+		}
+
+		let chunk = sliceAnsi(remaining, 0, availableWidth);
+		let consumedWidth = availableWidth;
+		const breakAt = chunk.lastIndexOf(' ');
+		if (breakAt > 0 && breakAt < chunk.length - 1) {
+			const wrapped = chunk.slice(0, breakAt);
+			if (wrapped.trim().length > 0) {
+				chunk = wrapped;
+				consumedWidth = Math.min(availableWidth, stringWidth(wrapped) + 1);
+			}
+		}
+
+		chunks.push(firstLine ? chunk : continuationPrefix + chunk);
+		remaining = sliceAnsi(remaining, consumedWidth).trimStart();
+		firstLine = false;
 	}
+
 	return chunks.length > 0 ? chunks : [''];
 }
 
@@ -252,7 +339,7 @@ function createParser(
 	);
 	m.use({
 		renderer: {
-			...createDefaultRenderer(m, width),
+			...createDefaultRenderer(m, width, mode),
 			...extraRenderer,
 		},
 	});

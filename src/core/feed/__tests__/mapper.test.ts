@@ -1688,6 +1688,125 @@ describe('FeedMapper', () => {
 			expect(agentMsg!.data.message).toBe('Fallback text');
 			expect(agentMsg!.data.source).toBe('hook');
 		});
+
+		it('does not duplicate the final assistant message when Stop is followed by SessionEnd transcript replay', () => {
+			const transcriptPath = makeTmpTranscript([
+				{type: 'user', message: {role: 'user', content: 'go'}},
+			]);
+
+			const mapper = createFeedMapper();
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: transcriptPath,
+						cwd: '/project',
+						prompt: 'go',
+					},
+					context: {cwd: '/project', transcriptPath},
+				}),
+			);
+
+			const stopResults = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: transcriptPath,
+						cwd: '/project',
+						stop_hook_active: false,
+						last_assistant_message: 'Here is the final answer.',
+					},
+					context: {cwd: '/project', transcriptPath},
+				}),
+			);
+
+			const stopMsgs = stopResults.filter(r => r.kind === 'agent.message');
+			expect(stopMsgs).toHaveLength(1);
+			expect(stopMsgs[0]!.data.source).toBe('hook');
+
+			fs.appendFileSync(
+				transcriptPath,
+				JSON.stringify({
+					type: 'assistant',
+					message: {role: 'assistant', content: 'Here is the final answer.'},
+				}) + '\n',
+			);
+
+			const sessionEndResults = mapper.mapEvent(
+				makeRuntimeEvent('SessionEnd', {
+					payload: {
+						hook_event_name: 'SessionEnd',
+						session_id: 'sess-1',
+						transcript_path: transcriptPath,
+						cwd: '/project',
+						reason: 'other',
+					},
+					context: {cwd: '/project', transcriptPath},
+				}),
+			);
+
+			expect(
+				sessionEndResults.filter(r => r.kind === 'agent.message'),
+			).toHaveLength(0);
+		});
+
+		it('allows identical assistant text again after a new turn starts', () => {
+			const mapper = createFeedMapper();
+
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'first',
+					},
+				}),
+			);
+			const firstStop = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+						last_assistant_message: 'Same final answer.',
+					},
+				}),
+			);
+			expect(firstStop.filter(r => r.kind === 'agent.message')).toHaveLength(1);
+
+			mapper.mapEvent(
+				makeRuntimeEvent('UserPromptSubmit', {
+					payload: {
+						hook_event_name: 'UserPromptSubmit',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						prompt: 'second',
+					},
+				}),
+			);
+			const secondStop = mapper.mapEvent(
+				makeRuntimeEvent('Stop', {
+					payload: {
+						hook_event_name: 'Stop',
+						session_id: 'sess-1',
+						transcript_path: '/tmp/t.jsonl',
+						cwd: '/project',
+						stop_hook_active: false,
+						last_assistant_message: 'Same final answer.',
+					},
+				}),
+			);
+			expect(secondStop.filter(r => r.kind === 'agent.message')).toHaveLength(
+				1,
+			);
+		});
 	});
 
 	describe('bootstrap from stored session', () => {
