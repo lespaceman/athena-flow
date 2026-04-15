@@ -417,11 +417,11 @@ describe('sessionUiState', () => {
 	});
 
 	describe('identity-based cursor', () => {
-		it('move_feed_cursor navigates by ID through provided entries', () => {
+		it('move forward by delta resolves correct entry ID', () => {
 			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}];
 			const ctx = makeContext({
 				feedEntryCount: 5,
-				feedContentRows: 3,
+				feedContentRows: 5,
 				feedEntries: entries,
 			});
 			const state: SessionUiState = {
@@ -437,7 +437,27 @@ describe('sessionUiState', () => {
 			expect(result.feedCursorId).toBe('d');
 		});
 
-		it('move_feed_cursor clamps at array bounds', () => {
+		it('move backward by negative delta resolves correct entry ID', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}];
+			const ctx = makeContext({
+				feedEntryCount: 5,
+				feedContentRows: 5,
+				feedEntries: entries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'd',
+				tailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: -2},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('b');
+		});
+
+		it('move clamps at array bounds (forward)', () => {
 			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
 			const ctx = makeContext({
 				feedEntryCount: 3,
@@ -457,7 +477,7 @@ describe('sessionUiState', () => {
 			expect(result.feedCursorId).toBe('c');
 		});
 
-		it('move_feed_cursor with null cursorId starts from top', () => {
+		it('move with null cursorId starts from first entry', () => {
 			const entries = [{id: 'a'}, {id: 'b'}];
 			const ctx = makeContext({
 				feedEntryCount: 2,
@@ -469,12 +489,19 @@ describe('sessionUiState', () => {
 				feedCursorId: null,
 				tailFollow: false,
 			};
-			const result = reduceSessionUiState(
+			const fwd = reduceSessionUiState(
 				state,
 				{type: 'move_feed_cursor', delta: 1},
 				ctx,
 			);
-			expect(result.feedCursorId).toBe('b');
+			expect(fwd.feedCursorId).toBe('b');
+
+			const back = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: -1},
+				ctx,
+			);
+			expect(back.feedCursorId).toBe('a');
 		});
 
 		it('jump_feed_tail sets cursorId to last entry', () => {
@@ -530,7 +557,7 @@ describe('sessionUiState', () => {
 			expect(result.feedCursorId).toBe('c');
 		});
 
-		it('resolveSessionUiState snaps stale cursorId to last entry', () => {
+		it('stale cursorId snaps to last entry on resolve', () => {
 			const entries = [{id: 'x'}, {id: 'y'}];
 			const ctx = makeContext({
 				feedEntryCount: 2,
@@ -546,7 +573,7 @@ describe('sessionUiState', () => {
 			expect(result.feedCursorId).toBe('y');
 		});
 
-		it('tailFollow sets cursorId to last entry on resolve', () => {
+		it('tailFollow pins cursorId to last entry on resolve', () => {
 			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
 			const ctx = makeContext({
 				feedEntryCount: 3,
@@ -560,6 +587,76 @@ describe('sessionUiState', () => {
 			};
 			const result = resolveSessionUiState(state, ctx);
 			expect(result.feedCursorId).toBe('c');
+		});
+
+		it('cursor stays valid when entries are filtered to a subset', () => {
+			// Simulates split mode: full list has 5 entries, displayed subset has 3
+			const fullEntries = [
+				{id: 'msg1'},
+				{id: 'evt1'},
+				{id: 'msg2'},
+				{id: 'evt2'},
+				{id: 'evt3'},
+			];
+			// In split mode, only feed events are displayed
+			const displayedEntries = [{id: 'evt1'}, {id: 'evt2'}, {id: 'evt3'}];
+
+			// Cursor is on evt2 in the full list — should resolve correctly in subset
+			const ctx = makeContext({
+				feedEntryCount: 3,
+				feedContentRows: 3,
+				feedEntries: displayedEntries,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'evt2',
+				tailFollow: false,
+			};
+			const result = resolveSessionUiState(state, ctx);
+			expect(result.feedCursorId).toBe('evt2');
+
+			// Moving down by 1 should go to evt3 (not msg2)
+			const moved = reduceSessionUiState(
+				state,
+				{type: 'move_feed_cursor', delta: 1},
+				ctx,
+			);
+			expect(moved.feedCursorId).toBe('evt3');
+
+			// Cursor on a message entry (not in displayed subset) should snap
+			const staleState: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'msg1',
+				tailFollow: false,
+			};
+			const snapped = resolveSessionUiState(staleState, ctx);
+			expect(snapped.feedCursorId).toBe('evt3');
+
+			void fullEntries; // referenced for documentation
+		});
+
+		it('step_search_match jumps cursor to match index', () => {
+			const entries = [{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}];
+			const ctx = makeContext({
+				feedEntryCount: 4,
+				feedContentRows: 4,
+				feedEntries: entries,
+				searchMatchCount: 2,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				feedCursorId: 'a',
+				searchMatchPos: 0,
+				tailFollow: false,
+			};
+			// Matches at display indices 1 and 3
+			const result = reduceSessionUiState(
+				state,
+				{type: 'step_search_match', direction: 1, matches: [1, 3]},
+				ctx,
+			);
+			expect(result.feedCursorId).toBe('d');
+			expect(result.searchMatchPos).toBe(1);
 		});
 	});
 });

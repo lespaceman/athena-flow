@@ -652,12 +652,7 @@ function AppContent({
 		postByToolUseId,
 		verbose,
 	});
-	const {
-		runSummaries,
-		filteredEntries,
-		searchMatches,
-		searchMatchSet: _searchMatchSet,
-	} = timeline;
+	const {runSummaries, filteredEntries, searchMatches} = timeline;
 
 	const todoPanel = useTodoPanel({
 		tasks,
