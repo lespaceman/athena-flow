@@ -3,7 +3,7 @@ import {Text} from 'ink';
 import chalk from 'chalk';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {classifyEntry, messageText} from '../../core/feed/panelFilter';
-import {renderMarkdown} from '../../shared/utils/markedFactory';
+import {renderMarkdown} from '../../shared/markdown/renderMarkdown';
 import {type Theme} from '../theme/types';
 import {messageGlyphs} from '../glyphs/index';
 import {fitAnsi, spaces, wrapText} from '../../shared/utils/format';
@@ -53,7 +53,11 @@ function buildRenderedLines(
 		const rendered =
 			kind === 'user'
 				? wrapText(raw, contentWidth)
-				: renderMarkdown(raw, contentWidth);
+				: renderMarkdown({
+						content: raw,
+						width: contentWidth,
+						mode: 'inline-feed',
+					}).lines;
 		for (const line of rendered) {
 			const styled =
 				kind === 'user' ? chalk.hex(theme.userMessage.text)(line) : line;

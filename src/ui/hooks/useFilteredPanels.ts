@@ -6,7 +6,7 @@ import {
 	filterByTab,
 	messageText,
 } from '../../core/feed/panelFilter';
-import {renderMarkdown} from '../../shared/utils/markedFactory';
+import {renderMarkdown} from '../../shared/markdown/renderMarkdown';
 
 export type FilteredPanels = {
 	messageEntries: TimelineEntry[];
@@ -35,7 +35,11 @@ export function useFilteredPanels(
 		let lineCount = 0;
 		for (let i = 0; i < tabFiltered.length; i++) {
 			const text = messageText(tabFiltered[i]!);
-			lineCount += renderMarkdown(text, messagePanelWidth).length;
+			lineCount += renderMarkdown({
+				content: text,
+				width: messagePanelWidth,
+				mode: 'inline-feed',
+			}).lines.length;
 			if (i < tabFiltered.length - 1) {
 				lineCount += 1; // separator
 			}

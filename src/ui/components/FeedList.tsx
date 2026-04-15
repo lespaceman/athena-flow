@@ -26,7 +26,13 @@ function renderItem(
 	parentWidth?: number,
 ): React.ReactNode {
 	if (item.type === 'message') {
-		return <Message key={item.data.id} message={item.data} />;
+		return (
+			<Message
+				key={item.data.id}
+				message={item.data}
+				parentWidth={parentWidth}
+			/>
+		);
 	}
 
 	const event = item.data;

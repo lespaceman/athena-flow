@@ -7,7 +7,7 @@ import {
 import {resolveToolColumn} from '../../core/feed/toolDisplay';
 import {highlight} from 'cli-highlight';
 import chalk from 'chalk';
-import {createMarkedInstance} from '../../shared/utils/markedFactory';
+import {renderMarkdown} from '../../shared/markdown/renderMarkdown';
 import stringWidth from 'string-width';
 import sliceAnsi from 'slice-ansi';
 import {formatClock} from '../../shared/utils/format';
@@ -47,14 +47,7 @@ export function renderMarkdownToLines(
 	width: number,
 ): string[] {
 	if (!content.trim()) return ['(empty)'];
-	const m = createMarkedInstance(width);
-	try {
-		const result = m.parse(content);
-		const rendered = typeof result === 'string' ? result.trimEnd() : content;
-		return wrapAnsiLines(rendered.replace(/\n{3,}/g, '\n').split('\n'), width);
-	} catch {
-		return wrapAnsiLines(content.split('\n'), width);
-	}
+	return renderMarkdown({content, width, mode: 'detail-view'}).lines;
 }
 
 function highlightCode(

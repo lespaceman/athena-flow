@@ -55,7 +55,7 @@ export default function ToolOutputRenderer({
 				<MarkdownText
 					content={output.content}
 					maxLines={output.maxLines}
-					availableWidth={availableWidth}
+					availableWidth={Math.max(10, availableWidth ?? 80)}
 				/>
 			);
 	}

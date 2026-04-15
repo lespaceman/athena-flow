@@ -5,12 +5,14 @@ import MarkdownText from './MarkdownText';
 
 describe('MarkdownText', () => {
 	it('returns null for empty content', () => {
-		const {lastFrame} = render(<MarkdownText content="" />);
+		const {lastFrame} = render(<MarkdownText content="" availableWidth={80} />);
 		expect(lastFrame()).toBe('');
 	});
 
 	it('renders markdown content', () => {
-		const {lastFrame} = render(<MarkdownText content="hello **world**" />);
+		const {lastFrame} = render(
+			<MarkdownText content="hello **world**" availableWidth={80} />,
+		);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('hello');
 		expect(frame).toContain('world');
@@ -18,7 +20,9 @@ describe('MarkdownText', () => {
 
 	it('renders bold inside list items', () => {
 		const content = '* **Critical:** leaked data\n* **Warning:** slow query';
-		const {lastFrame} = render(<MarkdownText content={content} />);
+		const {lastFrame} = render(
+			<MarkdownText content={content} availableWidth={80} />,
+		);
 		const frame = lastFrame() ?? '';
 		expect(frame).not.toContain('**Critical:**');
 		expect(frame).toContain('Critical:');
@@ -28,7 +32,9 @@ describe('MarkdownText', () => {
 		const content = Array.from({length: 50}, (_, i) => `Line ${i}`).join(
 			'\n\n',
 		);
-		const {lastFrame} = render(<MarkdownText content={content} maxLines={5} />);
+		const {lastFrame} = render(
+			<MarkdownText content={content} maxLines={5} availableWidth={80} />,
+		);
 		const frame = lastFrame() ?? '';
 		expect(frame).toContain('more lines');
 		expect(frame).not.toContain('Line 49');
