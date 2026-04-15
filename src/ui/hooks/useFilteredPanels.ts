@@ -43,6 +43,8 @@ export type FilteredPanels = {
 	feedEntries: TimelineEntry[];
 	/** Total wrapped line count for message entries at the given width. */
 	messageLineCount: number;
+	/** First wrapped line index of each message entry. */
+	messageEntryLineOffsets: number[];
 };
 
 export function useFilteredPanels(
@@ -57,6 +59,7 @@ export function useFilteredPanels(
 				messageEntries: [],
 				feedEntries: filteredEntries,
 				messageLineCount: 0,
+				messageEntryLineOffsets: [],
 			};
 		}
 		const {messageEntries, feedEntries} = partitionEntries(filteredEntries);
@@ -65,8 +68,10 @@ export function useFilteredPanels(
 		// Must match buildRenderedLines in MessagePanel: use the content width
 		// (after indicator overhead) and the same renderer per entry kind.
 		const contentWidth = messagePanelWidth - INDICATOR_OVERHEAD;
+		const offsets: number[] = [];
 		let lineCount = 0;
 		for (let i = 0; i < tabFiltered.length; i++) {
+			offsets.push(lineCount);
 			lineCount += cachedLineCount(tabFiltered[i]!, contentWidth);
 			if (i < tabFiltered.length - 1) {
 				lineCount += 1; // separator
@@ -76,6 +81,7 @@ export function useFilteredPanels(
 			messageEntries: tabFiltered,
 			feedEntries,
 			messageLineCount: lineCount,
+			messageEntryLineOffsets: offsets,
 		};
 	}, [filteredEntries, messagePanelTab, splitMode, messagePanelWidth]);
 }

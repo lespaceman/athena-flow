@@ -50,7 +50,7 @@ import {MessagePanel} from '../../ui/components/MessagePanel';
 import {resolveFeedBackend} from '../../ui/components/FeedSurface';
 import {useFeedColumns} from '../../ui/hooks/useFeedColumns';
 import {useFilteredPanels} from '../../ui/hooks/useFilteredPanels';
-import {classifyEntry} from '../../core/feed/panelFilter';
+import {classifyEntry, messageText} from '../../core/feed/panelFilter';
 import {todoGlyphs} from '../../core/feed/todoPanel';
 import {buildHeaderModel} from '../../ui/header/model';
 import {renderHeaderLines} from '../../ui/header/renderLines';
@@ -721,6 +721,8 @@ function AppContent({
 		todoAnchorIndex: -1,
 		staticFloor: 0,
 		messageEntryCount: 0,
+		messageEntryLength: 0,
+		messageEntryLineOffsets: [],
 		messageContentRows: 0,
 	});
 	const dispatchUi = useCallback((action: SessionUiAction) => {
@@ -935,7 +937,12 @@ function AppContent({
 		messageContentRows,
 	} = layout;
 
-	const {messageEntries, feedEntries, messageLineCount} = useFilteredPanels(
+	const {
+		messageEntries,
+		feedEntries,
+		messageLineCount,
+		messageEntryLineOffsets,
+	} = useFilteredPanels(
 		filteredEntries,
 		uiState.messagePanelTab,
 		splitMode,
@@ -1036,6 +1043,8 @@ function AppContent({
 			todoAnchorIndex: todoPanel.autoFocusIndex,
 			staticFloor: 0,
 			messageEntryCount: messageLineCount,
+			messageEntryLength: messageEntries.length,
+			messageEntryLineOffsets,
 			messageContentRows,
 		}),
 		[
@@ -1046,6 +1055,8 @@ function AppContent({
 			uiState.todoVisible,
 			todoPanel.visibleTodoItems.length,
 			messageLineCount,
+			messageEntries.length,
+			messageEntryLineOffsets,
 			messageContentRows,
 			todoPanel.autoFocusIndex,
 		],
@@ -1207,6 +1218,14 @@ function AppContent({
 		showToast('Copied to clipboard!');
 	}, [resolvedUiState.feedCursorId, showToast, theme]);
 
+	const yankMessageAtCursor = useCallback(() => {
+		const entry = messageEntries[resolvedUiState.messageCursorIndex];
+		if (!entry) return;
+		const text = messageText(entry);
+		copyToClipboard(text);
+		showToast('Copied to clipboard!');
+	}, [messageEntries, resolvedUiState.messageCursorIndex, showToast]);
+
 	useFeedKeyboard({
 		isActive: focusMode === 'feed' && !dialogActive && !pagerActive,
 		pageStep,
@@ -1234,10 +1253,13 @@ function AppContent({
 		isActive: focusMode === 'messages' && !dialogActive && !pagerActive,
 		pageStep: messagePageStep,
 		callbacks: {
+			moveCursor: (delta: number) =>
+				dispatchUi({type: 'move_message_cursor', delta}),
 			scrollViewport: (delta: number) =>
 				dispatchUi({type: 'scroll_message_viewport', delta}),
 			jumpToTail: () => dispatchUi({type: 'jump_message_tail'}),
 			jumpToTop: () => dispatchUi({type: 'jump_message_top'}),
+			yankAtCursor: yankMessageAtCursor,
 			cycleFocus,
 			openCommandInput: () => dispatchUi({type: 'open_command_input'}),
 			openSearchInput: () => dispatchUi({type: 'open_search_input'}),
@@ -1256,8 +1278,7 @@ function AppContent({
 		onInputFocus: () =>
 			dispatchUi({type: 'set_focus_mode', focusMode: 'input'}),
 		onFeedWheel: delta => feedNav.moveFeedCursor(delta),
-		onMessageWheel: delta =>
-			dispatchUi({type: 'scroll_message_viewport', delta}),
+		onMessageWheel: delta => dispatchUi({type: 'move_message_cursor', delta}),
 	});
 
 	useTodoKeyboard({
@@ -1489,6 +1510,7 @@ function AppContent({
 								width={messagePanelWidth}
 								contentRows={feedHeaderRows + feedContentRows}
 								viewportStart={resolvedUiState.messageViewportStart}
+								messageCursorIndex={resolvedUiState.messageCursorIndex}
 								theme={theme}
 								borderColor={theme.border}
 							/>
