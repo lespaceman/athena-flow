@@ -354,6 +354,58 @@ describe('sessionUiState', () => {
 			expect(result.messageViewportStart).toBe(39);
 		});
 
+		it('scroll_message_viewport is not pulled back by message cursor offsets', () => {
+			const ctx = makeContext({
+				messageEntryCount: 50,
+				messageEntryLength: 5,
+				messageEntryLineOffsets: [0, 10, 20, 30, 40],
+				messageContentRows: 10,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				focusMode: 'messages',
+				messageViewportStart: 0,
+				messageCursorIndex: 0,
+				messageTailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'scroll_message_viewport', delta: 3},
+				ctx,
+			);
+			expect(result.messageViewportStart).toBe(3);
+			expect(result.messageCursorIndex).toBe(0);
+		});
+
+		it('scroll_message_viewport can still reach the true bottom with a long final message', () => {
+			const ctx = makeContext({
+				// Total rendered line count across all messages
+				messageEntryCount: 120,
+				// Three messages, where the last message starts very late and is tall
+				messageEntryLength: 3,
+				messageEntryLineOffsets: [0, 8, 70],
+				messageContentRows: 10,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				focusMode: 'messages',
+				// Cursor remains on the first message; viewport scrolling must not
+				// be re-anchored back toward offset 0.
+				messageCursorIndex: 0,
+				messageViewportStart: 0,
+				messageTailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'scroll_message_viewport', delta: 999},
+				ctx,
+			);
+			// maxStart = 120 - 10 = 110
+			expect(result.messageViewportStart).toBe(110);
+			expect(result.messageCursorIndex).toBe(0);
+			expect(result.messageTailFollow).toBe(false);
+		});
+
 		it('jump_message_tail pins viewport to bottom', () => {
 			const ctx = makeContext({messageEntryCount: 50, messageContentRows: 10});
 			const state: SessionUiState = {

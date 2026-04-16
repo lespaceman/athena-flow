@@ -264,11 +264,21 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		textInputPlaceholder,
 	);
 	const displayRows = Math.max(2, inputRows);
+	const topPad = Math.max(0, Math.ceil((displayRows - lines.length) / 2));
 	const displayLines = useMemo(() => {
-		const out = [...lines];
+		const out: string[] = [];
+		for (let i = 0; i < topPad; i++) out.push(' '.repeat(inputContentWidth));
+		out.push(...lines);
 		while (out.length < displayRows) out.push(' '.repeat(inputContentWidth));
 		return out;
-	}, [lines, displayRows, inputContentWidth]);
+	}, [lines, displayRows, topPad, inputContentWidth]);
+	const glyphLine = useMemo(
+		() =>
+			Array.from({length: displayRows}, (_, i) =>
+				i === topPad ? inputPromptStyled : ' '.repeat(inputPrefix.length),
+			).join('\n'),
+		[displayRows, topPad, inputPromptStyled, inputPrefix.length],
+	);
 	const paintCell = useCallback((text: string, color?: string) => {
 		return color ? chalk.hex(color)(text) : text;
 	}, []);
@@ -294,7 +304,7 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 					<Text>{paintCell(' ')}</Text>
 				</Box>
 				<Box width={inputPrefix.length} flexShrink={0}>
-					<Text>{paintCell(inputPromptStyled)}</Text>
+					<Text>{glyphLine}</Text>
 				</Box>
 				<Box width={1} flexShrink={0}>
 					<Text>{paintCell(' ')}</Text>
@@ -304,7 +314,7 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 						<Text key={index}>
 							{paintCell(
 								line,
-								value.length === 0 && index === 0
+								value.length === 0 && index === topPad
 									? inputPlaceholderColor
 									: textColor,
 							)}

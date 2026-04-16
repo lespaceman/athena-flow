@@ -609,15 +609,18 @@ export function reduceSessionUiState(
 			if (current.messagePanelTab === action.tab) return current;
 			return {...current, messagePanelTab: action.tab};
 		case 'scroll_message_viewport':
-			return withMessageChange(
-				current,
-				computeMessageState(
+			return withMessageChange(current, {
+				messageTailFollow: false,
+				messageViewportStart: clamp(
 					current.messageViewportStart + action.delta,
-					false,
-					current.messageCursorIndex,
-					ctx,
+					0,
+					maxMessageViewportStart(ctx),
 				),
-			);
+				messageCursorIndex:
+					ctx.messageEntryLength > 0
+						? clamp(current.messageCursorIndex, 0, maxMessageCursor(ctx))
+						: 0,
+			});
 		case 'move_message_cursor': {
 			const mc = maxMessageCursor(ctx);
 			const requested = current.messageCursorIndex + action.delta;

@@ -1276,7 +1276,8 @@ function AppContent({
 		onInputFocus: () =>
 			dispatchUi({type: 'set_focus_mode', focusMode: 'input'}),
 		onFeedWheel: delta => feedNav.moveFeedCursor(delta),
-		onMessageWheel: delta => dispatchUi({type: 'move_message_cursor', delta}),
+		onMessageWheel: delta =>
+			dispatchUi({type: 'scroll_message_viewport', delta}),
 	});
 
 	useTodoKeyboard({
