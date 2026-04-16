@@ -23,9 +23,10 @@ type WrappedLine = {
 	entryIndex: number;
 	kind: 'user' | 'agent';
 	isSeparator: boolean;
+	isFirstLine: boolean;
 };
 
-/** [frame border][indicator ┃][ ][content...] — indicator + space = 2 columns */
+/** [frame border][glyph/space][ ][content...] — glyph + space = 2 columns */
 export const INDICATOR_OVERHEAD = 2;
 
 function buildRenderedLines(
@@ -42,11 +43,22 @@ function buildRenderedLines(
 		const kind = classifyEntry(entry) === 'user' ? 'user' : 'agent';
 
 		if (prevKind !== undefined) {
+			// Extra spacing before user turns for visual "chapter breaks"
+			if (kind === 'user' && prevKind === 'agent') {
+				result.push({
+					text: spaces(contentWidth),
+					entryIndex: i - 1,
+					kind: prevKind,
+					isSeparator: true,
+					isFirstLine: false,
+				});
+			}
 			result.push({
 				text: spaces(contentWidth),
 				entryIndex: i - 1,
 				kind: prevKind,
 				isSeparator: true,
+				isFirstLine: false,
 			});
 		}
 
@@ -59,6 +71,7 @@ function buildRenderedLines(
 						width: contentWidth,
 						mode: 'inline-feed',
 					}).lines;
+		let first = true;
 		for (const line of rendered) {
 			const styled =
 				kind === 'user' ? chalk.hex(theme.userMessage.text)(line) : line;
@@ -67,7 +80,9 @@ function buildRenderedLines(
 				entryIndex: i,
 				kind,
 				isSeparator: false,
+				isFirstLine: first,
 			});
+			first = false;
 		}
 
 		prevKind = kind;
@@ -77,9 +92,10 @@ function buildRenderedLines(
 
 type ViewportStyle = {
 	frameBorder: string;
-	userIndicator: string;
-	agentIndicator: string;
 	focusIndicator: string;
+	userGlyph: string;
+	agentGlyph: string;
+	userBg: (text: string) => string;
 	mutedColor: string;
 };
 
@@ -134,24 +150,32 @@ function sliceViewport(
 		const isFocused =
 			messageCursorIndex !== undefined &&
 			line.entryIndex === messageCursorIndex;
-		const indicator = isFocused
+
+		// Gutter: focus indicator > role glyph on first line > space
+		const gutter = isFocused
 			? style.focusIndicator
-			: line.kind === 'agent'
-				? style.agentIndicator
-				: style.userIndicator;
-		const content = line.text;
+			: line.isFirstLine
+				? line.kind === 'user'
+					? style.userGlyph
+					: style.agentGlyph
+				: ' ';
 
-		let row = style.frameBorder + indicator + ' ' + content;
-
+		let inner: string;
 		if (scrollIndicator && lineIdx === start) {
 			const indicatorStyled = chalk.hex(style.mutedColor)(scrollIndicator);
 			const padded = fitAnsi(
 				line.text,
 				contentWidth - scrollIndicator.length - 1,
 			);
-			row =
-				style.frameBorder + indicator + ' ' + padded + ' ' + indicatorStyled;
+			inner = gutter + ' ' + padded + ' ' + indicatorStyled;
+		} else {
+			inner = gutter + ' ' + line.text;
 		}
+
+		const row =
+			line.kind === 'user'
+				? style.frameBorder + style.userBg(inner)
+				: style.frameBorder + inner;
 
 		outputLines.push(row);
 	}
@@ -180,12 +204,13 @@ function MessagePanelImpl(props: Props) {
 	);
 
 	const style = useMemo((): ViewportStyle => {
-		const glyphChar = messageGlyphs().indicator;
+		const g = messageGlyphs();
 		return {
 			frameBorder: borderColor ? chalk.hex(borderColor)('\u2502') : '',
-			userIndicator: chalk.hex(theme.userMessage.border)(glyphChar),
-			agentIndicator: chalk.hex(theme.userMessage.agentBorder)(glyphChar),
-			focusIndicator: chalk.hex(theme.userMessage.focusBorder)(glyphChar),
+			focusIndicator: chalk.hex(theme.userMessage.focusBorder)(g.indicator),
+			userGlyph: chalk.hex(theme.accent)(g.user),
+			agentGlyph: chalk.hex(theme.textMuted)(g.agent),
+			userBg: chalk.bgHex(theme.userMessage.background),
 			mutedColor: theme.textMuted,
 		};
 	}, [borderColor, theme]);

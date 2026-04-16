@@ -158,7 +158,7 @@ export const GLYPH_REGISTRY: Record<
 
 	// Message
 	'message.user': {unicode: '❯', ascii: '>'},
-	'message.agent': {unicode: '▹', ascii: '>'},
+	'message.agent': {unicode: '⏺', ascii: '*'},
 	'message.indicator': {unicode: '┃', ascii: '|'},
 
 	// Permission

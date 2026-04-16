@@ -52,7 +52,7 @@ export const darkTheme: Theme = {
 	// ── User messages ───────────────────────────────────────
 	userMessage: {
 		text: '#6e7681', // Dimmed text for user messages in the message panel.
-		background: '#161b22', // Slightly lifted from terminal bg.
+		background: '#151d2b', // Blue-tinted lift — differentiates user turns from agent.
 		border: '#30363d', // Subtle border.
 		agentBorder: '#2a4a6a', // Steel blue left border for agent messages.
 		focusBorder: '#58a6ff', // Accent blue for focused message indicator.
@@ -137,7 +137,7 @@ export const lightTheme: Theme = {
 	// ── User messages ───────────────────────────────────────
 	userMessage: {
 		text: '#8b949e', // Dimmed text for user messages in the message panel.
-		background: '#f6f8fa',
+		background: '#edf2fb', // Blue-tinted lift — differentiates user turns from agent.
 		border: '#8c959f',
 		agentBorder: '#6cb0e0', // Medium blue on white bg.
 		focusBorder: '#0969da', // Accent blue for focused message indicator.
@@ -226,7 +226,7 @@ export const highContrastTheme: Theme = {
 	// ── User messages ───────────────────────────────────────
 	userMessage: {
 		text: '#7d8590', // Dimmed text for user messages in the message panel.
-		background: '#1c2128', // Bumped from #161b22 for visible distinction.
+		background: '#1a2436', // Blue-tinted lift — differentiates user turns from agent.
 		border: '#444c56', // Bumped from #3d444d for HC visibility.
 		agentBorder: '#5599cc', // Brighter blue for HC.
 		focusBorder: '#71b7ff', // Accent blue for focused message indicator.
