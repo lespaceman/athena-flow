@@ -154,6 +154,16 @@ function maxFeedViewportStart(ctx: SessionUiContext): number {
 		: Math.max(0, ctx.feedEntryCount - ctx.feedContentRows);
 }
 
+function maxMessageCursor(ctx: SessionUiContext): number {
+	return Math.max(0, ctx.messageEntryLength - 1);
+}
+
+function maxMessageViewportStart(ctx: SessionUiContext): number {
+	return ctx.messageContentRows <= 0
+		? 0
+		: Math.max(0, ctx.messageEntryCount - ctx.messageContentRows);
+}
+
 function resolveIdToIndex(
 	entries: ReadonlyArray<{id: string}>,
 	cursorId: string | null,
@@ -197,23 +207,19 @@ function computeMessageState(
 	cursorIndex: number,
 	ctx: SessionUiContext,
 ): MessageState {
-	const maxCursor = Math.max(0, ctx.messageEntryLength - 1);
-	const maxStart =
-		ctx.messageContentRows <= 0
-			? 0
-			: Math.max(0, ctx.messageEntryCount - ctx.messageContentRows);
+	const mc = maxMessageCursor(ctx);
+	const ms = maxMessageViewportStart(ctx);
 
 	if (tailFollow) {
 		return {
 			messageTailFollow: true,
-			messageViewportStart: maxStart,
-			messageCursorIndex: ctx.messageEntryLength > 0 ? maxCursor : 0,
+			messageViewportStart: ms,
+			messageCursorIndex: ctx.messageEntryLength > 0 ? mc : 0,
 		};
 	}
 
-	const nextCursor =
-		ctx.messageEntryLength > 0 ? clamp(cursorIndex, 0, maxCursor) : 0;
-	let nextStart = clamp(viewportStart, 0, maxStart);
+	const nextCursor = ctx.messageEntryLength > 0 ? clamp(cursorIndex, 0, mc) : 0;
+	let nextStart = clamp(viewportStart, 0, ms);
 
 	const offsets = ctx.messageEntryLineOffsets;
 	if (offsets.length > 0 && nextCursor < offsets.length) {
@@ -224,7 +230,7 @@ function computeMessageState(
 		if (cursorLineStart >= nextStart + ctx.messageContentRows) {
 			nextStart = cursorLineStart - ctx.messageContentRows + 1;
 		}
-		nextStart = clamp(nextStart, 0, maxStart);
+		nextStart = clamp(nextStart, 0, ms);
 	}
 
 	return {
@@ -612,16 +618,29 @@ export function reduceSessionUiState(
 					ctx,
 				),
 			);
-		case 'move_message_cursor':
+		case 'move_message_cursor': {
+			const mc = maxMessageCursor(ctx);
+			const requested = current.messageCursorIndex + action.delta;
+			const actual = ctx.messageEntryLength > 0 ? clamp(requested, 0, mc) : 0;
+
+			// Cursor hit boundary — scroll viewport instead of staying stuck
+			if (actual === current.messageCursorIndex && action.delta !== 0) {
+				return withMessageChange(current, {
+					messageTailFollow: false,
+					messageViewportStart: clamp(
+						current.messageViewportStart + action.delta,
+						0,
+						maxMessageViewportStart(ctx),
+					),
+					messageCursorIndex: actual,
+				});
+			}
+
 			return withMessageChange(
 				current,
-				computeMessageState(
-					current.messageViewportStart,
-					false,
-					current.messageCursorIndex + action.delta,
-					ctx,
-				),
+				computeMessageState(current.messageViewportStart, false, actual, ctx),
 			);
+		}
 		case 'jump_message_tail':
 			return withMessageChange(
 				current,

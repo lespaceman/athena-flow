@@ -2,7 +2,11 @@ import React, {useMemo} from 'react';
 import {Text} from 'ink';
 import chalk from 'chalk';
 import {type TimelineEntry} from '../../core/feed/timeline';
-import {classifyEntry, messageText} from '../../core/feed/panelFilter';
+import {
+	messageKind,
+	messageSeparatorLines,
+	messageText,
+} from '../../core/feed/panelFilter';
 import {renderMarkdown} from '../../shared/markdown/renderMarkdown';
 import {type Theme} from '../theme/types';
 import {messageGlyphs} from '../glyphs/index';
@@ -40,23 +44,14 @@ function buildRenderedLines(
 
 	for (let i = 0; i < entries.length; i++) {
 		const entry = entries[i]!;
-		const kind = classifyEntry(entry) === 'user' ? 'user' : 'agent';
+		const kind = messageKind(entry);
 
-		if (prevKind !== undefined) {
-			// Extra spacing before user turns for visual "chapter breaks"
-			if (kind === 'user' && prevKind === 'agent') {
-				result.push({
-					text: spaces(contentWidth),
-					entryIndex: i - 1,
-					kind: prevKind,
-					isSeparator: true,
-					isFirstLine: false,
-				});
-			}
+		const sepCount = messageSeparatorLines(kind, prevKind);
+		for (let s = 0; s < sepCount; s++) {
 			result.push({
 				text: spaces(contentWidth),
 				entryIndex: i - 1,
-				kind: prevKind,
+				kind: prevKind!,
 				isSeparator: true,
 				isFirstLine: false,
 			});
@@ -92,9 +87,10 @@ function buildRenderedLines(
 
 type ViewportStyle = {
 	frameBorder: string;
-	focusIndicator: string;
 	userGlyph: string;
 	agentGlyph: string;
+	focusedUserGlyph: string;
+	focusedAgentGlyph: string;
 	userBg: (text: string) => string;
 	mutedColor: string;
 };
@@ -151,14 +147,15 @@ function sliceViewport(
 			messageCursorIndex !== undefined &&
 			line.entryIndex === messageCursorIndex;
 
-		// Gutter: focus indicator > role glyph on first line > space
-		const gutter = isFocused
-			? style.focusIndicator
-			: line.isFirstLine
-				? line.kind === 'user'
-					? style.userGlyph
-					: style.agentGlyph
-				: ' ';
+		const glyph =
+			line.kind === 'user'
+				? isFocused
+					? style.focusedUserGlyph
+					: style.userGlyph
+				: isFocused
+					? style.focusedAgentGlyph
+					: style.agentGlyph;
+		const gutter = line.isFirstLine ? glyph : ' ';
 
 		let inner: string;
 		if (scrollIndicator && lineIdx === start) {
@@ -207,9 +204,10 @@ function MessagePanelImpl(props: Props) {
 		const g = messageGlyphs();
 		return {
 			frameBorder: borderColor ? chalk.hex(borderColor)('\u2502') : '',
-			focusIndicator: chalk.hex(theme.userMessage.focusBorder)(g.indicator),
-			userGlyph: chalk.hex(theme.accent)(g.user),
+			userGlyph: chalk.hex(theme.userMessage.border)(g.user),
 			agentGlyph: chalk.hex(theme.textMuted)(g.agent),
+			focusedUserGlyph: chalk.hex(theme.userMessage.focusBorder)(g.user),
+			focusedAgentGlyph: chalk.hex(theme.userMessage.focusBorder)(g.agent),
 			userBg: chalk.bgHex(theme.userMessage.background),
 			mutedColor: theme.textMuted,
 		};

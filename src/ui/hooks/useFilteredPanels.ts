@@ -2,7 +2,8 @@ import {useMemo} from 'react';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import {
 	type MessageTab,
-	classifyEntry,
+	messageKind,
+	messageSeparatorLines,
 	partitionEntries,
 	filterByTab,
 	messageText,
@@ -20,7 +21,7 @@ function cachedLineCount(entry: TimelineEntry, contentWidth: number): number {
 		if (cached !== undefined) return cached;
 	}
 	const text = messageText(entry);
-	const kind = classifyEntry(entry) === 'user' ? 'user' : 'agent';
+	const kind = messageKind(entry);
 	const lines =
 		kind === 'user'
 			? wrapText(text, contentWidth)
@@ -70,12 +71,13 @@ export function useFilteredPanels(
 		const contentWidth = messagePanelWidth - INDICATOR_OVERHEAD;
 		const offsets: number[] = [];
 		let lineCount = 0;
+		let prevKind: 'user' | 'agent' | undefined;
 		for (let i = 0; i < tabFiltered.length; i++) {
+			const kind = messageKind(tabFiltered[i]!);
+			lineCount += messageSeparatorLines(kind, prevKind);
 			offsets.push(lineCount);
 			lineCount += cachedLineCount(tabFiltered[i]!, contentWidth);
-			if (i < tabFiltered.length - 1) {
-				lineCount += 1; // separator
-			}
+			prevKind = kind;
 		}
 		return {
 			messageEntries: tabFiltered,

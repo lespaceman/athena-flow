@@ -505,6 +505,52 @@ describe('sessionUiState', () => {
 			expect(result.messageCursorIndex).toBe(8);
 		});
 
+		it('move_message_cursor scrolls viewport when cursor is at bottom boundary', () => {
+			const ctx = makeContext({
+				messageEntryCount: 50,
+				messageEntryLength: 5,
+				messageEntryLineOffsets: [0, 10, 20, 30, 40],
+				messageContentRows: 10,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				focusMode: 'messages',
+				messageCursorIndex: 4,
+				messageViewportStart: 31,
+				messageTailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_message_cursor', delta: 1},
+				ctx,
+			);
+			expect(result.messageCursorIndex).toBe(4);
+			expect(result.messageViewportStart).toBe(32);
+		});
+
+		it('move_message_cursor viewport scroll clamps at maxStart', () => {
+			const ctx = makeContext({
+				messageEntryCount: 50,
+				messageEntryLength: 5,
+				messageEntryLineOffsets: [0, 10, 20, 30, 40],
+				messageContentRows: 10,
+			});
+			const state: SessionUiState = {
+				...initialSessionUiState,
+				focusMode: 'messages',
+				messageCursorIndex: 4,
+				messageViewportStart: 39,
+				messageTailFollow: false,
+			};
+			const result = reduceSessionUiState(
+				state,
+				{type: 'move_message_cursor', delta: 5},
+				ctx,
+			);
+			expect(result.messageCursorIndex).toBe(4);
+			expect(result.messageViewportStart).toBe(40);
+		});
+
 		it('jump_message_tail sets cursor to last entry and enables tailFollow', () => {
 			const ctx = makeContext({
 				messageEntryCount: 50,

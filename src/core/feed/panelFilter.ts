@@ -39,6 +39,24 @@ export function filterByTab(
 	return entries.filter(e => tags.has(e.opTag));
 }
 
+export type MessageKind = 'user' | 'agent';
+
+export function messageKind(entry: TimelineEntry): MessageKind {
+	return classifyEntry(entry) === 'user' ? 'user' : 'agent';
+}
+
+/**
+ * Number of blank separator lines to insert before a message.
+ * Agent→user transitions get an extra line for visual turn separation.
+ */
+export function messageSeparatorLines(
+	kind: MessageKind,
+	prevKind: MessageKind | undefined,
+): number {
+	if (prevKind === undefined) return 0;
+	return kind === 'user' && prevKind === 'agent' ? 2 : 1;
+}
+
 export function messageText(entry: TimelineEntry): string {
 	if (
 		entry.details &&
