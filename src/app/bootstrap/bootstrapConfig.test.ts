@@ -402,7 +402,7 @@ describe('bootstrapRuntimeConfig', () => {
 		});
 
 		expect(result.harness).toBe('openai-codex');
-		expect(result.modelName).toBe('gpt-5.3-codex');
+		expect(result.modelName).toBeNull();
 		expect(readClaudeSettingsModelMock).not.toHaveBeenCalled();
 	});
 

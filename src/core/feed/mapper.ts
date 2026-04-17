@@ -555,6 +555,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						{
 							source,
 							agent_type: readString(d['agent_type']),
+							model: readString(d['model']),
 						} satisfies import('./types').SessionStartData,
 						event,
 					),

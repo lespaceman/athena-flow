@@ -66,6 +66,7 @@ export type FeedEventBase = {
 export type SessionStartData = {
 	source: 'startup' | 'resume' | 'clear' | 'compact' | string;
 	agent_type?: string;
+	model?: string;
 };
 
 export type SessionEndData = {

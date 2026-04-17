@@ -55,6 +55,9 @@ export function useHeaderMetrics(events: FeedEvent[]): SessionMetrics {
 				if (sessionStartTime === null) {
 					sessionStartTime = new Date(event.ts);
 				}
+				if (typeof event.data.model === 'string') {
+					modelName = event.data.model;
+				}
 			}
 
 			if (

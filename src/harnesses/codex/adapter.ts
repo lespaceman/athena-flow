@@ -13,7 +13,7 @@ const CODEX_CONFIG_PROFILE: HarnessConfigProfile = {
 		preset: isolationPreset,
 		model: configuredModel,
 	}),
-	resolveModelName: ({configuredModel}) => configuredModel ?? 'gpt-5.3-codex',
+	resolveModelName: ({configuredModel}) => configuredModel ?? null,
 };
 
 export const codexHarnessAdapter: HarnessAdapter = {
