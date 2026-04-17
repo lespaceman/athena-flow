@@ -147,10 +147,10 @@ describe('ShellInput', () => {
 		stdin.write('/');
 		await delay(50);
 
-		expect(ref.current?.getSelectedCommand()?.name).toBe('help');
+		expect(ref.current?.getSelectedCommand()?.name).toBe('clear');
 		ref.current?.moveDown();
 		await delay(20);
-		expect(ref.current?.getSelectedCommand()?.name).toBe('clear');
+		expect(ref.current?.getSelectedCommand()?.name).toBe('commit');
 	});
 
 	it('keeps recalled slash history entries out of command suggestion mode', async () => {

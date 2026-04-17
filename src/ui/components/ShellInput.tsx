@@ -147,15 +147,13 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 	const prefix = isCommandMode ? value.slice(1) : '';
 	const filteredCommands = useMemo(() => {
 		if (!isCommandMode) return [];
-		const all = registry.getAll();
-		if (prefix === '') return all.slice(0, MAX_SUGGESTIONS);
-		return all
-			.filter(cmd =>
-				[cmd.name, ...(cmd.aliases ?? [])].some(name =>
-					name.startsWith(prefix),
-				),
-			)
-			.slice(0, MAX_SUGGESTIONS);
+		const all = [...registry.getAll()].sort((a, b) =>
+			a.name.localeCompare(b.name),
+		);
+		if (prefix === '') return all;
+		return all.filter(cmd =>
+			[cmd.name, ...(cmd.aliases ?? [])].some(name => name.startsWith(prefix)),
+		);
 	}, [isCommandMode, prefix]);
 
 	const prevPrefixRef = useRef(prefix);
@@ -172,6 +170,18 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 	const safeIndex = showSuggestions
 		? Math.min(effectiveIndex, filteredCommands.length - 1)
 		: 0;
+	const windowStart = Math.max(
+		0,
+		Math.min(
+			filteredCommands.length - MAX_SUGGESTIONS,
+			safeIndex - Math.floor(MAX_SUGGESTIONS / 2),
+		),
+	);
+	const visibleCommands = filteredCommands.slice(
+		windowStart,
+		windowStart + MAX_SUGGESTIONS,
+	);
+	const visibleSelectedIndex = safeIndex - windowStart;
 
 	const moveUp = useCallback(() => {
 		if (filteredCommands.length === 0) return;
@@ -287,8 +297,8 @@ const ShellInputImpl = forwardRef<ShellInputHandle, Props>(function ShellInput(
 		<>
 			{showSuggestions && (
 				<CommandSuggestions
-					commands={filteredCommands}
-					selectedIndex={safeIndex}
+					commands={visibleCommands}
+					selectedIndex={visibleSelectedIndex}
 					innerWidth={innerWidth}
 					wrapLine={wrapSuggestionLine}
 				/>
