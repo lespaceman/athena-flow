@@ -792,6 +792,48 @@ describe('installWorkflowFromSource', () => {
 	});
 });
 
+describe('updateWorkflow (legacy migration)', () => {
+	it('updateWorkflow rewrites legacy source.json to v2 on success', () => {
+		files['/home/testuser/.config/athena/workflows/w/workflow.json'] =
+			JSON.stringify({
+				name: 'w',
+				plugins: [],
+				promptTemplate: 'old',
+				workflowFile: 'workflow.md',
+			});
+		files['/home/testuser/.config/athena/workflows/w/workflow.md'] = '# old';
+		files['/home/testuser/.config/athena/workflows/w/source.json'] =
+			JSON.stringify({kind: 'marketplace', ref: 'w@o/r'});
+		files['/tmp/cache/workflow.json'] = JSON.stringify({
+			name: 'w',
+			plugins: [],
+			promptTemplate: 'new',
+			workflowFile: 'workflow.md',
+		});
+		files['/tmp/cache/workflow.md'] = '# new';
+		// The smart default in resolveWorkflowInstallMock returns /tmp/resolved-workflow.json
+		// which doesn't exist in this test — explicitly point it at /tmp/cache/.
+		resolveWorkflowInstallMock.mockReturnValue({
+			kind: 'marketplace-remote',
+			slug: 'o/r',
+			owner: 'o',
+			repo: 'r',
+			workflowName: 'w',
+			ref: 'w@o/r',
+			manifestPath: '/tmp/cache/.athena-workflow/marketplace.json',
+			workflowPath: '/tmp/cache/workflow.json',
+		});
+
+		updateWorkflow('w');
+
+		const stored = JSON.parse(
+			files['/home/testuser/.config/athena/workflows/w/source.json']!,
+		);
+		expect(stored.v).toBe(2);
+		expect(stored.kind).toBe('marketplace-remote');
+	});
+});
+
 describe('updateWorkflow (canonical source)', () => {
 	it('re-resolves a marketplace-remote workflow via resolveMarketplaceWorkflow', () => {
 		files['/home/testuser/.config/athena/workflows/w/workflow.json'] =

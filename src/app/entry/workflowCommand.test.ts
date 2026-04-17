@@ -8,6 +8,7 @@ import {
 	WorkflowAmbiguityError,
 	type ResolvedWorkflowSource,
 } from '../../infra/plugins/marketplace';
+import type {ResolvedWorkflowConfig} from '../../core/workflows/types';
 
 const TEST_PROJECT_DIR = '/test/project';
 
@@ -408,6 +409,29 @@ describe('runWorkflowCommand', () => {
 
 			expect(code).toBe(0);
 			expect(logOut).toHaveBeenCalledWith('No installed workflows to upgrade.');
+		});
+
+		it('upgrade prints the source kind in the success line', () => {
+			const out: string[] = [];
+			runWorkflowCommand(
+				{subcommand: 'upgrade', subcommandArgs: ['w'], projectDir: '/tmp/proj'},
+				{
+					updateWorkflow: () => 'w',
+					resolveWorkflow: () =>
+						({
+							name: 'w',
+							version: '1.0.0',
+							plugins: [],
+							promptTemplate: '{input}',
+							workflowFile: '/tmp/w/workflow.md',
+							__source: {kind: 'marketplace-remote', ref: 'w@o/r'},
+						}) satisfies ResolvedWorkflowConfig,
+					logOut: m => out.push(m),
+					logError: () => {},
+				},
+			);
+			expect(out.join('\n')).toMatch(/Upgraded workflow: w \(1\.0\.0\)/);
+			expect(out.join('\n')).toMatch(/from marketplace o\/r/);
 		});
 
 		it('returns 1 when any upgrade fails', () => {

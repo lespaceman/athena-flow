@@ -150,6 +150,24 @@ export function runWorkflowCommand(
 		}
 	};
 
+	const formatSourceSuffix = (name: string): string => {
+		try {
+			const wf = resolveInstalledWorkflow(name);
+			const s = wf.__source;
+			if (!s) return '';
+			if (s.kind === 'marketplace-remote') {
+				const slug = s.ref.slice(s.ref.indexOf('@') + 1);
+				return ` (from marketplace ${slug})`;
+			}
+			if (s.kind === 'marketplace-local') {
+				return ` (from local marketplace ${s.repoDir})`;
+			}
+			return ` (from file ${s.path})`;
+		} catch {
+			return '';
+		}
+	};
+
 	const getMarketplaceSources = (): string[] => {
 		const sources = readGlobal().workflowMarketplaceSources;
 		return sources && sources.length > 0 ? sources : [DEFAULT_MARKETPLACE_SLUG];
@@ -221,7 +239,9 @@ export function runWorkflowCommand(
 				// Upgrade a single workflow
 				try {
 					const updatedName = upgrade(name);
-					logOut(`Upgraded workflow: ${formatWorkflowLabel(updatedName)}`);
+					logOut(
+						`Upgraded workflow: ${formatWorkflowLabel(updatedName)}${formatSourceSuffix(updatedName)}`,
+					);
 					return 0;
 				} catch (error) {
 					logError(fmtError(error));
@@ -241,7 +261,9 @@ export function runWorkflowCommand(
 			for (const wfName of all) {
 				try {
 					const updatedName = upgrade(wfName);
-					logOut(`Upgraded workflow: ${formatWorkflowLabel(updatedName)}`);
+					logOut(
+						`Upgraded workflow: ${formatWorkflowLabel(updatedName)}${formatSourceSuffix(updatedName)}`,
+					);
 				} catch (error) {
 					logError(`Failed to upgrade "${wfName}": ${fmtError(error)}`);
 					failures++;
