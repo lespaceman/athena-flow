@@ -703,3 +703,68 @@ These tests run `athena-flow exec` in headless mode and ask the agent to report 
 **Verification:**
 
 - Verbose output shows the `claude-code` harness was used, overriding the config setting
+
+---
+
+## Workflow marketplace — duplicate & local identity
+
+### TC-9.1 Duplicate bare name across two marketplaces
+
+**Precondition:** Two configured marketplaces that both expose `e2e-test-builder` (e.g. `owner-a/repo` and `owner-b/repo`), set via `workflowMarketplaceSources` in `~/.config/athena/config.json`.
+
+**Steps:**
+
+1. Run `athena-flow workflow install e2e-test-builder`
+
+**Verification:**
+
+- Command exits 1
+- Error output lists both candidates with disambiguators (e.g. `e2e-test-builder@owner-a/repo`, `e2e-test-builder@owner-b/repo`)
+- No install side effects under `~/.config/athena/workflows/`
+
+### TC-9.2 Install from local marketplace, then upgrade
+
+**Precondition:** A workflow marketplace cloned to `/tmp/wf-m` with an entry named `e2e-test-builder`.
+
+**Steps:**
+
+1. `athena-flow workflow install /tmp/wf-m/workflows/e2e-test-builder/workflow.json`
+2. Inspect `~/.config/athena/workflows/e2e-test-builder/source.json`
+3. Edit the marketplace copy (change `promptTemplate` in `/tmp/wf-m/workflows/e2e-test-builder/workflow.json`)
+4. `athena-flow workflow upgrade e2e-test-builder`
+
+**Verification:**
+
+- After step 2, `source.json` contains `{"v":2,"kind":"marketplace-local","repoDir":"/tmp/wf-m","workflowName":"e2e-test-builder"}`
+- After step 4, the installed `workflow.json` reflects the edited marketplace copy
+- Upgrade success message includes `(from local marketplace /tmp/wf-m)`
+
+### TC-9.3 Local marketplace entry renamed between install and upgrade
+
+**Precondition:** Complete TC-9.2 steps 1–2.
+
+**Steps:**
+
+1. Rename the `e2e-test-builder` entry in `/tmp/wf-m/.athena-workflow/marketplace.json` to `something-else`.
+2. `athena-flow workflow upgrade e2e-test-builder`
+
+**Verification:**
+
+- Command exits 1
+- Error names the marketplace (`/tmp/wf-m`) and the missing entry
+- Installed snapshot under `~/.config/athena/workflows/e2e-test-builder/` is unchanged
+
+### TC-9.4 Legacy source.json migration on upgrade
+
+**Precondition:** An installed workflow with a legacy `source.json`:
+`echo '{"kind":"marketplace","ref":"e2e-test-builder@owner/repo"}' > ~/.config/athena/workflows/e2e-test-builder/source.json`
+
+**Steps:**
+
+1. `athena-flow workflow upgrade e2e-test-builder`
+2. Inspect `~/.config/athena/workflows/e2e-test-builder/source.json`
+
+**Verification:**
+
+- Upgrade succeeds
+- `source.json` is rewritten to `{"v":2,"kind":"marketplace-remote","ref":"e2e-test-builder@owner/repo"}`
