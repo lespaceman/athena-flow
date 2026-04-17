@@ -278,3 +278,28 @@ export function resolveWorkflowInstallSourceFromSources(
 	}
 	throw new Error(`Workflow "${name}" not found in any configured marketplace`);
 }
+
+export type ResolvedWorkflowSource =
+	| {
+			kind: 'marketplace-remote';
+			slug: string;
+			owner: string;
+			repo: string;
+			workflowName: string;
+			version?: string;
+			ref: string;
+			manifestPath: string;
+			workflowPath: string;
+	  }
+	| {
+			kind: 'marketplace-local';
+			repoDir: string;
+			workflowName: string;
+			version?: string;
+			manifestPath: string;
+			workflowPath: string;
+	  }
+	| {
+			kind: 'filesystem';
+			workflowPath: string;
+	  };
