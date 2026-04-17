@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.23](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.22...cli-v0.3.23) (2026-04-17)
+
+
+### Features
+
+* **codex:** let codex pick the model when none is configured ([437e881](https://github.com/lespaceman/athena-flow-cli/commit/437e88142dfef005ccda4baf9fc9a73ffee1fdb5))
+
 ## [0.3.22](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.21...cli-v0.3.22) (2026-04-17)
 
 
