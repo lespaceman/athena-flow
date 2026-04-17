@@ -1001,3 +1001,56 @@ describe('updateWorkflow (canonical source)', () => {
 		).toBe('loose-new');
 	});
 });
+
+describe('updateWorkflow (offline / refresh failure)', () => {
+	it('surfaces failure when the remote marketplace is unreachable', () => {
+		files['/home/testuser/.config/athena/workflows/w/workflow.json'] =
+			JSON.stringify({
+				name: 'w',
+				plugins: [],
+				promptTemplate: 'x',
+				workflowFile: 'workflow.md',
+			});
+		files['/home/testuser/.config/athena/workflows/w/workflow.md'] = '# x';
+		files['/home/testuser/.config/athena/workflows/w/source.json'] =
+			JSON.stringify({
+				v: 2,
+				kind: 'marketplace-remote',
+				ref: 'w@o/r',
+			});
+
+		resolveWorkflowInstallMock.mockImplementation(() => {
+			throw new Error('clone failed');
+		});
+
+		expect(() => updateWorkflow('w')).toThrow(/clone failed/);
+		// Installed snapshot is untouched.
+		expect(
+			JSON.parse(
+				files['/home/testuser/.config/athena/workflows/w/workflow.json']!,
+			).promptTemplate,
+		).toBe('x');
+	});
+});
+
+describe('resolveWorkflow (offline)', () => {
+	it('succeeds when the source would fail to refresh', () => {
+		files['/home/testuser/.config/athena/workflows/w/workflow.json'] =
+			JSON.stringify({
+				name: 'w',
+				plugins: [],
+				promptTemplate: 'x',
+				workflowFile: 'workflow.md',
+			});
+		files['/home/testuser/.config/athena/workflows/w/workflow.md'] = '# x';
+		files['/home/testuser/.config/athena/workflows/w/source.json'] =
+			JSON.stringify({
+				v: 2,
+				kind: 'marketplace-remote',
+				ref: 'w@o/r',
+			});
+
+		const result = resolveWorkflow('w');
+		expect(result.name).toBe('w');
+	});
+});
