@@ -279,6 +279,75 @@ export function resolveWorkflowInstallSourceFromSources(
 	throw new Error(`Workflow "${name}" not found in any configured marketplace`);
 }
 
+/**
+ * Turn a configured marketplace source string (or loose workflow.json path)
+ * into one or more canonical ResolvedWorkflowSource entries. Pure w.r.t.
+ * arguments — remote marketplaces are fetched via ensureRepo elsewhere.
+ */
+export function gatherMarketplaceWorkflowSources(
+	source: string,
+): ResolvedWorkflowSource[] {
+	const trimmed = source.trim();
+	const resolvedPath = path.resolve(trimmed);
+
+	// Loose workflow.json file
+	if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+		return [
+			{
+				kind: 'filesystem',
+				workflowPath: fs.realpathSync(resolvedPath),
+			},
+		];
+	}
+
+	// Remote marketplace slug
+	if (!fs.existsSync(resolvedPath) && isMarketplaceSlug(trimmed)) {
+		const slashIdx = trimmed.indexOf('/');
+		const owner = trimmed.slice(0, slashIdx);
+		const repo = trimmed.slice(slashIdx + 1);
+		requireGitForMarketplace('workflows');
+		const repoDir = ensureRepo(owner, repo);
+		const manifestPath = resolveWorkflowManifestPath(repoDir);
+		return listWorkflowEntriesFromManifest(repoDir, manifestPath, {
+			kind: 'remote',
+			slug: trimmed,
+			owner,
+			repo,
+		}).map(entry => ({
+			kind: 'marketplace-remote' as const,
+			slug: trimmed,
+			owner,
+			repo,
+			workflowName: entry.name,
+			version: entry.version,
+			ref: entry.ref!,
+			manifestPath,
+			workflowPath: entry.workflowPath,
+		}));
+	}
+
+	// Local marketplace directory
+	const repoDir = findMarketplaceRepoDir(trimmed);
+	if (!repoDir) {
+		throw new Error(
+			`Marketplace source not found: ${trimmed}. Expected a marketplace repo root, a path inside one, or an owner/repo slug.`,
+		);
+	}
+	const canonicalRepoDir = fs.realpathSync(repoDir);
+	const manifestPath = resolveWorkflowManifestPath(canonicalRepoDir);
+	return listWorkflowEntriesFromManifest(canonicalRepoDir, manifestPath, {
+		kind: 'local',
+		repoDir: canonicalRepoDir,
+	}).map(entry => ({
+		kind: 'marketplace-local' as const,
+		repoDir: canonicalRepoDir,
+		workflowName: entry.name,
+		version: entry.version,
+		manifestPath,
+		workflowPath: entry.workflowPath,
+	}));
+}
+
 export type ResolvedWorkflowSource =
 	| {
 			kind: 'marketplace-remote';
