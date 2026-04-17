@@ -16,6 +16,10 @@ export type TurnStartParams = {
 	threadId: string;
 	input: Array<UserInput>;
 	/**
+	 * Optional turn-scoped Responses API client metadata.
+	 */
+	responsesapiClientMetadata?: {[key in string]?: string} | null;
+	/**
 	 * Override the working directory for this turn and subsequent turns.
 	 */
 	cwd?: string | null;

@@ -275,6 +275,25 @@
 			"title": "Thread/readRequest"
 		},
 		{
+			"description": "Append raw Responses API items to the thread history without starting a user turn.",
+			"type": "object",
+			"required": ["id", "method", "params"],
+			"properties": {
+				"id": {
+					"$ref": "#/definitions/RequestId"
+				},
+				"method": {
+					"type": "string",
+					"enum": ["thread/inject_items"],
+					"title": "Thread/injectItemsRequestMethod"
+				},
+				"params": {
+					"$ref": "#/definitions/ThreadInjectItemsParams"
+				}
+			},
+			"title": "Thread/injectItemsRequest"
+		},
+		{
 			"type": "object",
 			"required": ["id", "method", "params"],
 			"properties": {
@@ -291,6 +310,24 @@
 				}
 			},
 			"title": "Skills/listRequest"
+		},
+		{
+			"type": "object",
+			"required": ["id", "method", "params"],
+			"properties": {
+				"id": {
+					"$ref": "#/definitions/RequestId"
+				},
+				"method": {
+					"type": "string",
+					"enum": ["marketplace/add"],
+					"title": "Marketplace/addRequestMethod"
+				},
+				"params": {
+					"$ref": "#/definitions/MarketplaceAddParams"
+				}
+			},
+			"title": "Marketplace/addRequest"
 		},
 		{
 			"type": "object",
@@ -741,6 +778,42 @@
 				}
 			},
 			"title": "McpServerStatus/listRequest"
+		},
+		{
+			"type": "object",
+			"required": ["id", "method", "params"],
+			"properties": {
+				"id": {
+					"$ref": "#/definitions/RequestId"
+				},
+				"method": {
+					"type": "string",
+					"enum": ["mcpServer/resource/read"],
+					"title": "McpServer/resource/readRequestMethod"
+				},
+				"params": {
+					"$ref": "#/definitions/McpResourceReadParams"
+				}
+			},
+			"title": "McpServer/resource/readRequest"
+		},
+		{
+			"type": "object",
+			"required": ["id", "method", "params"],
+			"properties": {
+				"id": {
+					"$ref": "#/definitions/RequestId"
+				},
+				"method": {
+					"type": "string",
+					"enum": ["mcpServer/tool/call"],
+					"title": "McpServer/tool/callRequestMethod"
+				},
+				"params": {
+					"$ref": "#/definitions/McpServerToolCallParams"
+				}
+			},
+			"title": "McpServer/tool/callRequest"
 		},
 		{
 			"type": "object",
@@ -1567,6 +1640,16 @@
 				"description": {
 					"type": "string"
 				},
+				"details": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/MigrationDetails"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
 				"itemType": {
 					"$ref": "#/definitions/ExternalAgentConfigMigrationItemType"
 				}
@@ -1574,7 +1657,7 @@
 		},
 		"ExternalAgentConfigMigrationItemType": {
 			"type": "string",
-			"enum": ["AGENTS_MD", "CONFIG", "SKILLS", "MCP_SERVER_CONFIG"]
+			"enum": ["AGENTS_MD", "CONFIG", "SKILLS", "PLUGINS", "MCP_SERVER_CONFIG"]
 		},
 		"FeedbackUploadParams": {
 			"type": "object",
@@ -1594,6 +1677,12 @@
 				},
 				"reason": {
 					"type": ["string", "null"]
+				},
+				"tags": {
+					"type": ["object", "null"],
+					"additionalProperties": {
+						"type": "string"
+					}
 				},
 				"threadId": {
 					"type": ["string", "null"]
@@ -1720,7 +1809,7 @@
 			"required": ["watchId"],
 			"properties": {
 				"watchId": {
-					"description": "Watch identifier returned by `fs/watch`.",
+					"description": "Watch identifier previously provided to `fs/watch`.",
 					"type": "string"
 				}
 			}
@@ -1728,7 +1817,7 @@
 		"FsWatchParams": {
 			"description": "Start filesystem watch notifications for an absolute path.",
 			"type": "object",
-			"required": ["path"],
+			"required": ["path", "watchId"],
 			"properties": {
 				"path": {
 					"description": "Absolute file or directory path to watch.",
@@ -1737,6 +1826,10 @@
 							"$ref": "#/definitions/AbsolutePathBuf"
 						}
 					]
+				},
+				"watchId": {
+					"description": "Connection-scoped watch identifier used for `fs/unwatch` and `fs/changed`.",
+					"type": "string"
 				}
 			}
 		},
@@ -2038,6 +2131,17 @@
 					"description": "Opaque pagination cursor returned by a previous call.",
 					"type": ["string", "null"]
 				},
+				"detail": {
+					"description": "Controls how much MCP inventory data to fetch for each server. Defaults to `Full` when omitted.",
+					"anyOf": [
+						{
+							"$ref": "#/definitions/McpServerStatusDetail"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
 				"limit": {
 					"description": "Optional page size; defaults to a server-defined value.",
 					"type": ["integer", "null"],
@@ -2157,6 +2261,39 @@
 				}
 			]
 		},
+		"MarketplaceAddParams": {
+			"type": "object",
+			"required": ["source"],
+			"properties": {
+				"refName": {
+					"type": ["string", "null"]
+				},
+				"source": {
+					"type": "string"
+				},
+				"sparsePaths": {
+					"type": ["array", "null"],
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		},
+		"McpResourceReadParams": {
+			"type": "object",
+			"required": ["server", "threadId", "uri"],
+			"properties": {
+				"server": {
+					"type": "string"
+				},
+				"threadId": {
+					"type": "string"
+				},
+				"uri": {
+					"type": "string"
+				}
+			}
+		},
 		"McpServerOauthLoginParams": {
 			"type": "object",
 			"required": ["name"],
@@ -2173,6 +2310,27 @@
 				"timeoutSecs": {
 					"type": ["integer", "null"],
 					"format": "int64"
+				}
+			}
+		},
+		"McpServerStatusDetail": {
+			"type": "string",
+			"enum": ["full", "toolsAndAuthOnly"]
+		},
+		"McpServerToolCallParams": {
+			"type": "object",
+			"required": ["server", "threadId", "tool"],
+			"properties": {
+				"_meta": true,
+				"arguments": true,
+				"server": {
+					"type": "string"
+				},
+				"threadId": {
+					"type": "string"
+				},
+				"tool": {
+					"type": "string"
 				}
 			}
 		},
@@ -2194,6 +2352,18 @@
 					"enum": ["final_answer"]
 				}
 			]
+		},
+		"MigrationDetails": {
+			"type": "object",
+			"required": ["plugins"],
+			"properties": {
+				"plugins": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/PluginsMigration"
+					}
+				}
+			}
 		},
 		"TurnStartParams": {
 			"type": "object",
@@ -2221,8 +2391,16 @@
 						}
 					]
 				},
-				"threadId": {
-					"type": "string"
+				"summary": {
+					"description": "Override the reasoning summary for this turn and subsequent turns.",
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ReasoningSummary"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"cwd": {
 					"description": "Override the working directory for this turn and subsequent turns.",
@@ -2263,6 +2441,9 @@
 						}
 					]
 				},
+				"threadId": {
+					"type": "string"
+				},
 				"sandboxPolicy": {
 					"description": "Override the sandbox policy for this turn and subsequent turns.",
 					"anyOf": [
@@ -2286,17 +2467,6 @@
 									"type": "null"
 								}
 							]
-						},
-						{
-							"type": "null"
-						}
-					]
-				},
-				"summary": {
-					"description": "Override the reasoning summary for this turn and subsequent turns.",
-					"anyOf": [
-						{
-							"$ref": "#/definitions/ReasoningSummary"
 						},
 						{
 							"type": "null"
@@ -2394,6 +2564,21 @@
 				}
 			}
 		},
+		"PluginsMigration": {
+			"type": "object",
+			"required": ["marketplaceName", "pluginNames"],
+			"properties": {
+				"marketplaceName": {
+					"type": "string"
+				},
+				"pluginNames": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		},
 		"ReadOnlyAccess": {
 			"oneOf": [
 				{
@@ -2431,6 +2616,34 @@
 					},
 					"title": "FullAccessReadOnlyAccess"
 				}
+			]
+		},
+		"RealtimeOutputModality": {
+			"type": "string",
+			"enum": ["text", "audio"]
+		},
+		"RealtimeVoice": {
+			"type": "string",
+			"enum": [
+				"alloy",
+				"arbor",
+				"ash",
+				"ballad",
+				"breeze",
+				"cedar",
+				"coral",
+				"cove",
+				"echo",
+				"ember",
+				"juniper",
+				"maple",
+				"marin",
+				"sage",
+				"shimmer",
+				"sol",
+				"spruce",
+				"vale",
+				"verse"
 			]
 		},
 		"ReasoningEffort": {
@@ -3324,6 +3537,9 @@
 				"modelProvider": {
 					"type": ["string", "null"]
 				},
+				"threadId": {
+					"type": "string"
+				},
 				"serviceTier": {
 					"anyOf": [
 						{
@@ -3341,9 +3557,6 @@
 						}
 					]
 				},
-				"threadId": {
-					"type": "string"
-				},
 				"sandbox": {
 					"anyOf": [
 						{
@@ -3360,6 +3573,20 @@
 			"type": "object",
 			"required": ["threadId"],
 			"properties": {
+				"threadId": {
+					"type": "string"
+				}
+			}
+		},
+		"ThreadInjectItemsParams": {
+			"type": "object",
+			"required": ["items", "threadId"],
+			"properties": {
+				"items": {
+					"description": "Raw Responses API items to append to the thread's model-visible history.",
+					"type": "array",
+					"items": true
+				},
 				"threadId": {
 					"type": "string"
 				}
@@ -3431,6 +3658,14 @@
 					"minimum": 0.0
 				}
 			}
+		},
+		"ThreadMemoryMode": {
+			"type": "string",
+			"enum": ["enabled", "disabled"]
+		},
+		"ThreadStartSource": {
+			"type": "string",
+			"enum": ["startup", "clear"]
 		},
 		"ThreadMetadataGitInfoUpdateParams": {
 			"type": "object",
@@ -3520,22 +3755,6 @@
 				"developerInstructions": {
 					"type": ["string", "null"]
 				},
-				"serviceName": {
-					"type": ["string", "null"]
-				},
-				"ephemeral": {
-					"type": ["boolean", "null"]
-				},
-				"personality": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/Personality"
-						},
-						{
-							"type": "null"
-						}
-					]
-				},
 				"sandbox": {
 					"anyOf": [
 						{
@@ -3546,11 +3765,8 @@
 						}
 					]
 				},
-				"model": {
-					"type": ["string", "null"]
-				},
-				"modelProvider": {
-					"type": ["string", "null"]
+				"ephemeral": {
+					"type": ["boolean", "null"]
 				},
 				"serviceTier": {
 					"anyOf": [
@@ -3563,6 +3779,35 @@
 									"type": "null"
 								}
 							]
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"serviceName": {
+					"type": ["string", "null"]
+				},
+				"model": {
+					"type": ["string", "null"]
+				},
+				"modelProvider": {
+					"type": ["string", "null"]
+				},
+				"sessionStartSource": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ThreadStartSource"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"personality": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/Personality"
 						},
 						{
 							"type": "null"
@@ -3631,6 +3876,51 @@
 				}
 			}
 		},
+		"ThreadRealtimeStartTransport": {
+			"description": "EXPERIMENTAL - transport used by thread realtime.",
+			"oneOf": [
+				{
+					"type": "object",
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"enum": ["websocket"],
+							"title": "WebsocketThreadRealtimeStartTransportType"
+						}
+					},
+					"title": "WebsocketThreadRealtimeStartTransport"
+				},
+				{
+					"type": "object",
+					"required": ["sdp", "type"],
+					"properties": {
+						"sdp": {
+							"description": "SDP offer generated by a WebRTC RTCPeerConnection after configuring audio and the realtime events data channel.",
+							"type": "string"
+						},
+						"type": {
+							"type": "string",
+							"enum": ["webrtc"],
+							"title": "WebrtcThreadRealtimeStartTransportType"
+						}
+					},
+					"title": "WebrtcThreadRealtimeStartTransport"
+				}
+			]
+		},
+		"ThreadSetNameParams": {
+			"type": "object",
+			"required": ["name", "threadId"],
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"threadId": {
+					"type": "string"
+				}
+			}
+		},
 		"ThreadResumeParams": {
 			"description": "There are three ways to resume a thread: 1. By thread_id: load the thread from disk by thread_id and resume it. 2. By history: instantiate the thread from memory and resume it. 3. By path: load the thread from disk by path and resume it.\n\nThe precedence is: history > path > thread_id. If using history or path, the thread_id param will be ignored.\n\nPrefer using thread_id whenever possible.",
 			"type": "object",
@@ -3670,6 +3960,23 @@
 				"developerInstructions": {
 					"type": ["string", "null"]
 				},
+				"sandbox": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/SandboxMode"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"model": {
+					"description": "Configuration overrides for the resumed thread, if any.",
+					"type": ["string", "null"]
+				},
+				"modelProvider": {
+					"type": ["string", "null"]
+				},
 				"serviceTier": {
 					"anyOf": [
 						{
@@ -3687,25 +3994,8 @@
 						}
 					]
 				},
-				"model": {
-					"description": "Configuration overrides for the resumed thread, if any.",
-					"type": ["string", "null"]
-				},
-				"modelProvider": {
-					"type": ["string", "null"]
-				},
 				"threadId": {
 					"type": "string"
-				},
-				"sandbox": {
-					"anyOf": [
-						{
-							"$ref": "#/definitions/SandboxMode"
-						},
-						{
-							"type": "null"
-						}
-					]
 				},
 				"personality": {
 					"anyOf": [
@@ -3728,18 +4018,6 @@
 					"type": "integer",
 					"format": "uint32",
 					"minimum": 0.0
-				},
-				"threadId": {
-					"type": "string"
-				}
-			}
-		},
-		"ThreadSetNameParams": {
-			"type": "object",
-			"required": ["name", "threadId"],
-			"properties": {
-				"name": {
-					"type": "string"
 				},
 				"threadId": {
 					"type": "string"

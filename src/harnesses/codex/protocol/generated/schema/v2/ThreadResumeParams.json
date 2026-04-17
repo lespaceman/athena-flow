@@ -39,6 +39,23 @@
 		"developerInstructions": {
 			"type": ["string", "null"]
 		},
+		"sandbox": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/SandboxMode"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"model": {
+			"description": "Configuration overrides for the resumed thread, if any.",
+			"type": ["string", "null"]
+		},
+		"modelProvider": {
+			"type": ["string", "null"]
+		},
 		"serviceTier": {
 			"anyOf": [
 				{
@@ -56,25 +73,8 @@
 				}
 			]
 		},
-		"model": {
-			"description": "Configuration overrides for the resumed thread, if any.",
-			"type": ["string", "null"]
-		},
-		"modelProvider": {
-			"type": ["string", "null"]
-		},
 		"threadId": {
 			"type": "string"
-		},
-		"sandbox": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/SandboxMode"
-				},
-				{
-					"type": "null"
-				}
-			]
 		},
 		"personality": {
 			"anyOf": [

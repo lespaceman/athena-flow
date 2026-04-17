@@ -8,6 +8,7 @@ import type {ApprovalsReviewer} from './ApprovalsReviewer';
 import type {AskForApproval} from './AskForApproval';
 import type {DynamicToolSpec} from './DynamicToolSpec';
 import type {SandboxMode} from './SandboxMode';
+import type {ThreadStartSource} from './ThreadStartSource';
 
 export type ThreadStartParams = {
 	model?: string | null;
@@ -27,6 +28,7 @@ export type ThreadStartParams = {
 	developerInstructions?: string | null;
 	personality?: Personality | null;
 	ephemeral?: boolean | null;
+	sessionStartSource?: ThreadStartSource | null;
 	dynamicTools?: Array<DynamicToolSpec> | null;
 	/**
 	 * Test-only experimental field used to validate experimental gating and

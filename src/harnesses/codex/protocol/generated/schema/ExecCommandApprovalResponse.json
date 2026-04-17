@@ -83,6 +83,11 @@
 					"enum": ["denied"]
 				},
 				{
+					"description": "Automatic approval review timed out before reaching a decision.",
+					"type": "string",
+					"enum": ["timed_out"]
+				},
+				{
 					"description": "User has denied this command and the agent should not do anything until the user's next command.",
 					"type": "string",
 					"enum": ["abort"]

@@ -20,5 +20,6 @@ export type Model = {
 	defaultReasoningEffort: ReasoningEffort;
 	inputModalities: Array<InputModality>;
 	supportsPersonality: boolean;
+	additionalSpeedTiers: Array<string>;
 	isDefault: boolean;
 };

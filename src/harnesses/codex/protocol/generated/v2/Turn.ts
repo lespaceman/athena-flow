@@ -18,4 +18,16 @@ export type Turn = {
 	 * Only populated when the Turn's status is failed.
 	 */
 	error: TurnError | null;
+	/**
+	 * Unix timestamp (in seconds) when the turn started.
+	 */
+	startedAt: number | null;
+	/**
+	 * Unix timestamp (in seconds) when the turn completed.
+	 */
+	completedAt: number | null;
+	/**
+	 * Duration between turn start and completion in milliseconds, if known.
+	 */
+	durationMs: number | null;
 };

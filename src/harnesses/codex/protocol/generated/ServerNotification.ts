@@ -41,8 +41,10 @@ import type {ThreadRealtimeClosedNotification} from './v2/ThreadRealtimeClosedNo
 import type {ThreadRealtimeErrorNotification} from './v2/ThreadRealtimeErrorNotification';
 import type {ThreadRealtimeItemAddedNotification} from './v2/ThreadRealtimeItemAddedNotification';
 import type {ThreadRealtimeOutputAudioDeltaNotification} from './v2/ThreadRealtimeOutputAudioDeltaNotification';
+import type {ThreadRealtimeSdpNotification} from './v2/ThreadRealtimeSdpNotification';
 import type {ThreadRealtimeStartedNotification} from './v2/ThreadRealtimeStartedNotification';
-import type {ThreadRealtimeTranscriptUpdatedNotification} from './v2/ThreadRealtimeTranscriptUpdatedNotification';
+import type {ThreadRealtimeTranscriptDeltaNotification} from './v2/ThreadRealtimeTranscriptDeltaNotification';
+import type {ThreadRealtimeTranscriptDoneNotification} from './v2/ThreadRealtimeTranscriptDoneNotification';
 import type {ThreadStartedNotification} from './v2/ThreadStartedNotification';
 import type {ThreadStatusChangedNotification} from './v2/ThreadStatusChangedNotification';
 import type {ThreadTokenUsageUpdatedNotification} from './v2/ThreadTokenUsageUpdatedNotification';
@@ -161,13 +163,18 @@ export type ServerNotification =
 			params: ThreadRealtimeItemAddedNotification;
 	  }
 	| {
-			method: 'thread/realtime/transcriptUpdated';
-			params: ThreadRealtimeTranscriptUpdatedNotification;
+			method: 'thread/realtime/transcript/delta';
+			params: ThreadRealtimeTranscriptDeltaNotification;
+	  }
+	| {
+			method: 'thread/realtime/transcript/done';
+			params: ThreadRealtimeTranscriptDoneNotification;
 	  }
 	| {
 			method: 'thread/realtime/outputAudio/delta';
 			params: ThreadRealtimeOutputAudioDeltaNotification;
 	  }
+	| {method: 'thread/realtime/sdp'; params: ThreadRealtimeSdpNotification}
 	| {method: 'thread/realtime/error'; params: ThreadRealtimeErrorNotification}
 	| {method: 'thread/realtime/closed'; params: ThreadRealtimeClosedNotification}
 	| {

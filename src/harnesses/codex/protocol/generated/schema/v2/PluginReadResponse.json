@@ -235,10 +235,24 @@
 					"type": ["string", "null"]
 				},
 				"iconLarge": {
-					"type": ["string", "null"]
+					"anyOf": [
+						{
+							"$ref": "#/definitions/AbsolutePathBuf"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"iconSmall": {
-					"type": ["string", "null"]
+					"anyOf": [
+						{
+							"$ref": "#/definitions/AbsolutePathBuf"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"shortDescription": {
 					"type": ["string", "null"]
@@ -269,7 +283,7 @@
 					"type": "string"
 				},
 				"path": {
-					"type": "string"
+					"$ref": "#/definitions/AbsolutePathBuf"
 				},
 				"shortDescription": {
 					"type": ["string", "null"]

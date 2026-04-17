@@ -37,7 +37,10 @@ import type {FsWriteFileParams} from './v2/FsWriteFileParams';
 import type {GetAccountParams} from './v2/GetAccountParams';
 import type {ListMcpServerStatusParams} from './v2/ListMcpServerStatusParams';
 import type {LoginAccountParams} from './v2/LoginAccountParams';
+import type {MarketplaceAddParams} from './v2/MarketplaceAddParams';
+import type {McpResourceReadParams} from './v2/McpResourceReadParams';
 import type {McpServerOauthLoginParams} from './v2/McpServerOauthLoginParams';
+import type {McpServerToolCallParams} from './v2/McpServerToolCallParams';
 import type {MockExperimentalMethodParams} from './v2/MockExperimentalMethodParams';
 import type {ModelListParams} from './v2/ModelListParams';
 import type {PluginInstallParams} from './v2/PluginInstallParams';
@@ -53,12 +56,15 @@ import type {ThreadCompactStartParams} from './v2/ThreadCompactStartParams';
 import type {ThreadDecrementElicitationParams} from './v2/ThreadDecrementElicitationParams';
 import type {ThreadForkParams} from './v2/ThreadForkParams';
 import type {ThreadIncrementElicitationParams} from './v2/ThreadIncrementElicitationParams';
+import type {ThreadInjectItemsParams} from './v2/ThreadInjectItemsParams';
 import type {ThreadListParams} from './v2/ThreadListParams';
 import type {ThreadLoadedListParams} from './v2/ThreadLoadedListParams';
+import type {ThreadMemoryModeSetParams} from './v2/ThreadMemoryModeSetParams';
 import type {ThreadMetadataUpdateParams} from './v2/ThreadMetadataUpdateParams';
 import type {ThreadReadParams} from './v2/ThreadReadParams';
 import type {ThreadRealtimeAppendAudioParams} from './v2/ThreadRealtimeAppendAudioParams';
 import type {ThreadRealtimeAppendTextParams} from './v2/ThreadRealtimeAppendTextParams';
+import type {ThreadRealtimeListVoicesParams} from './v2/ThreadRealtimeListVoicesParams';
 import type {ThreadRealtimeStartParams} from './v2/ThreadRealtimeStartParams';
 import type {ThreadRealtimeStopParams} from './v2/ThreadRealtimeStopParams';
 import type {ThreadResumeParams} from './v2/ThreadResumeParams';
@@ -103,6 +109,12 @@ export type ClientRequest =
 			id: RequestId;
 			params: ThreadMetadataUpdateParams;
 	  }
+	| {
+			method: 'thread/memoryMode/set';
+			id: RequestId;
+			params: ThreadMemoryModeSetParams;
+	  }
+	| {method: 'memory/reset'; id: RequestId; params: undefined}
 	| {method: 'thread/unarchive'; id: RequestId; params: ThreadUnarchiveParams}
 	| {
 			method: 'thread/compact/start';
@@ -127,7 +139,13 @@ export type ClientRequest =
 			params: ThreadLoadedListParams;
 	  }
 	| {method: 'thread/read'; id: RequestId; params: ThreadReadParams}
+	| {
+			method: 'thread/inject_items';
+			id: RequestId;
+			params: ThreadInjectItemsParams;
+	  }
 	| {method: 'skills/list'; id: RequestId; params: SkillsListParams}
+	| {method: 'marketplace/add'; id: RequestId; params: MarketplaceAddParams}
 	| {method: 'plugin/list'; id: RequestId; params: PluginListParams}
 	| {method: 'plugin/read'; id: RequestId; params: PluginReadParams}
 	| {method: 'app/list'; id: RequestId; params: AppsListParams}
@@ -174,6 +192,11 @@ export type ClientRequest =
 			id: RequestId;
 			params: ThreadRealtimeStopParams;
 	  }
+	| {
+			method: 'thread/realtime/listVoices';
+			id: RequestId;
+			params: ThreadRealtimeListVoicesParams;
+	  }
 	| {method: 'review/start'; id: RequestId; params: ReviewStartParams}
 	| {method: 'model/list'; id: RequestId; params: ModelListParams}
 	| {
@@ -206,6 +229,16 @@ export type ClientRequest =
 			method: 'mcpServerStatus/list';
 			id: RequestId;
 			params: ListMcpServerStatusParams;
+	  }
+	| {
+			method: 'mcpServer/resource/read';
+			id: RequestId;
+			params: McpResourceReadParams;
+	  }
+	| {
+			method: 'mcpServer/tool/call';
+			id: RequestId;
+			params: McpServerToolCallParams;
 	  }
 	| {
 			method: 'windowsSandbox/setupStart';

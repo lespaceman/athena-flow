@@ -21,4 +21,5 @@ export type ReviewDecision =
 			};
 	  }
 	| 'denied'
+	| 'timed_out'
 	| 'abort';

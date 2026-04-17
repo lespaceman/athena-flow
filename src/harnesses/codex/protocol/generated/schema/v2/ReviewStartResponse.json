@@ -13,6 +13,10 @@
 		}
 	},
 	"definitions": {
+		"AbsolutePathBuf": {
+			"description": "A path that is guaranteed to be absolute and normalized (though it is not guaranteed to be canonicalized or exist on the filesystem).\n\nIMPORTANT: When deserializing an `AbsolutePathBuf`, a base path must be set using [AbsolutePathBufGuard::new]. If no base path is set, the deserialization will fail unless the path being deserialized is already absolute.",
+			"type": "string"
+		},
 		"ByteRange": {
 			"type": "object",
 			"required": ["end", "start"],
@@ -186,7 +190,7 @@
 							"type": "string"
 						},
 						"path": {
-							"type": "string"
+							"$ref": "#/definitions/AbsolutePathBuf"
 						},
 						"type": {
 							"type": "string",
@@ -343,6 +347,7 @@
 			"type": "object",
 			"required": ["content"],
 			"properties": {
+				"_meta": true,
 				"content": {
 					"type": "array",
 					"items": true
@@ -643,7 +648,11 @@
 						},
 						"cwd": {
 							"description": "The command's working directory.",
-							"type": "string"
+							"allOf": [
+								{
+									"$ref": "#/definitions/AbsolutePathBuf"
+								}
+							]
 						},
 						"durationMs": {
 							"description": "The duration of the command execution in milliseconds.",
@@ -904,7 +913,7 @@
 							"type": "string"
 						},
 						"path": {
-							"type": "string"
+							"$ref": "#/definitions/AbsolutePathBuf"
 						},
 						"type": {
 							"type": "string",
@@ -928,7 +937,14 @@
 							"type": ["string", "null"]
 						},
 						"savedPath": {
-							"type": ["string", "null"]
+							"anyOf": [
+								{
+									"$ref": "#/definitions/AbsolutePathBuf"
+								},
+								{
+									"type": "null"
+								}
+							]
 						},
 						"status": {
 							"type": "string"
@@ -998,6 +1014,16 @@
 			"type": "object",
 			"required": ["id", "items", "status"],
 			"properties": {
+				"completedAt": {
+					"description": "Unix timestamp (in seconds) when the turn completed.",
+					"type": ["integer", "null"],
+					"format": "int64"
+				},
+				"durationMs": {
+					"description": "Duration between turn start and completion in milliseconds, if known.",
+					"type": ["integer", "null"],
+					"format": "int64"
+				},
 				"error": {
 					"description": "Only populated when the Turn's status is failed.",
 					"anyOf": [
@@ -1018,6 +1044,11 @@
 					"items": {
 						"$ref": "#/definitions/ThreadItem"
 					}
+				},
+				"startedAt": {
+					"description": "Unix timestamp (in seconds) when the turn started.",
+					"type": ["integer", "null"],
+					"format": "int64"
 				},
 				"status": {
 					"$ref": "#/definitions/TurnStatus"

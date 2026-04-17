@@ -6,7 +6,7 @@
 	"required": ["watchId"],
 	"properties": {
 		"watchId": {
-			"description": "Watch identifier returned by `fs/watch`.",
+			"description": "Watch identifier previously provided to `fs/watch`.",
 			"type": "string"
 		}
 	}

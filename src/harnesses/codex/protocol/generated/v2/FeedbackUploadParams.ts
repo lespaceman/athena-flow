@@ -8,4 +8,5 @@ export type FeedbackUploadParams = {
 	threadId?: string | null;
 	includeLogs: boolean;
 	extraLogFiles?: Array<string> | null;
+	tags?: {[key in string]?: string} | null;
 };

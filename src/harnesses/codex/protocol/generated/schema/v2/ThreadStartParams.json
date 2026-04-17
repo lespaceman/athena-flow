@@ -37,22 +37,6 @@
 		"developerInstructions": {
 			"type": ["string", "null"]
 		},
-		"serviceName": {
-			"type": ["string", "null"]
-		},
-		"ephemeral": {
-			"type": ["boolean", "null"]
-		},
-		"personality": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/Personality"
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
 		"sandbox": {
 			"anyOf": [
 				{
@@ -63,11 +47,8 @@
 				}
 			]
 		},
-		"model": {
-			"type": ["string", "null"]
-		},
-		"modelProvider": {
-			"type": ["string", "null"]
+		"ephemeral": {
+			"type": ["boolean", "null"]
 		},
 		"serviceTier": {
 			"anyOf": [
@@ -80,6 +61,35 @@
 							"type": "null"
 						}
 					]
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"serviceName": {
+			"type": ["string", "null"]
+		},
+		"model": {
+			"type": ["string", "null"]
+		},
+		"modelProvider": {
+			"type": ["string", "null"]
+		},
+		"sessionStartSource": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ThreadStartSource"
+				},
+				{
+					"type": "null"
+				}
+			]
+		},
+		"personality": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/Personality"
 				},
 				{
 					"type": "null"
@@ -159,6 +169,10 @@
 		"ServiceTier": {
 			"type": "string",
 			"enum": ["fast", "flex"]
+		},
+		"ThreadStartSource": {
+			"type": "string",
+			"enum": ["startup", "clear"]
 		}
 	}
 }

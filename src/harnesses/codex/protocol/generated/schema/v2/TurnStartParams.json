@@ -26,8 +26,16 @@
 				}
 			]
 		},
-		"threadId": {
-			"type": "string"
+		"summary": {
+			"description": "Override the reasoning summary for this turn and subsequent turns.",
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ReasoningSummary"
+				},
+				{
+					"type": "null"
+				}
+			]
 		},
 		"cwd": {
 			"description": "Override the working directory for this turn and subsequent turns.",
@@ -68,6 +76,9 @@
 				}
 			]
 		},
+		"threadId": {
+			"type": "string"
+		},
 		"sandboxPolicy": {
 			"description": "Override the sandbox policy for this turn and subsequent turns.",
 			"anyOf": [
@@ -91,17 +102,6 @@
 							"type": "null"
 						}
 					]
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"summary": {
-			"description": "Override the reasoning summary for this turn and subsequent turns.",
-			"anyOf": [
-				{
-					"$ref": "#/definitions/ReasoningSummary"
 				},
 				{
 					"type": "null"
