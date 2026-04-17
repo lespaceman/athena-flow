@@ -82,7 +82,6 @@ vi.mock('../installer', () => ({
 
 const {
 	resolveWorkflow,
-	installWorkflow,
 	installWorkflowFromSource,
 	updateWorkflow,
 	listWorkflows,
@@ -419,8 +418,8 @@ describe('resolveWorkflow', () => {
 	});
 });
 
-describe('installWorkflow', () => {
-	it('installs a workflow from a local file using its name field', () => {
+describe('installWorkflowFromSource', () => {
+	it('installs a workflow from a filesystem source using its name field', () => {
 		const workflow = {
 			name: 'my-workflow',
 			plugins: [],
@@ -430,7 +429,10 @@ describe('installWorkflow', () => {
 		files['/tmp/workflow.json'] = JSON.stringify(workflow);
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		const name = installWorkflow('/tmp/workflow.json');
+		const name = installWorkflowFromSource({
+			kind: 'filesystem',
+			workflowPath: '/tmp/workflow.json',
+		});
 
 		expect(name).toBe('my-workflow');
 		expect(
@@ -451,7 +453,7 @@ describe('installWorkflow', () => {
 		});
 	});
 
-	it('installs from marketplace ref', () => {
+	it('installs from a marketplace-remote source', () => {
 		files['/tmp/resolved-workflow.json'] = JSON.stringify({
 			name: 'remote-workflow',
 			plugins: ['plugin@owner/repo'],
@@ -460,7 +462,16 @@ describe('installWorkflow', () => {
 		});
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		const name = installWorkflow('remote-workflow@owner/repo');
+		const name = installWorkflowFromSource({
+			kind: 'marketplace-remote',
+			slug: 'owner/repo',
+			owner: 'owner',
+			repo: 'repo',
+			workflowName: 'remote-workflow',
+			ref: 'remote-workflow@owner/repo',
+			manifestPath: '/tmp/.athena-workflow/marketplace.json',
+			workflowPath: '/tmp/resolved-workflow.json',
+		});
 		expect(name).toBe('remote-workflow');
 	});
 
@@ -474,7 +485,10 @@ describe('installWorkflow', () => {
 		files['/tmp/workflow.json'] = JSON.stringify(workflow);
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		const name = installWorkflow('/tmp/workflow.json', 'custom-name');
+		const name = installWorkflowFromSource(
+			{kind: 'filesystem', workflowPath: '/tmp/workflow.json'},
+			'custom-name',
+		);
 
 		expect(name).toBe('custom-name');
 	});
@@ -488,7 +502,16 @@ describe('installWorkflow', () => {
 		});
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		installWorkflow('mkt-workflow@owner/repo');
+		installWorkflowFromSource({
+			kind: 'marketplace-remote',
+			slug: 'owner/repo',
+			owner: 'owner',
+			repo: 'repo',
+			workflowName: 'mkt-workflow',
+			ref: 'mkt-workflow@owner/repo',
+			manifestPath: '/tmp/.athena-workflow/marketplace.json',
+			workflowPath: '/tmp/resolved-workflow.json',
+		});
 
 		const sourceFile =
 			files['/home/testuser/.config/athena/workflows/mkt-workflow/source.json'];
@@ -500,7 +523,7 @@ describe('installWorkflow', () => {
 		});
 	});
 
-	it('records local source metadata for local file installs', () => {
+	it('records local source metadata for filesystem installs', () => {
 		files['/tmp/workflow.json'] = JSON.stringify({
 			name: 'local-only',
 			plugins: [],
@@ -509,7 +532,10 @@ describe('installWorkflow', () => {
 		});
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		installWorkflow('/tmp/workflow.json');
+		installWorkflowFromSource({
+			kind: 'filesystem',
+			workflowPath: '/tmp/workflow.json',
+		});
 
 		expect(
 			JSON.parse(
@@ -533,7 +559,10 @@ describe('installWorkflow', () => {
 		});
 		files['/tmp/workflow.md'] = '# Workflow';
 
-		const name = installWorkflow('/tmp/workflow.json');
+		const name = installWorkflowFromSource({
+			kind: 'filesystem',
+			workflowPath: '/tmp/workflow.json',
+		});
 
 		expect(name).toBe('asset-workflow');
 		expect(
@@ -552,9 +581,12 @@ describe('installWorkflow', () => {
 		});
 		files['/prompt.md'] = '# Prompt';
 
-		expect(() => installWorkflow('/tmp/workflow.json')).toThrow(
-			/outside the workflow root/,
-		);
+		expect(() =>
+			installWorkflowFromSource({
+				kind: 'filesystem',
+				workflowPath: '/tmp/workflow.json',
+			}),
+		).toThrow(/outside the workflow root/);
 	});
 
 	it('throws on install when workflowFile is missing', () => {
@@ -564,9 +596,12 @@ describe('installWorkflow', () => {
 			promptTemplate: '{input}',
 		});
 
-		expect(() => installWorkflow('/tmp/workflow.json')).toThrow(
-			/workflowFile.*required/,
-		);
+		expect(() =>
+			installWorkflowFromSource({
+				kind: 'filesystem',
+				workflowPath: '/tmp/workflow.json',
+			}),
+		).toThrow(/workflowFile.*required/);
 	});
 });
 

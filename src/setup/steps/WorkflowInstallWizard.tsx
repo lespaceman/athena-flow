@@ -3,10 +3,11 @@ import {Box} from 'ink';
 import McpOptionsStep from './McpOptionsStep';
 import StepStatus from '../components/StepStatus';
 import {
-	installWorkflow,
+	installWorkflowFromSource,
 	resolveWorkflow,
 	installWorkflowPlugins,
 } from '../../core/workflows/index';
+import type {ResolvedWorkflowSource} from '../../infra/plugins/marketplace';
 import {
 	writeGlobalConfig,
 	type McpServerChoices,
@@ -17,7 +18,7 @@ import {
 } from '../../infra/plugins/mcpOptions';
 
 type Props = {
-	source: string;
+	source: ResolvedWorkflowSource;
 	onDone: (exitCode: number) => void;
 };
 
@@ -34,7 +35,7 @@ export default function WorkflowInstallWizard({source, onDone}: Props) {
 		if (phase !== 'installing') return;
 
 		try {
-			const name = installWorkflow(source);
+			const name = installWorkflowFromSource(source);
 			const resolved = resolveWorkflow(name);
 			const pluginDirs = installWorkflowPlugins(resolved);
 			const servers = collectMcpServersWithOptions(pluginDirs);

@@ -5,10 +5,11 @@ import StepStatus from '../../setup/components/StepStatus';
 import McpOptionsStep from '../../setup/steps/McpOptionsStep';
 import WizardFrame from '../../setup/components/WizardFrame';
 import {
-	installWorkflow,
+	installWorkflowFromSource,
 	resolveWorkflow,
 	installWorkflowPlugins,
 } from '../../core/workflows/index';
+import {resolveWorkflowInstall} from '../../infra/plugins/marketplace';
 import {
 	loadWorkflowOptions,
 	type WorkflowOption,
@@ -96,7 +97,9 @@ export default function WorkflowPicker({
 			setPhase({type: 'installing', workflowValue: value});
 			setTimeout(() => {
 				try {
-					const name = installWorkflow(value);
+					const name = installWorkflowFromSource(
+						resolveWorkflowInstall(value, []),
+					);
 					const resolved = resolveWorkflow(name);
 					const pluginDirs = installWorkflowPlugins(resolved);
 					const servers = collectMcpServersWithOptions(pluginDirs);

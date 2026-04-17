@@ -12,7 +12,6 @@ export type {WorkflowPlan} from './plan';
 export {applyPromptTemplate} from './applyWorkflow';
 export {
 	resolveWorkflow,
-	installWorkflow,
 	installWorkflowFromSource,
 	updateWorkflow,
 	listWorkflows,

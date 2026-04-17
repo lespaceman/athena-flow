@@ -3,10 +3,11 @@ import {Box, Text} from 'ink';
 import StepSelector from '../components/StepSelector';
 import StepStatus from '../components/StepStatus';
 import {
-	installWorkflow,
+	installWorkflowFromSource,
 	resolveWorkflow,
 	installWorkflowPlugins,
 } from '../../core/workflows/index';
+import {resolveWorkflowInstall} from '../../infra/plugins/marketplace';
 import {
 	loadWorkflowOptions,
 	type WorkflowOption,
@@ -49,7 +50,9 @@ export default function WorkflowStep({onComplete, onError}: Props) {
 			setStatus('verifying');
 			setTimeout(() => {
 				try {
-					const name = installWorkflow(value);
+					const name = installWorkflowFromSource(
+						resolveWorkflowInstall(value, []),
+					);
 					// Verify it resolves
 					const resolved = resolveWorkflow(name);
 					const pluginDirs = installWorkflowPlugins(resolved);

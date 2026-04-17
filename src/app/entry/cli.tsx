@@ -40,7 +40,7 @@ import {runExecCommand} from './execCommand';
 import {resolveInteractiveSession} from './interactiveSession';
 import {runWorkflowCommand} from './workflowCommand';
 import {runMarketplaceCommand} from './marketplaceCommand';
-import {resolveWorkflowInstallSourceFromSources} from '../../infra/plugins/marketplace';
+import {resolveWorkflowInstall} from '../../infra/plugins/marketplace';
 import {
 	installStdoutWriteMonitor,
 	isPerfEnabled,
@@ -369,15 +369,12 @@ async function main(): Promise<void> {
 		// Interactive install: renders MCP options wizard if servers have options
 		if (subcommand === 'install' && subcommandArgs[0]) {
 			const source = subcommandArgs[0];
-			let installSource: string;
+			let resolvedSource: import('../../infra/plugins/marketplace').ResolvedWorkflowSource;
 			try {
 				const sources = readGlobalConfig().workflowMarketplaceSources ?? [
 					'lespaceman/athena-workflow-marketplace',
 				];
-				installSource = resolveWorkflowInstallSourceFromSources(
-					source,
-					sources,
-				);
+				resolvedSource = resolveWorkflowInstall(source, sources);
 			} catch (error) {
 				console.error(
 					`Error: ${error instanceof Error ? error.message : String(error)}`,
@@ -389,7 +386,7 @@ async function main(): Promise<void> {
 				await import('../../setup/steps/WorkflowInstallWizard');
 			const {waitUntilExit} = render(
 				<WorkflowInstallWizard
-					source={installSource}
+					source={resolvedSource}
 					onDone={code => {
 						process.exitCode = code;
 					}}

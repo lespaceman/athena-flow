@@ -11,7 +11,6 @@ import path from 'node:path';
 import {
 	isMarketplaceRef,
 	listMarketplaceWorkflowsFromRepo,
-	resolveMarketplaceWorkflow,
 	resolveWorkflowInstall,
 	resolveWorkflowManifestPath,
 	type ResolvedWorkflowSource,
@@ -199,38 +198,6 @@ function copyWorkflowFiles(sourcePath: string, destDir: string): void {
 		);
 	}
 	copyRelativeAsset(promptAsset);
-}
-
-/**
- * Install a workflow from a local file path.
- * Copies the workflow.json into the registry under the given name.
- */
-export function installWorkflow(source: string, name?: string): string {
-	const isMarketplace = isMarketplaceRef(source);
-
-	// Resolve marketplace ref to local path
-	const sourcePath = isMarketplace
-		? resolveMarketplaceWorkflow(source)
-		: source;
-
-	const {workflow} = readWorkflowSource(sourcePath);
-	const workflowName = name ?? workflow.name;
-
-	if (!workflowName) {
-		throw new Error(
-			'Workflow has no "name" field. Provide --name to specify one.',
-		);
-	}
-
-	const destDir = path.join(registryDir(), workflowName);
-	copyWorkflowFiles(sourcePath, destDir);
-
-	const metadata: WorkflowSourceMetadata = isMarketplace
-		? {kind: 'marketplace-remote', ref: source}
-		: {kind: 'filesystem', path: path.resolve(sourcePath)};
-	writeWorkflowSourceMetadata(destDir, metadata);
-
-	return workflowName;
 }
 
 function toStoredMetadata(

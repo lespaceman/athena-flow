@@ -199,27 +199,19 @@ describe('runWorkflowCommand', () => {
 	describe('search', () => {
 		it('lists workflows from the default marketplace and shows their source', () => {
 			const logOut = vi.fn();
-			const listMarketplaceWorkflows = vi.fn().mockReturnValue([
+			const gatherMarketplaceWorkflowSources = vi.fn().mockReturnValue([
 				{
-					name: 'e2e-test-builder',
+					kind: 'marketplace-remote' as const,
+					slug: 'lespaceman/athena-workflow-marketplace',
+					owner: 'lespaceman',
+					repo: 'athena-workflow-marketplace',
+					workflowName: 'e2e-test-builder',
 					version: '1.2.3',
-					description: 'Build Playwright coverage',
-					workflowPath: '/cache/e2e-test-builder/workflow.json',
 					ref: 'e2e-test-builder@lespaceman/athena-workflow-marketplace',
-					source: {
-						kind: 'remote',
-						slug: 'lespaceman/athena-workflow-marketplace',
-						owner: 'lespaceman',
-						repo: 'athena-workflow-marketplace',
-					},
+					manifestPath: '/cache/.athena-workflow/marketplace.json',
+					workflowPath: '/cache/e2e-test-builder/workflow.json',
 				},
 			]);
-			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
-				kind: 'remote',
-				slug: 'lespaceman/athena-workflow-marketplace',
-				owner: 'lespaceman',
-				repo: 'athena-workflow-marketplace',
-			});
 			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
 			const code = runCmd(
@@ -228,59 +220,53 @@ describe('runWorkflowCommand', () => {
 					subcommandArgs: [],
 				},
 				{
-					listMarketplaceWorkflows,
-					resolveWorkflowMarketplaceSource,
+					gatherMarketplaceWorkflowSources,
 					readGlobalConfig,
 					logOut,
 				},
 			);
 
 			expect(code).toBe(0);
-			expect(resolveWorkflowMarketplaceSource).toHaveBeenCalledWith(
+			expect(gatherMarketplaceWorkflowSources).toHaveBeenCalledWith(
 				'lespaceman/athena-workflow-marketplace',
 			);
 			expect(logOut).toHaveBeenCalledWith(
-				'e2e-test-builder (1.2.3) - Build Playwright coverage [from lespaceman/athena-workflow-marketplace]',
+				'e2e-test-builder (1.2.3) [from lespaceman/athena-workflow-marketplace]',
 			);
 		});
 
 		it('disambiguates duplicate names across remote and local sources', () => {
 			const logOut = vi.fn();
-			const listMarketplaceWorkflows = vi.fn().mockReturnValue([
-				{
-					name: 'e2e-test-builder',
-					version: '0.0.1',
-					workflowPath: '/cache/remote/workflow.json',
-					ref: 'e2e-test-builder@owner/repo',
-					source: {
-						kind: 'remote',
-						slug: 'owner/repo',
-						owner: 'owner',
-						repo: 'repo',
-					},
-				},
-			]);
-			const listMarketplaceWorkflowsFromRepo = vi.fn().mockReturnValue([
-				{
-					name: 'e2e-test-builder',
-					version: '0.0.2',
-					workflowPath: '/local/path/workflows/e2e-test-builder/workflow.json',
-					ref: undefined,
-					source: {kind: 'local', repoDir: '/local/path'},
-				},
-			]);
-			const resolveWorkflowMarketplaceSource = vi
+			const gatherMarketplaceWorkflowSources = vi
 				.fn()
 				.mockImplementation((source: string) => {
 					if (source === 'owner/repo') {
-						return {
-							kind: 'remote',
-							slug: 'owner/repo',
-							owner: 'owner',
-							repo: 'repo',
-						};
+						return [
+							{
+								kind: 'marketplace-remote' as const,
+								slug: 'owner/repo',
+								owner: 'owner',
+								repo: 'repo',
+								workflowName: 'e2e-test-builder',
+								version: '0.0.1',
+								ref: 'e2e-test-builder@owner/repo',
+								manifestPath:
+									'/cache/owner/repo/.athena-workflow/marketplace.json',
+								workflowPath: '/cache/remote/workflow.json',
+							},
+						];
 					}
-					return {kind: 'local', repoDir: '/local/path'};
+					return [
+						{
+							kind: 'marketplace-local' as const,
+							repoDir: '/local/path',
+							workflowName: 'e2e-test-builder',
+							version: '0.0.2',
+							manifestPath: '/local/path/.athena-workflow/marketplace.json',
+							workflowPath:
+								'/local/path/workflows/e2e-test-builder/workflow.json',
+						},
+					];
 				});
 			const readGlobalConfig = vi.fn().mockReturnValue({
 				...emptyConfig,
@@ -293,9 +279,7 @@ describe('runWorkflowCommand', () => {
 					subcommandArgs: [],
 				},
 				{
-					listMarketplaceWorkflows,
-					listMarketplaceWorkflowsFromRepo,
-					resolveWorkflowMarketplaceSource,
+					gatherMarketplaceWorkflowSources,
 					readGlobalConfig,
 					logOut,
 				},
@@ -312,13 +296,7 @@ describe('runWorkflowCommand', () => {
 
 		it('prints message when no workflows found', () => {
 			const logOut = vi.fn();
-			const listMarketplaceWorkflows = vi.fn().mockReturnValue([]);
-			const resolveWorkflowMarketplaceSource = vi.fn().mockReturnValue({
-				kind: 'remote',
-				slug: 'lespaceman/athena-workflow-marketplace',
-				owner: 'lespaceman',
-				repo: 'athena-workflow-marketplace',
-			});
+			const gatherMarketplaceWorkflowSources = vi.fn().mockReturnValue([]);
 			const readGlobalConfig = vi.fn().mockReturnValue(emptyConfig);
 
 			const code = runCmd(
@@ -327,8 +305,7 @@ describe('runWorkflowCommand', () => {
 					subcommandArgs: [],
 				},
 				{
-					listMarketplaceWorkflows,
-					resolveWorkflowMarketplaceSource,
+					gatherMarketplaceWorkflowSources,
 					readGlobalConfig,
 					logOut,
 				},
@@ -337,6 +314,50 @@ describe('runWorkflowCommand', () => {
 			expect(code).toBe(0);
 			expect(logOut).toHaveBeenCalledWith(
 				'No workflows found in any configured marketplace.',
+			);
+		});
+
+		it('logs a warning and continues when one source fails', () => {
+			const logOut = vi.fn();
+			const logError = vi.fn();
+			const gatherMarketplaceWorkflowSources = vi
+				.fn()
+				.mockImplementation((source: string) => {
+					if (source === 'bad/source') throw new Error('network error');
+					return [
+						{
+							kind: 'marketplace-remote' as const,
+							slug: 'good/source',
+							owner: 'good',
+							repo: 'source',
+							workflowName: 'my-workflow',
+							version: '1.0.0',
+							ref: 'my-workflow@good/source',
+							manifestPath:
+								'/cache/good/source/.athena-workflow/marketplace.json',
+							workflowPath:
+								'/cache/good/source/workflows/my-workflow/workflow.json',
+						},
+					];
+				});
+			const readGlobalConfig = vi.fn().mockReturnValue({
+				...emptyConfig,
+				workflowMarketplaceSources: ['bad/source', 'good/source'],
+			});
+
+			const code = runCmd(
+				{subcommand: 'search', subcommandArgs: []},
+				{gatherMarketplaceWorkflowSources, readGlobalConfig, logOut, logError},
+			);
+
+			expect(code).toBe(0);
+			expect(logError).toHaveBeenCalledWith(
+				expect.stringContaining(
+					'Warning: failed to read marketplace bad/source',
+				),
+			);
+			expect(logOut).toHaveBeenCalledWith(
+				'my-workflow (1.0.0) [from good/source]',
 			);
 		});
 	});

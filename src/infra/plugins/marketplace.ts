@@ -37,8 +37,6 @@ import {
 	listMarketplaceWorkflows,
 	listMarketplaceWorkflowsFromRepo,
 	resolveMarketplaceWorkflow,
-	resolveWorkflowInstallSource,
-	resolveWorkflowInstallSourceFromSources,
 	resolveWorkflowMarketplaceSource,
 } from './workflowSourceResolution';
 
@@ -117,8 +115,6 @@ export {
 	resolveMarketplaceWorkflow,
 	resolveVersionedMarketplacePluginTarget,
 	resolveVersionedPluginDir,
-	resolveWorkflowInstallSource,
-	resolveWorkflowInstallSourceFromSources,
 	resolveWorkflowManifestPath,
 	resolveWorkflowMarketplaceSource,
 };

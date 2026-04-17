@@ -1,5 +1,4 @@
 import {
-	installWorkflow,
 	installWorkflowFromSource,
 	listBuiltinWorkflows,
 	listWorkflows,
@@ -8,13 +7,9 @@ import {
 	updateWorkflow,
 } from '../../core/workflows/index';
 import {
-	formatWorkflowListingSource,
-	listMarketplaceWorkflows,
-	listMarketplaceWorkflowsFromRepo,
+	gatherMarketplaceWorkflowSources,
 	resolveWorkflowInstall,
-	resolveWorkflowInstallSourceFromSources,
-	resolveWorkflowMarketplaceSource,
-	type MarketplaceWorkflowListing,
+	type ResolvedWorkflowSource,
 } from '../../infra/plugins/marketplace';
 import {
 	projectConfigPath,
@@ -48,19 +43,14 @@ export type WorkflowCommandInput = {
 };
 
 export type WorkflowCommandDeps = {
-	installWorkflow?: typeof installWorkflow;
 	installWorkflowFromSource?: typeof installWorkflowFromSource;
 	listWorkflows?: typeof listWorkflows;
 	listBuiltinWorkflows?: typeof listBuiltinWorkflows;
 	removeWorkflow?: typeof removeWorkflow;
 	updateWorkflow?: typeof updateWorkflow;
 	resolveWorkflow?: typeof resolveWorkflow;
-	listMarketplaceWorkflows?: typeof listMarketplaceWorkflows;
-	listMarketplaceWorkflowsFromRepo?: typeof listMarketplaceWorkflowsFromRepo;
+	gatherMarketplaceWorkflowSources?: typeof gatherMarketplaceWorkflowSources;
 	resolveWorkflowInstall?: typeof resolveWorkflowInstall;
-	// Legacy field retained for now (removed in Task 12):
-	resolveWorkflowInstallSourceFromSources?: typeof resolveWorkflowInstallSourceFromSources;
-	resolveWorkflowMarketplaceSource?: typeof resolveWorkflowMarketplaceSource;
 	readGlobalConfig?: typeof readGlobalConfig;
 	readProjectConfig?: typeof readConfig;
 	writeGlobalConfig?: typeof writeGlobalConfig;
@@ -114,12 +104,8 @@ export function runWorkflowCommand(
 	const remove = deps.removeWorkflow ?? removeWorkflow;
 	const resolveInstalledWorkflow = deps.resolveWorkflow ?? resolveWorkflow;
 	const upgrade = deps.updateWorkflow ?? updateWorkflow;
-	const listMarketplace =
-		deps.listMarketplaceWorkflows ?? listMarketplaceWorkflows;
-	const listMarketplaceFromRepo =
-		deps.listMarketplaceWorkflowsFromRepo ?? listMarketplaceWorkflowsFromRepo;
-	const resolveMarketplaceSource =
-		deps.resolveWorkflowMarketplaceSource ?? resolveWorkflowMarketplaceSource;
+	const gatherSources =
+		deps.gatherMarketplaceWorkflowSources ?? gatherMarketplaceWorkflowSources;
 	const readGlobal = deps.readGlobalConfig ?? readGlobalConfig;
 	const readProject = deps.readProjectConfig ?? readConfig;
 	const writeGlobal = deps.writeGlobalConfig ?? writeGlobalConfig;
@@ -129,15 +115,6 @@ export function runWorkflowCommand(
 
 	const fmtError = (error: unknown): string =>
 		`Error: ${error instanceof Error ? error.message : String(error)}`;
-
-	const formatMarketplaceWorkflow = (
-		entry: MarketplaceWorkflowListing,
-	): string => {
-		const version = entry.version ? ` (${entry.version})` : '';
-		const description = entry.description ? ` - ${entry.description}` : '';
-		const sourceLabel = formatWorkflowListingSource(entry.source);
-		return `${entry.name}${version}${description} [from ${sourceLabel}]`;
-	};
 
 	const formatWorkflowLabel = (name: string): string => {
 		try {
@@ -212,14 +189,21 @@ export function runWorkflowCommand(
 			try {
 				let found = false;
 				for (const source of sources) {
-					const resolvedSource = resolveMarketplaceSource(source);
-					const workflows =
-						resolvedSource.kind === 'remote'
-							? listMarketplace(resolvedSource.owner, resolvedSource.repo)
-							: listMarketplaceFromRepo(resolvedSource.repoDir);
-
-					for (const workflow of workflows) {
-						logOut(formatMarketplaceWorkflow(workflow));
+					let resolved: readonly ResolvedWorkflowSource[];
+					try {
+						resolved = gatherSources(source);
+					} catch (error) {
+						logError(
+							`Warning: failed to read marketplace ${source}: ${fmtError(error)}`,
+						);
+						continue;
+					}
+					for (const r of resolved) {
+						if (r.kind === 'filesystem') continue;
+						const label =
+							r.kind === 'marketplace-remote' ? r.slug : `local:${r.repoDir}`;
+						const version = r.version ? ` (${r.version})` : '';
+						logOut(`${r.workflowName}${version} [from ${label}]`);
 						found = true;
 					}
 				}

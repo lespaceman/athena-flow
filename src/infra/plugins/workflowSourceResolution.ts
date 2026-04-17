@@ -106,8 +106,8 @@ export function resolveMarketplaceWorkflow(ref: string): string {
 /**
  * Thrown when a workflow with the requested name exists in a marketplace but
  * the pinned version does not match. Surfaced separately from the generic
- * "not found" error so `resolveWorkflowInstallSourceFromSources` can report
- * the specific mismatch instead of a confusing catch-all message.
+ * "not found" error so the resolver can report the specific mismatch instead
+ * of a confusing catch-all message.
  */
 export class WorkflowVersionNotFoundError extends Error {
 	readonly workflowName: string;
@@ -160,129 +160,6 @@ function parseBareWorkflowName(source: string): ParsedWorkflowName {
 		bareName: source.slice(0, atIdx),
 		pinnedVersion: suffix,
 	};
-}
-
-function findListingForInstall(
-	listings: MarketplaceWorkflowListing[],
-	bareName: string,
-	pinnedVersion: string | undefined,
-	sourceLabel: string,
-): MarketplaceWorkflowListing | undefined {
-	const namedMatches = listings.filter(entry => entry.name === bareName);
-	if (namedMatches.length === 0) {
-		return undefined;
-	}
-	if (pinnedVersion === undefined) {
-		return namedMatches[0];
-	}
-	const exact = namedMatches.find(entry => entry.version === pinnedVersion);
-	if (exact) {
-		return exact;
-	}
-	// Name matched, version didn't — throw the specific error so the caller
-	// can prefer it over generic "not found" messages from other sources.
-	throw new WorkflowVersionNotFoundError(
-		bareName,
-		pinnedVersion,
-		namedMatches[0]!.version,
-		sourceLabel,
-	);
-}
-
-type MarketplaceListingFetcher = {
-	listings: MarketplaceWorkflowListing[];
-	sourceLabel: string;
-	installValue: (workflow: MarketplaceWorkflowListing) => string;
-};
-
-function fetchMarketplaceListings(
-	marketplaceSource: WorkflowMarketplaceSource,
-): MarketplaceListingFetcher {
-	if (marketplaceSource.kind === 'remote') {
-		return {
-			listings: listMarketplaceWorkflows(
-				marketplaceSource.owner,
-				marketplaceSource.repo,
-			),
-			sourceLabel: `marketplace ${marketplaceSource.slug}`,
-			installValue: workflow => {
-				if (!workflow.ref) {
-					throw new Error(
-						`Workflow "${workflow.name}" in marketplace ${marketplaceSource.slug} is missing a marketplace ref`,
-					);
-				}
-				return workflow.ref;
-			},
-		};
-	}
-	return {
-		listings: listMarketplaceWorkflowsFromRepo(marketplaceSource.repoDir),
-		sourceLabel: `local marketplace ${marketplaceSource.repoDir}`,
-		installValue: workflow => workflow.workflowPath,
-	};
-}
-
-export function resolveWorkflowInstallSource(
-	source: string,
-	configuredMarketplaceSource: string,
-): string {
-	if (isMarketplaceRef(source)) {
-		return source;
-	}
-
-	const resolvedPath = path.resolve(source);
-	if (fs.existsSync(resolvedPath)) {
-		return source;
-	}
-
-	const {bareName, pinnedVersion} = parseBareWorkflowName(source);
-
-	if (bareName.includes('/') || bareName.includes('\\')) {
-		throw new Error(`Workflow source not found: ${source}`);
-	}
-
-	const fetcher = fetchMarketplaceListings(
-		resolveWorkflowMarketplaceSource(configuredMarketplaceSource),
-	);
-	const workflow = findListingForInstall(
-		fetcher.listings,
-		bareName,
-		pinnedVersion,
-		fetcher.sourceLabel,
-	);
-	if (!workflow) {
-		throw new Error(
-			`Workflow "${bareName}" not found in ${fetcher.sourceLabel}`,
-		);
-	}
-	return fetcher.installValue(workflow);
-}
-
-export function resolveWorkflowInstallSourceFromSources(
-	name: string,
-	sources: string[],
-): string {
-	let versionMismatch: WorkflowVersionNotFoundError | undefined;
-
-	for (const source of sources) {
-		try {
-			return resolveWorkflowInstallSource(name, source);
-		} catch (error) {
-			if (error instanceof WorkflowVersionNotFoundError) {
-				// Keep the first specific mismatch so we can surface it if no other
-				// source resolves cleanly. A later source may still contain the
-				// exact version, so continue iterating.
-				versionMismatch ??= error;
-				continue;
-			}
-			// Generic miss: try next configured source.
-		}
-	}
-
-	if (versionMismatch) {
-		throw versionMismatch;
-	}
-	throw new Error(`Workflow "${name}" not found in any configured marketplace`);
 }
 
 /**
