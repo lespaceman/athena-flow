@@ -13,6 +13,12 @@ import {
 	type MarketplaceWorkflowListing,
 	type WorkflowMarketplaceSource,
 } from './marketplaceShared';
+import * as marketplaceShared from './marketplaceShared';
+import {
+	WorkflowAmbiguityError,
+	WorkflowNotFoundError,
+	type WorkflowAmbiguityCandidate,
+} from './workflowSourceErrors';
 
 export function findMarketplaceRepoDir(startPath: string): string | undefined {
 	let currentDir = path.resolve(startPath);
@@ -346,6 +352,107 @@ export function gatherMarketplaceWorkflowSources(
 		manifestPath,
 		workflowPath: entry.workflowPath,
 	}));
+}
+
+function resolvedSourceLabel(s: ResolvedWorkflowSource): string {
+	if (s.kind === 'marketplace-remote') return `marketplace ${s.slug}`;
+	if (s.kind === 'marketplace-local') return `local marketplace ${s.repoDir}`;
+	return `file ${s.workflowPath}`;
+}
+
+function resolvedSourceDisambiguator(s: ResolvedWorkflowSource): string {
+	if (s.kind === 'marketplace-remote') return s.ref;
+	return s.workflowPath;
+}
+
+export function resolveWorkflowInstall(
+	sourceOrName: string,
+	configuredSources: string[],
+): ResolvedWorkflowSource {
+	// Marketplace ref: resolve directly, no ambiguity checking.
+	if (isMarketplaceRef(sourceOrName)) {
+		const {pluginName: workflowName, owner, repo} = parseRef(sourceOrName);
+		marketplaceShared.requireGitForMarketplace('workflows');
+		const repoDir = marketplaceShared.ensureRepo(owner, repo);
+		const manifestPath = resolveWorkflowManifestPath(repoDir);
+		const workflowPath = resolveWorkflowPathFromManifest(
+			workflowName,
+			repoDir,
+			manifestPath,
+		);
+		const entry = listWorkflowEntriesFromManifest(repoDir, manifestPath, {
+			kind: 'remote',
+			slug: `${owner}/${repo}`,
+			owner,
+			repo,
+		}).find(e => e.name === workflowName);
+		return {
+			kind: 'marketplace-remote',
+			slug: `${owner}/${repo}`,
+			owner,
+			repo,
+			workflowName,
+			version: entry?.version,
+			ref: sourceOrName,
+			manifestPath,
+			workflowPath,
+		};
+	}
+
+	// Filesystem path to workflow.json.
+	const resolvedPath = path.resolve(sourceOrName);
+	if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isFile()) {
+		return {kind: 'filesystem', workflowPath: fs.realpathSync(resolvedPath)};
+	}
+
+	// Bare name (optionally version-pinned): gather all configured sources.
+	const {bareName, pinnedVersion} = parseBareWorkflowName(sourceOrName);
+	if (bareName.includes('/') || bareName.includes('\\')) {
+		throw new Error(`Workflow source not found: ${sourceOrName}`);
+	}
+
+	const allListings: ResolvedWorkflowSource[] = [];
+	let versionMismatch: WorkflowVersionNotFoundError | undefined;
+
+	for (const configured of configuredSources) {
+		let sources: ResolvedWorkflowSource[];
+		try {
+			sources = gatherMarketplaceWorkflowSources(configured);
+		} catch {
+			continue;
+		}
+		for (const src of sources) {
+			if (
+				(src.kind === 'marketplace-remote' ||
+					src.kind === 'marketplace-local') &&
+				src.workflowName === bareName
+			) {
+				if (pinnedVersion !== undefined && src.version !== pinnedVersion) {
+					versionMismatch ??= new WorkflowVersionNotFoundError(
+						bareName,
+						pinnedVersion,
+						src.version,
+						resolvedSourceLabel(src),
+					);
+					continue;
+				}
+				allListings.push(src);
+			}
+		}
+	}
+
+	if (allListings.length === 0) {
+		if (versionMismatch) throw versionMismatch;
+		throw new WorkflowNotFoundError(bareName, configuredSources);
+	}
+	if (allListings.length > 1) {
+		const candidates: WorkflowAmbiguityCandidate[] = allListings.map(s => ({
+			sourceLabel: resolvedSourceLabel(s),
+			disambiguator: resolvedSourceDisambiguator(s),
+		}));
+		throw new WorkflowAmbiguityError(bareName, candidates);
+	}
+	return allListings[0]!;
 }
 
 export type ResolvedWorkflowSource =
