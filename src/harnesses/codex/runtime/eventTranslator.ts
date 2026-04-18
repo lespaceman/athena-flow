@@ -7,25 +7,49 @@ import type {
 	JsonRpcServerRequest,
 } from '../protocol/jsonrpc';
 import type {
+	CodexAccountLoginCompletedNotification,
+	CodexAccountRateLimitsUpdatedNotification,
 	CodexApplyPatchApprovalParams,
 	CodexAgentMessageDeltaNotification,
+	CodexAppListUpdatedNotification,
 	CodexCommandExecutionRequestApprovalParams,
+	CodexConfigWarningNotification,
+	CodexDeprecationNoticeNotification,
 	CodexExecCommandApprovalParams,
+	CodexFileChangeOutputDeltaNotification,
+	CodexFuzzyFileSearchSessionCompletedNotification,
+	CodexFuzzyFileSearchSessionUpdatedNotification,
 	CodexFileChangeRequestApprovalParams,
 	CodexItemCompletedNotification,
 	CodexItemStartedNotification,
+	CodexMcpServerOauthLoginCompletedNotification,
 	CodexMcpServerElicitationRequestParams,
+	CodexMcpServerStatusUpdatedNotification,
+	CodexMcpToolCallProgressNotification,
+	CodexModelReroutedNotification,
 	CodexPlanDeltaNotification,
 	CodexPermissionsRequestApprovalParams,
 	CodexReasoningSummaryPartAddedNotification,
 	CodexReasoningSummaryTextDeltaNotification,
 	CodexReasoningTextDeltaNotification,
+	CodexTerminalInteractionNotification,
+	CodexThreadArchivedNotification,
+	CodexThreadClosedNotification,
 	CodexThreadNameUpdatedNotification,
+	CodexThreadRealtimeClosedNotification,
+	CodexThreadRealtimeErrorNotification,
+	CodexThreadRealtimeItemAddedNotification,
+	CodexThreadRealtimeStartedNotification,
+	CodexThreadRealtimeTranscriptDeltaNotification,
+	CodexThreadRealtimeTranscriptDoneNotification,
 	CodexThreadTokenUsageUpdatedNotification,
+	CodexThreadUnarchivedNotification,
 	CodexToolRequestUserInputParams,
 	CodexTurnCompletedNotification,
 	CodexTurnPlanUpdatedNotification,
 	CodexTurnStartedNotification,
+	CodexWindowsSandboxSetupCompletedNotification,
+	CodexWindowsWorldWritableWarningNotification,
 } from '../protocol';
 import {getCodexUsageDelta, getCodexUsageTotals} from './tokenUsage';
 import * as M from '../protocol/methods';
@@ -87,6 +111,41 @@ function resolveToolInput(
 	}
 }
 
+function summarizeRateLimits(
+	params: CodexAccountRateLimitsUpdatedNotification,
+): string {
+	const snapshot = params.rateLimits;
+	const name = snapshot.limitName ?? snapshot.limitId ?? 'current account';
+	const primary = snapshot.primary;
+	if (!primary) {
+		return `Rate limits updated for ${name}.`;
+	}
+
+	const usedPercent =
+		typeof primary.usedPercent === 'number' ? primary.usedPercent : null;
+	const windowDuration =
+		typeof primary.windowDurationMins === 'number'
+			? primary.windowDurationMins
+			: null;
+	if (usedPercent !== null) {
+		const rounded = Math.round(usedPercent);
+		return windowDuration !== null
+			? `Rate limits updated for ${name}: ${rounded}% used in the last ${windowDuration} minutes.`
+			: `Rate limits updated for ${name}: ${rounded}% used.`;
+	}
+
+	return `Rate limits updated for ${name}.`;
+}
+
+function previewText(value: string | null | undefined, max = 80): string {
+	if (!value) return '';
+	const normalized = value.replace(/\s+/g, ' ').trim();
+	if (!normalized) return '';
+	return normalized.length <= max
+		? normalized
+		: `${normalized.slice(0, max - 1)}…`;
+}
+
 function permissionRequestEvent(
 	toolName: string,
 	toolInput: Record<string, unknown>,
@@ -135,6 +194,43 @@ export function translateNotification(
 				kind: 'session.start',
 				data: {
 					source: 'codex',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_ARCHIVED: {
+			const params = msg.params as CodexThreadArchivedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Thread archived',
+					message: `Thread ${params.threadId} archived.`,
+					notification_type: 'thread.archived',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_UNARCHIVED: {
+			const params = msg.params as CodexThreadUnarchivedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Thread unarchived',
+					message: `Thread ${params.threadId} restored from archive.`,
+					notification_type: 'thread.unarchived',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_CLOSED: {
+			const params = msg.params as CodexThreadClosedNotification;
+			return {
+				kind: 'session.end',
+				data: {
+					reason: `thread closed (${params.threadId})`,
 				},
 				expectsDecision: false,
 			};
@@ -242,6 +338,53 @@ export function translateNotification(
 				toolName: 'Bash',
 				toolUseId:
 					typeof params['itemId'] === 'string' ? params['itemId'] : undefined,
+				expectsDecision: false,
+			};
+		}
+
+		case M.ITEM_COMMAND_EXECUTION_TERMINAL_INTERACTION: {
+			const params = msg.params as CodexTerminalInteractionNotification;
+			const stdinPreview = previewText(params.stdin, 60);
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Terminal input',
+					message: stdinPreview
+						? `Sent terminal input to interactive Bash session: ${stdinPreview}`
+						: 'Sent terminal input to interactive Bash session.',
+					notification_type: 'command_execution.terminal_interaction',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ITEM_FILE_CHANGE_OUTPUT_DELTA: {
+			const params = msg.params as CodexFileChangeOutputDeltaNotification;
+			return {
+				kind: 'tool.delta',
+				data: {
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					tool_name: 'Edit',
+					tool_input: {},
+					tool_use_id: params.itemId,
+					delta: params.delta,
+				},
+				toolName: 'Edit',
+				toolUseId: params.itemId,
+				expectsDecision: false,
+			};
+		}
+
+		case M.ITEM_MCP_TOOL_CALL_PROGRESS: {
+			const params = msg.params as CodexMcpToolCallProgressNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'MCP progress',
+					message: params.message,
+					notification_type: 'mcp_tool_call.progress',
+				},
 				expectsDecision: false,
 			};
 		}
@@ -419,6 +562,262 @@ export function translateNotification(
 				data: {
 					message: `Thread renamed: ${params.threadName ?? params.threadId}`,
 					notification_type: 'thread_name',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.CONFIG_WARNING: {
+			const params = msg.params as CodexConfigWarningNotification;
+			const pathSuffix = params.path ? ` (${params.path})` : '';
+			const details = previewText(params.details ?? undefined, 120);
+			return {
+				kind: 'notification',
+				data: {
+					title: `Config warning${pathSuffix}`,
+					message: details ? `${params.summary} ${details}` : params.summary,
+					notification_type: 'config.warning',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.MCP_SERVER_STARTUP_STATUS_UPDATED: {
+			const params = msg.params as CodexMcpServerStatusUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'MCP server status',
+					message: params.error
+						? `MCP server ${params.name} is ${params.status}: ${params.error}`
+						: `MCP server ${params.name} is ${params.status}.`,
+					notification_type: 'mcp_server.startup_status',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.MCP_SERVER_OAUTH_LOGIN_COMPLETED: {
+			const params =
+				msg.params as CodexMcpServerOauthLoginCompletedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'MCP login',
+					message: params.success
+						? `MCP server ${params.name} login completed.`
+						: `MCP server ${params.name} login failed${params.error ? `: ${params.error}` : '.'}`,
+					notification_type: 'mcp_server.oauth_login_completed',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ACCOUNT_RATE_LIMITS_UPDATED: {
+			const params = msg.params as CodexAccountRateLimitsUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Rate limits updated',
+					message: summarizeRateLimits(params),
+					notification_type: 'account.rate_limits_updated',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ACCOUNT_LOGIN_COMPLETED: {
+			const params = msg.params as CodexAccountLoginCompletedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Account login',
+					message: params.success
+						? `Account login completed${params.loginId ? ` (${params.loginId})` : '.'}`
+						: `Account login failed${params.error ? `: ${params.error}` : '.'}`,
+					notification_type: 'account.login_completed',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.APP_LIST_UPDATED: {
+			const params = msg.params as CodexAppListUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Apps updated',
+					message: `App list updated (${params.data.length} apps available).`,
+					notification_type: 'app.list_updated',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.MODEL_REROUTED: {
+			const params = msg.params as CodexModelReroutedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Model rerouted',
+					message: `Turn rerouted from ${params.fromModel} to ${params.toModel} (${params.reason}).`,
+					notification_type: 'model.rerouted',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.DEPRECATION_NOTICE: {
+			const params = msg.params as CodexDeprecationNoticeNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Deprecation notice',
+					message: params.details
+						? `${params.summary} ${previewText(params.details, 120)}`
+						: params.summary,
+					notification_type: 'deprecation.notice',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.FUZZY_FILE_SEARCH_SESSION_UPDATED: {
+			const params =
+				msg.params as CodexFuzzyFileSearchSessionUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'File search updated',
+					message: `Fuzzy file search "${params.query}" now has ${params.files.length} matches.`,
+					notification_type: 'fuzzy_file_search.updated',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.FUZZY_FILE_SEARCH_SESSION_COMPLETED: {
+			const params =
+				msg.params as CodexFuzzyFileSearchSessionCompletedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'File search completed',
+					message: `Fuzzy file search session ${params.sessionId} completed.`,
+					notification_type: 'fuzzy_file_search.completed',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_STARTED: {
+			const params = msg.params as CodexThreadRealtimeStartedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime started',
+					message: `Realtime started for thread ${params.threadId}.`,
+					notification_type: 'thread.realtime.started',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_ITEM_ADDED: {
+			const params = msg.params as CodexThreadRealtimeItemAddedNotification;
+			const item = asRecord(params.item);
+			const itemType = typeof item['type'] === 'string' ? item['type'] : 'item';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime item',
+					message: `Realtime emitted ${itemType} for thread ${params.threadId}.`,
+					notification_type: 'thread.realtime.item_added',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_TRANSCRIPT_DELTA: {
+			const params =
+				msg.params as CodexThreadRealtimeTranscriptDeltaNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime transcript',
+					message: `${params.role}: ${previewText(params.delta, 100)}`,
+					notification_type: 'thread.realtime.transcript_delta',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_TRANSCRIPT_DONE: {
+			const params =
+				msg.params as CodexThreadRealtimeTranscriptDoneNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime transcript',
+					message: `${params.role}: ${previewText(params.text, 100)}`,
+					notification_type: 'thread.realtime.transcript_done',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_ERROR: {
+			const params = msg.params as CodexThreadRealtimeErrorNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime error',
+					message: params.message,
+					notification_type: 'thread.realtime.error',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_CLOSED: {
+			const params = msg.params as CodexThreadRealtimeClosedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime closed',
+					message: params.reason
+						? `Realtime closed: ${params.reason}`
+						: 'Realtime transport closed.',
+					notification_type: 'thread.realtime.closed',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.WINDOWS_WORLD_WRITABLE_WARNING: {
+			const params = msg.params as CodexWindowsWorldWritableWarningNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Windows sandbox warning',
+					message: `World-writable directories detected (${params.samplePaths.length} samples${params.extraCount > 0 ? `, ${params.extraCount} more` : ''}).`,
+					notification_type: 'windows.world_writable_warning',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.WINDOWS_SANDBOX_SETUP_COMPLETED: {
+			const params =
+				msg.params as CodexWindowsSandboxSetupCompletedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Windows sandbox setup',
+					message: params.success
+						? `Windows sandbox setup completed for ${params.mode}.`
+						: `Windows sandbox setup failed for ${params.mode}${params.error ? `: ${params.error}` : '.'}`,
+					notification_type: 'windows_sandbox.setup_completed',
 				},
 				expectsDecision: false,
 			};

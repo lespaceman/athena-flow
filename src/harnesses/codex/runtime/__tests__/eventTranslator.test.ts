@@ -102,6 +102,48 @@ describe('translateNotification', () => {
 		);
 	});
 
+	it('maps item/fileChange/outputDelta to Edit tool.delta', () => {
+		const result = translateNotification({
+			method: 'item/fileChange/outputDelta',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				itemId: 'edit-1',
+				delta: 'patched\n',
+			},
+		});
+		expect(result.kind).toBe('tool.delta');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				thread_id: 'th1',
+				turn_id: 't1',
+				tool_name: 'Edit',
+				tool_use_id: 'edit-1',
+				delta: 'patched\n',
+			}),
+		);
+	});
+
+	it('maps item/commandExecution/terminalInteraction to readable notification', () => {
+		const result = translateNotification({
+			method: 'item/commandExecution/terminalInteraction',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				itemId: 'cmd-1',
+				processId: 'proc-1',
+				stdin: 'allow\n',
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				title: 'Terminal input',
+				notification_type: 'command_execution.terminal_interaction',
+			}),
+		);
+	});
+
 	it('maps item/completed (agentMessage) to message.complete', () => {
 		const result = translateNotification({
 			method: 'item/completed',
@@ -138,6 +180,74 @@ describe('translateNotification', () => {
 			},
 		});
 		expect(result.kind).toBe('turn.complete');
+	});
+
+	it('maps configWarning to readable notification', () => {
+		const result = translateNotification({
+			method: 'configWarning',
+			params: {
+				summary: 'Invalid config value',
+				details: 'model_reasoning_effort is ignored here',
+				path: '/tmp/config.json',
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				title: 'Config warning (/tmp/config.json)',
+				notification_type: 'config.warning',
+			}),
+		);
+	});
+
+	it('maps thread/closed to session.end', () => {
+		const result = translateNotification({
+			method: 'thread/closed',
+			params: {
+				threadId: 'th1',
+			},
+		});
+		expect(result.kind).toBe('session.end');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				reason: 'thread closed (th1)',
+			}),
+		);
+	});
+
+	it('maps mcpServer/startupStatus/updated to readable notification', () => {
+		const result = translateNotification({
+			method: 'mcpServer/startupStatus/updated',
+			params: {
+				name: 'github',
+				status: 'failed',
+				error: 'bad auth',
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'mcp_server.startup_status',
+			}),
+		);
+	});
+
+	it('maps thread/realtime/transcript/delta to readable notification', () => {
+		const result = translateNotification({
+			method: 'thread/realtime/transcript/delta',
+			params: {
+				threadId: 'th1',
+				role: 'assistant',
+				delta: 'Hello from realtime',
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				title: 'Realtime transcript',
+				notification_type: 'thread.realtime.transcript_delta',
+			}),
+		);
 	});
 
 	it('maps item/started (commandExecution) to tool.pre', () => {

@@ -24,10 +24,16 @@ export const TURN_STARTED = 'turn/started';
 export const TURN_COMPLETED = 'turn/completed';
 export const TURN_DIFF_UPDATED = 'turn/diff/updated';
 export const TURN_PLAN_UPDATED = 'turn/plan/updated';
+export const THREAD_ARCHIVED = 'thread/archived';
+export const THREAD_UNARCHIVED = 'thread/unarchived';
+export const THREAD_CLOSED = 'thread/closed';
 export const ITEM_STARTED = 'item/started';
 export const ITEM_COMPLETED = 'item/completed';
 export const ITEM_COMMAND_EXECUTION_OUTPUT_DELTA =
 	'item/commandExecution/outputDelta';
+export const ITEM_COMMAND_EXECUTION_TERMINAL_INTERACTION =
+	'item/commandExecution/terminalInteraction';
+export const ITEM_FILE_CHANGE_OUTPUT_DELTA = 'item/fileChange/outputDelta';
 export const ITEM_AGENT_MESSAGE_DELTA = 'item/agentMessage/delta';
 export const ITEM_PLAN_DELTA = 'item/plan/delta';
 export const ITEM_REASONING_SUMMARY_TEXT_DELTA =
@@ -35,11 +41,36 @@ export const ITEM_REASONING_SUMMARY_TEXT_DELTA =
 export const ITEM_REASONING_SUMMARY_PART_ADDED =
 	'item/reasoning/summaryPartAdded';
 export const ITEM_REASONING_TEXT_DELTA = 'item/reasoning/textDelta';
+export const ITEM_MCP_TOOL_CALL_PROGRESS = 'item/mcpToolCall/progress';
 export const THREAD_STARTED = 'thread/started';
 export const SKILLS_CHANGED = 'skills/changed';
 export const THREAD_STATUS_CHANGED = 'thread/status/changed';
 export const THREAD_TOKEN_USAGE_UPDATED = 'thread/tokenUsage/updated';
 export const THREAD_NAME_UPDATED = 'thread/name/updated';
+export const CONFIG_WARNING = 'configWarning';
+export const MCP_SERVER_STARTUP_STATUS_UPDATED =
+	'mcpServer/startupStatus/updated';
+export const MCP_SERVER_OAUTH_LOGIN_COMPLETED =
+	'mcpServer/oauthLogin/completed';
+export const ACCOUNT_RATE_LIMITS_UPDATED = 'account/rateLimits/updated';
+export const ACCOUNT_LOGIN_COMPLETED = 'account/login/completed';
+export const APP_LIST_UPDATED = 'app/list/updated';
+export const MODEL_REROUTED = 'model/rerouted';
+export const DEPRECATION_NOTICE = 'deprecationNotice';
+export const FUZZY_FILE_SEARCH_SESSION_UPDATED =
+	'fuzzyFileSearch/sessionUpdated';
+export const FUZZY_FILE_SEARCH_SESSION_COMPLETED =
+	'fuzzyFileSearch/sessionCompleted';
+export const THREAD_REALTIME_STARTED = 'thread/realtime/started';
+export const THREAD_REALTIME_ITEM_ADDED = 'thread/realtime/itemAdded';
+export const THREAD_REALTIME_TRANSCRIPT_DELTA =
+	'thread/realtime/transcript/delta';
+export const THREAD_REALTIME_TRANSCRIPT_DONE =
+	'thread/realtime/transcript/done';
+export const THREAD_REALTIME_ERROR = 'thread/realtime/error';
+export const THREAD_REALTIME_CLOSED = 'thread/realtime/closed';
+export const WINDOWS_WORLD_WRITABLE_WARNING = 'windows/worldWritableWarning';
+export const WINDOWS_SANDBOX_SETUP_COMPLETED = 'windowsSandbox/setupCompleted';
 
 // Server → client requests (need response)
 export const CMD_EXEC_REQUEST_APPROVAL =
