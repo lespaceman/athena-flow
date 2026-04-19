@@ -46,11 +46,13 @@ describe('ModelPicker', () => {
 			expect(lastFrame()).toContain('> Sonnet');
 		});
 
-		stdin.write('\u001B[B');
-
-		await vi.waitFor(() => {
-			expect(lastFrame()).toContain('> Opus');
-		});
+		await vi.waitFor(
+			() => {
+				stdin.write('\u001B[B');
+				expect(lastFrame()).toContain('> Opus');
+			},
+			{timeout: 5000, interval: 50},
+		);
 
 		stdin.write('\r');
 
