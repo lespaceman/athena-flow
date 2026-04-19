@@ -3,8 +3,6 @@ import {render} from 'ink-testing-library';
 import {describe, expect, it, vi} from 'vitest';
 import ModelPicker from './ModelPicker';
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 vi.mock('./listAvailableModels', () => ({
 	listAvailableModels: vi.fn(async () => [
 		{
@@ -45,10 +43,15 @@ describe('ModelPicker', () => {
 
 		await vi.waitFor(() => {
 			expect(lastFrame()).toContain('Opus');
+			expect(lastFrame()).toContain('> Sonnet');
 		});
 
 		stdin.write('\u001B[B');
-		await delay(20);
+
+		await vi.waitFor(() => {
+			expect(lastFrame()).toContain('> Opus');
+		});
+
 		stdin.write('\r');
 
 		await vi.waitFor(() => {
