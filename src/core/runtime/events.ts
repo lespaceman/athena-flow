@@ -16,15 +16,23 @@ export type RuntimeEventKind =
 	| 'tool.post'
 	| 'tool.failure'
 	| 'permission.request'
+	| 'permission.denied'
 	| 'stop.request'
+	| 'stop.failure'
 	| 'subagent.start'
 	| 'subagent.stop'
 	| 'notification'
 	| 'compact.pre'
+	| 'compact.post'
 	| 'setup'
 	| 'teammate.idle'
+	| 'task.created'
 	| 'task.completed'
 	| 'config.change'
+	| 'cwd.changed'
+	| 'file.changed'
+	| 'elicitation.request'
+	| 'elicitation.result'
 	| 'unknown';
 
 export type RuntimeEventDataMap = {
@@ -122,9 +130,19 @@ export type RuntimeEventDataMap = {
 		tool_use_id?: string;
 		permission_suggestions?: Array<{type: string; tool: string}>;
 	};
+	'permission.denied': {
+		tool_name?: string;
+		tool_input?: Record<string, unknown>;
+		tool_use_id?: string;
+		reason?: string;
+	};
 	'stop.request': {
 		stop_hook_active?: boolean;
 		last_assistant_message?: string;
+	};
+	'stop.failure': {
+		error_type?: string;
+		error_message?: string;
 	};
 	'subagent.start': {
 		agent_id?: string;
@@ -149,10 +167,20 @@ export type RuntimeEventDataMap = {
 		trigger?: 'manual' | 'auto';
 		custom_instructions?: string;
 	};
+	'compact.post': {
+		trigger?: 'manual' | 'auto';
+	};
 	setup: {
 		trigger?: 'init' | 'maintenance';
 	};
 	'teammate.idle': {
+		teammate_name?: string;
+		team_name?: string;
+	};
+	'task.created': {
+		task_id?: string;
+		task_subject?: string;
+		task_description?: string;
 		teammate_name?: string;
 		team_name?: string;
 	};
@@ -166,6 +194,21 @@ export type RuntimeEventDataMap = {
 	'config.change': {
 		source?: string;
 		file_path?: string;
+	};
+	'cwd.changed': {
+		cwd?: string;
+	};
+	'file.changed': {
+		file_path?: string;
+	};
+	'elicitation.request': {
+		mcp_server?: string;
+		form?: unknown;
+	};
+	'elicitation.result': {
+		mcp_server?: string;
+		action?: string;
+		content?: Record<string, unknown>;
 	};
 	unknown: {
 		source_event_name?: string;
@@ -200,8 +243,12 @@ export function mapLegacyHookNameToRuntimeKind(
 			return 'tool.failure';
 		case 'PermissionRequest':
 			return 'permission.request';
+		case 'PermissionDenied':
+			return 'permission.denied';
 		case 'Stop':
 			return 'stop.request';
+		case 'StopFailure':
+			return 'stop.failure';
 		case 'SubagentStart':
 			return 'subagent.start';
 		case 'SubagentStop':
@@ -210,14 +257,26 @@ export function mapLegacyHookNameToRuntimeKind(
 			return 'notification';
 		case 'PreCompact':
 			return 'compact.pre';
+		case 'PostCompact':
+			return 'compact.post';
 		case 'Setup':
 			return 'setup';
 		case 'TeammateIdle':
 			return 'teammate.idle';
+		case 'TaskCreated':
+			return 'task.created';
 		case 'TaskCompleted':
 			return 'task.completed';
 		case 'ConfigChange':
 			return 'config.change';
+		case 'CwdChanged':
+			return 'cwd.changed';
+		case 'FileChanged':
+			return 'file.changed';
+		case 'Elicitation':
+			return 'elicitation.request';
+		case 'ElicitationResult':
+			return 'elicitation.result';
 		default:
 			return 'unknown';
 	}

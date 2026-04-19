@@ -557,8 +557,16 @@ export function renderDetailLines(
 		case 'todo.update':
 		case 'todo.done':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
-		case 'config.change': {
+		case 'config.change':
+		case 'compact.post':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'stop.failure':
+		case 'permission.denied':
+		case 'elicitation.request':
+		case 'elicitation.result': {
 			const header = buildCompactHeader(event, width, {theme});
 			const json = JSON.stringify(event.raw ?? event.data, null, 2);
 			const content = highlightCode(json, cw, 'json');

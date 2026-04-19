@@ -132,6 +132,20 @@ export function translateClaudeEnvelope(
 						| undefined,
 				},
 			};
+		case 'PermissionDenied':
+			return {
+				kind: 'permission.denied',
+				toolName,
+				toolUseId,
+				data: {
+					tool_name: toolName,
+					tool_input:
+						(payload['tool_input'] as Record<string, unknown> | undefined) ??
+						{},
+					tool_use_id: toolUseId,
+					reason: payload['reason'] as string | undefined,
+				},
+			};
 		case 'Stop':
 			return {
 				kind: 'stop.request',
@@ -140,6 +154,14 @@ export function translateClaudeEnvelope(
 					last_assistant_message: payload['last_assistant_message'] as
 						| string
 						| undefined,
+				},
+			};
+		case 'StopFailure':
+			return {
+				kind: 'stop.failure',
+				data: {
+					error_type: payload['error_type'] as string | undefined,
+					error_message: payload['error_message'] as string | undefined,
 				},
 			};
 		case 'SubagentStart':
@@ -188,6 +210,13 @@ export function translateClaudeEnvelope(
 						| undefined,
 				},
 			};
+		case 'PostCompact':
+			return {
+				kind: 'compact.post',
+				data: {
+					trigger: payload['trigger'] as 'manual' | 'auto' | undefined,
+				},
+			};
 		case 'Setup':
 			return {
 				kind: 'setup',
@@ -199,6 +228,17 @@ export function translateClaudeEnvelope(
 			return {
 				kind: 'teammate.idle',
 				data: {
+					teammate_name: payload['teammate_name'] as string | undefined,
+					team_name: payload['team_name'] as string | undefined,
+				},
+			};
+		case 'TaskCreated':
+			return {
+				kind: 'task.created',
+				data: {
+					task_id: payload['task_id'] as string | undefined,
+					task_subject: payload['task_subject'] as string | undefined,
+					task_description: payload['task_description'] as string | undefined,
 					teammate_name: payload['teammate_name'] as string | undefined,
 					team_name: payload['team_name'] as string | undefined,
 				},
@@ -220,6 +260,37 @@ export function translateClaudeEnvelope(
 				data: {
 					source: payload['source'] as string | undefined,
 					file_path: payload['file_path'] as string | undefined,
+				},
+			};
+		case 'CwdChanged':
+			return {
+				kind: 'cwd.changed',
+				data: {
+					cwd: payload['cwd'] as string | undefined,
+				},
+			};
+		case 'FileChanged':
+			return {
+				kind: 'file.changed',
+				data: {
+					file_path: payload['file_path'] as string | undefined,
+				},
+			};
+		case 'Elicitation':
+			return {
+				kind: 'elicitation.request',
+				data: {
+					mcp_server: payload['mcp_server'] as string | undefined,
+					form: payload['form'],
+				},
+			};
+		case 'ElicitationResult':
+			return {
+				kind: 'elicitation.result',
+				data: {
+					mcp_server: payload['mcp_server'] as string | undefined,
+					action: payload['action'] as string | undefined,
+					content: payload['content'] as Record<string, unknown> | undefined,
 				},
 			};
 		default:

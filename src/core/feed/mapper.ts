@@ -1506,6 +1506,149 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 				break;
 			}
 
+			case 'compact.post': {
+				results.push(...ensureRunArray(event));
+				const evt = makeEvent(
+					'compact.post',
+					'info',
+					'system',
+					{
+						trigger:
+							(readString(d['trigger']) as 'manual' | 'auto' | undefined) ??
+							'auto',
+					} satisfies import('./types').PostCompactData,
+					event,
+				);
+				evt.ui = {collapsed_default: true};
+				results.push(evt);
+				break;
+			}
+
+			case 'task.created': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'task.created',
+						'info',
+						'system',
+						{
+							task_id: readString(d['task_id']) ?? '',
+							task_subject: readString(d['task_subject']) ?? '',
+							task_description: readString(d['task_description']),
+							teammate_name: readString(d['teammate_name']),
+							team_name: readString(d['team_name']),
+						} satisfies import('./types').TaskCreatedData,
+						event,
+					),
+				);
+				break;
+			}
+
+			case 'cwd.changed': {
+				results.push(...ensureRunArray(event));
+				const evt = makeEvent(
+					'cwd.changed',
+					'info',
+					'system',
+					{
+						cwd: readString(d['cwd']) ?? '',
+					} satisfies import('./types').CwdChangedData,
+					event,
+				);
+				evt.ui = {collapsed_default: true};
+				results.push(evt);
+				break;
+			}
+
+			case 'file.changed': {
+				results.push(...ensureRunArray(event));
+				const evt = makeEvent(
+					'file.changed',
+					'info',
+					'system',
+					{
+						file_path: readString(d['file_path']) ?? '',
+					} satisfies import('./types').FileChangedData,
+					event,
+				);
+				evt.ui = {collapsed_default: true};
+				results.push(evt);
+				break;
+			}
+
+			case 'stop.failure': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'stop.failure',
+						'error',
+						'system',
+						{
+							error_type: readString(d['error_type']) ?? 'unknown',
+							error_message: readString(d['error_message']),
+						} satisfies import('./types').StopFailureData,
+						event,
+					),
+				);
+				break;
+			}
+
+			case 'permission.denied': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'permission.denied',
+						'warn',
+						'system',
+						{
+							tool_name:
+								event.toolName ?? readString(d['tool_name']) ?? 'Unknown',
+							tool_input: readObject(d['tool_input']),
+							tool_use_id: readString(d['tool_use_id']),
+							reason: readString(d['reason']),
+						} satisfies import('./types').PermissionDeniedData,
+						event,
+					),
+				);
+				break;
+			}
+
+			case 'elicitation.request': {
+				results.push(...ensureRunArray(event));
+				results.push(
+					makeEvent(
+						'elicitation.request',
+						'warn',
+						'system',
+						{
+							mcp_server: readString(d['mcp_server']) ?? 'unknown',
+							form: d['form'],
+						} satisfies import('./types').ElicitationRequestData,
+						event,
+					),
+				);
+				break;
+			}
+
+			case 'elicitation.result': {
+				results.push(...ensureRunArray(event));
+				const action = readString(d['action']);
+				const evt = makeEvent(
+					'elicitation.result',
+					'info',
+					'system',
+					{
+						mcp_server: readString(d['mcp_server']) ?? 'unknown',
+						...(action ? {action} : {}),
+						content: readObject(d['content']),
+					} satisfies import('./types').ElicitationResultData,
+					event,
+				);
+				evt.ui = {collapsed_default: true};
+				results.push(evt);
+				break;
+			}
+
 			case 'unknown': {
 				results.push(...ensureRunArray(event));
 				const unknownEvt = makeEvent(

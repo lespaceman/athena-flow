@@ -319,8 +319,10 @@ export function eventDetail(event: FeedEvent): string {
 		case 'run.end':
 		case 'user.prompt':
 		case 'permission.decision':
+		case 'permission.denied':
 		case 'stop.request':
 		case 'stop.decision':
+		case 'stop.failure':
 		case 'notification':
 		case 'runtime.error':
 		case 'turn.diff':
@@ -329,10 +331,16 @@ export function eventDetail(event: FeedEvent): string {
 		case 'skills.changed':
 		case 'skills.loaded':
 		case 'compact.pre':
+		case 'compact.post':
 		case 'unknown.hook':
 		case 'agent.message':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'elicitation.request':
+		case 'elicitation.result':
 			return '\u2500'; // ─ em dash placeholder
 	}
 }
@@ -460,8 +468,10 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'reasoning.summary':
 		case 'usage.update':
 		case 'permission.decision':
+		case 'permission.denied':
 		case 'stop.request':
 		case 'stop.decision':
+		case 'stop.failure':
 		case 'notification':
 		case 'runtime.error':
 		case 'thread.status':
@@ -476,13 +486,19 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'skills.changed':
 		case 'skills.loaded':
 		case 'compact.pre':
+		case 'compact.post':
 		case 'unknown.hook':
 		case 'todo.add':
 		case 'todo.update':
 		case 'todo.done':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
-		case 'config.change': {
+		case 'config.change':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'elicitation.request':
+		case 'elicitation.result': {
 			const text = eventSummaryText(event);
 			return {text, segments: [{text, role: 'target'}]};
 		}
@@ -646,6 +662,7 @@ function eventSummaryText(event: FeedEvent): string {
 				`${event.data.teammate_name} idle in ${event.data.team_name}`,
 				200,
 			);
+		case 'task.created':
 		case 'task.completed':
 			return compactText(event.data.task_subject, 200);
 		case 'config.change':
@@ -653,6 +670,29 @@ function eventSummaryText(event: FeedEvent): string {
 				`${event.data.source}${event.data.file_path ? ` ${event.data.file_path}` : ''}`,
 				200,
 			);
+		case 'cwd.changed':
+			return compactText(`cwd → ${event.data.cwd}`, 200);
+		case 'file.changed':
+			return compactText(`changed ${event.data.file_path}`, 200);
+		case 'stop.failure':
+			return compactText(
+				`${event.data.error_type}${event.data.error_message ? `: ${event.data.error_message}` : ''}`,
+				200,
+			);
+		case 'permission.denied':
+			return compactText(
+				`${event.data.tool_name}${event.data.reason ? `: ${event.data.reason}` : ''}`,
+				200,
+			);
+		case 'elicitation.request':
+			return compactText(`elicitation from ${event.data.mcp_server}`, 200);
+		case 'elicitation.result':
+			return compactText(
+				`${event.data.mcp_server} → ${event.data.action}`,
+				200,
+			);
+		case 'compact.post':
+			return compactText(`compacted (${event.data.trigger})`, 200);
 		case 'tool.pre':
 		case 'tool.delta':
 		case 'tool.post':
@@ -739,19 +779,27 @@ export function expansionForEvent(event: FeedEvent): string {
 		case 'run.start':
 		case 'user.prompt':
 		case 'permission.decision':
+		case 'permission.denied':
 		case 'stop.request':
 		case 'stop.decision':
+		case 'stop.failure':
 		case 'notification':
 		case 'subagent.start':
 		case 'compact.pre':
+		case 'compact.post':
 		case 'unknown.hook':
 		case 'todo.add':
 		case 'todo.update':
 		case 'todo.done':
 		case 'agent.message':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
 		case 'config.change':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'elicitation.request':
+		case 'elicitation.result':
 			return JSON.stringify(event.raw ?? event.data, null, 2);
 	}
 }

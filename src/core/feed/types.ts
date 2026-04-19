@@ -35,6 +35,7 @@ export type FeedEventKind =
 	| 'skills.changed'
 	| 'skills.loaded'
 	| 'compact.pre'
+	| 'compact.post'
 	| 'setup'
 	| 'unknown.hook'
 	| 'todo.add'
@@ -42,8 +43,15 @@ export type FeedEventKind =
 	| 'todo.done'
 	| 'agent.message'
 	| 'teammate.idle'
+	| 'task.created'
 	| 'task.completed'
-	| 'config.change';
+	| 'config.change'
+	| 'cwd.changed'
+	| 'file.changed'
+	| 'stop.failure'
+	| 'permission.denied'
+	| 'elicitation.request'
+	| 'elicitation.result';
 
 export type FeedEventLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -302,12 +310,23 @@ export type PreCompactData = {
 	trigger: 'manual' | 'auto';
 	custom_instructions?: string;
 };
+export type PostCompactData = {
+	trigger: 'manual' | 'auto';
+};
 export type SetupData = {trigger: 'init' | 'maintenance'};
 export type UnknownHookData = {hook_event_name: string; payload: unknown};
 
 export type TeammateIdleData = {
 	teammate_name: string;
 	team_name: string;
+};
+
+export type TaskCreatedData = {
+	task_id: string;
+	task_subject: string;
+	task_description?: string;
+	teammate_name?: string;
+	team_name?: string;
 };
 
 export type TaskCompletedData = {
@@ -321,6 +340,37 @@ export type TaskCompletedData = {
 export type ConfigChangeData = {
 	source: string;
 	file_path?: string;
+};
+
+export type CwdChangedData = {
+	cwd: string;
+};
+
+export type FileChangedData = {
+	file_path: string;
+};
+
+export type StopFailureData = {
+	error_type: string;
+	error_message?: string;
+};
+
+export type PermissionDeniedData = {
+	tool_name: string;
+	tool_input?: Record<string, unknown>;
+	tool_use_id?: string;
+	reason?: string;
+};
+
+export type ElicitationRequestData = {
+	mcp_server: string;
+	form?: unknown;
+};
+
+export type ElicitationResultData = {
+	mcp_server: string;
+	action?: 'accept' | 'decline' | 'cancel' | string;
+	content?: Record<string, unknown>;
 };
 
 // Phase 2 stubs
@@ -396,6 +446,7 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'skills.changed'; data: SkillsChangedData})
 	| (FeedEventBase & {kind: 'skills.loaded'; data: SkillsLoadedData})
 	| (FeedEventBase & {kind: 'compact.pre'; data: PreCompactData})
+	| (FeedEventBase & {kind: 'compact.post'; data: PostCompactData})
 	| (FeedEventBase & {kind: 'setup'; data: SetupData})
 	| (FeedEventBase & {kind: 'unknown.hook'; data: UnknownHookData})
 	| (FeedEventBase & {kind: 'todo.add'; data: TodoAddData})
@@ -403,5 +454,18 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'todo.done'; data: TodoDoneData})
 	| (FeedEventBase & {kind: 'agent.message'; data: AgentMessageData})
 	| (FeedEventBase & {kind: 'teammate.idle'; data: TeammateIdleData})
+	| (FeedEventBase & {kind: 'task.created'; data: TaskCreatedData})
 	| (FeedEventBase & {kind: 'task.completed'; data: TaskCompletedData})
-	| (FeedEventBase & {kind: 'config.change'; data: ConfigChangeData});
+	| (FeedEventBase & {kind: 'config.change'; data: ConfigChangeData})
+	| (FeedEventBase & {kind: 'cwd.changed'; data: CwdChangedData})
+	| (FeedEventBase & {kind: 'file.changed'; data: FileChangedData})
+	| (FeedEventBase & {kind: 'stop.failure'; data: StopFailureData})
+	| (FeedEventBase & {kind: 'permission.denied'; data: PermissionDeniedData})
+	| (FeedEventBase & {
+			kind: 'elicitation.request';
+			data: ElicitationRequestData;
+	  })
+	| (FeedEventBase & {
+			kind: 'elicitation.result';
+			data: ElicitationResultData;
+	  });

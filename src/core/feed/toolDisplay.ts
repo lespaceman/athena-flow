@@ -1004,7 +1004,9 @@ export function resolveEventDisplay(event: FeedEvent): {
 		case 'tool.post':
 		case 'tool.failure':
 		case 'permission.decision':
+		case 'permission.denied':
 		case 'stop.decision':
+		case 'stop.failure':
 		case 'notification':
 		case 'runtime.error':
 		case 'thread.status':
@@ -1019,13 +1021,19 @@ export function resolveEventDisplay(event: FeedEvent): {
 		case 'skills.changed':
 		case 'skills.loaded':
 		case 'compact.pre':
+		case 'compact.post':
 		case 'unknown.hook':
 		case 'todo.add':
 		case 'todo.update':
 		case 'todo.done':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
 		case 'config.change':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'elicitation.request':
+		case 'elicitation.result':
 			return {toolColumn: '', segments: []};
 	}
 }
@@ -1081,8 +1089,10 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'tool.post':
 		case 'tool.failure':
 		case 'permission.decision':
+		case 'permission.denied':
 		case 'stop.request':
 		case 'stop.decision':
+		case 'stop.failure':
 		case 'notification':
 		case 'runtime.error':
 		case 'thread.status':
@@ -1097,14 +1107,20 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'skills.changed':
 		case 'skills.loaded':
 		case 'compact.pre':
+		case 'compact.post':
 		case 'unknown.hook':
 		case 'todo.add':
 		case 'todo.update':
 		case 'todo.done':
 		case 'agent.message':
 		case 'teammate.idle':
+		case 'task.created':
 		case 'task.completed':
 		case 'config.change':
+		case 'cwd.changed':
+		case 'file.changed':
+		case 'elicitation.request':
+		case 'elicitation.result':
 			return '';
 	}
 }

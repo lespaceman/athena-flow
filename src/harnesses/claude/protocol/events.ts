@@ -172,10 +172,13 @@ export type NotificationEvent = BaseHookEvent & {
 	notification_type?: NotificationType;
 };
 
-// Stop: Claude finishes responding
+// Stop: Claude finishes responding.
+// Note: `stop_hook_active` and `last_assistant_message` are not formally
+// documented in the current hooks reference (they appear on SubagentStop) but
+// have been observed on Stop payloads in practice; kept optional for safety.
 export type StopEvent = BaseHookEvent & {
 	hook_event_name: 'Stop';
-	stop_hook_active: boolean;
+	stop_hook_active?: boolean;
 	last_assistant_message?: string;
 };
 
@@ -209,7 +212,9 @@ export type UserPromptSubmitEvent = BaseHookEvent & {
 	prompt: string;
 };
 
-// PreCompact: Before context compaction
+// PreCompact: Before context compaction.
+// `custom_instructions` is not in the current hooks reference but has been
+// observed in practice; kept optional.
 export type PreCompactEvent = BaseHookEvent & {
 	hook_event_name: 'PreCompact';
 	trigger: 'manual' | 'auto';
@@ -222,7 +227,10 @@ export type PostCompactEvent = BaseHookEvent & {
 	trigger: 'manual' | 'auto';
 };
 
-// Setup: Repository initialization or maintenance (Athena-observed)
+// Setup: Repository initialization or maintenance.
+// Not in the official hooks reference; emitted by Claude Code when invoked
+// with --init / --init-only / --maintenance. Retained because Athena observes
+// it and the harness must register a handler when it fires.
 export type SetupEvent = BaseHookEvent & {
 	hook_event_name: 'Setup';
 	trigger: 'init' | 'maintenance';
@@ -241,7 +249,8 @@ export type SessionEndEvent = BaseHookEvent & {
 	reason: SessionEndReason;
 };
 
-// TeammateIdle: Team teammate is about to go idle
+// TeammateIdle: Team teammate is about to go idle.
+// `team_name` is not in the current hooks reference; kept optional.
 export type TeammateIdleEvent = BaseHookEvent & {
 	hook_event_name: 'TeammateIdle';
 	teammate_name: string;
@@ -268,7 +277,8 @@ export type TaskCompletedEvent = BaseHookEvent & {
 	team_name?: string;
 };
 
-// ConfigChange: Claude config changed during a session
+// ConfigChange: Claude config changed during a session.
+// `file_path` is not in the current hooks reference; kept optional.
 export type ConfigChangeEvent = BaseHookEvent & {
 	hook_event_name: 'ConfigChange';
 	source: ConfigChangeSource;
@@ -449,6 +459,80 @@ export function isElicitationResultEvent(
 	event: ClaudeHookEvent,
 ): event is ElicitationResultEvent {
 	return event.hook_event_name === 'ElicitationResult';
+}
+
+export function isStopEvent(event: ClaudeHookEvent): event is StopEvent {
+	return event.hook_event_name === 'Stop';
+}
+
+export function isUserPromptSubmitEvent(
+	event: ClaudeHookEvent,
+): event is UserPromptSubmitEvent {
+	return event.hook_event_name === 'UserPromptSubmit';
+}
+
+export function isPreCompactEvent(
+	event: ClaudeHookEvent,
+): event is PreCompactEvent {
+	return event.hook_event_name === 'PreCompact';
+}
+
+export function isCwdChangedEvent(
+	event: ClaudeHookEvent,
+): event is CwdChangedEvent {
+	return event.hook_event_name === 'CwdChanged';
+}
+
+export function isFileChangedEvent(
+	event: ClaudeHookEvent,
+): event is FileChangedEvent {
+	return event.hook_event_name === 'FileChanged';
+}
+
+export function isWorktreeCreateEvent(
+	event: ClaudeHookEvent,
+): event is WorktreeCreateEvent {
+	return event.hook_event_name === 'WorktreeCreate';
+}
+
+export function isWorktreeRemoveEvent(
+	event: ClaudeHookEvent,
+): event is WorktreeRemoveEvent {
+	return event.hook_event_name === 'WorktreeRemove';
+}
+
+export function isInstructionsLoadedEvent(
+	event: ClaudeHookEvent,
+): event is InstructionsLoadedEvent {
+	return event.hook_event_name === 'InstructionsLoaded';
+}
+
+export function isConfigChangeEvent(
+	event: ClaudeHookEvent,
+): event is ConfigChangeEvent {
+	return event.hook_event_name === 'ConfigChange';
+}
+
+export function isTaskCreatedEvent(
+	event: ClaudeHookEvent,
+): event is TaskCreatedEvent {
+	return event.hook_event_name === 'TaskCreated';
+}
+
+export function isTaskCompletedEvent(
+	event: ClaudeHookEvent,
+): event is TaskCompletedEvent {
+	return event.hook_event_name === 'TaskCompleted';
+}
+
+export function isTeammateIdleEvent(
+	event: ClaudeHookEvent,
+): event is TeammateIdleEvent {
+	return event.hook_event_name === 'TeammateIdle';
+}
+
+export function isSetupEvent(event: ClaudeHookEvent): event is SetupEvent {
+	return event.hook_event_name === 'Setup';
 }
 
 /**

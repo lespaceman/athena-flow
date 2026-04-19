@@ -133,6 +133,46 @@ const RULES: Record<RuntimeEventKind, InteractionHints> = {
 		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 		canBlock: true,
 	},
+	'permission.denied': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'stop.failure': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'compact.post': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'task.created': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'cwd.changed': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'file.changed': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
+	'elicitation.request': {
+		expectsDecision: true,
+		defaultTimeoutMs: PERMISSION_TIMEOUT_MS,
+		canBlock: true,
+	},
+	'elicitation.result': {
+		expectsDecision: false,
+		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
+		canBlock: false,
+	},
 	unknown: DEFAULT_HINTS,
 };
 

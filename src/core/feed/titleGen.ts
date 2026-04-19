@@ -124,5 +124,25 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 			return event.data.scope === 'subagent'
 				? truncate(`${g['message.agent']} Subagent response`)
 				: truncate(`${g['message.agent']} Agent response`);
+		case 'compact.post':
+			return `Context compacted (${event.data.trigger})`;
+		case 'task.created':
+			return truncate(`Task created: ${event.data.task_subject}`);
+		case 'cwd.changed':
+			return truncate(`${g['config.icon']} cwd → ${event.data.cwd}`);
+		case 'file.changed':
+			return truncate(`File changed: ${event.data.file_path}`);
+		case 'stop.failure':
+			return truncate(
+				`${g['status.blocked']} Stop failure: ${event.data.error_type}`,
+			);
+		case 'permission.denied':
+			return truncate(`${g['status.blocked']} Denied: ${event.data.tool_name}`);
+		case 'elicitation.request':
+			return truncate(`Elicitation: ${event.data.mcp_server}`);
+		case 'elicitation.result':
+			return truncate(
+				`Elicitation ${event.data.action}: ${event.data.mcp_server}`,
+			);
 	}
 }
