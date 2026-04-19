@@ -8,6 +8,9 @@ export type FeedEventKind =
 	| 'run.start'
 	| 'run.end'
 	| 'user.prompt'
+	| 'plan.update'
+	| 'reasoning.summary'
+	| 'usage.update'
 	| 'tool.delta'
 	| 'tool.pre'
 	| 'tool.post'
@@ -19,6 +22,13 @@ export type FeedEventKind =
 	| 'subagent.start'
 	| 'subagent.stop'
 	| 'notification'
+	| 'runtime.error'
+	| 'thread.status'
+	| 'turn.diff'
+	| 'mcp.progress'
+	| 'terminal.input'
+	| 'skills.changed'
+	| 'skills.loaded'
 	| 'compact.pre'
 	| 'setup'
 	| 'unknown.hook'
@@ -94,6 +104,31 @@ export type UserPromptData = {
 	prompt: string;
 	cwd: string;
 	permission_mode?: string;
+};
+
+export type PlanUpdateData = {
+	explanation?: string | null;
+	delta?: string;
+	item_id?: string;
+	thread_id?: string;
+	turn_id?: string;
+	plan?: Array<{step?: string; status?: string}>;
+};
+
+export type ReasoningSummaryData = {
+	message: string;
+	item_id?: string;
+	content_index?: number;
+	summary_index?: number;
+	thread_id?: string;
+	turn_id?: string;
+};
+
+export type UsageUpdateData = {
+	thread_id?: string;
+	turn_id?: string;
+	usage?: import('../../shared/types/headerMetrics').TokenUsage;
+	delta?: import('../../shared/types/headerMetrics').TokenUsage;
 };
 
 export type ToolPreData = {
@@ -176,6 +211,42 @@ export type NotificationData = {
 	title?: string;
 	notification_type?: string;
 };
+export type RuntimeErrorData = {
+	message: string;
+	title?: string;
+	thread_id?: string;
+	turn_id?: string;
+	error_code?: string;
+	will_retry?: boolean;
+};
+export type ThreadStatusData = {
+	message: string;
+	thread_id?: string;
+	status_type?: string;
+	active_flags?: string[];
+};
+export type TurnDiffData = {
+	message: string;
+	thread_id?: string;
+	turn_id?: string;
+	diff: string;
+};
+export type McpProgressData = {
+	message: string;
+	title?: string;
+};
+export type TerminalInputData = {
+	message: string;
+	input_preview?: string;
+};
+export type SkillsChangedData = {
+	message: string;
+};
+export type SkillsLoadedData = {
+	message: string;
+	count?: number;
+	error_count?: number;
+};
 export type PreCompactData = {
 	trigger: 'manual' | 'auto';
 	custom_instructions?: string;
@@ -241,6 +312,9 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'run.start'; data: RunStartData})
 	| (FeedEventBase & {kind: 'run.end'; data: RunEndData})
 	| (FeedEventBase & {kind: 'user.prompt'; data: UserPromptData})
+	| (FeedEventBase & {kind: 'plan.update'; data: PlanUpdateData})
+	| (FeedEventBase & {kind: 'reasoning.summary'; data: ReasoningSummaryData})
+	| (FeedEventBase & {kind: 'usage.update'; data: UsageUpdateData})
 	| (FeedEventBase & {kind: 'tool.delta'; data: ToolDeltaData})
 	| (FeedEventBase & {kind: 'tool.pre'; data: ToolPreData})
 	| (FeedEventBase & {kind: 'tool.post'; data: ToolPostData})
@@ -255,6 +329,13 @@ export type FeedEvent =
 	| (FeedEventBase & {kind: 'subagent.start'; data: SubagentStartData})
 	| (FeedEventBase & {kind: 'subagent.stop'; data: SubagentStopData})
 	| (FeedEventBase & {kind: 'notification'; data: NotificationData})
+	| (FeedEventBase & {kind: 'runtime.error'; data: RuntimeErrorData})
+	| (FeedEventBase & {kind: 'thread.status'; data: ThreadStatusData})
+	| (FeedEventBase & {kind: 'turn.diff'; data: TurnDiffData})
+	| (FeedEventBase & {kind: 'mcp.progress'; data: McpProgressData})
+	| (FeedEventBase & {kind: 'terminal.input'; data: TerminalInputData})
+	| (FeedEventBase & {kind: 'skills.changed'; data: SkillsChangedData})
+	| (FeedEventBase & {kind: 'skills.loaded'; data: SkillsLoadedData})
 	| (FeedEventBase & {kind: 'compact.pre'; data: PreCompactData})
 	| (FeedEventBase & {kind: 'setup'; data: SetupData})
 	| (FeedEventBase & {kind: 'unknown.hook'; data: UnknownHookData})

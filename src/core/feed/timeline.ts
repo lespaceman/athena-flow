@@ -80,6 +80,12 @@ export function eventOperation(event: FeedEvent): string {
 			return 'run.abort';
 		case 'user.prompt':
 			return 'prompt';
+		case 'plan.update':
+			return 'plan.upd';
+		case 'reasoning.summary':
+			return 'reason';
+		case 'usage.update':
+			return 'usage.upd';
 		case 'tool.delta':
 			return 'tool.call';
 		case 'tool.pre':
@@ -106,6 +112,20 @@ export function eventOperation(event: FeedEvent): string {
 			return 'sess.end';
 		case 'notification':
 			return 'notify';
+		case 'runtime.error':
+			return 'error';
+		case 'thread.status':
+			return 'thread';
+		case 'turn.diff':
+			return 'diff';
+		case 'mcp.progress':
+			return 'mcp.prog';
+		case 'terminal.input':
+			return 'term.in';
+		case 'skills.changed':
+			return 'skills';
+		case 'skills.loaded':
+			return 'skills';
 		case 'compact.pre':
 			return 'compact';
 		case 'setup':
@@ -142,6 +162,12 @@ export function eventLabel(event: FeedEvent): string {
 			return 'Run Abort';
 		case 'user.prompt':
 			return 'User Prompt';
+		case 'plan.update':
+			return 'Plan Update';
+		case 'reasoning.summary':
+			return 'Reasoning';
+		case 'usage.update':
+			return 'Usage Update';
 		case 'tool.delta':
 			return 'Tool Call';
 		case 'tool.pre':
@@ -188,6 +214,20 @@ export function eventLabel(event: FeedEvent): string {
 			return 'Sess End';
 		case 'notification':
 			return 'Notify';
+		case 'runtime.error':
+			return 'Error';
+		case 'thread.status':
+			return 'Thread';
+		case 'turn.diff':
+			return 'Diff';
+		case 'mcp.progress':
+			return 'MCP Progress';
+		case 'terminal.input':
+			return 'Terminal In';
+		case 'skills.changed':
+			return 'Skills';
+		case 'skills.loaded':
+			return 'Skills';
 		case 'compact.pre':
 			return 'Compact';
 		case 'setup':
@@ -233,6 +273,14 @@ export function eventDetail(event: FeedEvent): string {
 			return event.data.todo_id;
 		case 'session.start':
 			return event.data.source;
+		case 'plan.update':
+			return 'plan';
+		case 'reasoning.summary':
+			return 'summary';
+		case 'thread.status':
+			return event.data.status_type ?? 'status';
+		case 'usage.update':
+			return 'tokens';
 		case 'config.change':
 			return event.data.source;
 		case 'setup':
@@ -244,6 +292,12 @@ export function eventDetail(event: FeedEvent): string {
 		case 'stop.request':
 		case 'stop.decision':
 		case 'notification':
+		case 'runtime.error':
+		case 'turn.diff':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded':
 		case 'compact.pre':
 		case 'unknown.hook':
 		case 'agent.message':
@@ -371,10 +425,20 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'run.start':
 		case 'run.end':
 		case 'user.prompt':
+		case 'plan.update':
+		case 'reasoning.summary':
+		case 'usage.update':
 		case 'permission.decision':
 		case 'stop.request':
 		case 'stop.decision':
 		case 'notification':
+		case 'runtime.error':
+		case 'thread.status':
+		case 'turn.diff':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded':
 		case 'compact.pre':
 		case 'unknown.hook':
 		case 'todo.add':
@@ -425,6 +489,37 @@ function eventSummaryText(event: FeedEvent): string {
 			);
 		case 'user.prompt':
 			return compactText(event.data.prompt, 200);
+		case 'plan.update': {
+			if (event.data.explanation) {
+				return compactText(event.data.explanation, 200);
+			}
+			if (event.data.plan && event.data.plan.length > 0) {
+				const completed = event.data.plan.filter(
+					step => step.status === 'completed',
+				).length;
+				return compactText(`${completed}/${event.data.plan.length} steps`, 200);
+			}
+			return compactText(event.data.delta || 'plan updated', 200);
+		}
+		case 'reasoning.summary':
+			return compactText(
+				firstSentence(stripMarkdownInline(event.data.message)),
+				200,
+			);
+		case 'usage.update': {
+			const total = event.data.usage?.total;
+			const delta = event.data.delta?.total;
+			if (typeof total === 'number' && typeof delta === 'number') {
+				return compactText(
+					`${total.toLocaleString()} total (+${delta.toLocaleString()})`,
+					200,
+				);
+			}
+			if (typeof total === 'number') {
+				return compactText(`${total.toLocaleString()} total`, 200);
+			}
+			return compactText('usage updated', 200);
+		}
 		case 'permission.decision': {
 			const detail =
 				event.data.decision_type === 'deny'
@@ -445,6 +540,19 @@ function eventSummaryText(event: FeedEvent): string {
 			return compactText(event.data.reason, 200);
 		case 'notification':
 			return compactText(stripMarkdownInline(event.data.message), 200);
+		case 'runtime.error':
+			return compactText(stripMarkdownInline(event.data.message), 200);
+		case 'thread.status':
+			return compactText(event.data.message, 200);
+		case 'turn.diff':
+			return compactText(event.data.message, 200);
+		case 'mcp.progress':
+			return compactText(event.data.message, 200);
+		case 'terminal.input':
+			return compactText(event.data.message, 200);
+		case 'skills.changed':
+		case 'skills.loaded':
+			return compactText(event.data.message, 200);
 		case 'compact.pre':
 			return compactText(event.data.trigger, 200);
 		case 'setup':
@@ -538,6 +646,16 @@ export function expansionForEvent(event: FeedEvent): string {
 			);
 		case 'subagent.stop':
 		case 'run.end':
+		case 'plan.update':
+		case 'reasoning.summary':
+		case 'usage.update':
+		case 'runtime.error':
+		case 'thread.status':
+		case 'turn.diff':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded':
 			return JSON.stringify(event.data, null, 2);
 		case 'setup':
 		case 'session.start':
@@ -547,8 +665,8 @@ export function expansionForEvent(event: FeedEvent): string {
 		case 'permission.decision':
 		case 'stop.request':
 		case 'stop.decision':
-		case 'subagent.start':
 		case 'notification':
+		case 'subagent.start':
 		case 'compact.pre':
 		case 'unknown.hook':
 		case 'todo.add':
@@ -565,6 +683,7 @@ export function expansionForEvent(event: FeedEvent): string {
 export function isEventError(event: FeedEvent): boolean {
 	if (event.level === 'error') return true;
 	if (event.kind === 'tool.failure') return true;
+	if (event.kind === 'runtime.error') return true;
 	if (event.kind === 'run.end') return event.data.status !== 'completed';
 	if (
 		event.kind === 'permission.decision' &&
@@ -622,6 +741,8 @@ export const VERBOSE_ONLY_KINDS: ReadonlySet<FeedEventKind> = new Set([
 	'unknown.hook',
 	'compact.pre',
 	'config.change',
+	'usage.update',
+	'reasoning.summary',
 ]);
 
 // ── Merged tool event helpers ────────────────────────────

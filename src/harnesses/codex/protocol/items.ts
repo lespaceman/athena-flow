@@ -10,5 +10,5 @@ export type CodexItem = GeneratedCodexItem;
 export type CodexTurn = GeneratedCodexTurn;
 export type CodexThread = GeneratedCodexThread;
 export type CodexApprovalDecision =
-	| Extract<CodexCommandExecutionApprovalDecision, string>
+	| CodexCommandExecutionApprovalDecision
 	| CodexFileChangeApprovalDecision;

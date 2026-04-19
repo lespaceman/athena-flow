@@ -23,6 +23,7 @@ import {
 	type PermissionQueueItem,
 	extractPermissionSnapshot,
 	isScopedPermissionsRequest,
+	supportsSessionApproval,
 } from '../../core/controller/permission';
 import {type FeedItem, mergeFeedItems} from '../../core/feed/items';
 import type {Message} from '../../shared/types/common';
@@ -260,8 +261,9 @@ export function useFeed(
 			const isPermissionsRequest = isScopedPermissionsRequest(
 				queueItem?.hookName,
 			);
+			const canGrantSession = supportsSessionApproval(queueItem?.hookName);
 			const toolName = queueItem?.tool_name;
-			if (toolName && !isPermissionsRequest) {
+			if (toolName && !isPermissionsRequest && !canGrantSession) {
 				if (decision === 'always-allow') {
 					addRule({toolName, action: 'approve', addedBy: 'permission-dialog'});
 				} else if (decision === 'always-deny') {
@@ -289,11 +291,13 @@ export function useFeed(
 							kind: isPreToolUse ? 'pre_tool_deny' : 'permission_deny',
 							reason: 'Denied by user via permission dialog',
 						},
-				data: isPermissionsRequest
-					? {
-							scope: decision === 'always-allow' ? 'session' : 'turn',
-						}
-					: undefined,
+				data:
+					(isPermissionsRequest || canGrantSession) &&
+					decision === 'always-allow'
+						? {
+								scope: 'session',
+							}
+						: undefined,
 			};
 
 			runtime.sendDecision(requestId, runtimeDecision);

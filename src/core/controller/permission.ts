@@ -14,6 +14,12 @@ export type PermissionDecision =
 	| 'always-deny'
 	| 'always-allow-server';
 
+const SESSION_APPROVAL_REQUEST_HOOKS = new Set([
+	'item/commandExecution/requestApproval',
+	'item/fileChange/requestApproval',
+	'item/permissions/requestApproval',
+]);
+
 export type PermissionQueueItem = {
 	request_id: string;
 	ts: number;
@@ -31,6 +37,10 @@ export function isScopedPermissionsRequest(
 	hookName: string | undefined,
 ): boolean {
 	return hookName === 'item/permissions/requestApproval';
+}
+
+export function supportsSessionApproval(hookName: string | undefined): boolean {
+	return hookName !== undefined && SESSION_APPROVAL_REQUEST_HOOKS.has(hookName);
 }
 
 export function extractPermissionSnapshot(

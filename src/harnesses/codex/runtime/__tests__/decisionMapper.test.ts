@@ -58,6 +58,18 @@ describe('mapDecisionToCodexResult', () => {
 		});
 	});
 
+	it('maps session-scoped command approvals to acceptForSession', () => {
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+			data: {scope: 'session'},
+		};
+		expect(mapDecisionToCodexResult(MOCK_EVENT, decision)).toEqual({
+			decision: 'acceptForSession',
+		});
+	});
+
 	it('maps permission_deny intent to decline', () => {
 		const decision: RuntimeDecision = {
 			type: 'json',
@@ -115,6 +127,33 @@ describe('mapDecisionToCodexResult', () => {
 			permissions: {
 				network: {enabled: true},
 				fileSystem: {read: ['/tmp'], write: ['/tmp']},
+			},
+			scope: 'session',
+		});
+	});
+
+	it('does not coerce permissions grants into acceptForSession responses', () => {
+		const permissionsEvent: RuntimeEvent = {
+			...MOCK_EVENT,
+			hookName: M.PERMISSIONS_REQUEST_APPROVAL,
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {
+					permissions: {
+						network: {enabled: true},
+					},
+				},
+			},
+		};
+		const decision: RuntimeDecision = {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+			data: {scope: 'session'},
+		};
+		expect(mapDecisionToCodexResult(permissionsEvent, decision)).toEqual({
+			permissions: {
+				network: {enabled: true},
 			},
 			scope: 'session',
 		});

@@ -260,8 +260,28 @@ function eventLabel(event: FeedEvent): string {
 			return 'Session Start';
 		case 'session.end':
 			return 'Session End';
+		case 'plan.update':
+			return 'Plan Update';
+		case 'reasoning.summary':
+			return 'Reasoning';
+		case 'usage.update':
+			return 'Usage Update';
 		case 'notification':
 			return event.data.title || 'Notification';
+		case 'runtime.error':
+			return event.data.title || 'Error';
+		case 'thread.status':
+			return 'Thread Status';
+		case 'turn.diff':
+			return 'Turn Diff';
+		case 'mcp.progress':
+			return event.data.title || 'MCP Progress';
+		case 'terminal.input':
+			return 'Terminal Input';
+		case 'skills.changed':
+			return 'Skills Changed';
+		case 'skills.loaded':
+			return 'Skills Loaded';
 		case 'permission.decision':
 			return `Permission · ${event.data.decision_type}`;
 		case 'stop.request':
@@ -434,6 +454,78 @@ export function renderDetailLines(
 			const header = buildCompactHeader(event, width, {theme});
 			const content = renderMarkdownToLines(event.data.message, cw);
 			return buildResult(header, content, false);
+		}
+
+		case 'runtime.error': {
+			const header = buildCompactHeader(event, width, {
+				failed: true,
+				theme,
+			});
+			const content = renderMarkdownToLines(event.data.message, cw);
+			return buildResult(header, content, false);
+		}
+
+		case 'thread.status':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded': {
+			const header = buildCompactHeader(event, width, {theme});
+			const content = renderMarkdownToLines(event.data.message, cw);
+			return buildResult(header, content, false);
+		}
+
+		case 'turn.diff': {
+			const header = buildCompactHeader(event, width, {theme});
+			const content = highlightCode(event.data.diff, cw, 'diff');
+			return buildResult(header, content, true);
+		}
+
+		case 'plan.update': {
+			const header = buildCompactHeader(event, width, {theme});
+			const planLines =
+				event.data.plan && event.data.plan.length > 0
+					? event.data.plan.map((step, index) => {
+							const marker =
+								step.status === 'completed'
+									? '[x]'
+									: step.status === 'inProgress'
+										? '[~]'
+										: '[ ]';
+							return `${marker} ${step.step || `Step ${index + 1}`}`;
+						})
+					: [];
+			const content = [
+				...(event.data.explanation
+					? renderMarkdownToLines(event.data.explanation, cw)
+					: []),
+				...(event.data.explanation && planLines.length > 0 ? [''] : []),
+				...(planLines.length > 0 ? wrapAnsiLines(planLines, cw) : []),
+				...(planLines.length === 0 && event.data.delta
+					? renderMarkdownToLines(event.data.delta, cw)
+					: []),
+			];
+			return buildResult(
+				header,
+				content.length > 0 ? content : ['(empty plan update)'],
+				false,
+			);
+		}
+
+		case 'reasoning.summary': {
+			const header = buildCompactHeader(event, width, {theme});
+			const content = renderMarkdownToLines(event.data.message, cw);
+			return buildResult(header, content, false);
+		}
+
+		case 'usage.update': {
+			const header = buildCompactHeader(event, width, {theme});
+			const content = highlightCode(
+				JSON.stringify(event.data, null, 2),
+				cw,
+				'json',
+			);
+			return buildResult(header, content, true);
 		}
 
 		case 'session.start':

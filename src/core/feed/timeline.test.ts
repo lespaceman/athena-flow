@@ -170,6 +170,38 @@ describe('eventLabel', () => {
 			],
 			[
 				() => ({
+					...base({kind: 'plan.update'}),
+					kind: 'plan.update' as const,
+					data: {explanation: 'Inspect code first'},
+				}),
+				'Plan Update',
+			],
+			[
+				() => ({
+					...base({kind: 'reasoning.summary'}),
+					kind: 'reasoning.summary' as const,
+					data: {message: 'Inspecting code paths'},
+				}),
+				'Reasoning',
+			],
+			[
+				() => ({
+					...base({kind: 'runtime.error'}),
+					kind: 'runtime.error' as const,
+					data: {message: 'turn failed'},
+				}),
+				'Error',
+			],
+			[
+				() => ({
+					...base({kind: 'turn.diff'}),
+					kind: 'turn.diff' as const,
+					data: {message: 'diff updated', diff: '@@ -1 +1 @@'},
+				}),
+				'Diff',
+			],
+			[
+				() => ({
 					...base({kind: 'subagent.start'}),
 					kind: 'subagent.start' as const,
 					data: {agent_id: 'a1', agent_type: 'Explore'},
@@ -339,6 +371,14 @@ describe('eventLabel', () => {
 					data: {message: 'hi'},
 				}),
 				'Notify',
+			],
+			[
+				() => ({
+					...base({kind: 'skills.loaded'}),
+					kind: 'skills.loaded' as const,
+					data: {message: 'Loaded 2 skills'},
+				}),
+				'Skills',
 			],
 			[
 				() => ({
@@ -591,6 +631,44 @@ describe('eventSummary', () => {
 			data: {reason: 'completed'},
 		};
 		expect(eventSummary(ev).text).toBe('completed');
+	});
+
+	it('formats plan.update explanation', () => {
+		const ev = {
+			...base({kind: 'plan.update'}),
+			kind: 'plan.update' as const,
+			data: {explanation: 'Inspect code then patch bug'},
+		};
+		expect(eventSummary(ev).text).toBe('Inspect code then patch bug');
+	});
+
+	it('formats reasoning.summary text', () => {
+		const ev = {
+			...base({kind: 'reasoning.summary'}),
+			kind: 'reasoning.summary' as const,
+			data: {message: 'Inspecting code paths. Preparing patch.'},
+		};
+		expect(eventSummary(ev).text).toBe('Inspecting code paths.');
+	});
+
+	it('formats usage.update totals', () => {
+		const ev = {
+			...base({kind: 'usage.update'}),
+			kind: 'usage.update' as const,
+			data: {usage: {total: 120}, delta: {total: 20}},
+		};
+		expect(eventSummary(ev).text).toBe('120 total (+20)');
+	});
+
+	it('formats skills.loaded like a status line', () => {
+		const ev = {
+			...base({kind: 'skills.loaded'}),
+			kind: 'skills.loaded' as const,
+			data: {message: 'Loaded 2 workflow skills: Skill A, Skill B.'},
+		};
+		expect(eventSummary(ev).text).toBe(
+			'Loaded 2 workflow skills: Skill A, Skill B.',
+		);
 	});
 
 	it('formats run.end with natural text', () => {

@@ -25,7 +25,8 @@ const LEGACY_APPROVAL_METHODS = new Set([
 function toLegacyDecision(v2: CodexApprovalDecision): {
 	decision: ReviewDecision;
 } {
-	switch (v2) {
+	const decision = typeof v2 === 'string' ? v2 : 'accept';
+	switch (decision) {
 		case 'accept':
 		case 'acceptForSession':
 			return {decision: 'approved'};
@@ -75,7 +76,7 @@ export function mapDecisionToCodexResult(
 	}
 
 	const isLegacy = LEGACY_APPROVAL_METHODS.has(event.hookName);
-	const v2Result = mapToV2Decision(decision);
+	const v2Result = mapToV2Decision(event, decision);
 	return isLegacy ? toLegacyDecision(v2Result.decision) : v2Result;
 }
 
@@ -83,7 +84,12 @@ function mapMcpElicitationResponse(
 	decision: RuntimeDecision,
 	payload: unknown,
 ): CodexMcpServerElicitationRequestResponse {
-	const v2Result = mapToV2Decision(decision);
+	const v2Result = mapToV2Decision(
+		{
+			hookName: M.MCP_SERVER_ELICITATION_REQUEST,
+		} as RuntimeEvent,
+		decision,
+	);
 	if (v2Result.decision === 'decline') {
 		return {action: 'decline', content: null, _meta: null};
 	}
@@ -156,11 +162,19 @@ function resolvePermissionScope(
 	return rawScope === 'session' ? 'session' : 'turn';
 }
 
-function mapToV2Decision(decision: RuntimeDecision): {
+function mapToV2Decision(
+	event: RuntimeEvent,
+	decision: RuntimeDecision,
+): {
 	decision: CodexApprovalDecision;
 } {
+	const wantsSessionApproval =
+		resolveDecisionScope(decision) === 'session' &&
+		(event.hookName === M.CMD_EXEC_REQUEST_APPROVAL ||
+			event.hookName === M.FILE_CHANGE_REQUEST_APPROVAL);
+
 	if (decision.type === 'passthrough') {
-		return {decision: 'accept'};
+		return {decision: wantsSessionApproval ? 'acceptForSession' : 'accept'};
 	}
 
 	if (decision.type === 'block') {
@@ -169,25 +183,35 @@ function mapToV2Decision(decision: RuntimeDecision): {
 
 	// decision.type === 'json'
 	if (!decision.intent) {
-		return {decision: 'accept'};
+		return {decision: wantsSessionApproval ? 'acceptForSession' : 'accept'};
 	}
 
 	switch (decision.intent.kind) {
 		case 'permission_allow':
 		case 'pre_tool_allow':
-			return {decision: 'accept'};
+			return {decision: wantsSessionApproval ? 'acceptForSession' : 'accept'};
 
 		case 'permission_deny':
 		case 'pre_tool_deny':
 			return {decision: 'decline'};
 
 		case 'question_answer':
-			return {decision: 'accept'};
+			return {decision: wantsSessionApproval ? 'acceptForSession' : 'accept'};
 
 		case 'stop_block':
 			return {decision: 'cancel'};
 
 		default:
-			return {decision: 'accept'};
+			return {decision: wantsSessionApproval ? 'acceptForSession' : 'accept'};
 	}
+}
+
+function resolveDecisionScope(decision: RuntimeDecision): 'turn' | 'session' {
+	const rawScope =
+		typeof decision.data === 'object' &&
+		decision.data !== null &&
+		'scope' in decision.data
+			? (decision.data as {scope?: unknown}).scope
+			: undefined;
+	return rawScope === 'session' ? 'session' : 'turn';
 }

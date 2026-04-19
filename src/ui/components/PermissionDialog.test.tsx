@@ -115,6 +115,24 @@ describe('PermissionDialog', () => {
 			expect(frame).not.toContain('Always allow "Permissions"');
 		});
 
+		it('shows session approval wording for command approval requests', () => {
+			const event = {
+				...makePermissionEvent('Bash', {command: 'git push'}),
+				hookName: 'item/commandExecution/requestApproval',
+			};
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			const frame = lastFrame() ?? '';
+			expect(frame).toContain('Allow for this session');
+			expect(frame).not.toContain('Always allow "Bash"');
+		});
+
 		it('shows option list for all tools (no type-to-confirm)', () => {
 			const event = makePermissionEvent('Bash', {command: 'rm -rf /'});
 			const {lastFrame} = render(

@@ -16,6 +16,7 @@ export class FeedStore {
 
 	// Derived index maintained incrementally
 	private postByToolUseIdMap: Map<string, FeedEvent>;
+	private reasoningByKey = new Map<string, FeedEvent>();
 
 	constructor(opts: FeedStoreOptions = {}) {
 		// Bootstrap from stored session data
@@ -49,6 +50,19 @@ export class FeedStore {
 				}
 			}
 
+			if (event.kind === 'reasoning.summary') {
+				const reasoningKey = `${event.data.item_id ?? ''}:${event.data.summary_index ?? event.data.content_index ?? 0}`;
+				const existing = this.reasoningByKey.get(reasoningKey);
+				if (existing && existing.kind === 'reasoning.summary') {
+					const idx = this.events.indexOf(existing);
+					if (idx !== -1) {
+						this.events[idx] = event;
+						this.reasoningByKey.set(reasoningKey, event);
+						continue;
+					}
+				}
+			}
+
 			this.events.push(event);
 
 			// Update postByToolUseId incrementally
@@ -59,6 +73,10 @@ export class FeedStore {
 				event.data.tool_use_id
 			) {
 				this.postByToolUseIdMap.set(event.data.tool_use_id, event);
+			}
+			if (event.kind === 'reasoning.summary') {
+				const reasoningKey = `${event.data.item_id ?? ''}:${event.data.summary_index ?? event.data.content_index ?? 0}`;
+				this.reasoningByKey.set(reasoningKey, event);
 			}
 		}
 
@@ -102,6 +120,7 @@ export class FeedStore {
 	reset(): void {
 		this.events = [];
 		this.postByToolUseIdMap = new Map();
+		this.reasoningByKey = new Map();
 		this.version++;
 		this.snapshot = null;
 		this.notify();
@@ -110,6 +129,7 @@ export class FeedStore {
 	clear(): void {
 		this.events = [];
 		this.postByToolUseIdMap = new Map();
+		this.reasoningByKey = new Map();
 		this.version++;
 		this.snapshot = null;
 		this.notify();

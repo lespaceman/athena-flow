@@ -2,6 +2,7 @@ import {describe, it, expect} from 'vitest';
 import {
 	type PermissionQueueItem,
 	extractPermissionSnapshot,
+	supportsSessionApproval,
 } from '../../../core/controller/permission';
 import type {RuntimeEvent} from '../../../core/runtime/types';
 
@@ -105,5 +106,25 @@ describe('extractPermissionSnapshot', () => {
 		const snapshot = extractPermissionSnapshot(event);
 		expect(snapshot.tool_use_id).toBeUndefined();
 		expect(snapshot.suggestions).toBeUndefined();
+	});
+});
+
+describe('supportsSessionApproval', () => {
+	it('recognizes session-capable approval request hooks', () => {
+		expect(
+			supportsSessionApproval('item/commandExecution/requestApproval'),
+		).toBe(true);
+		expect(supportsSessionApproval('item/fileChange/requestApproval')).toBe(
+			true,
+		);
+		expect(supportsSessionApproval('item/permissions/requestApproval')).toBe(
+			true,
+		);
+	});
+
+	it('does not mark legacy or generic permission hooks as session-capable', () => {
+		expect(supportsSessionApproval('PermissionRequest')).toBe(false);
+		expect(supportsSessionApproval('execCommandApproval')).toBe(false);
+		expect(supportsSessionApproval(undefined)).toBe(false);
 	});
 });

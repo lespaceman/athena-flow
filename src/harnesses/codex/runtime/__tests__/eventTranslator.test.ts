@@ -632,6 +632,95 @@ describe('translateNotification', () => {
 			}),
 		);
 	});
+
+	it('maps error notification to a codex.error notification', () => {
+		const result = translateNotification({
+			method: 'error',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				willRetry: true,
+				error: {
+					message: 'upstream 503',
+					codexErrorInfo: {type: 'HttpConnectionFailed', httpStatusCode: 503},
+					additionalDetails: 'retry scheduled',
+				},
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'codex.error',
+				error_code: 'HttpConnectionFailed',
+				will_retry: true,
+			}),
+		);
+	});
+
+	it('maps thread/status/changed to a thread.status_changed notification', () => {
+		const result = translateNotification({
+			method: 'thread/status/changed',
+			params: {
+				threadId: 'th1',
+				status: {type: 'active', activeFlags: ['turn']},
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'thread.status_changed',
+				status_type: 'active',
+				active_flags: ['turn'],
+			}),
+		);
+	});
+
+	it('maps turn/diff/updated to a turn.diff_updated notification carrying diff', () => {
+		const result = translateNotification({
+			method: 'turn/diff/updated',
+			params: {threadId: 'th1', turnId: 't1', diff: '--- a\n+++ b\n'},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'turn.diff_updated',
+				diff: '--- a\n+++ b\n',
+			}),
+		);
+	});
+
+	it('maps serverRequest/resolved to a server_request.resolved notification', () => {
+		const result = translateNotification({
+			method: 'serverRequest/resolved',
+			params: {threadId: 'th1', requestId: 42},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'server_request.resolved',
+				request_id: 42,
+			}),
+		);
+	});
+
+	it('maps item/completed (enteredReviewMode) to an item notification with review text', () => {
+		const result = translateNotification({
+			method: 'item/completed',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {type: 'enteredReviewMode', id: 'i1', review: 'current changes'},
+			},
+		});
+		expect(result.kind).toBe('notification');
+		expect(result.data).toEqual(
+			expect.objectContaining({
+				notification_type: 'item.enteredReviewMode.completed',
+				item_type: 'enteredReviewMode',
+				item_id: 'i1',
+			}),
+		);
+	});
 });
 
 describe('translateServerRequest', () => {

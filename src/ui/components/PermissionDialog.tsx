@@ -5,6 +5,7 @@ import {
 	type PermissionDecision,
 	type PermissionQueueItem,
 	isScopedPermissionsRequest,
+	supportsSessionApproval,
 } from '../../core/controller/permission';
 import {parseToolName} from '../../shared/utils/toolNameParser';
 import {useTheme} from '../theme/index';
@@ -24,6 +25,7 @@ export default function PermissionDialog({
 	const rawToolName = request.tool_name;
 	const {displayName, serverLabel, isMcp} = parseToolName(rawToolName);
 	const isPermissionsRequest = isScopedPermissionsRequest(request.hookName);
+	const canGrantSession = supportsSessionApproval(request.hookName);
 
 	const options: OptionItem[] = useMemo(() => {
 		if (isPermissionsRequest) {
@@ -37,10 +39,15 @@ export default function PermissionDialog({
 		const items: OptionItem[] = [
 			{label: 'Allow', value: 'allow'},
 			{label: 'Deny', value: 'deny'},
-			{label: `Always allow "${displayName}"`, value: 'always-allow'},
+			{
+				label: canGrantSession
+					? 'Allow for this session'
+					: `Always allow "${displayName}"`,
+				value: 'always-allow',
+			},
 		];
 
-		if (isMcp && serverLabel) {
+		if (!canGrantSession && isMcp && serverLabel) {
 			items.push({
 				label: `Always allow all from ${serverLabel}`,
 				value: 'always-allow-server',
@@ -48,7 +55,7 @@ export default function PermissionDialog({
 		}
 
 		return items;
-	}, [displayName, isMcp, isPermissionsRequest, serverLabel]);
+	}, [canGrantSession, displayName, isMcp, isPermissionsRequest, serverLabel]);
 
 	const handleSelect = useCallback(
 		(value: string) => {

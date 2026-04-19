@@ -115,17 +115,8 @@ function buildTurnInput(
  */
 const SUPPRESSED_ITEM_TYPES = new Set(['userMessage', 'plan', 'reasoning']);
 
-const IGNORED_NOTIFICATION_METHODS = new Set([
-	M.SKILLS_CHANGED,
-	M.THREAD_STATUS_CHANGED,
-	M.TURN_DIFF_UPDATED,
-]);
-
 function shouldIgnoreNotificationMethod(method: string): boolean {
-	return (
-		method.startsWith('codex/event/') ||
-		IGNORED_NOTIFICATION_METHODS.has(method)
-	);
+	return method.startsWith('codex/event/');
 }
 
 function getUnsupportedServerRequestResponse(method: string): {
@@ -663,6 +654,56 @@ export function createCodexServer(opts: CodexServerOptions): CodexRuntime {
 					} catch (error) {
 						console.error(
 							`[athena:codex] failed to load workflow agents: ${
+								error instanceof Error ? error.message : String(error)
+							}`,
+						);
+					}
+				}
+
+				if (shouldConfigureThread) {
+					try {
+						const result = await manager.sendRequest(M.SKILLS_LIST, {
+							cwds: [projectDir],
+						});
+						const response = asRecord(result);
+						const entries = Array.isArray(response['data'])
+							? (response['data'] as Array<Record<string, unknown>>)
+							: [];
+						const skillNames = entries.flatMap(entry =>
+							Array.isArray(entry['skills'])
+								? (entry['skills'] as Array<Record<string, unknown>>)
+										.map(skill =>
+											typeof skill['name'] === 'string' ? skill['name'] : null,
+										)
+										.filter((name): name is string => name !== null)
+								: [],
+						);
+						const errorCount = entries.reduce((count, entry) => {
+							const errors = Array.isArray(entry['errors'])
+								? entry['errors'].length
+								: 0;
+							return count + errors;
+						}, 0);
+						emitNotification({
+							hookName: M.SKILLS_LOADED,
+							title: 'Skills loaded',
+							message: buildLoadMessage({
+								kind: 'skill',
+								names: skillNames,
+								rootCount: entries.length > 0 ? entries.length : 1,
+								errorCount,
+							}),
+							notificationType: M.SKILLS_LOADED,
+							payload: {
+								count: skillNames.length,
+								error_count: errorCount,
+								skills: skillNames,
+								entries,
+							},
+						});
+					} catch (error) {
+						console.error(
+							`[athena:codex] failed to load skills: ${
 								error instanceof Error ? error.message : String(error)
 							}`,
 						);

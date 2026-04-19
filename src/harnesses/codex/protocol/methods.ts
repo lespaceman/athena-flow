@@ -18,8 +18,11 @@ export const CONFIG_MCP_SERVER_RELOAD = 'config/mcpServer/reload';
 // Athena-local notification hook names (not Codex protocol methods)
 export const AGENTS_LOADED = 'agents.loaded';
 export const PLUGINS_ENSURED = 'plugins.ensured';
+export const SKILLS_LOADED = 'skills.loaded';
 
 // Server → client notifications
+export const ERROR = 'error';
+export const WARNING = 'warning';
 export const TURN_STARTED = 'turn/started';
 export const TURN_COMPLETED = 'turn/completed';
 export const TURN_DIFF_UPDATED = 'turn/diff/updated';
@@ -27,8 +30,23 @@ export const TURN_PLAN_UPDATED = 'turn/plan/updated';
 export const THREAD_ARCHIVED = 'thread/archived';
 export const THREAD_UNARCHIVED = 'thread/unarchived';
 export const THREAD_CLOSED = 'thread/closed';
+export const THREAD_COMPACTED = 'thread/compacted';
+export const HOOK_STARTED = 'hook/started';
+export const HOOK_COMPLETED = 'hook/completed';
 export const ITEM_STARTED = 'item/started';
 export const ITEM_COMPLETED = 'item/completed';
+export const ITEM_AUTO_APPROVAL_REVIEW_STARTED =
+	'item/autoApprovalReview/started';
+export const ITEM_AUTO_APPROVAL_REVIEW_COMPLETED =
+	'item/autoApprovalReview/completed';
+export const RAW_RESPONSE_ITEM_COMPLETED = 'rawResponseItem/completed';
+export const SERVER_REQUEST_RESOLVED = 'serverRequest/resolved';
+export const COMMAND_EXEC_OUTPUT_DELTA = 'command/exec/outputDelta';
+export const ACCOUNT_UPDATED = 'account/updated';
+export const FS_CHANGED = 'fs/changed';
+export const THREAD_REALTIME_OUTPUT_AUDIO_DELTA =
+	'thread/realtime/outputAudio/delta';
+export const THREAD_REALTIME_SDP = 'thread/realtime/sdp';
 export const ITEM_COMMAND_EXECUTION_OUTPUT_DELTA =
 	'item/commandExecution/outputDelta';
 export const ITEM_COMMAND_EXECUTION_TERMINAL_INTERACTION =

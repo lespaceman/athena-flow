@@ -976,7 +976,21 @@ export function resolveEventDisplay(event: FeedEvent): {
 				segments: [{text: event.data.reason, role: 'target'}],
 			};
 
+		case 'plan.update':
+			return {
+				toolColumn: '',
+				segments: event.data.explanation
+					? [{text: truncate(event.data.explanation, 60), role: 'plain'}]
+					: [],
+			};
+		case 'reasoning.summary':
+			return {
+				toolColumn: '',
+				segments: [{text: truncate(event.data.message, 60), role: 'plain'}],
+			};
+
 		case 'setup':
+		case 'usage.update':
 		case 'tool.delta':
 		case 'tool.pre':
 		case 'tool.post':
@@ -984,6 +998,13 @@ export function resolveEventDisplay(event: FeedEvent): {
 		case 'permission.decision':
 		case 'stop.decision':
 		case 'notification':
+		case 'runtime.error':
+		case 'thread.status':
+		case 'turn.diff':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded':
 		case 'compact.pre':
 		case 'unknown.hook':
 		case 'todo.add':
@@ -1039,6 +1060,9 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'run.start':
 		case 'run.end':
 		case 'user.prompt':
+		case 'plan.update':
+		case 'reasoning.summary':
+		case 'usage.update':
 		case 'tool.delta':
 		case 'tool.pre':
 		case 'tool.post':
@@ -1047,6 +1071,13 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'stop.request':
 		case 'stop.decision':
 		case 'notification':
+		case 'runtime.error':
+		case 'thread.status':
+		case 'turn.diff':
+		case 'mcp.progress':
+		case 'terminal.input':
+		case 'skills.changed':
+		case 'skills.loaded':
 		case 'compact.pre':
 		case 'unknown.hook':
 		case 'todo.add':

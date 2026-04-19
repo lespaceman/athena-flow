@@ -9,18 +9,27 @@ import type {
 import type {
 	CodexAccountLoginCompletedNotification,
 	CodexAccountRateLimitsUpdatedNotification,
+	CodexAccountUpdatedNotification,
 	CodexApplyPatchApprovalParams,
 	CodexAgentMessageDeltaNotification,
 	CodexAppListUpdatedNotification,
+	CodexCommandExecOutputDeltaNotification,
 	CodexCommandExecutionRequestApprovalParams,
 	CodexConfigWarningNotification,
+	CodexContextCompactedNotification,
 	CodexDeprecationNoticeNotification,
+	CodexErrorNotification,
 	CodexExecCommandApprovalParams,
 	CodexFileChangeOutputDeltaNotification,
+	CodexFsChangedNotification,
 	CodexFuzzyFileSearchSessionCompletedNotification,
 	CodexFuzzyFileSearchSessionUpdatedNotification,
 	CodexFileChangeRequestApprovalParams,
+	CodexHookStartedNotification,
+	CodexHookCompletedNotification,
 	CodexItemCompletedNotification,
+	CodexItemGuardianApprovalReviewStartedNotification,
+	CodexItemGuardianApprovalReviewCompletedNotification,
 	CodexItemStartedNotification,
 	CodexMcpServerOauthLoginCompletedNotification,
 	CodexMcpServerElicitationRequestParams,
@@ -29,9 +38,11 @@ import type {
 	CodexModelReroutedNotification,
 	CodexPlanDeltaNotification,
 	CodexPermissionsRequestApprovalParams,
+	CodexRawResponseItemCompletedNotification,
 	CodexReasoningSummaryPartAddedNotification,
 	CodexReasoningSummaryTextDeltaNotification,
 	CodexReasoningTextDeltaNotification,
+	CodexServerRequestResolvedNotification,
 	CodexTerminalInteractionNotification,
 	CodexThreadArchivedNotification,
 	CodexThreadClosedNotification,
@@ -39,13 +50,17 @@ import type {
 	CodexThreadRealtimeClosedNotification,
 	CodexThreadRealtimeErrorNotification,
 	CodexThreadRealtimeItemAddedNotification,
+	CodexThreadRealtimeOutputAudioDeltaNotification,
+	CodexThreadRealtimeSdpNotification,
 	CodexThreadRealtimeStartedNotification,
 	CodexThreadRealtimeTranscriptDeltaNotification,
 	CodexThreadRealtimeTranscriptDoneNotification,
+	CodexThreadStatusChangedNotification,
 	CodexThreadTokenUsageUpdatedNotification,
 	CodexThreadUnarchivedNotification,
 	CodexToolRequestUserInputParams,
 	CodexTurnCompletedNotification,
+	CodexTurnDiffUpdatedNotification,
 	CodexTurnPlanUpdatedNotification,
 	CodexTurnStartedNotification,
 	CodexWindowsSandboxSetupCompletedNotification,
@@ -135,6 +150,66 @@ function summarizeRateLimits(
 	}
 
 	return `Rate limits updated for ${name}.`;
+}
+
+function describeItemTitle(
+	itemType: string,
+	phase: 'started' | 'completed',
+): string {
+	switch (itemType) {
+		case 'hookPrompt':
+			return phase === 'started' ? 'Hook prompt' : 'Hook prompt complete';
+		case 'imageView':
+			return 'Image viewed';
+		case 'imageGeneration':
+			return phase === 'started' ? 'Generating image' : 'Image generated';
+		case 'enteredReviewMode':
+			return 'Review started';
+		case 'exitedReviewMode':
+			return 'Review finished';
+		case 'contextCompaction':
+			return 'Context compaction';
+		default:
+			return `${itemType} ${phase}`;
+	}
+}
+
+function describeItemMessage(
+	itemType: string,
+	item: Record<string, unknown>,
+	phase: 'started' | 'completed',
+): string {
+	switch (itemType) {
+		case 'imageView':
+			return `Viewed image at ${String(item['path'] ?? 'unknown path')}.`;
+		case 'imageGeneration': {
+			const status =
+				typeof item['status'] === 'string' ? item['status'] : phase;
+			const prompt = previewText(
+				typeof item['revisedPrompt'] === 'string'
+					? item['revisedPrompt']
+					: undefined,
+				80,
+			);
+			return prompt
+				? `Image generation ${status}: ${prompt}`
+				: `Image generation ${status}.`;
+		}
+		case 'enteredReviewMode':
+			return `Review started: ${previewText(String(item['review'] ?? ''), 120) || 'current changes'}.`;
+		case 'exitedReviewMode':
+			return `Review finished: ${previewText(String(item['review'] ?? ''), 200) || '(no notes)'}`;
+		case 'contextCompaction':
+			return 'Codex compacted conversation history.';
+		case 'hookPrompt': {
+			const fragments = Array.isArray(item['fragments'])
+				? item['fragments'].length
+				: 0;
+			return `Hook prompt ${phase} (${fragments} fragment${fragments === 1 ? '' : 's'}).`;
+		}
+		default:
+			return `${itemType} ${phase}.`;
+	}
 }
 
 function previewText(value: string | null | undefined, max = 80): string {
@@ -468,8 +543,12 @@ export function translateNotification(
 			return {
 				kind: 'notification',
 				data: {
-					message: `${itemType} started`,
-					notification_type: itemType,
+					title: describeItemTitle(itemType, 'started'),
+					message: describeItemMessage(itemType, item, 'started'),
+					notification_type: `item.${itemType}.started`,
+					item_type: itemType,
+					item_id: typeof item['id'] === 'string' ? item['id'] : undefined,
+					item,
 				},
 				expectsDecision: false,
 			};
@@ -534,8 +613,12 @@ export function translateNotification(
 			return {
 				kind: 'notification',
 				data: {
-					message: `${itemType} completed`,
-					notification_type: itemType,
+					title: describeItemTitle(itemType, 'completed'),
+					message: describeItemMessage(itemType, item, 'completed'),
+					notification_type: `item.${itemType}.completed`,
+					item_type: itemType,
+					item_id: typeof item['id'] === 'string' ? item['id'] : undefined,
+					item,
 				},
 				expectsDecision: false,
 			};
@@ -818,6 +901,293 @@ export function translateNotification(
 						? `Windows sandbox setup completed for ${params.mode}.`
 						: `Windows sandbox setup failed for ${params.mode}${params.error ? `: ${params.error}` : '.'}`,
 					notification_type: 'windows_sandbox.setup_completed',
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ERROR: {
+			const params = msg.params as CodexErrorNotification;
+			const info = params.error.codexErrorInfo;
+			const code =
+				info && typeof info === 'object'
+					? ((info as Record<string, unknown>)['type'] ?? null)
+					: info;
+			const details = params.error.additionalDetails
+				? ` ${previewText(params.error.additionalDetails, 200)}`
+				: '';
+			return {
+				kind: 'notification',
+				data: {
+					title: params.willRetry ? 'Codex error (retrying)' : 'Codex error',
+					message: `${params.error.message}${details}`,
+					notification_type: 'codex.error',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					error_code: typeof code === 'string' ? code : undefined,
+					will_retry: params.willRetry,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.WARNING: {
+			const params = asRecord(msg.params);
+			const message =
+				typeof params['message'] === 'string'
+					? params['message']
+					: 'Codex runtime warning.';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Codex warning',
+					message,
+					notification_type: 'codex.warning',
+					thread_id:
+						typeof params['threadId'] === 'string'
+							? params['threadId']
+							: undefined,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_STATUS_CHANGED: {
+			const params = msg.params as CodexThreadStatusChangedNotification;
+			const status = params.status;
+			const flags =
+				status.type === 'active' && status.activeFlags.length > 0
+					? ` [${status.activeFlags.join(', ')}]`
+					: '';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Thread status',
+					message: `Thread ${params.threadId} → ${status.type}${flags}.`,
+					notification_type: 'thread.status_changed',
+					thread_id: params.threadId,
+					status_type: status.type,
+					active_flags:
+						status.type === 'active' ? status.activeFlags : undefined,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.TURN_DIFF_UPDATED: {
+			const params = msg.params as CodexTurnDiffUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Turn diff updated',
+					message: `Aggregated diff updated (${params.diff.length} bytes).`,
+					notification_type: 'turn.diff_updated',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					diff: params.diff,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_COMPACTED: {
+			const params = msg.params as CodexContextCompactedNotification;
+			return {
+				kind: 'compact.pre',
+				data: {
+					trigger: 'auto',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.HOOK_STARTED: {
+			const params = msg.params as CodexHookStartedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Hook started',
+					message: `Hook ${params.run.eventName} (${params.run.handlerType}) started.`,
+					notification_type: 'hook.started',
+					thread_id: params.threadId,
+					turn_id: params.turnId ?? undefined,
+					hook_id: params.run.id,
+					hook_event: params.run.eventName,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.HOOK_COMPLETED: {
+			const params = msg.params as CodexHookCompletedNotification;
+			const duration =
+				params.run.durationMs !== null ? ` in ${params.run.durationMs}ms` : '';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Hook completed',
+					message: `Hook ${params.run.eventName} ${params.run.status}${duration}.`,
+					notification_type: 'hook.completed',
+					thread_id: params.threadId,
+					turn_id: params.turnId ?? undefined,
+					hook_id: params.run.id,
+					hook_event: params.run.eventName,
+					hook_status: params.run.status,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ITEM_AUTO_APPROVAL_REVIEW_STARTED: {
+			const params =
+				msg.params as CodexItemGuardianApprovalReviewStartedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Auto-approval review started',
+					message: `Guardian review ${params.reviewId} started.`,
+					notification_type: 'auto_approval_review.started',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					review_id: params.reviewId,
+					target_item_id: params.targetItemId ?? undefined,
+					action: params.action,
+					review: params.review,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ITEM_AUTO_APPROVAL_REVIEW_COMPLETED: {
+			const params =
+				msg.params as CodexItemGuardianApprovalReviewCompletedNotification;
+			const status = (params.review as {status?: string}).status ?? 'done';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Auto-approval review completed',
+					message: `Guardian review ${params.reviewId} ${status}.`,
+					notification_type: 'auto_approval_review.completed',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					review_id: params.reviewId,
+					target_item_id: params.targetItemId ?? undefined,
+					decision_source: params.decisionSource,
+					action: params.action,
+					review: params.review,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.RAW_RESPONSE_ITEM_COMPLETED: {
+			const params = msg.params as CodexRawResponseItemCompletedNotification;
+			const rawItem = asRecord(params.item);
+			const itemType =
+				typeof rawItem['type'] === 'string' ? rawItem['type'] : 'unknown';
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Raw response item',
+					message: `Raw response item (${itemType}) completed.`,
+					notification_type: 'raw_response_item.completed',
+					thread_id: params.threadId,
+					turn_id: params.turnId,
+					item: params.item,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.SERVER_REQUEST_RESOLVED: {
+			const params = msg.params as CodexServerRequestResolvedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Server request resolved',
+					message: `Pending server request ${String(params.requestId)} resolved.`,
+					notification_type: 'server_request.resolved',
+					thread_id: params.threadId,
+					request_id: params.requestId,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.COMMAND_EXEC_OUTPUT_DELTA: {
+			const params = msg.params as CodexCommandExecOutputDeltaNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'command/exec output',
+					message: `command/exec ${params.processId} emitted ${params.stream} chunk${params.capReached ? ' (cap reached)' : ''}.`,
+					notification_type: 'command_exec.output_delta',
+					process_id: params.processId,
+					stream: params.stream,
+					delta_base64: params.deltaBase64,
+					cap_reached: params.capReached,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.ACCOUNT_UPDATED: {
+			const params = msg.params as CodexAccountUpdatedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Account updated',
+					message: `Account auth=${params.authMode ?? 'none'} plan=${params.planType ?? 'none'}.`,
+					notification_type: 'account.updated',
+					auth_mode: params.authMode ?? undefined,
+					plan_type: params.planType ?? undefined,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.FS_CHANGED: {
+			const params = msg.params as CodexFsChangedNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Filesystem changed',
+					message: `Watch ${params.watchId} saw ${params.changedPaths.length} path change(s).`,
+					notification_type: 'fs.changed',
+					watch_id: params.watchId,
+					changed_paths: params.changedPaths,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_OUTPUT_AUDIO_DELTA: {
+			const params =
+				msg.params as CodexThreadRealtimeOutputAudioDeltaNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime audio',
+					message: `Realtime output audio chunk (${params.audio.samplesPerChannel} samples).`,
+					notification_type: 'thread.realtime.output_audio_delta',
+					thread_id: params.threadId,
+				},
+				expectsDecision: false,
+			};
+		}
+
+		case M.THREAD_REALTIME_SDP: {
+			const params = msg.params as CodexThreadRealtimeSdpNotification;
+			return {
+				kind: 'notification',
+				data: {
+					title: 'Realtime SDP',
+					message: `Realtime WebRTC SDP answer received (${params.sdp.length} bytes).`,
+					notification_type: 'thread.realtime.sdp',
+					thread_id: params.threadId,
+					sdp: params.sdp,
 				},
 				expectsDecision: false,
 			};

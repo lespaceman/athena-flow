@@ -245,6 +245,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		toolPreIndex.clear();
 		toolDeltaTextByUseId.clear();
 		truncatedToolDeltaUseIds.clear();
+		reasoningSummaryByKey.clear();
 		eventIdByRequestId.clear();
 		eventKindByRequestId.clear();
 		resetAgentMessageDeduper();
@@ -289,6 +290,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 		}
 	>();
 	const lastAgentMessageByActorScope = new Map<string, string>();
+	const reasoningSummaryByKey = new Map<string, string>();
 	const transcriptReader = createTranscriptReader();
 
 	/**
@@ -333,6 +335,17 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 	function resetAgentMessageDeduper(): void {
 		lastAgentMessageByActorScope.clear();
+	}
+
+	function appendReasoningSummary(
+		itemId: string | undefined,
+		index: number | undefined,
+		chunk: string,
+	): string {
+		const key = `${itemId ?? ''}:${index ?? 0}`;
+		const next = `${reasoningSummaryByKey.get(key) ?? ''}${chunk}`;
+		reasoningSummaryByKey.set(key, next);
+		return next;
 	}
 
 	function emitAgentMessage(
@@ -724,10 +737,85 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 						);
 					}
 				}
+				results.push(
+					makeEvent(
+						'plan.update',
+						'info',
+						'system',
+						{
+							explanation: readString(d['explanation']) ?? null,
+							delta: readString(d['delta']),
+							item_id: readString(d['item_id']),
+							thread_id: readString(d['thread_id']),
+							turn_id: readString(d['turn_id']),
+							plan: Array.isArray(planSteps)
+								? (planSteps as Array<{step?: string; status?: string}>)
+								: undefined,
+						} satisfies import('./types').PlanUpdateData,
+						event,
+					),
+				);
 				break;
 			}
 			case 'reasoning.delta':
+				if (readString(d['phase']) === 'summary' && readString(d['delta'])) {
+					const summaryIndex = (() => {
+						const value = d['summary_index'] ?? d['content_index'];
+						return typeof value === 'number' ? value : undefined;
+					})();
+					results.push(
+						makeEvent(
+							'reasoning.summary',
+							'info',
+							'agent:root',
+							{
+								message: appendReasoningSummary(
+									readString(d['item_id']),
+									summaryIndex,
+									readString(d['delta']) ?? '',
+								),
+								item_id: readString(d['item_id']),
+								content_index:
+									typeof d['content_index'] === 'number'
+										? (d['content_index'] as number)
+										: undefined,
+								summary_index:
+									typeof d['summary_index'] === 'number'
+										? (d['summary_index'] as number)
+										: summaryIndex,
+								thread_id: readString(d['thread_id']),
+								turn_id: readString(d['turn_id']),
+							} satisfies import('./types').ReasoningSummaryData,
+							event,
+						),
+					);
+				}
+				break;
 			case 'usage.update': {
+				results.push(
+					makeEvent(
+						'usage.update',
+						'info',
+						'system',
+						{
+							thread_id: readString(d['thread_id']),
+							turn_id: readString(d['turn_id']),
+							usage:
+								typeof d['usage'] === 'object' && d['usage'] !== null
+									? (d[
+											'usage'
+										] as import('../../shared/types/headerMetrics').TokenUsage)
+									: undefined,
+							delta:
+								typeof d['delta'] === 'object' && d['delta'] !== null
+									? (d[
+											'delta'
+										] as import('../../shared/types/headerMetrics').TokenUsage)
+									: undefined,
+						} satisfies import('./types').UsageUpdateData,
+						event,
+					),
+				);
 				break;
 			}
 
@@ -950,15 +1038,143 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 
 			case 'notification': {
 				results.push(...ensureRunArray(event));
+				const notificationType = readString(d['notification_type']);
+				const message = readString(d['message']) ?? '';
+				const title = readString(d['title']);
+				if (notificationType === 'codex.error') {
+					results.push(
+						makeEvent(
+							'runtime.error',
+							'error',
+							'system',
+							{
+								message,
+								title,
+								thread_id: readString(d['thread_id']),
+								turn_id: readString(d['turn_id']),
+								error_code: readString(d['error_code']),
+								will_retry: readBoolean(d['will_retry']),
+							} satisfies import('./types').RuntimeErrorData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'thread.status_changed') {
+					results.push(
+						makeEvent(
+							'thread.status',
+							'info',
+							'system',
+							{
+								message,
+								thread_id: readString(d['thread_id']),
+								status_type: readString(d['status_type']),
+								active_flags: Array.isArray(d['active_flags'])
+									? (d['active_flags'] as string[])
+									: undefined,
+							} satisfies import('./types').ThreadStatusData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'turn.diff_updated') {
+					results.push(
+						makeEvent(
+							'turn.diff',
+							'info',
+							'system',
+							{
+								message,
+								thread_id: readString(d['thread_id']),
+								turn_id: readString(d['turn_id']),
+								diff: readString(d['diff']) ?? '',
+							} satisfies import('./types').TurnDiffData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'mcp_tool_call.progress') {
+					results.push(
+						makeEvent(
+							'mcp.progress',
+							'info',
+							'system',
+							{
+								message,
+								title,
+							} satisfies import('./types').McpProgressData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'command_execution.terminal_interaction') {
+					results.push(
+						makeEvent(
+							'terminal.input',
+							'info',
+							'system',
+							{
+								message,
+								input_preview: message,
+							} satisfies import('./types').TerminalInputData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'skills.changed') {
+					results.push(
+						makeEvent(
+							'skills.changed',
+							'info',
+							'system',
+							{
+								message,
+							} satisfies import('./types').SkillsChangedData,
+							event,
+						),
+					);
+					break;
+				}
+				if (notificationType === 'skills.loaded') {
+					const payload =
+						typeof event.payload === 'object' && event.payload !== null
+							? (event.payload as Record<string, unknown>)
+							: null;
+					results.push(
+						makeEvent(
+							'skills.loaded',
+							'info',
+							'system',
+							{
+								message,
+								count:
+									typeof payload?.['count'] === 'number'
+										? (payload['count'] as number)
+										: undefined,
+								error_count:
+									typeof payload?.['error_count'] === 'number'
+										? (payload['error_count'] as number)
+										: undefined,
+							} satisfies import('./types').SkillsLoadedData,
+							event,
+						),
+					);
+					break;
+				}
 				results.push(
 					makeEvent(
 						'notification',
 						'info',
 						'system',
 						{
-							message: readString(d['message']) ?? '',
-							title: readString(d['title']),
-							notification_type: readString(d['notification_type']),
+							message,
+							title,
+							notification_type: notificationType,
 						} satisfies import('./types').NotificationData,
 						event,
 					),

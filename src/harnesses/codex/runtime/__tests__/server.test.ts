@@ -106,6 +106,18 @@ vi.mock('../appServerManager', () => ({
 				return {};
 			}
 
+			if (method === 'skills/list') {
+				return {
+					data: [
+						{
+							root: '/project',
+							skills: [{name: 'Skill A'}, {name: 'Skill B'}],
+							errors: [],
+						},
+					],
+				};
+			}
+
 			if (method === 'thread/start') {
 				return {
 					thread: {id: 'th-1'},
@@ -327,6 +339,10 @@ describe('createCodexServer', () => {
 					}),
 				}),
 				expect.objectContaining({
+					method: 'skills/list',
+					params: {cwds: ['/project']},
+				}),
+				expect.objectContaining({
 					method: 'turn/start',
 					params: expect.objectContaining({
 						input: [
@@ -349,12 +365,10 @@ describe('createCodexServer', () => {
 			manager!.requests.find(request => request.method === 'thread/start')
 				?.params?.['developerInstructions'],
 		).toEqual('Use the workflow tracker.');
-		expect(events.some(event => event.hookName === 'skills.loaded')).toBe(
-			false,
-		);
+		expect(events.some(event => event.hookName === 'skills.loaded')).toBe(true);
 	});
 
-	it('ensures workflow plugins before turn start without Athena-side skill routing', async () => {
+	it('ensures workflow plugins and skills before turn start', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -385,7 +399,9 @@ describe('createCodexServer', () => {
 		expect(methodOrder.indexOf('plugin/read')).toBeLessThan(
 			methodOrder.indexOf('plugin/install'),
 		);
-		expect(methodOrder).not.toContain('skills/list');
+		expect(methodOrder.indexOf('skills/list')).toBeLessThan(
+			methodOrder.indexOf('thread/start'),
+		);
 		expect(
 			manager!.requests.find(request => request.method === 'turn/start')
 				?.params?.['input'],
@@ -604,7 +620,7 @@ describe('createCodexServer', () => {
 		);
 	});
 
-	it('ignores legacy codex/event notifications and thread status chatter', async () => {
+	it('ignores legacy codex/event notifications but forwards thread/status/changed', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -625,13 +641,18 @@ describe('createCodexServer', () => {
 		});
 		manager!.emit('notification', {
 			method: 'thread/status/changed',
-			params: {threadId: 'th-1', status: 'running'},
+			params: {threadId: 'th-1', status: {type: 'idle'}},
 		});
 
-		expect(events).toEqual([]);
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			kind: 'notification',
+			hookName: 'thread/status/changed',
+			data: {notification_type: 'thread.status_changed'},
+		});
 	});
 
-	it('ignores skills/changed notifications now that workflow skills are passed natively', async () => {
+	it('forwards skills/changed as a visible notification', async () => {
 		const runtime = createCodexServer({
 			projectDir: '/project',
 			instanceId: 1,
@@ -654,7 +675,11 @@ describe('createCodexServer', () => {
 			params: {},
 		});
 
-		expect(events).toHaveLength(eventCountBefore);
+		expect(events).toHaveLength(eventCountBefore + 1);
+		expect(events[eventCountBefore]).toMatchObject({
+			kind: 'notification',
+			hookName: 'skills/changed',
+		});
 	});
 
 	it('does not suppress completed agentMessage items', async () => {

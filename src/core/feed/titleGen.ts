@@ -24,6 +24,14 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 			return `Run ${event.data.status}`;
 		case 'user.prompt':
 			return truncate(event.data.prompt);
+		case 'plan.update':
+			return truncate(
+				event.data.explanation || event.data.delta || 'Plan updated',
+			);
+		case 'reasoning.summary':
+			return truncate(event.data.message);
+		case 'usage.update':
+			return 'Usage updated';
 		case 'tool.delta':
 			return `${g['tool.gutter']} ${event.data.tool_name} output`;
 		case 'tool.pre':
@@ -68,6 +76,20 @@ export function generateTitle(event: FeedEvent, ascii = false): string {
 			return `${g['subagent.done']} Subagent done: ${event.data.agent_type}`;
 		case 'notification':
 			return truncate(event.data.message);
+		case 'runtime.error':
+			return truncate(`${g['status.blocked']} ${event.data.message}`);
+		case 'thread.status':
+			return truncate(`Thread status: ${event.data.message}`);
+		case 'turn.diff':
+			return 'Turn diff updated';
+		case 'mcp.progress':
+			return truncate(`MCP progress: ${event.data.message}`);
+		case 'terminal.input':
+			return truncate(`Terminal input: ${event.data.message}`);
+		case 'skills.changed':
+			return 'Skills changed';
+		case 'skills.loaded':
+			return 'Skills loaded';
 		case 'compact.pre':
 			return `Compacting context (${event.data.trigger})`;
 		case 'setup':

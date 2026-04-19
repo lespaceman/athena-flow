@@ -39,6 +39,253 @@ function makeRuntimeEvent(
 }
 
 describe('FeedMapper', () => {
+	describe('codex-specific feed enrichment', () => {
+		it('maps plan.delta to visible plan.update event', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('turn/plan/updated', {
+					kind: 'plan.delta',
+					hookName: 'turn/plan/updated',
+					data: {
+						thread_id: 'th-1',
+						turn_id: 'turn-1',
+						explanation: 'Do the work in three steps',
+						plan: [
+							{step: 'Inspect code', status: 'completed'},
+							{step: 'Patch bug', status: 'inProgress'},
+						],
+					},
+				}),
+			);
+
+			expect(results).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						kind: 'plan.update',
+						data: expect.objectContaining({
+							explanation: 'Do the work in three steps',
+							plan: expect.arrayContaining([
+								expect.objectContaining({step: 'Inspect code'}),
+							]),
+						}),
+					}),
+				]),
+			);
+		});
+
+		it('maps usage.update to feed usage.update', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent(
+				makeRuntimeEvent('thread/tokenUsage/updated', {
+					kind: 'usage.update',
+					hookName: 'thread/tokenUsage/updated',
+					data: {
+						thread_id: 'th-1',
+						turn_id: 'turn-1',
+						usage: {total: 120, input: 100, output: 20},
+						delta: {total: 20, input: 0, output: 20},
+					},
+				}),
+			);
+
+			expect(results).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						kind: 'usage.update',
+						data: expect.objectContaining({
+							thread_id: 'th-1',
+							turn_id: 'turn-1',
+						}),
+					}),
+				]),
+			);
+		});
+
+		it('aggregates reasoning summary deltas into reasoning.summary', () => {
+			const mapper = createFeedMapper();
+			const first = mapper.mapEvent(
+				makeRuntimeEvent('item/reasoning/summaryTextDelta', {
+					kind: 'reasoning.delta',
+					hookName: 'item/reasoning/summaryTextDelta',
+					data: {
+						thread_id: 'th-1',
+						turn_id: 'turn-1',
+						item_id: 'reason-1',
+						delta: 'Inspecting files. ',
+						phase: 'summary',
+						summary_index: 0,
+					},
+				}),
+			);
+			const second = mapper.mapEvent(
+				makeRuntimeEvent('item/reasoning/summaryTextDelta', {
+					kind: 'reasoning.delta',
+					hookName: 'item/reasoning/summaryTextDelta',
+					data: {
+						thread_id: 'th-1',
+						turn_id: 'turn-1',
+						item_id: 'reason-1',
+						delta: 'Preparing patch.',
+						phase: 'summary',
+						summary_index: 0,
+					},
+				}),
+			);
+
+			expect(first).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						kind: 'reasoning.summary',
+						data: expect.objectContaining({message: 'Inspecting files. '}),
+					}),
+				]),
+			);
+			expect(second).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						kind: 'reasoning.summary',
+						data: expect.objectContaining({
+							message: 'Inspecting files. Preparing patch.',
+						}),
+					}),
+				]),
+			);
+		});
+
+		it('specializes codex notification subtypes into dedicated feed events', () => {
+			const mapper = createFeedMapper();
+			const kinds = [
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('error', {
+							kind: 'notification',
+							hookName: 'error',
+							data: {
+								title: 'Codex error',
+								message: 'turn failed',
+								notification_type: 'codex.error',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('thread/status/changed', {
+							kind: 'notification',
+							hookName: 'thread/status/changed',
+							data: {
+								message: 'Thread th-1 → active [waitingOnApproval].',
+								notification_type: 'thread.status_changed',
+								status_type: 'active',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('turn/diff/updated', {
+							kind: 'notification',
+							hookName: 'turn/diff/updated',
+							data: {
+								message: 'Aggregated diff updated (10 bytes).',
+								notification_type: 'turn.diff_updated',
+								diff: '@@ -1 +1 @@',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('item/mcpToolCall/progress', {
+							kind: 'notification',
+							hookName: 'item/mcpToolCall/progress',
+							data: {
+								message: 'Fetching repository metadata',
+								notification_type: 'mcp_tool_call.progress',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('item/commandExecution/terminalInteraction', {
+							kind: 'notification',
+							hookName: 'item/commandExecution/terminalInteraction',
+							data: {
+								message: 'Sent terminal input to interactive Bash session: y',
+								notification_type: 'command_execution.terminal_interaction',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('skills/changed', {
+							kind: 'notification',
+							hookName: 'skills/changed',
+							data: {
+								message: 'Workflow skill files changed.',
+								notification_type: 'skills.changed',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+				mapper
+					.mapEvent(
+						makeRuntimeEvent('skills.loaded', {
+							kind: 'notification',
+							hookName: 'skills.loaded',
+							data: {
+								message: 'Loaded 2 workflow skills: Skill A, Skill B.',
+								notification_type: 'skills.loaded',
+							},
+						}),
+					)
+					.at(-1)?.kind,
+			];
+
+			expect(kinds).toEqual([
+				'runtime.error',
+				'thread.status',
+				'turn.diff',
+				'mcp.progress',
+				'terminal.input',
+				'skills.changed',
+				'skills.loaded',
+			]);
+		});
+
+		it('reads skills.loaded counts from runtime payload', () => {
+			const mapper = createFeedMapper();
+			const results = mapper.mapEvent({
+				...makeRuntimeEvent('skills.loaded', {
+					kind: 'notification',
+					hookName: 'skills.loaded',
+					data: {
+						message: 'Loaded 2 workflow skills: Skill A, Skill B.',
+						notification_type: 'skills.loaded',
+					},
+				}),
+				payload: {
+					count: 2,
+					error_count: 1,
+				},
+			});
+
+			expect(results).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						kind: 'skills.loaded',
+						data: expect.objectContaining({
+							count: 2,
+							error_count: 1,
+						}),
+					}),
+				]),
+			);
+		});
+	});
+
 	describe('session lifecycle', () => {
 		it('maps SessionStart to session.start', () => {
 			const mapper = createFeedMapper();
