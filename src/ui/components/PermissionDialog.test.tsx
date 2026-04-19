@@ -51,7 +51,7 @@ describe('PermissionDialog', () => {
 	});
 
 	describe('option list rendering', () => {
-		it('shows Allow, Deny, Always allow for built-in tools', () => {
+		it('shows Deny, Allow once, Always allow for built-in tools', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
 				<PermissionDialog
@@ -62,10 +62,36 @@ describe('PermissionDialog', () => {
 			);
 
 			const frame = lastFrame() ?? '';
-			expect(frame).toContain('Allow');
+			expect(frame).toContain('Allow once');
 			expect(frame).toContain('Deny');
 			expect(frame).toContain('Always allow "Edit"');
 			expect(frame).not.toContain('Always deny');
+		});
+
+		it('shows the target file path under the title', () => {
+			const event = makePermissionEvent('Edit', {file_path: '/tmp/foo.ts'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).toContain('/tmp/foo.ts');
+		});
+
+		it('shows the Bash command as the target', () => {
+			const event = makePermissionEvent('Bash', {command: 'git push'});
+			const {lastFrame} = render(
+				<PermissionDialog
+					request={event}
+					queuedCount={0}
+					onDecision={vi.fn()}
+				/>,
+			);
+
+			expect(lastFrame()).toContain('git push');
 		});
 
 		it('shows "Always allow all from server" option for MCP tools', () => {
@@ -149,22 +175,6 @@ describe('PermissionDialog', () => {
 			expect(frame).toContain('Navigate');
 		});
 
-		it('shows footer hint', () => {
-			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
-			const {lastFrame} = render(
-				<PermissionDialog
-					request={event}
-					queuedCount={0}
-					onDecision={vi.fn()}
-				/>,
-			);
-
-			expect(lastFrame()).toContain('Navigate');
-			expect(lastFrame()).toContain('Jump');
-			expect(lastFrame()).toContain('Select');
-			expect(lastFrame()).toContain('Cancel');
-		});
-
 		it('does not show "Show details" option', () => {
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {lastFrame} = render(
@@ -208,7 +218,7 @@ describe('PermissionDialog', () => {
 	});
 
 	describe('keyboard interaction', () => {
-		it('calls onDecision with "allow" when Enter is pressed on focused Allow option', () => {
+		it('defaults focus to Deny so Enter denies the request', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -220,10 +230,10 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('\r');
-			expect(onDecision).toHaveBeenCalledWith('allow');
+			expect(onDecision).toHaveBeenCalledWith('deny');
 		});
 
-		it('calls onDecision with "deny" via number key', () => {
+		it('selects "Allow once" via number key', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -235,7 +245,7 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('2');
-			expect(onDecision).toHaveBeenCalledWith('deny');
+			expect(onDecision).toHaveBeenCalledWith('allow');
 		});
 
 		it('calls onDecision with "deny" when Escape is pressed', async () => {

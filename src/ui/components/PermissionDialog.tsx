@@ -17,6 +17,25 @@ type Props = {
 	onDecision: (decision: PermissionDecision) => void;
 };
 
+const TARGET_KEYS = [
+	'file_path',
+	'notebook_path',
+	'path',
+	'command',
+	'url',
+	'pattern',
+];
+
+function extractTarget(input: Record<string, unknown>): string | null {
+	for (const key of TARGET_KEYS) {
+		const value = input[key];
+		if (typeof value === 'string' && value.trim().length > 0) {
+			return value;
+		}
+	}
+	return null;
+}
+
 export default function PermissionDialog({
 	request,
 	queuedCount,
@@ -30,15 +49,15 @@ export default function PermissionDialog({
 	const options: OptionItem[] = useMemo(() => {
 		if (isPermissionsRequest) {
 			return [
-				{label: 'Allow this turn', value: 'allow'},
 				{label: 'Deny', value: 'deny'},
+				{label: 'Allow this turn', value: 'allow'},
 				{label: 'Allow for this session', value: 'always-allow'},
 			];
 		}
 
 		const items: OptionItem[] = [
-			{label: 'Allow', value: 'allow'},
 			{label: 'Deny', value: 'deny'},
+			{label: 'Allow once', value: 'allow'},
 			{
 				label: canGrantSession
 					? 'Allow for this session'
@@ -76,6 +95,8 @@ export default function PermissionDialog({
 			? `Allow "${displayName}" (${serverLabel})?`
 			: `Allow "${displayName}"?`;
 
+	const target = extractTarget(request.tool_input);
+
 	const requestReason =
 		typeof request.tool_input.reason === 'string'
 			? request.tool_input.reason
@@ -86,7 +107,8 @@ export default function PermissionDialog({
 	const {stdout} = useStdout();
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- can be undefined in non-TTY
 	const columns = stdout?.columns ?? 80;
-	const rule = g['general.divider'].repeat(columns);
+	const ruleWidth = Math.max(1, columns - 1);
+	const rule = g['general.divider'].repeat(ruleWidth);
 
 	return (
 		<Box flexDirection="column">
@@ -99,6 +121,14 @@ export default function PermissionDialog({
 					</Text>
 					{queuedCount > 0 && <Text dimColor>+{queuedCount}</Text>}
 				</Box>
+
+				{target && (
+					<Box>
+						<Text dimColor wrap="truncate-end">
+							{target}
+						</Text>
+					</Box>
+				)}
 
 				<Box marginTop={1}>
 					<OptionList options={options} onSelect={handleSelect} />
@@ -113,9 +143,6 @@ export default function PermissionDialog({
 				<Box marginTop={1} gap={2}>
 					<Text>
 						<Text dimColor>up/down</Text> Navigate
-					</Text>
-					<Text>
-						<Text dimColor>1-{options.length}</Text> Jump
 					</Text>
 					<Text>
 						<Text dimColor>Enter</Text> Select

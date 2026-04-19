@@ -37,9 +37,10 @@ function buildHintPairs(pairs: Array<[string, string]>): string {
 export function buildFrameLines(ctx: FrameContext): FrameLines {
 	const {innerWidth} = ctx;
 
-	// Footer — auto-hide when typing
+	// Footer — auto-hide when typing, or when a modal dialog owns input
 	const footerHelp: string | null = (() => {
-		if (ctx.inputValue.length > 0 && ctx.hintsForced !== true) {
+		const suppress = ctx.dialogActive || ctx.inputValue.length > 0;
+		if (suppress && ctx.hintsForced !== true) {
 			return null;
 		}
 
