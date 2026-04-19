@@ -218,7 +218,7 @@ describe('PermissionDialog', () => {
 	});
 
 	describe('keyboard interaction', () => {
-		it('defaults focus to Deny so Enter denies the request', () => {
+		it('defaults focus to Allow once so Enter allows the request', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -230,10 +230,10 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('\r');
-			expect(onDecision).toHaveBeenCalledWith('deny');
+			expect(onDecision).toHaveBeenCalledWith('allow');
 		});
 
-		it('selects "Allow once" via number key', () => {
+		it('selects "Allow for this session" via number key', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -245,7 +245,7 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('2');
-			expect(onDecision).toHaveBeenCalledWith('allow');
+			expect(onDecision).toHaveBeenCalledWith('always-allow');
 		});
 
 		it('calls onDecision with "deny" when Escape is pressed', async () => {
@@ -263,7 +263,7 @@ describe('PermissionDialog', () => {
 			expect(onDecision).toHaveBeenCalledWith('deny');
 		});
 
-		it('calls onDecision with "always-allow" via number key', () => {
+		it('calls onDecision with "deny" via number key', () => {
 			const onDecision = vi.fn();
 			const event = makePermissionEvent('Edit', {file_path: '/test.ts'});
 			const {stdin} = render(
@@ -275,7 +275,7 @@ describe('PermissionDialog', () => {
 			);
 
 			stdin.write('3');
-			expect(onDecision).toHaveBeenCalledWith('always-allow');
+			expect(onDecision).toHaveBeenCalledWith('deny');
 		});
 
 		it('does not show option descriptions', () => {

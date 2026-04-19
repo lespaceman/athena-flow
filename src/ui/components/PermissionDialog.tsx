@@ -49,14 +49,13 @@ export default function PermissionDialog({
 	const options: OptionItem[] = useMemo(() => {
 		if (isPermissionsRequest) {
 			return [
-				{label: 'Deny', value: 'deny'},
 				{label: 'Allow this turn', value: 'allow'},
 				{label: 'Allow for this session', value: 'always-allow'},
+				{label: 'Deny', value: 'deny'},
 			];
 		}
 
 		const items: OptionItem[] = [
-			{label: 'Deny', value: 'deny'},
 			{label: 'Allow once', value: 'allow'},
 			{
 				label: canGrantSession
@@ -64,6 +63,7 @@ export default function PermissionDialog({
 					: `Always allow "${displayName}"`,
 				value: 'always-allow',
 			},
+			{label: 'Deny', value: 'deny'},
 		];
 
 		if (!canGrantSession && isMcp && serverLabel) {
@@ -130,15 +130,15 @@ export default function PermissionDialog({
 					</Box>
 				)}
 
-				<Box marginTop={1}>
-					<OptionList options={options} onSelect={handleSelect} />
-				</Box>
-
 				{requestReason && (
 					<Box marginTop={1}>
 						<Text dimColor>{requestReason}</Text>
 					</Box>
 				)}
+
+				<Box marginTop={1}>
+					<OptionList options={options} onSelect={handleSelect} />
+				</Box>
 
 				<Box marginTop={1} gap={2}>
 					<Text>
