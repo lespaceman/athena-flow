@@ -5,7 +5,16 @@
  * The controller expresses intent; this module translates to protocol.
  */
 
-import type {HookResultPayload} from '../protocol/result';
+import {
+	type HookOutput,
+	type HookResultPayload,
+	createAskUserQuestionResult,
+	createPermissionRequestAllowResult,
+	createPermissionRequestDenyResult,
+	createPreToolUseAllowResult,
+	createPreToolUseDenyResult,
+	createStopBlockResult,
+} from '../protocol/result';
 import type {RuntimeEvent, RuntimeDecision} from '../../../core/runtime/types';
 
 export function mapDecisionToResult(
@@ -23,12 +32,10 @@ export function mapDecisionToResult(
 		};
 	}
 
-	// decision.type === 'json'
 	if (!decision.intent) {
-		// No intent but type is json — pass through raw data if available
 		return {
 			action: 'json_output',
-			stdout_json: decision.data as Record<string, unknown>,
+			stdout_json: decision.data as HookOutput,
 		};
 	}
 
@@ -36,78 +43,18 @@ export function mapDecisionToResult(
 
 	switch (intent.kind) {
 		case 'permission_allow':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PermissionRequest',
-						decision: {behavior: 'allow'},
-					},
-				},
-			};
-
+			return createPermissionRequestAllowResult();
 		case 'permission_deny':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PermissionRequest',
-						decision: {behavior: 'deny', reason: intent.reason},
-					},
-				},
-			};
-
-		case 'question_answer': {
-			const formatted = Object.entries(intent.answers)
-				.map(([q, a]) => `Q: ${q}\nA: ${a}`)
-				.join('\n');
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PreToolUse',
-						permissionDecision: 'allow',
-						updatedInput: {answers: intent.answers},
-						additionalContext: `User answered via athena-cli:\n${formatted}`,
-					},
-				},
-			};
-		}
-
+			return createPermissionRequestDenyResult(intent.reason);
+		case 'question_answer':
+			return createAskUserQuestionResult(intent.answers);
 		case 'pre_tool_allow':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PreToolUse',
-						permissionDecision: 'allow',
-					},
-				},
-			};
-
+			return createPreToolUseAllowResult();
 		case 'pre_tool_deny':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					hookSpecificOutput: {
-						hookEventName: 'PreToolUse',
-						permissionDecision: 'deny',
-						permissionDecisionReason: intent.reason,
-					},
-				},
-			};
-
+			return createPreToolUseDenyResult(intent.reason);
 		case 'stop_block':
-			return {
-				action: 'json_output',
-				stdout_json: {
-					decision: 'block',
-					reason: intent.reason,
-				},
-			};
-
+			return createStopBlockResult(intent.reason);
 		default:
-			// Exhaustive check — if new intents are added, TypeScript will catch it
 			return {action: 'passthrough'};
 	}
 }

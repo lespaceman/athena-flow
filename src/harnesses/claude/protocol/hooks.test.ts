@@ -141,21 +141,29 @@ describe('hooks types', () => {
 				'UserPromptSubmit',
 				'PreToolUse',
 				'PermissionRequest',
+				'PermissionDenied',
 				'PostToolUse',
 				'PostToolUseFailure',
 				'SubagentStart',
 				'SubagentStop',
 				'Stop',
+				'StopFailure',
 				'PreCompact',
+				'PostCompact',
 				'SessionEnd',
 				'Notification',
 				'Setup',
 				'TeammateIdle',
+				'TaskCreated',
 				'TaskCompleted',
 				'ConfigChange',
 				'InstructionsLoaded',
+				'CwdChanged',
+				'FileChanged',
 				'WorktreeCreate',
 				'WorktreeRemove',
+				'Elicitation',
+				'ElicitationResult',
 			];
 
 			for (const name of validNames) {
@@ -236,7 +244,14 @@ describe('hooks types', () => {
 			hook_event_name: 'PermissionRequest',
 			tool_name: 'Bash',
 			tool_input: {command: 'ls'},
-			permission_suggestions: [{type: 'toolAlwaysAllow', tool: 'Bash'}],
+			permission_suggestions: [
+				{
+					type: 'addRules',
+					destination: 'projectSettings',
+					behavior: 'allow',
+					rules: [{tool: 'Bash'}],
+				},
+			],
 		};
 
 		const preToolUseEvent: PreToolUseEvent = {
@@ -332,7 +347,7 @@ describe('hooks types', () => {
 		const worktreeCreateEvent: WorktreeCreateEvent = {
 			...createBaseEvent(),
 			hook_event_name: 'WorktreeCreate',
-			name: 'feature-auth',
+			worktree_path: '/home/user/project/.claude/worktrees/feature-auth',
 		};
 
 		const worktreeRemoveEvent: WorktreeRemoveEvent = {
@@ -343,7 +358,12 @@ describe('hooks types', () => {
 
 		it('accepts the refined documented hook shapes', () => {
 			expect(permissionRequestEvent.permission_suggestions).toEqual([
-				{type: 'toolAlwaysAllow', tool: 'Bash'},
+				{
+					type: 'addRules',
+					destination: 'projectSettings',
+					behavior: 'allow',
+					rules: [{tool: 'Bash'}],
+				},
 			]);
 			expect(notificationEvent.title).toBe('Permission needed');
 			expect(sessionEndEvent.reason).toBe('bypass_permissions_disabled');
@@ -351,7 +371,7 @@ describe('hooks types', () => {
 			expect(taskCompletedEvent.task_id).toBe('task-001');
 			expect(configChangeEvent.source).toBe('project_settings');
 			expect(instructionsLoadedEvent.load_reason).toBe('session_start');
-			expect(worktreeCreateEvent.name).toBe('feature-auth');
+			expect(worktreeCreateEvent.worktree_path).toContain('feature-auth');
 			expect(worktreeRemoveEvent.worktree_path).toContain('feature-auth');
 		});
 

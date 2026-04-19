@@ -18,21 +18,37 @@ const TOOL_HOOK_EVENTS = [
 	'PostToolUse',
 	'PostToolUseFailure',
 	'PermissionRequest',
+	'PermissionDenied',
+	'Elicitation',
+	'ElicitationResult',
 ] as const;
 
 /**
  * Hook events that don't require a matcher.
+ *
+ * FileChanged is intentionally NOT registered here: it requires explicit
+ * literal file patterns rather than a wildcard matcher.
  */
 const NON_TOOL_HOOK_EVENTS = [
 	'Notification',
 	'Stop',
+	'StopFailure',
 	'SessionStart',
 	'SessionEnd',
 	'SubagentStart',
 	'SubagentStop',
 	'UserPromptSubmit',
 	'PreCompact',
+	'PostCompact',
 	'Setup',
+	'CwdChanged',
+	'TeammateIdle',
+	'TaskCreated',
+	'TaskCompleted',
+	'ConfigChange',
+	'InstructionsLoaded',
+	'WorktreeCreate',
+	'WorktreeRemove',
 ] as const;
 
 /**
