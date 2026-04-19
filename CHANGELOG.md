@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.24](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.23...cli-v0.3.24) (2026-04-19)
+
+
+### Features
+
+* add richer Codex feed events ([d502dda](https://github.com/lespaceman/athena-flow-cli/commit/d502dda262f2ea4bc4adfcd10a16f30925442796))
+* **codex:** add model picker and verify workflow plugins ([851d476](https://github.com/lespaceman/athena-flow-cli/commit/851d4764020ddc5589fb0cb6a0d3cb7ba9a33d45))
+* **feed:** wire new Claude hook events through the feed pipeline ([c7d6854](https://github.com/lespaceman/athena-flow-cli/commit/c7d68542ef9c009ebde1614b42d688186c87ddf0))
+* **hooks:** complete Claude Code hook protocol coverage ([d5de71d](https://github.com/lespaceman/athena-flow-cli/commit/d5de71d17face28c77fe17027b1c6021e9b31a3e))
+* surface Codex runtime events and session approvals ([d430f85](https://github.com/lespaceman/athena-flow-cli/commit/d430f8559aeee9e4ed2ddcad56e656429fc69a81))
+
+
+### Bug Fixes
+
+* **hooks:** tighten event types and feed levels ([95eed25](https://github.com/lespaceman/athena-flow-cli/commit/95eed2536cff50dd0927d6fdea97baf992d54186))
+* keep web search in tool accounting ([64b1db4](https://github.com/lespaceman/athena-flow-cli/commit/64b1db41143b85f70fed11653eeb5a35382a3057))
+* normalize codex app-server feed events ([3905dc0](https://github.com/lespaceman/athena-flow-cli/commit/3905dc02f86f6de9c6bf5fa1bc29c1fbf66da499))
+* **ui:** harden permission dialog defaults and layout ([101f4a3](https://github.com/lespaceman/athena-flow-cli/commit/101f4a34e246db04c1c47f9b6e1a4256309adf2a))
+
 ## [0.3.23](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.22...cli-v0.3.23) (2026-04-17)
 
 
