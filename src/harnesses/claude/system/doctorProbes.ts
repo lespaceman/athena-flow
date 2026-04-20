@@ -64,7 +64,12 @@ export type CredentialSource =
 	| 'env:ANTHROPIC_API_KEY'
 	| 'env:ANTHROPIC_AUTH_TOKEN'
 	| 'env:CLAUDE_CODE_OAUTH_TOKEN'
+	| 'flag:--api-key'
+	| 'keychain:ANTHROPIC_API_KEY'
 	| 'settings:apiKeyHelper'
+	| 'dotenv:.env'
+	| 'dotenv:.env.local'
+	| 'dotenv:~/.env'
 	| 'keychain:Claude Code-credentials'
 	| 'file:.credentials.json';
 
@@ -85,7 +90,29 @@ export type LookupCredentialOptions = {
 	keychainLookupFn?: (service: string) => string | null;
 	readFileFn?: (filePath: string) => string;
 	runHelperFn?: (command: string) => string | null;
+	/** Explicitly-provided API key (e.g. from --api-key flag). */
+	apiKeyOverride?: string;
 };
+
+function parseDotenvForApiKey(content: string): string | null {
+	for (const rawLine of content.split('\n')) {
+		const line = rawLine.trim();
+		if (!line || line.startsWith('#')) continue;
+		const match = /^(?:export\s+)?ANTHROPIC_API_KEY\s*=\s*(.+?)\s*$/u.exec(
+			line,
+		);
+		if (!match) continue;
+		let value = match[1]!;
+		if (
+			(value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith("'") && value.endsWith("'"))
+		) {
+			value = value.slice(1, -1);
+		}
+		if (value.startsWith('sk-ant-')) return value;
+	}
+	return null;
+}
 
 function tail(value: string, lines: number): string {
 	const trimmed = value.replace(/\s+$/u, '');
@@ -195,32 +222,112 @@ function extractOauthAccessToken(rawJson: string): string | null {
 	}
 }
 
+/**
+ * Returns the single best credential — prefers a real Console API key over any
+ * OAuth/auth-token alternative, since `--bare` mode only accepts API keys (or
+ * apiKeyHelper output that resolves to one).
+ */
 export function lookupCredential(
 	options: LookupCredentialOptions = {},
 ): CredentialLookup | null {
+	const all = lookupAllCredentials(options);
+	if (all.length === 0) return null;
+	const apiKey = all.find(c => c.kind === 'apiKey');
+	if (apiKey) return apiKey;
+	const authToken = all.find(c => c.kind === 'authToken');
+	if (authToken) return authToken;
+	return all[0]!;
+}
+
+/** @deprecated Use {@link lookupCredential}. Retained for tests/back-compat. */
+export function lookupAnthropicApiKey(
+	options: LookupCredentialOptions = {},
+): CredentialLookup | null {
+	return lookupCredential(options);
+}
+
+/**
+ * Returns every distinct credential available, not just the first one in the
+ * precedence order. Used by the doctor so each available auth method is
+ * exercised independently (e.g. an OAuth token from the keychain AND a Console
+ * API key from the env var get their own probe groups).
+ */
+export function lookupAllCredentials(
+	options: LookupCredentialOptions = {},
+): CredentialLookup[] {
 	const env = options.env ?? process.env;
 	const platform = options.platform ?? process.platform;
 	const homeDir = options.homeDir ?? os.homedir();
 	const cwd = options.cwd ?? process.cwd();
 	const readFileFn =
 		options.readFileFn ?? ((p: string) => fs.readFileSync(p, 'utf8'));
+	const found: CredentialLookup[] = [];
+	const seen = new Set<string>();
+	const push = (cred: CredentialLookup) => {
+		const key = `${cred.source}|${cred.value}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		found.push(cred);
+	};
 
-	// Order matches the bare-mode-friendly precedence: explicit env vars first
-	// (most predictable), then user-configured apiKeyHelper script, then OAuth
-	// fallbacks (which only work without --bare).
+	if (
+		typeof options.apiKeyOverride === 'string' &&
+		options.apiKeyOverride.startsWith('sk-ant-')
+	) {
+		push({
+			source: 'flag:--api-key',
+			kind: 'apiKey',
+			value: options.apiKeyOverride,
+		});
+	}
 
 	const apiKey = env['ANTHROPIC_API_KEY'];
 	if (typeof apiKey === 'string' && apiKey.startsWith('sk-ant-')) {
-		return {source: 'env:ANTHROPIC_API_KEY', kind: 'apiKey', value: apiKey};
+		push({source: 'env:ANTHROPIC_API_KEY', kind: 'apiKey', value: apiKey});
 	}
 
 	const authToken = env['ANTHROPIC_AUTH_TOKEN'];
 	if (typeof authToken === 'string' && authToken.length > 0) {
-		return {
+		push({
 			source: 'env:ANTHROPIC_AUTH_TOKEN',
 			kind: 'authToken',
 			value: authToken,
-		};
+		});
+	}
+
+	if (platform === 'darwin') {
+		const lookup = options.keychainLookupFn ?? defaultKeychainLookup;
+		const keychainKey = lookup('ANTHROPIC_API_KEY');
+		if (keychainKey && keychainKey.startsWith('sk-ant-')) {
+			push({
+				source: 'keychain:ANTHROPIC_API_KEY',
+				kind: 'apiKey',
+				value: keychainKey,
+			});
+		}
+	}
+
+	const dotenvCandidates: Array<{
+		source: Extract<
+			CredentialSource,
+			'dotenv:.env' | 'dotenv:.env.local' | 'dotenv:~/.env'
+		>;
+		path: string;
+	}> = [
+		{source: 'dotenv:.env', path: path.join(cwd, '.env')},
+		{source: 'dotenv:.env.local', path: path.join(cwd, '.env.local')},
+		{source: 'dotenv:~/.env', path: path.join(homeDir, '.env')},
+	];
+	for (const candidate of dotenvCandidates) {
+		try {
+			const content = readFileFn(candidate.path);
+			const value = parseDotenvForApiKey(content);
+			if (value) {
+				push({source: candidate.source, kind: 'apiKey', value});
+			}
+		} catch {
+			// Missing or unreadable; skip.
+		}
 	}
 
 	const helperCommand = readApiKeyHelperFromSettings(
@@ -234,21 +341,21 @@ export function lookupCredential(
 		const runHelper = options.runHelperFn ?? defaultRunHelper;
 		const helperOutput = runHelper(helperCommand);
 		if (helperOutput) {
-			return {
+			push({
 				source: 'settings:apiKeyHelper',
 				kind: classifyToken(helperOutput),
 				value: helperOutput,
-			};
+			});
 		}
 	}
 
 	const oauthEnv = env['CLAUDE_CODE_OAUTH_TOKEN'];
 	if (typeof oauthEnv === 'string' && oauthEnv.length > 0) {
-		return {
+		push({
 			source: 'env:CLAUDE_CODE_OAUTH_TOKEN',
 			kind: 'oauthToken',
 			value: oauthEnv,
-		};
+		});
 	}
 
 	if (platform === 'darwin') {
@@ -257,11 +364,11 @@ export function lookupCredential(
 		if (raw) {
 			const token = extractOauthAccessToken(raw);
 			if (token) {
-				return {
+				push({
 					source: 'keychain:Claude Code-credentials',
 					kind: 'oauthToken',
 					value: token,
-				};
+				});
 			}
 		}
 	} else {
@@ -270,30 +377,21 @@ export function lookupCredential(
 			'.credentials.json',
 		);
 		try {
-			const readFile =
-				options.readFileFn ?? ((p: string) => fs.readFileSync(p, 'utf8'));
-			const raw = readFile(credentialsPath);
+			const raw = readFileFn(credentialsPath);
 			const token = extractOauthAccessToken(raw);
 			if (token) {
-				return {
+				push({
 					source: 'file:.credentials.json',
 					kind: 'oauthToken',
 					value: token,
-				};
+				});
 			}
 		} catch {
 			// File missing or unreadable
 		}
 	}
 
-	return null;
-}
-
-/** @deprecated Use {@link lookupCredential}. Retained for tests/back-compat. */
-export function lookupAnthropicApiKey(
-	options: LookupCredentialOptions = {},
-): CredentialLookup | null {
-	return lookupCredential(options);
+	return found;
 }
 
 export type ApiKeyHelperSettings = {
@@ -301,14 +399,25 @@ export type ApiKeyHelperSettings = {
 	cleanup: () => void;
 };
 
+function shellQuoteSingle(value: string): string {
+	return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * Writes a temp Claude settings JSON whose `apiKeyHelper` deterministically
+ * prints the given credential value via `printf`. Each credential gets its own
+ * helper file so D-group probes can test that exact value without our
+ * `--print-api-key` resolver re-walking sources at probe time.
+ */
 export function buildApiKeyHelperSettings(
-	athenaBin: string,
+	value: string,
 	tempDir: string = os.tmpdir(),
+	tag = 'doctor',
 ): ApiKeyHelperSettings {
-	const filename = `athena-doctor-helper-${process.pid}-${Date.now()}.json`;
+	const filename = `athena-${tag}-helper-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
 	const settingsPath = path.join(tempDir, filename);
 	const settings = {
-		apiKeyHelper: `${athenaBin} doctor --print-api-key`,
+		apiKeyHelper: `printf %s ${shellQuoteSingle(value)}`,
 	};
 	fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
 	return {
@@ -323,6 +432,11 @@ export function buildApiKeyHelperSettings(
 			}
 		},
 	};
+}
+
+/** Stable key for matching a credential to its helper settings file. */
+export function credentialHelperKey(credential: CredentialLookup): string {
+	return `${credential.source}|${credential.value}`;
 }
 
 export type RunProbeOptions = {
@@ -426,8 +540,11 @@ export function makeSkippedProbe(
 export type BuildProbesOptions = {
 	strictSettingsPath: string;
 	helperSettingsPath?: string;
-	credential?: CredentialLookup;
-	/** Human-readable reason credential lookup returned null. Drives SKIP messages. */
+	/** All credentials available; each gets its own C and D probe group. */
+	credentials?: CredentialLookup[];
+	/** Per-credential helper settings file path (keyed by `${source}|${value}`). */
+	helperSettingsByCredential?: Map<string, string>;
+	/** Human-readable reason credential lookup returned no credentials. */
 	credentialMissingReason?: string;
 };
 
@@ -523,44 +640,62 @@ export function buildProbeConfigs(opts: BuildProbesOptions): ProbeConfig[] {
 		});
 	}
 
-	// Group C — credential injected via env var, swept across all combos.
-	const credentialGroupLabel = opts.credential
-		? `Credential via env: ${envVarForCredential(opts.credential)} from ${opts.credential.source}`
-		: 'Credential via env (no credential resolved)';
-	for (const combo of FLAG_COMBOS) {
-		const probe: ProbeConfig = {
-			id: `C-${comboShortId(combo)}`,
-			group: 'credential',
-			groupLabel: credentialGroupLabel,
-			label: comboLabel(combo),
-			args: baseArgs(combo),
-		};
-		if (opts.credential) {
-			probe.env = {
-				[envVarForCredential(opts.credential)]: opts.credential.value,
-			};
+	// Groups C and D — emitted per credential so each available auth method is
+	// exercised independently. If no credentials were resolved, a single SKIP
+	// placeholder group is emitted explaining why.
+	const credentials = opts.credentials ?? [];
+	if (credentials.length === 0) {
+		for (const combo of FLAG_COMBOS) {
+			probes.push({
+				id: `C-${comboShortId(combo)}`,
+				group: 'credential',
+				groupLabel: 'Credential via env (no credential resolved)',
+				label: comboLabel(combo),
+				args: baseArgs(combo),
+			});
 		}
-		probes.push(probe);
-	}
+		for (const combo of FLAG_COMBOS) {
+			probes.push({
+				id: `D-${comboShortId(combo)}`,
+				group: 'helper',
+				groupLabel: 'apiKeyHelper script (no credential for helper to print)',
+				label: comboLabel(combo),
+				args: baseArgs(combo),
+			});
+		}
+	} else {
+		credentials.forEach((credential, credentialIndex) => {
+			const credentialTag = `${credentialIndex + 1}`; // C1, C2 …
+			const envVar = envVarForCredential(credential);
+			const credentialGroupLabel = `Credential via env: ${envVar} from ${credential.source} (${credential.kind})`;
+			for (const combo of FLAG_COMBOS) {
+				probes.push({
+					id: `C${credentialTag}-${comboShortId(combo)}`,
+					group: 'credential',
+					groupLabel: credentialGroupLabel,
+					label: comboLabel(combo),
+					args: baseArgs(combo),
+					env: {[envVar]: credential.value},
+				});
+			}
 
-	// Group D — apiKeyHelper script (prints the resolved credential).
-	const helperGroupLabel = opts.credential
-		? `apiKeyHelper script (apiKeyHelper → ${opts.credential.kind})`
-		: 'apiKeyHelper script (no credential for helper to print)';
-	for (const combo of FLAG_COMBOS) {
-		const probe: ProbeConfig = {
-			id: `D-${comboShortId(combo)}`,
-			group: 'helper',
-			groupLabel: helperGroupLabel,
-			label: comboLabel(combo),
-			args: opts.helperSettingsPath
-				? baseArgs(combo, opts.helperSettingsPath)
-				: baseArgs(combo),
-		};
-		if (opts.helperSettingsPath) {
-			probe.tempPaths = [opts.helperSettingsPath];
-		}
-		probes.push(probe);
+			const helperKey = `${credential.source}|${credential.value}`;
+			const helperPath =
+				opts.helperSettingsByCredential?.get(helperKey) ??
+				opts.helperSettingsPath;
+			const helperGroupLabel = `apiKeyHelper script (prints ${credential.kind} from ${credential.source})`;
+			for (const combo of FLAG_COMBOS) {
+				const probe: ProbeConfig = {
+					id: `D${credentialTag}-${comboShortId(combo)}`,
+					group: 'helper',
+					groupLabel: helperGroupLabel,
+					label: comboLabel(combo),
+					args: helperPath ? baseArgs(combo, helperPath) : baseArgs(combo),
+				};
+				if (helperPath) probe.tempPaths = [helperPath];
+				probes.push(probe);
+			}
+		});
 	}
 
 	return probes;
@@ -576,19 +711,27 @@ export function probeSkipReason(
 	probe: ProbeConfig,
 	opts: BuildProbesOptions,
 ): string | null {
-	if (probe.group === 'credential' && !opts.credential) {
+	const hasCredentials = (opts.credentials?.length ?? 0) > 0;
+	if (probe.group === 'credential' && !hasCredentials) {
 		return (
 			opts.credentialMissingReason ??
 			'No credential resolved (would have injected an empty token)'
 		);
 	}
-	if (probe.group === 'helper' && !opts.credential) {
+	if (probe.group === 'helper' && !hasCredentials) {
 		return (
 			opts.credentialMissingReason ??
 			'apiKeyHelper would have nothing to print (no credential resolved)'
 		);
 	}
-	if (probe.group === 'helper' && !opts.helperSettingsPath) {
+	if (
+		probe.group === 'helper' &&
+		!opts.helperSettingsPath &&
+		!(
+			opts.helperSettingsByCredential &&
+			opts.helperSettingsByCredential.size > 0
+		)
+	) {
 		return 'helper settings file was not generated';
 	}
 	return null;

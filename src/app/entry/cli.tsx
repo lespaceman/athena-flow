@@ -342,6 +342,9 @@ const cli = meow(
 				type: 'boolean',
 				default: false,
 			},
+			apiKey: {
+				type: 'string',
+			},
 		},
 	},
 );
@@ -436,6 +439,8 @@ async function main(): Promise<void> {
 				harness,
 				json: Boolean(cli.flags.json),
 				printApiKey: Boolean(cli.flags.printApiKey),
+				apiKey:
+					typeof cli.flags.apiKey === 'string' ? cli.flags.apiKey : undefined,
 			}),
 		);
 		return;

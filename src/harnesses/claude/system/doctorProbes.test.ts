@@ -6,6 +6,7 @@ import {
 	buildApiKeyHelperSettings,
 	buildProbeConfigs,
 	DOCTOR_EXPECTED,
+	lookupAllCredentials,
 	lookupAnthropicApiKey,
 	lookupCredential,
 	makeSkippedProbe,
@@ -106,9 +107,8 @@ describe('lookupCredential', () => {
 		expect(result?.kind).toBe('oauthToken');
 	});
 
-	it('skips helper when ANTHROPIC_API_KEY env wins precedence', () => {
+	it('prefers ANTHROPIC_API_KEY env over helper output of any kind', () => {
 		const settingsJson = JSON.stringify({apiKeyHelper: '/bin/h.sh'});
-		const helperRan = vi.fn(() => 'should-not-be-used');
 		const result = lookupCredential({
 			env: {ANTHROPIC_API_KEY: 'sk-ant-real'},
 			platform: 'linux',
@@ -120,10 +120,9 @@ describe('lookupCredential', () => {
 					: (() => {
 							throw new Error('ENOENT');
 						})(),
-			runHelperFn: helperRan,
+			runHelperFn: () => 'sk-ant-oat01-from-helper',
 		});
 		expect(result?.source).toBe('env:ANTHROPIC_API_KEY');
-		expect(helperRan).not.toHaveBeenCalled();
 	});
 
 	it('extracts claudeAiOauth.accessToken from macOS keychain entry', () => {
@@ -207,6 +206,153 @@ describe('lookupCredential', () => {
 	});
 });
 
+describe('lookupAllCredentials', () => {
+	const isolated = () => ({
+		readFileFn: () => {
+			throw new Error('ENOENT');
+		},
+		runHelperFn: () => null,
+		keychainLookupFn: () => null,
+	});
+
+	it('returns every distinct credential found, not just the first', () => {
+		const all = lookupAllCredentials({
+			...isolated(),
+			env: {
+				ANTHROPIC_API_KEY: 'sk-ant-real',
+				ANTHROPIC_AUTH_TOKEN: 'bearer-xyz',
+			},
+			platform: 'linux',
+		});
+		expect(all).toEqual([
+			{source: 'env:ANTHROPIC_API_KEY', kind: 'apiKey', value: 'sk-ant-real'},
+			{
+				source: 'env:ANTHROPIC_AUTH_TOKEN',
+				kind: 'authToken',
+				value: 'bearer-xyz',
+			},
+		]);
+	});
+
+	it('honors apiKeyOverride from the --api-key flag with highest priority', () => {
+		const all = lookupAllCredentials({
+			...isolated(),
+			env: {ANTHROPIC_API_KEY: 'sk-ant-from-env'},
+			platform: 'linux',
+			apiKeyOverride: 'sk-ant-from-flag',
+		});
+		expect(all[0]).toEqual({
+			source: 'flag:--api-key',
+			kind: 'apiKey',
+			value: 'sk-ant-from-flag',
+		});
+		expect(all).toHaveLength(2);
+	});
+
+	it('reads ANTHROPIC_API_KEY from the macOS keychain (separate service from oauth credentials)', () => {
+		const all = lookupAllCredentials({
+			env: {},
+			platform: 'darwin',
+			readFileFn: () => {
+				throw new Error('ENOENT');
+			},
+			runHelperFn: () => null,
+			keychainLookupFn: service =>
+				service === 'ANTHROPIC_API_KEY' ? 'sk-ant-api03-from-keychain' : null,
+		});
+		expect(all).toContainEqual({
+			source: 'keychain:ANTHROPIC_API_KEY',
+			kind: 'apiKey',
+			value: 'sk-ant-api03-from-keychain',
+		});
+	});
+
+	it('extracts ANTHROPIC_API_KEY from <cwd>/.env via dotenv parsing', () => {
+		const all = lookupAllCredentials({
+			env: {},
+			platform: 'linux',
+			homeDir: '/home/user',
+			cwd: '/repo',
+			runHelperFn: () => null,
+			readFileFn: p => {
+				if (p === '/repo/.env')
+					return [
+						'# comment',
+						'OTHER=value',
+						'ANTHROPIC_API_KEY="sk-ant-api03-from-dotenv"',
+					].join('\n');
+				throw new Error('ENOENT');
+			},
+		});
+		expect(all).toContainEqual({
+			source: 'dotenv:.env',
+			kind: 'apiKey',
+			value: 'sk-ant-api03-from-dotenv',
+		});
+	});
+
+	it('parses both `export FOO=bar` and `FOO=bar` dotenv lines', () => {
+		const all = lookupAllCredentials({
+			env: {},
+			platform: 'linux',
+			homeDir: '/home/user',
+			cwd: '/repo',
+			runHelperFn: () => null,
+			readFileFn: p => {
+				if (p === '/repo/.env.local')
+					return 'export ANTHROPIC_API_KEY=sk-ant-real';
+				throw new Error('ENOENT');
+			},
+		});
+		expect(all).toContainEqual({
+			source: 'dotenv:.env.local',
+			kind: 'apiKey',
+			value: 'sk-ant-real',
+		});
+	});
+
+	it('classifies helper output by token prefix and adds it as a separate credential', () => {
+		const settingsJson = JSON.stringify({apiKeyHelper: '/bin/h.sh'});
+		const all = lookupAllCredentials({
+			env: {ANTHROPIC_API_KEY: 'sk-ant-api03-from-env'},
+			platform: 'linux',
+			homeDir: '/home/user',
+			cwd: '/repo',
+			readFileFn: p =>
+				p === '/home/user/.claude/settings.json'
+					? settingsJson
+					: (() => {
+							throw new Error('ENOENT');
+						})(),
+			runHelperFn: () => 'sk-ant-oat01-from-helper',
+		});
+		// Both env API key and helper-OAuth show up so each can be probed.
+		expect(all.find(c => c.source === 'env:ANTHROPIC_API_KEY')).toBeDefined();
+		expect(all.find(c => c.source === 'settings:apiKeyHelper')).toEqual({
+			source: 'settings:apiKeyHelper',
+			kind: 'oauthToken',
+			value: 'sk-ant-oat01-from-helper',
+		});
+	});
+
+	it('deduplicates identical (source, value) entries', () => {
+		const all = lookupAllCredentials({
+			env: {
+				ANTHROPIC_API_KEY: 'sk-ant-real',
+				ANTHROPIC_AUTH_TOKEN: 'sk-ant-real', // contrived: same value
+			},
+			platform: 'linux',
+			runHelperFn: () => null,
+			readFileFn: () => {
+				throw new Error('ENOENT');
+			},
+		});
+		// Both entries kept because they have different sources, but each unique.
+		const keys = new Set(all.map(c => `${c.source}|${c.value}`));
+		expect(keys.size).toBe(all.length);
+	});
+});
+
 describe('lookupAnthropicApiKey (legacy alias)', () => {
 	it('delegates to lookupCredential', () => {
 		const result = lookupAnthropicApiKey({
@@ -228,15 +374,23 @@ describe('buildApiKeyHelperSettings', () => {
 		fs.rmSync(tempDir, {recursive: true, force: true});
 	});
 
-	it('writes a settings file containing apiKeyHelper command', () => {
-		const result = buildApiKeyHelperSettings('/usr/local/bin/athena', tempDir);
+	it('writes a settings file whose apiKeyHelper printf-prints the literal credential', () => {
+		const result = buildApiKeyHelperSettings('sk-ant-api03-secret', tempDir);
 		expect(fs.existsSync(result.settingsPath)).toBe(true);
 		const parsed = JSON.parse(fs.readFileSync(result.settingsPath, 'utf8'));
 		expect(parsed).toEqual({
-			apiKeyHelper: '/usr/local/bin/athena doctor --print-api-key',
+			apiKeyHelper: "printf %s 'sk-ant-api03-secret'",
 		});
 		result.cleanup();
 		expect(fs.existsSync(result.settingsPath)).toBe(false);
+	});
+
+	it('shell-quotes single quotes in the credential value', () => {
+		const result = buildApiKeyHelperSettings("weird'key", tempDir);
+		const parsed = JSON.parse(fs.readFileSync(result.settingsPath, 'utf8'));
+		// Standard sh-escape: close ', emit \', reopen '. Result: 'weird'\''key'
+		expect(parsed.apiKeyHelper).toBe(`printf %s 'weird'\\''key'`);
+		result.cleanup();
 	});
 });
 
@@ -264,31 +418,32 @@ describe('buildProbeConfigs', () => {
 		expect(inherited[3]!.args[idx + 1]).toBe('');
 	});
 
-	it('adds 4 credential probes when an API-key credential is provided', () => {
+	it('adds 4 credential probes per credential, injecting ANTHROPIC_API_KEY for apiKey kind', () => {
 		const probes = buildProbeConfigs({
 			strictSettingsPath: '/tmp/s.json',
-			credential: {
-				source: 'env:ANTHROPIC_API_KEY',
-				kind: 'apiKey',
-				value: 'sk-ant-real',
-			},
+			credentials: [
+				{source: 'env:ANTHROPIC_API_KEY', kind: 'apiKey', value: 'sk-ant-real'},
+			],
 		});
 		const credProbes = probes.filter(p => p.group === 'credential');
 		expect(credProbes).toHaveLength(4);
 		for (const probe of credProbes) {
 			expect(probe.env?.ANTHROPIC_API_KEY).toBe('sk-ant-real');
 			expect(probe.env?.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+			expect(probe.id.startsWith('C1-')).toBe(true);
 		}
 	});
 
 	it('routes OAuth tokens through ANTHROPIC_AUTH_TOKEN in credential probes', () => {
 		const probes = buildProbeConfigs({
 			strictSettingsPath: '/tmp/s.json',
-			credential: {
-				source: 'keychain:Claude Code-credentials',
-				kind: 'oauthToken',
-				value: 'sk-ant-oat01-x',
-			},
+			credentials: [
+				{
+					source: 'keychain:Claude Code-credentials',
+					kind: 'oauthToken',
+					value: 'sk-ant-oat01-x',
+				},
+			],
 		});
 		const credProbes = probes.filter(p => p.group === 'credential');
 		expect(credProbes).toHaveLength(4);
@@ -298,31 +453,51 @@ describe('buildProbeConfigs', () => {
 		}
 	});
 
-	it('adds 4 helper probes when both credential and helperSettingsPath are provided', () => {
+	it('emits separate C1/D1 and C2/D2 groups when two credentials are available', () => {
 		const probes = buildProbeConfigs({
 			strictSettingsPath: '/tmp/s.json',
-			helperSettingsPath: '/tmp/h.json',
-			credential: {
-				source: 'env:ANTHROPIC_API_KEY',
-				kind: 'apiKey',
-				value: 'sk-ant-real',
-			},
+			helperSettingsByCredential: new Map([
+				['flag:--api-key|sk-ant-api03-key', '/tmp/h-key.json'],
+				['keychain:Claude Code-credentials|sk-ant-oat01-x', '/tmp/h-oat.json'],
+			]),
+			credentials: [
+				{source: 'flag:--api-key', kind: 'apiKey', value: 'sk-ant-api03-key'},
+				{
+					source: 'keychain:Claude Code-credentials',
+					kind: 'oauthToken',
+					value: 'sk-ant-oat01-x',
+				},
+			],
 		});
-		const helperProbes = probes.filter(p => p.group === 'helper');
-		expect(helperProbes).toHaveLength(4);
-		for (const probe of helperProbes) {
-			expect(probe.args).toContain('/tmp/h.json');
-		}
+		const c1 = probes.filter(
+			p => p.group === 'credential' && p.id.startsWith('C1'),
+		);
+		const c2 = probes.filter(
+			p => p.group === 'credential' && p.id.startsWith('C2'),
+		);
+		const d1 = probes.filter(
+			p => p.group === 'helper' && p.id.startsWith('D1'),
+		);
+		const d2 = probes.filter(
+			p => p.group === 'helper' && p.id.startsWith('D2'),
+		);
+		expect(c1).toHaveLength(4);
+		expect(c2).toHaveLength(4);
+		expect(d1).toHaveLength(4);
+		expect(d2).toHaveLength(4);
+		// API key probes use ANTHROPIC_API_KEY
+		expect(c1[0]!.env?.ANTHROPIC_API_KEY).toBe('sk-ant-api03-key');
+		// OAuth probes use ANTHROPIC_AUTH_TOKEN
+		expect(c2[0]!.env?.ANTHROPIC_AUTH_TOKEN).toBe('sk-ant-oat01-x');
+		// D1 references the API-key helper, D2 references the OAuth helper
+		expect(d1[0]!.args).toContain('/tmp/h-key.json');
+		expect(d2[0]!.args).toContain('/tmp/h-oat.json');
 	});
 
-	it('still emits credential and helper probes when no credential is available (for skip reporting)', () => {
-		const probes = buildProbeConfigs({
-			strictSettingsPath: '/tmp/s.json',
-			helperSettingsPath: '/tmp/h.json',
-		});
+	it('emits placeholder C and D groups (for skip reporting) when no credentials are available', () => {
+		const probes = buildProbeConfigs({strictSettingsPath: '/tmp/s.json'});
 		expect(probes.filter(p => p.group === 'credential')).toHaveLength(4);
 		expect(probes.filter(p => p.group === 'helper')).toHaveLength(4);
-		// But without a credential, no env var should be injected.
 		for (const probe of probes.filter(p => p.group === 'credential')) {
 			expect(probe.env).toBeUndefined();
 		}
@@ -331,12 +506,12 @@ describe('buildProbeConfigs', () => {
 	it('probe IDs are unique across the matrix', () => {
 		const probes = buildProbeConfigs({
 			strictSettingsPath: '/tmp/s.json',
-			helperSettingsPath: '/tmp/h.json',
-			credential: {
-				source: 'env:ANTHROPIC_API_KEY',
-				kind: 'apiKey',
-				value: 'sk-ant-x',
-			},
+			helperSettingsByCredential: new Map([
+				['env:ANTHROPIC_API_KEY|sk-ant-x', '/tmp/h.json'],
+			]),
+			credentials: [
+				{source: 'env:ANTHROPIC_API_KEY', kind: 'apiKey', value: 'sk-ant-x'},
+			],
 		});
 		const ids = probes.map(p => p.id);
 		expect(new Set(ids).size).toBe(ids.length);
@@ -354,7 +529,7 @@ describe('probeSkipReason', () => {
 		expect(probeSkipReason(bbe, buildOpts)).toBeNull();
 	});
 
-	it('returns the credentialMissingReason for credential probes when no credential is resolved', () => {
+	it('returns the credentialMissingReason for credential probes when no credentials are resolved', () => {
 		const opts = {
 			...buildOpts,
 			credentialMissingReason:
@@ -366,14 +541,16 @@ describe('probeSkipReason', () => {
 		);
 	});
 
-	it('returns a helper-specific reason when helperSettingsPath is missing', () => {
+	it('returns a helper-specific reason when helperSettingsByCredential is empty', () => {
 		const opts = {
 			strictSettingsPath: '/tmp/s.json',
-			credential: {
-				source: 'env:ANTHROPIC_API_KEY' as const,
-				kind: 'apiKey' as const,
-				value: 'sk-ant-x',
-			},
+			credentials: [
+				{
+					source: 'env:ANTHROPIC_API_KEY' as const,
+					kind: 'apiKey' as const,
+					value: 'sk-ant-x',
+				},
+			],
 		};
 		const probe = buildProbeConfigs(opts).find(p => p.group === 'helper')!;
 		expect(probeSkipReason(probe, opts)).toBe(
@@ -384,12 +561,16 @@ describe('probeSkipReason', () => {
 	it('returns null for credential and helper probes when all inputs are present', () => {
 		const opts = {
 			strictSettingsPath: '/tmp/s.json',
-			helperSettingsPath: '/tmp/h.json',
-			credential: {
-				source: 'env:ANTHROPIC_API_KEY' as const,
-				kind: 'apiKey' as const,
-				value: 'sk-ant-x',
-			},
+			helperSettingsByCredential: new Map([
+				['env:ANTHROPIC_API_KEY|sk-ant-x', '/tmp/h.json'],
+			]),
+			credentials: [
+				{
+					source: 'env:ANTHROPIC_API_KEY' as const,
+					kind: 'apiKey' as const,
+					value: 'sk-ant-x',
+				},
+			],
 		};
 		const probes = buildProbeConfigs(opts);
 		for (const probe of probes) {

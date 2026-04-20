@@ -15,6 +15,8 @@ import {
 import {
 	buildApiKeyHelperSettings,
 	buildProbeConfigs,
+	credentialHelperKey,
+	lookupAllCredentials,
 	lookupCredential,
 	makeSkippedProbe,
 	probeSkipReason,
@@ -27,6 +29,7 @@ export type DoctorCommandOptions = {
 	harness: string;
 	json: boolean;
 	printApiKey: boolean;
+	apiKey?: string;
 };
 
 const SUPPORTED_HARNESS = 'claude';
@@ -237,13 +240,6 @@ function recommendation(results: ProbeResult[]): string | null {
 	return passing[0]!.label;
 }
 
-function resolveAthenaBinary(): string {
-	if (process.env['ATHENA_BIN']) return process.env['ATHENA_BIN']!;
-	const argv0 = process.argv[1];
-	if (argv0) return argv0;
-	return 'athena';
-}
-
 function handlePrintApiKey(): number {
 	const credential = lookupCredential();
 	if (!credential) {
@@ -293,17 +289,28 @@ export async function runDoctorCommand(
 	const strictSettings = generateHookSettings();
 	cleanups.push(strictSettings.cleanup);
 
-	const credential = lookupCredential();
-	const credentialMissingReason = credential
-		? undefined
-		: 'No credential resolved (tried: ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, settings apiKeyHelper, CLAUDE_CODE_OAUTH_TOKEN, macOS keychain, ~/.claude/.credentials.json)';
-	const helperSettings = buildApiKeyHelperSettings(resolveAthenaBinary());
-	cleanups.push(helperSettings.cleanup);
+	const credentials = lookupAllCredentials({apiKeyOverride: options.apiKey});
+	const credentialMissingReason =
+		credentials.length > 0
+			? undefined
+			: 'No credential resolved (tried: --api-key, ANTHROPIC_API_KEY env, ANTHROPIC_AUTH_TOKEN env, macOS keychain "ANTHROPIC_API_KEY", .env files, settings apiKeyHelper, CLAUDE_CODE_OAUTH_TOKEN env, macOS keychain "Claude Code-credentials", ~/.claude/.credentials.json)';
+
+	// One helper settings file per credential so each D-group probes that exact
+	// credential value, not whatever lookupCredential resolves at probe time.
+	const helperSettingsByCredential = new Map<string, string>();
+	for (const credential of credentials) {
+		const helper = buildApiKeyHelperSettings(credential.value);
+		cleanups.push(helper.cleanup);
+		helperSettingsByCredential.set(
+			credentialHelperKey(credential),
+			helper.settingsPath,
+		);
+	}
 
 	const buildOpts = {
 		strictSettingsPath: strictSettings.settingsPath,
-		helperSettingsPath: helperSettings.settingsPath,
-		credential: credential ?? undefined,
+		credentials,
+		helperSettingsByCredential,
 		credentialMissingReason,
 	};
 	const probes = buildProbeConfigs(buildOpts);
