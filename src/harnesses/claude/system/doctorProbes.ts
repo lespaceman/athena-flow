@@ -533,6 +533,13 @@ export function classifyFailure(
 			rawLine,
 		};
 	}
+	if (/Invalid API key/u.test(haystack)) {
+		return {
+			title: 'Invalid API key',
+			hint: 'The injected ANTHROPIC_API_KEY (or apiKeyHelper output) is not accepted by the API.',
+			rawLine,
+		};
+	}
 	if (/API Error: 401/u.test(haystack)) {
 		return {
 			title: 'Authentication failed (401)',
@@ -570,7 +577,26 @@ function pickMeaningfulLine(text: string): string {
 		.map(line => line.trim())
 		.filter(line => line.length > 0)
 		.filter(line => !line.startsWith('Command failed:'));
-	return lines.at(-1) ?? '';
+	const lastLine = lines.at(-1) ?? '';
+	// stream-json emits one big object per line; pull out the human-readable
+	// `result` (or `message`) field instead of dumping the whole blob.
+	if (lastLine.startsWith('{')) {
+		try {
+			const parsed = JSON.parse(lastLine) as {
+				result?: unknown;
+				message?: unknown;
+				error?: {message?: unknown};
+			};
+			const candidate =
+				(typeof parsed.result === 'string' && parsed.result) ||
+				(typeof parsed.message === 'string' && parsed.message) ||
+				(typeof parsed.error?.message === 'string' && parsed.error.message);
+			if (candidate) return candidate;
+		} catch {
+			// Not JSON or unexpected shape; fall through to the raw line.
+		}
+	}
+	return lastLine;
 }
 
 export type RunProbeOptions = {
@@ -585,6 +611,35 @@ export type RunProbeOptions = {
 	/** Fires whenever the probe emits stderr data; useful for live streaming. */
 	onStderrChunk?: (chunk: string) => void;
 };
+
+/**
+ * Auth-related env vars the doctor strips from each probe's environment before
+ * spawning, so an ambient `export ANTHROPIC_API_KEY=…` doesn't poison probes
+ * that aren't supposed to test that path. Each probe re-adds only the env var
+ * it is explicitly exercising via `probe.env`.
+ *
+ * Per docs, Claude resolves auth from these in this order — leaving any of
+ * them set defeats the isolation we're trying to provide.
+ */
+export const SCRUBBED_AUTH_ENV_VARS = [
+	'ANTHROPIC_API_KEY',
+	'ANTHROPIC_AUTH_TOKEN',
+	'ANTHROPIC_BASE_URL',
+	'ANTHROPIC_BEDROCK_BASE_URL',
+	'CLAUDE_CODE_USE_BEDROCK',
+	'CLAUDE_CODE_USE_VERTEX',
+	'CLAUDE_CODE_USE_FOUNDRY',
+	'CLAUDE_CODE_OAUTH_TOKEN',
+	'CLAUDE_CODE_API_KEY_HELPER_TTL_MS',
+] as const;
+
+function scrubAuthEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const scrubbed: NodeJS.ProcessEnv = {...env};
+	for (const key of SCRUBBED_AUTH_ENV_VARS) {
+		delete scrubbed[key];
+	}
+	return scrubbed;
+}
 
 export async function runProbe({
 	claudeBinary,
@@ -603,7 +658,9 @@ export async function runProbe({
 	return new Promise<ProbeResult>(resolve => {
 		const child = spawn(claudeBinary, probe.args, {
 			stdio: ['ignore', 'pipe', 'pipe'],
-			env: {...process.env, ...(probe.env ?? {})},
+			// Strip ambient auth env vars so each probe tests only the auth method
+			// it's explicitly exercising via probe.env.
+			env: {...scrubAuthEnv(process.env), ...(probe.env ?? {})},
 		});
 
 		let stdout = '';

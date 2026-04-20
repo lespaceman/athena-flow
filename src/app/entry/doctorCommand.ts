@@ -143,6 +143,13 @@ function printEnvironment(env: DoctorEnvironment): void {
 	for (const scope of env.settings) {
 		console.log(`    ${fmtScope(scope)}`);
 	}
+	if (env.providerEnvVars.length > 0) {
+		console.log(
+			c.dim(
+				`  note: ANTHROPIC_*/CLAUDE_CODE_* env vars are stripped from each probe's environment so credentials don't leak across the matrix.`,
+			),
+		);
+	}
 	console.log('');
 }
 
@@ -347,9 +354,13 @@ export async function runDoctorCommand(
 	if (!options.json) {
 		printEnvironment(env);
 		if (aliases.size > 0) {
+			const aliasColumnWidth =
+				Math.max(...[...aliases.keys()].map(name => name.length)) + 2;
 			console.log(c.dim('  paths'));
 			for (const [name, fullPath] of aliases) {
-				console.log(`    ${c.dim(`$${name}`.padEnd(8))}${fullPath}`);
+				console.log(
+					`    ${c.dim(`$${name}`.padEnd(aliasColumnWidth))} ${fullPath}`,
+				);
 			}
 			console.log('');
 		}
