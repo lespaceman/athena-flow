@@ -1236,7 +1236,7 @@ function AppContent({
 	}, [resolvedUiState.feedCursorId, showToast, theme]);
 
 	const yankMessageAtCursor = useCallback(() => {
-		const entry = messageEntries[resolvedUiState.messageCursorIndex];
+		const entry = messageEntries.at(resolvedUiState.messageCursorIndex);
 		if (!entry) return;
 		const text = messageText(entry);
 		copyToClipboard(text);

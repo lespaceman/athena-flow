@@ -88,6 +88,8 @@ type UnmatchedHookEntry = {
  */
 type ClaudeSettings = {
 	hooks: Record<string, (MatchedHookEntry | UnmatchedHookEntry)[]>;
+	env?: Record<string, string>;
+	apiKeyHelper?: string;
 };
 
 /**
@@ -98,6 +100,11 @@ export type GeneratedHookSettings = {
 	settingsPath: string;
 	/** Cleanup function to remove the temp file */
 	cleanup: () => void;
+};
+
+export type HookSettingsAuthOverlay = {
+	env?: Record<string, string>;
+	apiKeyHelper?: string;
 };
 
 export function quoteShellArg(value: string): string {
@@ -166,7 +173,10 @@ export function resolveHookForwarderCommand(): HookForwarderResolution {
  * @param tempDir - Optional temp directory (defaults to os.tmpdir())
  * @returns Generated settings with path and cleanup function
  */
-export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
+export function generateHookSettings(
+	tempDir?: string,
+	authOverlay?: HookSettingsAuthOverlay | null,
+): GeneratedHookSettings {
 	const hookForwarder = resolveHookForwarderCommand();
 
 	// Debug logging
@@ -202,14 +212,24 @@ export function generateHookSettings(tempDir?: string): GeneratedHookSettings {
 	}
 
 	const settings: ClaudeSettings = {hooks};
+	if (authOverlay?.env && Object.keys(authOverlay.env).length > 0) {
+		settings.env = authOverlay.env;
+	}
+	if (authOverlay?.apiKeyHelper) {
+		settings.apiKeyHelper = authOverlay.apiKeyHelper;
+	}
 
 	// Generate a unique temp file path
 	const dir = tempDir ?? os.tmpdir();
 	const filename = `athena-hooks-${process.pid}-${Date.now()}.json`;
 	const settingsPath = path.join(dir, filename);
 
-	// Write the settings file
-	fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+	// Write the settings file with owner-only permissions because it may carry
+	// injected auth material (env vars or apiKeyHelper) in addition to hooks.
+	fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), {
+		encoding: 'utf8',
+		mode: 0o600,
+	});
 
 	// Debug logging
 	if (process.env['ATHENA_DEBUG']) {

@@ -15,6 +15,10 @@ import {detectClaudeVersion} from './detectVersion';
 import {resolveClaudeBinary} from './resolveBinary';
 import {runClaudeAuthStatus} from './verifyHarness';
 import {
+	PORTABLE_PROVIDER_ENV_VARS,
+	resolveClaudeSettingsSurfacePaths,
+} from '../auth/settingsSurfaces';
+import {
 	resolveHookForwarderCommand,
 	type HookForwarderResolution,
 } from '../hooks/generateHookSettings';
@@ -70,18 +74,6 @@ export type DoctorEnvironment = {
 	hookForwarder: HookForwarderResolution;
 };
 
-const PROVIDER_ENV_VARS = [
-	'ANTHROPIC_API_KEY',
-	'ANTHROPIC_AUTH_TOKEN',
-	'ANTHROPIC_BASE_URL',
-	'ANTHROPIC_BEDROCK_BASE_URL',
-	'CLAUDE_CODE_USE_BEDROCK',
-	'CLAUDE_CODE_USE_VERTEX',
-	'AWS_PROFILE',
-	'AWS_REGION',
-	'GOOGLE_APPLICATION_CREDENTIALS',
-] as const;
-
 const MANAGED_POLICY_KEYS = [
 	'forceLoginMethod',
 	'forceLoginOrgUUID',
@@ -109,53 +101,6 @@ export type CollectEnvironmentOptions = {
 	readFileFn?: (filePath: string) => string;
 	statFn?: (filePath: string) => fs.Stats;
 };
-
-function managedSettingsDir(
-	platform: NodeJS.Platform,
-	env: NodeJS.ProcessEnv,
-): string {
-	if (platform === 'darwin') {
-		return '/Library/Application Support/ClaudeCode';
-	}
-	if (platform === 'win32') {
-		// Per settings.md, v2.1.75+ uses Program Files (the legacy ProgramData
-		// path was removed).
-		const programFiles = env['PROGRAMFILES'] ?? 'C:\\Program Files';
-		return path.join(programFiles, 'ClaudeCode');
-	}
-	return '/etc/claude-code';
-}
-
-function managedSettingsPath(
-	platform: NodeJS.Platform,
-	env: NodeJS.ProcessEnv,
-): string {
-	return path.join(managedSettingsDir(platform, env), 'managed-settings.json');
-}
-
-/**
- * Returns paths to drop-in managed-settings JSON files (per settings.md, the
- * `managed-settings.d/` directory alongside the primary file is loaded too).
- * Returns an empty array if the directory doesn't exist or can't be read.
- */
-function managedSettingsDropIns(
-	platform: NodeJS.Platform,
-	env: NodeJS.ProcessEnv,
-): string[] {
-	const dir = path.join(
-		managedSettingsDir(platform, env),
-		'managed-settings.d',
-	);
-	try {
-		return fs
-			.readdirSync(dir)
-			.filter(name => name.endsWith('.json'))
-			.sort()
-			.map(name => path.join(dir, name));
-	} catch {
-		return [];
-	}
-}
 
 function inspectSettingsFile(
 	scope: SettingsScope,
@@ -285,6 +230,12 @@ export function collectEnvironment(
 	const statFn = options.statFn ?? ((p: string) => fs.statSync(p));
 	const readFileFn =
 		options.readFileFn ?? ((p: string) => fs.readFileSync(p, 'utf8'));
+	const settingsPaths = resolveClaudeSettingsSurfacePaths(
+		homeDir,
+		cwd,
+		platform,
+		env,
+	);
 
 	const claudeBinary = resolveBinary();
 	const claudeVersion = claudeBinary ? detectVersion() : null;
@@ -301,33 +252,12 @@ export function collectEnvironment(
 	}
 
 	const scopes: SettingsScopeInfo[] = [
-		inspectSettingsFile(
-			'managed',
-			managedSettingsPath(platform, env),
-			statFn,
-			readFileFn,
-		),
-		...managedSettingsDropIns(platform, env).map(file =>
+		...settingsPaths.managed.map(file =>
 			inspectSettingsFile('managed', file, statFn, readFileFn),
 		),
-		inspectSettingsFile(
-			'user',
-			path.join(homeDir, '.claude', 'settings.json'),
-			statFn,
-			readFileFn,
-		),
-		inspectSettingsFile(
-			'project',
-			path.join(cwd, '.claude', 'settings.json'),
-			statFn,
-			readFileFn,
-		),
-		inspectSettingsFile(
-			'local',
-			path.join(cwd, '.claude', 'settings.local.json'),
-			statFn,
-			readFileFn,
-		),
+		inspectSettingsFile('user', settingsPaths.user, statFn, readFileFn),
+		inspectSettingsFile('project', settingsPaths.project, statFn, readFileFn),
+		inspectSettingsFile('local', settingsPaths.local, statFn, readFileFn),
 	];
 
 	let apiKeyHelperOwner: SettingsScope | null = null;
@@ -345,7 +275,7 @@ export function collectEnvironment(
 
 	const enforcement = readEnforcement(scopes);
 
-	const providerEnvVars = PROVIDER_ENV_VARS.filter(name => {
+	const providerEnvVars = PORTABLE_PROVIDER_ENV_VARS.filter(name => {
 		const value = env[name];
 		return typeof value === 'string' && value.length > 0;
 	});

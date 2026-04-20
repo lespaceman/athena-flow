@@ -11,6 +11,7 @@ import {
 } from '../hooks/generateHookSettings';
 import {buildIsolationArgs, validateConflicts} from '../config/flagRegistry';
 import {resolveClaudeBinary} from '../system/resolveBinary';
+import {resolveRuntimeAuthOverlay} from '../auth/runtimeAuth';
 import type {HarnessProcessFailureCode} from '../../../core/runtime/process';
 
 const MAX_UNIX_SOCKET_PATH_BYTES = {
@@ -144,7 +145,8 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	};
 
 	// Generate temp settings file with athena's hooks
-	const {settingsPath, cleanup} = generateHookSettings();
+	const portableAuth = resolveRuntimeAuthOverlay({cwd: projectDir});
+	const {settingsPath, cleanup} = generateHookSettings(undefined, portableAuth);
 	registerCleanupOnExit(cleanup);
 
 	// Build CLI arguments
@@ -153,9 +155,10 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 	// Add isolation flags
 	args.push('--settings', settingsPath);
 
-	// Full settings isolation: don't load any Claude settings
-	// All configuration comes from athena's generated settings file
-	// Authentication still works (stored in ~/.claude.json, not settings)
+	// Full settings isolation: don't load Claude settings directly.
+	// Athena projects the portable auth surface (or a synthesized helper fallback)
+	// into its generated settings file so strict runtime behavior stays aligned
+	// with doctor diagnostics.
 	args.push('--setting-sources', '');
 
 	// Validate and warn about conflicting flags (non-fatal: conflicts are
@@ -192,8 +195,8 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		cwd: projectDir,
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: {
-			...(extraEnv ?? {}),
 			...process.env,
+			...(extraEnv ?? {}),
 			ATHENA_INSTANCE_ID: String(instanceId),
 		},
 	});

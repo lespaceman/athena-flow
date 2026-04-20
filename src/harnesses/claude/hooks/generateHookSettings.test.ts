@@ -30,6 +30,7 @@ describe('generateHookSettings', () => {
 		createdFiles.push(result.settingsPath);
 
 		expect(fs.existsSync(result.settingsPath)).toBe(true);
+		expect(fs.statSync(result.settingsPath).mode & 0o077).toBe(0);
 	});
 
 	it('should create file in specified temp directory', () => {
@@ -171,5 +172,39 @@ describe('generateHookSettings', () => {
 		).toBe(
 			`'/opt/homebrew/bin/node' '/Users/test/Athena Dev/dist/hook-forwarder.js'`,
 		);
+	});
+
+	it('includes only portable auth env overrides when provided', () => {
+		const result = generateHookSettings(undefined, {
+			env: {
+				ANTHROPIC_API_KEY: 'sk-ant-api03-test-value',
+				ANTHROPIC_AUTH_TOKEN: 'bearer-test-value',
+			},
+		});
+		createdFiles.push(result.settingsPath);
+
+		const content = fs.readFileSync(result.settingsPath, 'utf8');
+		const settings = JSON.parse(content);
+
+		expect(settings.env).toEqual({
+			ANTHROPIC_API_KEY: 'sk-ant-api03-test-value',
+			ANTHROPIC_AUTH_TOKEN: 'bearer-test-value',
+		});
+		expect(Object.keys(settings).sort()).toEqual(['env', 'hooks']);
+	});
+
+	it('includes apiKeyHelper when provided without leaking unrelated settings', () => {
+		const result = generateHookSettings(undefined, {
+			apiKeyHelper: '/bin/print-portable-auth',
+		});
+		createdFiles.push(result.settingsPath);
+
+		const content = fs.readFileSync(result.settingsPath, 'utf8');
+		const settings = JSON.parse(content);
+
+		expect(settings.apiKeyHelper).toBe('/bin/print-portable-auth');
+		expect(settings.model).toBeUndefined();
+		expect(settings.permissions).toBeUndefined();
+		expect(Object.keys(settings).sort()).toEqual(['apiKeyHelper', 'hooks']);
 	});
 });

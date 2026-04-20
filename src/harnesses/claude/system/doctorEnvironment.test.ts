@@ -160,4 +160,44 @@ describe('collectEnvironment', () => {
 		expect(env.apiKeyHelperOwner).toBe('user');
 		expect(env.apiKeyHelperCommand).toBe('/bin/get-key.sh');
 	});
+
+	it('respects CLAUDE_CONFIG_DIR and surfaces provider env vars from the shared allowlist', () => {
+		const userPath = '/custom/claude/settings.json';
+		const userJson = JSON.stringify({
+			env: {CLAUDE_CODE_USE_FOUNDRY: '1'},
+		});
+		const {statFn, readFileFn} = makeFakes(
+			{[userPath]: {size: userJson.length, mtime: new Date()}},
+			{[userPath]: userJson},
+		);
+
+		const env = collectEnvironment({
+			platform: 'darwin',
+			homeDir: '/Users/test',
+			cwd: '/repo',
+			env: {
+				CLAUDE_CONFIG_DIR: '/custom/claude',
+				CLAUDE_CODE_USE_FOUNDRY: '1',
+				ANTHROPIC_FOUNDRY_API_KEY: 'foundry-key',
+			},
+			resolveClaudeBinaryFn: () => null,
+			detectClaudeVersionFn: () => null,
+			runClaudeAuthStatusFn: () => ({ok: false, message: 'n/a'}),
+			resolveHookForwarderCommandFn: () => ({
+				command: 'x',
+				executable: 'x',
+				args: [],
+				source: 'path' as const,
+			}),
+			statFn,
+			readFileFn,
+		});
+
+		const userScope = env.settings.find(s => s.scope === 'user')!;
+		expect(userScope.path).toBe('/custom/claude/settings.json');
+		expect(env.providerEnvVars).toEqual([
+			'CLAUDE_CODE_USE_FOUNDRY',
+			'ANTHROPIC_FOUNDRY_API_KEY',
+		]);
+	});
 });

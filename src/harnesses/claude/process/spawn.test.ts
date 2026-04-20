@@ -48,7 +48,16 @@ vi.mock('../system/resolveBinary', () => ({
 }));
 
 import {resolveClaudeBinary} from '../system/resolveBinary';
-import {resolveHookForwarderCommand} from '../hooks/generateHookSettings';
+import {
+	generateHookSettings,
+	resolveHookForwarderCommand,
+} from '../hooks/generateHookSettings';
+
+vi.mock('../auth/runtimeAuth', () => ({
+	resolveRuntimeAuthOverlay: vi.fn(() => null),
+}));
+
+import {resolveRuntimeAuthOverlay} from '../auth/runtimeAuth';
 
 describe('spawnClaude', () => {
 	let mockChildProcess: ReturnType<typeof createMockChildProcess>;
@@ -56,6 +65,7 @@ describe('spawnClaude', () => {
 	const mockResolveHookForwarderCommand = vi.mocked(
 		resolveHookForwarderCommand,
 	);
+	const mockResolveRuntimeAuthOverlay = vi.mocked(resolveRuntimeAuthOverlay);
 	let tempHookForwarderPath = '';
 
 	beforeEach(() => {
@@ -74,6 +84,7 @@ describe('spawnClaude', () => {
 			source: 'bundled',
 			scriptPath: tempHookForwarderPath,
 		});
+		mockResolveRuntimeAuthOverlay.mockReturnValue(null);
 		mockCleanup.mockClear();
 	});
 
@@ -116,6 +127,68 @@ describe('spawnClaude', () => {
 				}),
 			}),
 		);
+	});
+
+	it('lets per-call env override ambient process env', () => {
+		const priorApiKey = process.env['ANTHROPIC_API_KEY'];
+		process.env['ANTHROPIC_API_KEY'] = 'sk-ant-api03-from-process';
+
+		try {
+			spawnClaude({
+				prompt: 'Hello, Claude!',
+				projectDir: '/test/project',
+				instanceId: 12345,
+				env: {ANTHROPIC_API_KEY: 'sk-ant-api03-from-workflow'},
+			});
+
+			expect(childProcess.spawn).toHaveBeenCalledWith(
+				'/resolved/claude',
+				expect.any(Array),
+				expect.objectContaining({
+					env: expect.objectContaining({
+						ANTHROPIC_API_KEY: 'sk-ant-api03-from-workflow',
+					}),
+				}),
+			);
+		} finally {
+			if (priorApiKey === undefined) {
+				delete process.env['ANTHROPIC_API_KEY'];
+			} else {
+				process.env['ANTHROPIC_API_KEY'] = priorApiKey;
+			}
+		}
+	});
+
+	it('passes portable auth env discovered from Claude settings into generated hook settings', () => {
+		mockResolveRuntimeAuthOverlay.mockReturnValue({
+			env: {ANTHROPIC_API_KEY: 'sk-ant-api03-from-settings'},
+		});
+
+		spawnClaude({
+			prompt: 'Hello, Claude!',
+			projectDir: '/test/project',
+			instanceId: 12345,
+		});
+
+		expect(vi.mocked(generateHookSettings)).toHaveBeenCalledWith(undefined, {
+			env: {ANTHROPIC_API_KEY: 'sk-ant-api03-from-settings'},
+		});
+	});
+
+	it('passes portable apiKeyHelper discovered from Claude settings into generated hook settings', () => {
+		mockResolveRuntimeAuthOverlay.mockReturnValue({
+			apiKeyHelper: '/bin/portable-helper',
+		});
+
+		spawnClaude({
+			prompt: 'Hello, Claude!',
+			projectDir: '/test/project',
+			instanceId: 12345,
+		});
+
+		expect(vi.mocked(generateHookSettings)).toHaveBeenCalledWith(undefined, {
+			apiKeyHelper: '/bin/portable-helper',
+		});
 	});
 
 	it('throws a preflight error when claude binary resolution misses', () => {
