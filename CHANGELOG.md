@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.27](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.26...cli-v0.3.27) (2026-04-20)
+
+
+### Features
+
+* **doctor:** surface managed auth credential sources ([ff70d1a](https://github.com/lespaceman/athena-flow-cli/commit/ff70d1afe9a4a40cd8082a73f76938a970cfb502))
+
+
+### Bug Fixes
+
+* validate pinned Codex workflow plugin installs ([9e26bc7](https://github.com/lespaceman/athena-flow-cli/commit/9e26bc73809ebc6ab8339b1e487088167f1be282))
+
 ## [0.3.26](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.25...cli-v0.3.26) (2026-04-20)
 
 
