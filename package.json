@@ -17,7 +17,7 @@
 		"hooks",
 		"dashboard"
 	],
-	"version": "0.3.26",
+	"version": "0.3.27",
 	"license": "MIT",
 	"bin": {
 		"athena": "dist/cli.js",
