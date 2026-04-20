@@ -36,6 +36,8 @@ export type ProbeResult = {
 	group: ProbeGroup;
 	groupLabel: string;
 	label: string;
+	/** Shell-quoted command line (with prompt elided, credentials masked). */
+	command: string;
 	status: ProbeStatus;
 	exitCode: number | null;
 	durationMs: number;
@@ -439,6 +441,124 @@ export function credentialHelperKey(credential: CredentialLookup): string {
 	return `${credential.source}|${credential.value}`;
 }
 
+const SHELL_SAFE = /^[A-Za-z0-9_./:=,@+-]+$/u;
+
+function shellQuoteArg(value: string): string {
+	if (value === '') return "''";
+	if (SHELL_SAFE.test(value)) return value;
+	return shellQuoteSingle(value);
+}
+
+/**
+ * Formats the probe's invocation as a shell command line, eliding the long
+ * smoke prompt so the output stays scannable. Env-var injections are rendered
+ * as `KEY=<value>` prefixes (with the value masked for credentials).
+ */
+export function formatProbeCommand(
+	probe: ProbeConfig,
+	claudeBinary: string,
+): string {
+	const parts: string[] = [];
+	if (probe.env) {
+		for (const [key, value] of Object.entries(probe.env)) {
+			parts.push(`${key}=${shellQuoteArg(maskCredentialValue(value))}`);
+		}
+	}
+	parts.push(shellQuoteArg(claudeBinary));
+	const args = probe.args.map(arg =>
+		arg === DOCTOR_PROMPT ? '<prompt>' : shellQuoteArg(arg),
+	);
+	parts.push(...args);
+	return parts.join(' ');
+}
+
+function maskCredentialValue(value: string): string {
+	if (value.length <= 12) return '***';
+	return `${value.slice(0, 10)}…${value.slice(-4)}`;
+}
+
+/**
+ * Classifies a failed probe into a structured, human-readable reason.
+ *
+ * The diagnostic is derived from the body Claude/SDK printed; it pinpoints
+ * whether the failure was missing auth, an OAuth-vs-API-key mismatch, an
+ * invalid credential, a timeout, or something else. Returns null for passing
+ * probes.
+ */
+export type FailureClassification = {
+	title: string;
+	hint?: string;
+	rawLine: string;
+};
+
+export function classifyFailure(
+	result: ProbeResult,
+): FailureClassification | null {
+	if (result.status !== 'fail') return null;
+	const haystack = `${result.stdoutTail}\n${result.stderrTail}`;
+	const rawLine = pickMeaningfulLine(haystack);
+
+	if (/Probe timed out/u.test(haystack)) {
+		return {
+			title: 'Probe timed out',
+			hint: 'Helper script may be hanging or Claude is waiting for stdin.',
+			rawLine,
+		};
+	}
+	if (/Not logged in[^\n]*\/login/u.test(haystack)) {
+		return {
+			title: 'No auth available',
+			hint: '--bare skips OAuth/keychain and no API key was injected.',
+			rawLine,
+		};
+	}
+	if (/OAuth authentication is currently not supported/u.test(haystack)) {
+		return {
+			title: 'OAuth token rejected',
+			hint: 'Subscription OAuth tokens cannot authenticate the API; use a Console API key (sk-ant-api…).',
+			rawLine,
+		};
+	}
+	if (/API Error: 401/u.test(haystack)) {
+		return {
+			title: 'Authentication failed (401)',
+			hint: 'Credential was sent but rejected — invalid, expired, or wrong type.',
+			rawLine,
+		};
+	}
+	if (/API Error: 403/u.test(haystack)) {
+		return {
+			title: 'Forbidden (403)',
+			hint: 'Token lacks scope, or organization is disabled.',
+			rawLine,
+		};
+	}
+	if (/API Error: 400/u.test(haystack)) {
+		return {
+			title: 'Bad request (400)',
+			hint: 'API rejected credential format (often: OAuth token sent as X-Api-Key).',
+			rawLine,
+		};
+	}
+	if (/API Error: 5\d\d/u.test(haystack)) {
+		return {
+			title: 'Server error (5xx)',
+			hint: 'Transient — retry. Not a credential issue.',
+			rawLine,
+		};
+	}
+	return {title: rawLine || 'Unknown failure', rawLine};
+}
+
+function pickMeaningfulLine(text: string): string {
+	const lines = text
+		.split('\n')
+		.map(line => line.trim())
+		.filter(line => line.length > 0)
+		.filter(line => !line.startsWith('Command failed:'));
+	return lines.at(-1) ?? '';
+}
+
 export type RunProbeOptions = {
 	claudeBinary: string;
 	probe: ProbeConfig;
@@ -502,6 +622,7 @@ export async function runProbe({
 				group: probe.group,
 				groupLabel: probe.groupLabel,
 				label: probe.label,
+				command: formatProbeCommand(probe, claudeBinary),
 				status,
 				exitCode,
 				durationMs,
@@ -522,12 +643,14 @@ export function makeSkippedProbe(
 	probe: ProbeConfig,
 	reason: string,
 	status: ProbeStatus = 'skip',
+	claudeBinary = 'claude',
 ): ProbeResult {
 	return {
 		id: probe.id,
 		group: probe.group,
 		groupLabel: probe.groupLabel,
 		label: probe.label,
+		command: formatProbeCommand(probe, claudeBinary),
 		status,
 		exitCode: null,
 		durationMs: 0,

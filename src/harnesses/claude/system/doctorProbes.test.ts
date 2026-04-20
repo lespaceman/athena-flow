@@ -5,12 +5,15 @@ import * as path from 'node:path';
 import {
 	buildApiKeyHelperSettings,
 	buildProbeConfigs,
+	classifyFailure,
 	DOCTOR_EXPECTED,
+	formatProbeCommand,
 	lookupAllCredentials,
 	lookupAnthropicApiKey,
 	lookupCredential,
 	makeSkippedProbe,
 	probeSkipReason,
+	type ProbeResult,
 } from './doctorProbes';
 
 describe('lookupCredential', () => {
@@ -576,6 +579,117 @@ describe('probeSkipReason', () => {
 		for (const probe of probes) {
 			expect(probeSkipReason(probe, opts)).toBeNull();
 		}
+	});
+});
+
+describe('formatProbeCommand', () => {
+	it('renders the full claude invocation with prompt elided and credentials masked', () => {
+		const probe = buildProbeConfigs({
+			strictSettingsPath: '/tmp/s.json',
+			credentials: [
+				{
+					source: 'env:ANTHROPIC_API_KEY',
+					kind: 'apiKey',
+					value: 'sk-ant-api03-1234567890abcdef',
+				},
+			],
+		}).find(p => p.id === 'C1-Be')!;
+		const cmd = formatProbeCommand(probe, '/usr/local/bin/claude');
+		expect(cmd).toContain('ANTHROPIC_API_KEY=');
+		expect(cmd).not.toContain('sk-ant-api03-1234567890abcdef');
+		expect(cmd).toContain('--bare');
+		expect(cmd).toContain('<prompt>');
+		expect(cmd).toContain('/usr/local/bin/claude');
+	});
+
+	it('shell-quotes paths with spaces or unusual characters', () => {
+		const probes = buildProbeConfigs({
+			strictSettingsPath: '/tmp/has space.json',
+		});
+		const a1 = probes.find(p => p.id === 'A1')!;
+		const cmd = formatProbeCommand(a1, '/usr/bin/claude');
+		expect(cmd).toContain(`'/tmp/has space.json'`);
+	});
+});
+
+describe('classifyFailure', () => {
+	const baseResult: ProbeResult = {
+		id: 'X',
+		group: 'inherited',
+		groupLabel: 'g',
+		label: 'l',
+		command: 'claude …',
+		status: 'fail',
+		exitCode: 1,
+		durationMs: 100,
+		stdoutTail: '',
+		stderrTail: '',
+	};
+
+	it('returns null for passing probes', () => {
+		expect(classifyFailure({...baseResult, status: 'pass'})).toBeNull();
+	});
+
+	it('detects "Not logged in" → "No auth available"', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stdoutTail: 'Not logged in · Please run /login',
+		})!;
+		expect(f.title).toBe('No auth available');
+		expect(f.hint).toMatch(/--bare skips/u);
+	});
+
+	it('detects "OAuth authentication is currently not supported" → "OAuth token rejected"', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stderrTail:
+				'Failed to authenticate. API Error: 401 {"error":{"message":"OAuth authentication is currently not supported."}}',
+		})!;
+		expect(f.title).toBe('OAuth token rejected');
+		expect(f.hint).toMatch(/Console API key/u);
+	});
+
+	it('classifies generic 401 as authentication failed', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stderrTail: 'API Error: 401 unauthorized',
+		})!;
+		expect(f.title).toBe('Authentication failed (401)');
+	});
+
+	it('classifies 400 as bad request with format hint', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stdoutTail: 'API Error: 400 status code (no body)',
+		})!;
+		expect(f.title).toBe('Bad request (400)');
+		expect(f.hint).toMatch(/format/u);
+	});
+
+	it('detects timeout', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stderrTail: 'Probe timed out after 30000ms',
+		})!;
+		expect(f.title).toBe('Probe timed out');
+	});
+
+	it('falls back to the last meaningful line for unknown failures', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stderrTail: 'something unexpected happened',
+		})!;
+		expect(f.title).toBe('something unexpected happened');
+		expect(f.hint).toBeUndefined();
+	});
+
+	it('skips noisy "Command failed:" lines when picking the diagnostic line', () => {
+		const f = classifyFailure({
+			...baseResult,
+			stderrTail:
+				'Command failed: claude --bare ...\nNot logged in · Please run /login',
+		})!;
+		expect(f.title).toBe('No auth available');
 	});
 });
 

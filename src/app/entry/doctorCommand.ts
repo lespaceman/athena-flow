@@ -15,6 +15,7 @@ import {
 import {
 	buildApiKeyHelperSettings,
 	buildProbeConfigs,
+	classifyFailure,
 	credentialHelperKey,
 	lookupAllCredentials,
 	lookupCredential,
@@ -156,20 +157,12 @@ function statusBadge(status: ProbeResult['status']): string {
 	}
 }
 
-function extractDiagnostic(result: ProbeResult): string | null {
-	const candidates = [result.stdoutTail, result.stderrTail];
-	for (const raw of candidates) {
-		if (!raw) continue;
-		const lines = raw
-			.split('\n')
-			.map(line => line.trim())
-			.filter(line => line.length > 0)
-			// Drop the noisy "Command failed: <full claude invocation>" prefix.
-			.filter(line => !line.startsWith('Command failed:'));
-		if (lines.length === 0) continue;
-		return lines[lines.length - 1]!;
-	}
-	return null;
+const INDENT = '         ';
+
+function probeHeader(probe: ProbeConfig): string {
+	const id = c.dim(`[${probe.id.padEnd(4)}]`);
+	const label = probe.label.padEnd(LABEL_WIDTH);
+	return `  ${id} ${label}`;
 }
 
 function printProbe(result: ProbeResult): void {
@@ -187,31 +180,34 @@ function printProbe(result: ProbeResult): void {
 		`  ${id} ${label} ${statusBadge(result.status)}${duration}${exit}`,
 	);
 
+	// Always show the actual command being probed so the label isn't ambiguous.
+	if (result.status !== 'na') {
+		console.log(c.dim(`${INDENT}$ ${result.command}`));
+	}
+
 	if (result.skipReason) {
-		console.log(`           ${c.dim(result.skipReason)}`);
+		console.log(`${INDENT}${c.yellow('⊘')} ${c.dim(result.skipReason)}`);
 		return;
 	}
 
-	if (result.status !== 'fail') return;
-
-	const diagnostic = extractDiagnostic(result);
-	if (diagnostic) {
-		console.log(`           ${c.red('→')} ${diagnostic}`);
+	const failure = classifyFailure(result);
+	if (failure) {
+		console.log(`${INDENT}${c.red('→')} ${failure.title}`);
+		if (failure.hint) {
+			console.log(`${INDENT}  ${c.dim(failure.hint)}`);
+		}
+		if (failure.rawLine && failure.rawLine !== failure.title) {
+			console.log(`${INDENT}  ${c.dim(failure.rawLine)}`);
+		}
 	}
 }
 
-function probeHeader(probe: ProbeConfig): string {
-	const id = c.dim(`[${probe.id.padEnd(4)}]`);
-	const label = probe.label.padEnd(LABEL_WIDTH);
-	return `  ${id} ${label}`;
-}
-
 function printRunningLine(probe: ProbeConfig): void {
-	const line = `${probeHeader(probe)} ${c.dim('⏳ running…')}`;
+	const header = `${probeHeader(probe)} ${c.dim('⏳ running…')}`;
 	if (process.stdout.isTTY) {
-		process.stdout.write(line);
+		process.stdout.write(header);
 	} else {
-		console.log(line);
+		console.log(header);
 	}
 }
 
@@ -340,6 +336,7 @@ export async function runDoctorCommand(
 				probe,
 				`Not applicable: apiProvider=${env.auth?.apiProvider}`,
 				'na',
+				env.claudeBinary,
 			);
 			results.push(result);
 			if (!options.json) printProbe(result);
@@ -348,7 +345,12 @@ export async function runDoctorCommand(
 
 		const skipReason = probeSkipReason(probe, buildOpts);
 		if (skipReason) {
-			const result = makeSkippedProbe(probe, skipReason);
+			const result = makeSkippedProbe(
+				probe,
+				skipReason,
+				'skip',
+				env.claudeBinary,
+			);
 			results.push(result);
 			if (!options.json) printProbe(result);
 			continue;
