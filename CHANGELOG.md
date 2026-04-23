@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.30](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.29...cli-v0.3.30) (2026-04-23)
+
+
+### Bug Fixes
+
+* **ui:** preserve feed history and scope incremental paint ([8e4a219](https://github.com/lespaceman/athena-flow-cli/commit/8e4a219d004721f54377c69a943821d75537d9a5))
+
 ## [0.3.29](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.28...cli-v0.3.29) (2026-04-20)
 
 
