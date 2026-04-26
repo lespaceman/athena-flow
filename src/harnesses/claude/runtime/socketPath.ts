@@ -15,13 +15,13 @@ function getUid(): string {
 	return os.userInfo().username;
 }
 
-export function getSocketPathLimit(): number {
+function getSocketPathLimit(): number {
 	return process.platform === 'darwin'
 		? MAX_UNIX_SOCKET_PATH_BYTES.darwin
 		: MAX_UNIX_SOCKET_PATH_BYTES.default;
 }
 
-export function resolveAthenaRuntimeDir(): string {
+function resolveAthenaRuntimeDir(): string {
 	const explicit = process.env['ATHENA_RUNTIME_DIR'];
 	if (explicit) return explicit;
 
