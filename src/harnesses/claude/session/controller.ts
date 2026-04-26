@@ -13,6 +13,7 @@ import type {
 	SessionControllerTurnResult,
 } from '../../contracts/session';
 import type {TurnContinuation} from '../../../core/runtime/process';
+import type {ClaudeRuntime} from '../runtime';
 
 function mergeIsolation(
 	base: IsolationConfig | IsolationPreset | undefined,
@@ -53,6 +54,11 @@ export function createClaudeSessionController(
 		| IsolationConfig
 		| IsolationPreset
 		| undefined;
+	const runtime = input.runtime as ClaudeRuntime | null | undefined;
+	const supportsStdoutFeed = typeof runtime?.feedStdout === 'function';
+	const supportsTransportDiagnostics =
+		typeof runtime?.beginTurn === 'function' &&
+		typeof runtime.getTransportStats === 'function';
 	let activeChild: ChildProcess | null = null;
 	let activeTurnPromise: Promise<SessionControllerTurnResult> | null = null;
 
@@ -66,6 +72,9 @@ export function createClaudeSessionController(
 			const tokenAccumulator = createTokenAccumulator();
 			const messageAccumulator = createAssistantMessageAccumulator();
 			let lastStderr = '';
+			if (supportsTransportDiagnostics) {
+				runtime.beginTurn();
+			}
 
 			const turnPromise = new Promise<SessionControllerTurnResult>(resolve => {
 				let settled = false;
@@ -82,6 +91,9 @@ export function createClaudeSessionController(
 						tokens: tokenAccumulator.getUsage(),
 						streamMessage: messageAccumulator.getLastMessage(),
 						lastStderr,
+						diagnostics: supportsTransportDiagnostics
+							? {transport: runtime.getTransportStats()}
+							: undefined,
 					});
 				};
 
@@ -100,6 +112,9 @@ export function createClaudeSessionController(
 						onStdout: (data: string) => {
 							tokenAccumulator.feed(data);
 							messageAccumulator.feed(data);
+							if (supportsStdoutFeed) {
+								runtime.feedStdout(data);
+							}
 						},
 						onStderr: (data: string) => {
 							const trimmed = data.trim();

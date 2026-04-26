@@ -175,6 +175,10 @@ export type UseClaudeProcessOptions = {
 	tokenParserFactory?: TokenUsageParserFactory;
 	/** Called with each raw stdout chunk for additional processing (e.g., tool result streaming). */
 	onStdoutChunk?: (data: string) => void;
+	/** Reset harness transport diagnostics before a new turn starts. */
+	onTurnStart?: () => void;
+	/** Read harness transport diagnostics when a turn settles. */
+	getTurnDiagnostics?: () => TurnExecutionResult['diagnostics'];
 };
 
 export function useClaudeProcess(
@@ -211,6 +215,10 @@ export function useClaudeProcess(
 	trackStreamingTextRef.current = options?.trackStreamingText ?? true;
 	const onStdoutChunkRef = useRef(options?.onStdoutChunk);
 	onStdoutChunkRef.current = options?.onStdoutChunk;
+	const onTurnStartRef = useRef(options?.onTurnStart);
+	onTurnStartRef.current = options?.onTurnStart;
+	const getTurnDiagnosticsRef = useRef(options?.getTurnDiagnostics);
+	getTurnDiagnosticsRef.current = options?.getTurnDiagnostics;
 	const tokenUpdateMsRef = useRef(Math.max(0, options?.tokenUpdateMs ?? 0));
 	tokenUpdateMsRef.current = Math.max(0, options?.tokenUpdateMs ?? 0);
 	const [tokenUsage, setTokenUsage] = useState<TokenUsage>(
@@ -303,6 +311,7 @@ export function useClaudeProcess(
 		): Promise<TurnExecutionResult> => {
 			// Kill existing process if running and wait for it to exit
 			await kill();
+			onTurnStartRef.current?.();
 
 			if (trackOutputRef.current) {
 				setOutput([]);
@@ -358,6 +367,7 @@ export function useClaudeProcess(
 						error,
 						tokens: finalAcc,
 						streamMessage: messageAccumulator.getLastMessage(),
+						diagnostics: getTurnDiagnosticsRef.current?.(),
 					});
 				};
 

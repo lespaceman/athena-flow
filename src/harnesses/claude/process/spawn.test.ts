@@ -97,11 +97,12 @@ describe('spawnClaude', () => {
 		vi.clearAllMocks();
 	});
 
-	it('spawns claude with correct args, cwd, and ATHENA_INSTANCE_ID env var', () => {
+	it('spawns claude with correct args, cwd, and hook routing env vars', () => {
 		spawnClaude({
 			prompt: 'Hello, Claude!',
 			projectDir: '/test/project',
 			instanceId: 12345,
+			hookSocketPath: '/tmp/athena-test/run/ink-12345.sock',
 		});
 
 		expect(childProcess.spawn).toHaveBeenCalledWith(
@@ -124,9 +125,26 @@ describe('spawnClaude', () => {
 				stdio: ['ignore', 'pipe', 'pipe'],
 				env: expect.objectContaining({
 					ATHENA_INSTANCE_ID: '12345',
+					ATHENA_HOOK_SOCKET: '/tmp/athena-test/run/ink-12345.sock',
 				}),
 			}),
 		);
+	});
+
+	it('uses a hook socket path outside the child cwd by default', () => {
+		spawnClaude({
+			prompt: 'Hello, Claude!',
+			projectDir: '/test/project',
+			instanceId: 12345,
+		});
+
+		const options = vi.mocked(childProcess.spawn).mock.calls[0]?.[2] as {
+			env?: Record<string, string>;
+		};
+		expect(options.env?.['ATHENA_HOOK_SOCKET']).toMatch(
+			/\/athena-[^/]+\/run\/ink-12345\.sock$/,
+		);
+		expect(options.env?.['ATHENA_HOOK_SOCKET']).not.toContain('/test/project');
 	});
 
 	it('lets per-call env override ambient process env', () => {

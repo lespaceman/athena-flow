@@ -20,6 +20,13 @@ export type ClaudeHookRuntimeOptions = {
  */
 export type ClaudeRuntime = Runtime & {
 	feedStdout(chunk: string): void;
+	beginTurn(): void;
+	getTransportStats(): ClaudeTransportStats;
+};
+
+export type ClaudeTransportStats = {
+	streamToolUses: number;
+	preToolUseEvents: number;
 };
 
 export function createClaudeHookRuntime(

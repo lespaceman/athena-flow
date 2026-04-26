@@ -17,6 +17,7 @@
 import * as net from 'node:net';
 import * as path from 'node:path';
 
+import {ATHENA_HOOK_SOCKET_ENV} from './runtime/socketPath';
 import {
 	type ClaudeHookEvent,
 	type HookEventEnvelope,
@@ -28,9 +29,15 @@ const SOCKET_TIMEOUT_MS = 5000; // 5 seconds - generous buffer for busy UI
 const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes for permission decisions
 
 function getSocketPath(cwd: string): string {
+	const explicitSocketPath = process.env[ATHENA_HOOK_SOCKET_ENV];
+	if (explicitSocketPath) {
+		return explicitSocketPath;
+	}
+
 	const instanceId = process.env['ATHENA_INSTANCE_ID'];
 	const socketFilename = instanceId ? `ink-${instanceId}.sock` : 'ink.sock';
-	// Use cwd from hook payload - this is the project directory where athena-cli is running
+	// Legacy fallback: older spawned processes routed through cwd. New code
+	// passes ATHENA_HOOK_SOCKET because hook cwd can change during worktree flows.
 	return path.join(cwd, '.claude', 'run', socketFilename);
 }
 

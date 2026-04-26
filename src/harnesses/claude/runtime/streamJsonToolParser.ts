@@ -16,6 +16,10 @@ export type StreamToolResult = {
 };
 
 type StreamToolResultCallback = (result: StreamToolResult) => void;
+type StreamToolUseCallback = (toolUse: {
+	tool_use_id: string;
+	tool_name: string;
+}) => void;
 
 type StreamJsonMessage = {
 	type?: string;
@@ -60,6 +64,7 @@ function extractResultText(content: unknown): string {
  */
 export function createStreamJsonToolParser(
 	onToolResult: StreamToolResultCallback,
+	onToolUse?: StreamToolUseCallback,
 ) {
 	let buffer = '';
 	const toolNameById = new Map<string, string>();
@@ -97,6 +102,7 @@ export function createStreamJsonToolParser(
 				typeof rec['name'] === 'string'
 			) {
 				toolNameById.set(rec['id'], rec['name']);
+				onToolUse?.({tool_use_id: rec['id'], tool_name: rec['name']});
 			}
 		}
 

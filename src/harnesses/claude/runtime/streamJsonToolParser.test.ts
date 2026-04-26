@@ -4,7 +4,8 @@ import {createStreamJsonToolParser} from './streamJsonToolParser';
 describe('createStreamJsonToolParser', () => {
 	it('extracts tool results from top-level stream-json records', () => {
 		const onToolResult = vi.fn();
-		const parser = createStreamJsonToolParser(onToolResult);
+		const onToolUse = vi.fn();
+		const parser = createStreamJsonToolParser(onToolResult, onToolUse);
 
 		parser.feed(
 			JSON.stringify({
@@ -25,6 +26,10 @@ describe('createStreamJsonToolParser', () => {
 			tool_use_id: 'tool-1',
 			tool_name: 'browser',
 			content: 'hello',
+		});
+		expect(onToolUse).toHaveBeenCalledWith({
+			tool_use_id: 'tool-1',
+			tool_name: 'browser',
 		});
 	});
 
