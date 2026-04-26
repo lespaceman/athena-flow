@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.31](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.30...cli-v0.3.31) (2026-04-26)
+
+
+### Bug Fixes
+
+* **hooks:** route Claude IPC through runtime socket ([101e363](https://github.com/lespaceman/athena-flow-cli/commit/101e3634e21a2aea505e3213db9d58931d091449))
+
 ## [0.3.30](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.29...cli-v0.3.30) (2026-04-23)
 
 
