@@ -141,10 +141,11 @@ describe('spawnClaude', () => {
 		const options = vi.mocked(childProcess.spawn).mock.calls[0]?.[2] as {
 			env?: Record<string, string>;
 		};
-		expect(options.env?.['ATHENA_HOOK_SOCKET']).toMatch(
-			/\/athena-[^/]+\/run\/ink-12345\.sock$/,
-		);
-		expect(options.env?.['ATHENA_HOOK_SOCKET']).not.toContain('/test/project');
+		const hookSocket = options.env?.['ATHENA_HOOK_SOCKET'];
+		expect(hookSocket).toBeDefined();
+		expect(path.isAbsolute(hookSocket!)).toBe(true);
+		expect(hookSocket).toMatch(/\/run\/ink-12345\.sock$/);
+		expect(hookSocket).not.toContain('/test/project');
 	});
 
 	it('lets per-call env override ambient process env', () => {
