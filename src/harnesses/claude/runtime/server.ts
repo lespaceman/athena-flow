@@ -12,6 +12,7 @@ import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {cleanupStaleSockets} from './cleanupStaleSockets';
+import {isSocketPathTooLong, resolveHookSocketPath} from './socketPath';
 import type {HookResultEnvelope} from '../protocol/envelope';
 import {isValidHookEventEnvelope} from '../protocol/envelope';
 import type {HookEventEnvelope} from '../protocol/envelope';
@@ -41,11 +42,6 @@ type ServerOptions = {
 	projectDir: string;
 	instanceId: number;
 };
-
-const MAX_UNIX_SOCKET_PATH_BYTES = {
-	darwin: 103,
-	default: 107,
-} as const;
 
 const SIMULATED_STARTUP_FAILURE_ENV = 'ATHENA_SIMULATE_HOOK_SERVER_FAILURE';
 
@@ -83,12 +79,6 @@ function getSimulatedStartupFailure(): {
 	}
 }
 
-function getSocketPathLimit(): number {
-	return process.platform === 'darwin'
-		? MAX_UNIX_SOCKET_PATH_BYTES.darwin
-		: MAX_UNIX_SOCKET_PATH_BYTES.default;
-}
-
 /** Global TTL for pending requests — strictly less than forwarder's 5min timeout */
 const PENDING_TTL_MS = 4 * 60 * 1000 + 30 * 1000; // 4 minutes 30 seconds
 
@@ -103,30 +93,42 @@ export function createServer(opts: ServerOptions) {
 	let lastError: RuntimeStartupError | null = null;
 	let startPromise: Promise<void> | null = null;
 	let sessionId = '';
+	let transportStats = {
+		streamToolUses: 0,
+		preToolUseEvents: 0,
+	};
 
-	const streamParser = createStreamJsonToolParser((toolEvent): void => {
-		const event: RuntimeEvent = {
-			id: `stream-${toolEvent.tool_use_id ?? 'unknown'}-${Date.now()}`,
-			timestamp: Date.now(),
-			kind: 'tool.delta',
-			data: {
-				tool_name: toolEvent.tool_name,
-				tool_input: {},
-				tool_use_id: toolEvent.tool_use_id,
-				delta: toolEvent.content,
-			},
-			hookName: 'stream-json',
-			sessionId,
-			toolName: toolEvent.tool_name,
-			toolUseId: toolEvent.tool_use_id,
-			context: {cwd: projectDir, transcriptPath: ''},
-			interaction: getInteractionHints('tool.delta'),
-			payload: null,
-		};
-		emit(event);
-	});
+	const streamParser = createStreamJsonToolParser(
+		(toolEvent): void => {
+			const event: RuntimeEvent = {
+				id: `stream-${toolEvent.tool_use_id ?? 'unknown'}-${Date.now()}`,
+				timestamp: Date.now(),
+				kind: 'tool.delta',
+				data: {
+					tool_name: toolEvent.tool_name,
+					tool_input: {},
+					tool_use_id: toolEvent.tool_use_id,
+					delta: toolEvent.content,
+				},
+				hookName: 'stream-json',
+				sessionId,
+				toolName: toolEvent.tool_name,
+				toolUseId: toolEvent.tool_use_id,
+				context: {cwd: projectDir, transcriptPath: ''},
+				interaction: getInteractionHints('tool.delta'),
+				payload: null,
+			};
+			emit(event);
+		},
+		(): void => {
+			transportStats.streamToolUses++;
+		},
+	);
 
 	function emit(event: RuntimeEvent): void {
+		if (event.hookName === 'PreToolUse') {
+			transportStats.preToolUseEvents++;
+		}
 		for (const handler of handlers) {
 			try {
 				handler(event);
@@ -186,8 +188,8 @@ export function createServer(opts: ServerOptions) {
 				return startPromise;
 			}
 
-			const socketDir = path.join(projectDir, '.claude', 'run');
-			socketPath = path.join(socketDir, `ink-${instanceId}.sock`);
+			socketPath = resolveHookSocketPath(instanceId);
+			const socketDir = path.dirname(socketPath);
 			lastError = null;
 
 			const simulatedFailure = getSimulatedStartupFailure();
@@ -203,7 +205,7 @@ export function createServer(opts: ServerOptions) {
 				return Promise.resolve();
 			}
 
-			if (Buffer.byteLength(socketPath) > getSocketPathLimit()) {
+			if (isSocketPathTooLong(socketPath)) {
 				status = 'stopped';
 				lastError = makeStartupError(
 					'socket_path_too_long',
@@ -408,6 +410,15 @@ export function createServer(opts: ServerOptions) {
 		},
 		feedStdout(chunk: string): void {
 			streamParser.feed(chunk);
+		},
+		beginTurn(): void {
+			transportStats = {
+				streamToolUses: 0,
+				preToolUseEvents: 0,
+			};
+		},
+		getTransportStats() {
+			return {...transportStats};
 		},
 	};
 }

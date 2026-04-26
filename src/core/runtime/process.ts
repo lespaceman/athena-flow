@@ -12,6 +12,12 @@ export type TurnExecutionResult = {
 	streamMessage: string | null;
 	/** First stderr line captured from the harness process (root-cause diagnostics). */
 	lastStderr?: string;
+	diagnostics?: {
+		transport?: {
+			streamToolUses: number;
+			preToolUseEvents: number;
+		};
+	};
 };
 
 export type HarnessProcessFailureCode =

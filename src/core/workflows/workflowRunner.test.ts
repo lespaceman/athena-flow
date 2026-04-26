@@ -234,6 +234,44 @@ describe('createWorkflowRunner', () => {
 		expect(result.status).toBe('failed');
 	});
 
+	it('fails fast when Claude stream shows tool use but hooks are silent', async () => {
+		const startTurn = vi.fn().mockResolvedValue({
+			...OK_RESULT,
+			diagnostics: {
+				transport: {
+					streamToolUses: 1,
+					preToolUseEvents: 0,
+				},
+			},
+		});
+		const persistRunState = vi.fn();
+
+		const handle = createWorkflowRunner({
+			sessionId: 's1',
+			projectDir: makeTempDir(),
+			prompt: 'do it',
+			workflow: {
+				name: 'wf',
+				plugins: [],
+				promptTemplate: '{input}',
+				loop: {enabled: true, maxIterations: 5},
+			},
+			startTurn,
+			persistRunState,
+		});
+
+		const result = await handle.result;
+		expect(result.status).toBe('failed');
+		expect(result.stopReason).toContain('Hook transport broken');
+		expect(startTurn).toHaveBeenCalledTimes(1);
+		expect(persistRunState).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				status: 'failed',
+				stopReason: expect.stringContaining('Hook transport broken'),
+			}),
+		);
+	});
+
 	it('uses injected createTracker instead of fs', async () => {
 		const createTracker = vi.fn();
 		const startTurn = vi.fn().mockResolvedValue(OK_RESULT);

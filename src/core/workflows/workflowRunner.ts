@@ -244,6 +244,18 @@ export function createWorkflowRunner(
 					break;
 				}
 
+				const transport = turnResult.diagnostics?.transport;
+				if (
+					transport &&
+					transport.streamToolUses > 0 &&
+					transport.preToolUseEvents === 0
+				) {
+					status = 'failed';
+					stopReason = `Hook transport broken: observed ${transport.streamToolUses} tool use(s) in Claude stream but received no PreToolUse events.`;
+					persist();
+					break;
+				}
+
 				// Non-looped: single turn, done
 				if (!input.workflow?.loop?.enabled) {
 					status = 'completed';

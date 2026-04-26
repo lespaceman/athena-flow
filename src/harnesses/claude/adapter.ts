@@ -58,6 +58,10 @@ export const claudeHarnessAdapter: HarnessAdapter = {
 	createSessionController: input => createClaudeSessionController(input),
 	useSessionController: input => {
 		const claudeRuntime = input.runtime as ClaudeRuntime | null | undefined;
+		const supportsStdoutFeed = typeof claudeRuntime?.feedStdout === 'function';
+		const supportsTransportDiagnostics =
+			typeof claudeRuntime?.beginTurn === 'function' &&
+			typeof claudeRuntime.getTransportStats === 'function';
 		const process = useClaudeProcess(
 			input.projectDir,
 			input.instanceId,
@@ -69,7 +73,15 @@ export const claudeHarnessAdapter: HarnessAdapter = {
 				...(input.options as UseClaudeProcessOptions | undefined),
 				tokenParserFactory:
 					input.options?.tokenParserFactory ?? createTokenAccumulator,
-				onStdoutChunk: claudeRuntime?.feedStdout.bind(claudeRuntime),
+				onStdoutChunk: supportsStdoutFeed
+					? claudeRuntime.feedStdout.bind(claudeRuntime)
+					: undefined,
+				onTurnStart: supportsTransportDiagnostics
+					? claudeRuntime.beginTurn.bind(claudeRuntime)
+					: undefined,
+				getTurnDiagnostics: supportsTransportDiagnostics
+					? () => ({transport: claudeRuntime.getTransportStats()})
+					: undefined,
 			},
 		);
 

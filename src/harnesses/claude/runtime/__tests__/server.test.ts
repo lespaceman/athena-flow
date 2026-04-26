@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import {createClaudeHookRuntime} from '..';
+import {resolveHookSocketPath} from '../socketPath';
 import type {
 	RuntimeEvent,
 	RuntimeDecision,
@@ -16,14 +17,35 @@ function makeTmpDir(): string {
 
 describe('createClaudeHookRuntime', () => {
 	let cleanup: (() => void)[] = [];
+	let previousRuntimeDir: string | undefined;
+	let runtimeDirOverridden = false;
 
 	afterEach(() => {
 		delete process.env['ATHENA_SIMULATE_HOOK_SERVER_FAILURE'];
+		if (runtimeDirOverridden) {
+			if (previousRuntimeDir === undefined) {
+				delete process.env['ATHENA_RUNTIME_DIR'];
+			} else {
+				process.env['ATHENA_RUNTIME_DIR'] = previousRuntimeDir;
+			}
+		}
+		previousRuntimeDir = undefined;
+		runtimeDirOverridden = false;
 		cleanup.forEach(fn => fn());
 		cleanup = [];
 	});
 
+	function useRuntimeDir(): string {
+		previousRuntimeDir = process.env['ATHENA_RUNTIME_DIR'];
+		runtimeDirOverridden = true;
+		const runtimeDir = makeTmpDir();
+		process.env['ATHENA_RUNTIME_DIR'] = runtimeDir;
+		cleanup.push(() => fs.rmSync(runtimeDir, {recursive: true, force: true}));
+		return runtimeDir;
+	}
+
 	it('starts and reports running status', async () => {
+		useRuntimeDir();
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
@@ -55,6 +77,7 @@ describe('createClaudeHookRuntime', () => {
 	});
 
 	it('emits RuntimeEvent when NDJSON arrives on socket', async () => {
+		useRuntimeDir();
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
@@ -64,7 +87,7 @@ describe('createClaudeHookRuntime', () => {
 		await runtime.start();
 		cleanup.push(() => runtime.stop());
 
-		const sockPath = path.join(projectDir, '.claude', 'run', 'ink-98.sock');
+		const sockPath = resolveHookSocketPath(98);
 		const client = net.createConnection(sockPath);
 		await new Promise<void>(resolve => client.on('connect', resolve));
 
@@ -91,7 +114,49 @@ describe('createClaudeHookRuntime', () => {
 		client.end();
 	});
 
+	it('keeps hook IPC independent from hook payload cwd', async () => {
+		useRuntimeDir();
+		const projectDir = makeTmpDir();
+		const worktreeDir = makeTmpDir();
+		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
+		cleanup.push(() => fs.rmSync(worktreeDir, {recursive: true, force: true}));
+
+		const runtime = createClaudeHookRuntime({projectDir, instanceId: 198});
+		const events: RuntimeEvent[] = [];
+		runtime.onEvent(e => events.push(e));
+		await runtime.start();
+		cleanup.push(() => runtime.stop());
+
+		const client = net.createConnection(resolveHookSocketPath(198));
+		await new Promise<void>(resolve => client.on('connect', resolve));
+		client.write(
+			JSON.stringify({
+				request_id: 'worktree-cwd',
+				ts: Date.now(),
+				session_id: 's-worktree',
+				hook_event_name: 'PreToolUse',
+				payload: {
+					hook_event_name: 'PreToolUse',
+					session_id: 's-worktree',
+					transcript_path: '/tmp/t.jsonl',
+					cwd: worktreeDir,
+					tool_name: 'Edit',
+					tool_input: {file_path: path.join(projectDir, '.athena/tracker.md')},
+					tool_use_id: 'toolu-worktree',
+				},
+			}) + '\n',
+		);
+
+		await new Promise(r => setTimeout(r, 200));
+		expect(events).toHaveLength(1);
+		expect(events[0]!.id).toBe('worktree-cwd');
+		expect(events[0]!.context.cwd).toBe(worktreeDir);
+
+		client.end();
+	});
+
 	it('sends HookResultEnvelope back when decision is provided', async () => {
+		useRuntimeDir();
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
@@ -101,7 +166,7 @@ describe('createClaudeHookRuntime', () => {
 		await runtime.start();
 		cleanup.push(() => runtime.stop());
 
-		const sockPath = path.join(projectDir, '.claude', 'run', 'ink-97.sock');
+		const sockPath = resolveHookSocketPath(97);
 		const client = net.createConnection(sockPath);
 		await new Promise<void>(resolve => client.on('connect', resolve));
 
@@ -145,11 +210,12 @@ describe('createClaudeHookRuntime', () => {
 	});
 
 	it('cleans up stale socket files on start', async () => {
+		const runtimeDir = useRuntimeDir();
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
 		// Create the run directory and plant a stale socket
-		const runDir = path.join(projectDir, '.claude', 'run');
+		const runDir = path.join(runtimeDir, 'run');
 		fs.mkdirSync(runDir, {recursive: true});
 		const staleSock = path.join(runDir, 'ink-999999999.sock');
 		fs.writeFileSync(staleSock, '');
@@ -165,6 +231,7 @@ describe('createClaudeHookRuntime', () => {
 	});
 
 	it('stops cleanly', async () => {
+		useRuntimeDir();
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
@@ -176,11 +243,11 @@ describe('createClaudeHookRuntime', () => {
 	});
 
 	it('records a startup error when the socket path is too long', async () => {
-		const repeated = 'a'.repeat(120);
-		const projectDir = path.join(makeTmpDir(), repeated);
-		cleanup.push(() =>
-			fs.rmSync(path.dirname(projectDir), {recursive: true, force: true}),
-		);
+		previousRuntimeDir = process.env['ATHENA_RUNTIME_DIR'];
+		runtimeDirOverridden = true;
+		process.env['ATHENA_RUNTIME_DIR'] = path.join('/tmp', 'a'.repeat(120));
+		const projectDir = makeTmpDir();
+		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));
 
 		const runtime = createClaudeHookRuntime({projectDir, instanceId: 55});
 		await runtime.start();
@@ -193,6 +260,7 @@ describe('createClaudeHookRuntime', () => {
 	});
 
 	it('can simulate hook server startup failures via env for manual testing', async () => {
+		useRuntimeDir();
 		process.env['ATHENA_SIMULATE_HOOK_SERVER_FAILURE'] = 'socket_bind_failed';
 		const projectDir = makeTmpDir();
 		cleanup.push(() => fs.rmSync(projectDir, {recursive: true, force: true}));

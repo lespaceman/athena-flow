@@ -21,6 +21,8 @@ export type SpawnClaudeOptions = {
 	projectDir: string;
 	/** Instance ID of the athena-cli process (used for socket routing) */
 	instanceId: number;
+	/** Absolute hook socket path owned by Athena's runtime. */
+	hookSocketPath?: string;
 	/** Optional session ID to resume an existing conversation */
 	sessionId?: string;
 	/**

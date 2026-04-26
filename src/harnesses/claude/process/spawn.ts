@@ -13,11 +13,11 @@ import {buildIsolationArgs, validateConflicts} from '../config/flagRegistry';
 import {resolveClaudeBinary} from '../system/resolveBinary';
 import {resolveRuntimeAuthOverlay} from '../auth/runtimeAuth';
 import type {HarnessProcessFailureCode} from '../../../core/runtime/process';
-
-const MAX_UNIX_SOCKET_PATH_BYTES = {
-	darwin: 103,
-	default: 107,
-} as const;
+import {
+	ATHENA_HOOK_SOCKET_ENV,
+	isSocketPathTooLong,
+	resolveHookSocketPath,
+} from '../runtime/socketPath';
 
 type SpawnPreflightError = Error & {
 	failureCode?: HarnessProcessFailureCode;
@@ -48,28 +48,17 @@ function resolveExecutableOnPath(commandName: string): string | null {
 	return null;
 }
 
-function validateSocketPath(projectDir: string, instanceId: number): void {
-	const socketPath = path.join(
-		projectDir,
-		'.claude',
-		'run',
-		`ink-${instanceId}.sock`,
-	);
-	const pathBytes = Buffer.byteLength(socketPath);
-	const maxBytes =
-		process.platform === 'darwin'
-			? MAX_UNIX_SOCKET_PATH_BYTES.darwin
-			: MAX_UNIX_SOCKET_PATH_BYTES.default;
-	if (pathBytes <= maxBytes) {
+function validateSocketPath(socketPath: string): void {
+	if (!isSocketPathTooLong(socketPath)) {
 		return;
 	}
 	throw makePreflightError(
 		'socket_path_too_long',
-		`Athena hook socket path is too long for ${process.platform}: ${socketPath}. Move the repo to a shorter path and try again.`,
+		`Athena hook socket path is too long for ${process.platform}: ${socketPath}. Set ATHENA_RUNTIME_DIR to a shorter path and try again.`,
 	);
 }
 
-function runSpawnPreflight(projectDir: string, instanceId: number): void {
+function runSpawnPreflight(hookSocketPath: string): void {
 	const claudeBinary = resolveClaudeBinary();
 	if (!claudeBinary) {
 		throw makePreflightError(
@@ -100,7 +89,7 @@ function runSpawnPreflight(projectDir: string, instanceId: number): void {
 		);
 	}
 
-	validateSocketPath(projectDir, instanceId);
+	validateSocketPath(hookSocketPath);
 }
 
 /**
@@ -120,6 +109,7 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		prompt,
 		projectDir,
 		instanceId,
+		hookSocketPath: explicitHookSocketPath,
 		sessionId,
 		isolation,
 		env: extraEnv,
@@ -132,7 +122,9 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		onJqStderr,
 	} = options;
 
-	runSpawnPreflight(projectDir, instanceId);
+	const hookSocketPath =
+		explicitHookSocketPath ?? resolveHookSocketPath(instanceId);
+	runSpawnPreflight(hookSocketPath);
 
 	// Resolve isolation config (defaults to strict)
 	const isolationConfig = resolveIsolationConfig(isolation);
@@ -198,6 +190,7 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 			...process.env,
 			...(extraEnv ?? {}),
 			ATHENA_INSTANCE_ID: String(instanceId),
+			[ATHENA_HOOK_SOCKET_ENV]: hookSocketPath,
 		},
 	});
 
