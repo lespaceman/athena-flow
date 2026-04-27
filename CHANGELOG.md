@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.35](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.34...cli-v0.3.35) (2026-04-27)
+
+
+### Features
+
+* **harnesses:** trigger auto-compact before 130k tokens ([b032ecf](https://github.com/lespaceman/athena-flow-cli/commit/b032ecff196c0d6233b96e955138ed2db513d4db))
+
 ## [0.3.34](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.33...cli-v0.3.34) (2026-04-27)
 
 
