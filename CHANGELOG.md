@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.36](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.35...cli-v0.3.36) (2026-04-27)
+
+
+### Features
+
+* **harnesses:** author feed titles in harness layer ([d31c309](https://github.com/lespaceman/athena-flow-cli/commit/d31c3091ec2232b41499ad9a75e7321c98e5dc2f))
+
 ## [0.3.35](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.34...cli-v0.3.35) (2026-04-27)
 
 
