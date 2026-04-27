@@ -56,7 +56,11 @@ describe('resolveRuntimeAuthOverlay', () => {
 		});
 	});
 
-	it('falls back to a synthesized apiKeyHelper for oauth-only users', () => {
+	it('forwards a keychain OAuth token via CLAUDE_CODE_OAUTH_TOKEN env, not apiKeyHelper', () => {
+		// OAuth access tokens must travel as Authorization: Bearer headers.
+		// apiKeyHelper output is sent as x-api-key, which Anthropic rejects with
+		// "Invalid API key" for OAuth tokens. Forward the token through the
+		// CLAUDE_CODE_OAUTH_TOKEN env slot, which Claude Code routes via Bearer.
 		const result = resolveRuntimeAuthOverlay({
 			cwd: '/repo',
 			homeDir: '/home/test',
@@ -74,7 +78,43 @@ describe('resolveRuntimeAuthOverlay', () => {
 		});
 
 		expect(result).toEqual({
-			apiKeyHelper: "printf %s 'sk-ant-oat01-from-keychain'",
+			env: {CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat01-from-keychain'},
+		});
+	});
+
+	it('synthesizes an apiKeyHelper for a discovered API key credential', () => {
+		const result = resolveRuntimeAuthOverlay({
+			cwd: '/repo',
+			homeDir: '/home/test',
+			platform: 'darwin',
+			env: {ANTHROPIC_API_KEY: 'sk-ant-api03-from-env'},
+			readFileFn: () => {
+				throw new Error('missing');
+			},
+			keychainLookupFn: () => null,
+			runHelperFn: () => null,
+		});
+
+		expect(result).toEqual({
+			apiKeyHelper: "printf %s 'sk-ant-api03-from-env'",
+		});
+	});
+
+	it('forwards an authToken credential via ANTHROPIC_AUTH_TOKEN env', () => {
+		const result = resolveRuntimeAuthOverlay({
+			cwd: '/repo',
+			homeDir: '/home/test',
+			platform: 'darwin',
+			env: {ANTHROPIC_AUTH_TOKEN: 'auth-token-value'},
+			readFileFn: () => {
+				throw new Error('missing');
+			},
+			keychainLookupFn: () => null,
+			runHelperFn: () => null,
+		});
+
+		expect(result).toEqual({
+			env: {ANTHROPIC_AUTH_TOKEN: 'auth-token-value'},
 		});
 	});
 

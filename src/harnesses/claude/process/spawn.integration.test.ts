@@ -181,7 +181,12 @@ describe('spawnClaude integration', () => {
 		expect(fs.existsSync(settingsPath)).toBe(false);
 	});
 
-	it('synthesizes an apiKeyHelper fallback when only oauth env is discoverable', () => {
+	it('forwards an oauth env token via CLAUDE_CODE_OAUTH_TOKEN, not apiKeyHelper', () => {
+		// OAuth tokens must travel as Authorization: Bearer; apiKeyHelper output
+		// is sent as x-api-key. Forwarding an oauth token via apiKeyHelper causes
+		// Anthropic to reject the request with "Invalid API key". Project the
+		// token explicitly into the CLAUDE_CODE_OAUTH_TOKEN env slot so Claude
+		// Code routes it through the Bearer path.
 		delete process.env['CLAUDE_CONFIG_DIR'];
 		process.env['CLAUDE_CODE_OAUTH_TOKEN'] = 'sk-ant-oat01-env-token';
 
@@ -198,8 +203,10 @@ describe('spawnClaude integration', () => {
 			apiKeyHelper?: string;
 		};
 
-		expect(settings.env).toBeUndefined();
-		expect(settings.apiKeyHelper).toBe("printf %s 'sk-ant-oat01-env-token'");
+		expect(settings.apiKeyHelper).toBeUndefined();
+		expect(settings.env).toEqual({
+			CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat01-env-token',
+		});
 
 		child.emit('exit', 0);
 		expect(fs.existsSync(settingsPath)).toBe(false);

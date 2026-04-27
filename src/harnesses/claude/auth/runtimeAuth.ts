@@ -42,7 +42,19 @@ export function resolveRuntimeAuthOverlay(
 		return null;
 	}
 
-	return {
-		apiKeyHelper: buildInlineApiKeyHelperCommand(credential.value),
-	};
+	// Route each credential kind through the channel Claude Code expects:
+	//   • apiKey     → apiKeyHelper (output sent as x-api-key)
+	//   • authToken  → ANTHROPIC_AUTH_TOKEN env (sent as Authorization: Bearer)
+	//   • oauthToken → CLAUDE_CODE_OAUTH_TOKEN env (sent as Authorization: Bearer)
+	//
+	// Wrapping a non-apiKey credential as apiKeyHelper causes Anthropic to
+	// reject the request with "Invalid API key", since OAuth/auth tokens are
+	// Bearer credentials, not x-api-key values.
+	if (credential.kind === 'apiKey') {
+		return {apiKeyHelper: buildInlineApiKeyHelperCommand(credential.value)};
+	}
+	if (credential.kind === 'authToken') {
+		return {env: {ANTHROPIC_AUTH_TOKEN: credential.value}};
+	}
+	return {env: {CLAUDE_CODE_OAUTH_TOKEN: credential.value}};
 }
