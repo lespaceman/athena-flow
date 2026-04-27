@@ -2348,16 +2348,25 @@ export default function App({
 	);
 }
 
-// Codex scoped permission requests (network/filesystem) flow through the
-// shared rule path. Seeding 'Permissions' as approve here turns them into
-// auto-approvals matching the harness's tool allowlist semantics.
+// Athena auto-approves all MCP tools across harnesses, and for Codex also
+// auto-approves Bash/Edit (outside-sandbox commandExecution / fileChange) and
+// the scoped 'Permissions' capability. These are seeded as approve rules via
+// allowedTools (see buildInitialRules); 'mcp__*' uses the prefix wildcard in
+// ruleMatches.
 function resolveAllowedTools(
 	harness: AthenaHarness,
 	allowedTools: string[] | undefined,
 ): string[] | undefined {
-	if (harness !== 'openai-codex') return allowedTools;
+	const extras =
+		harness === 'openai-codex'
+			? ['mcp__*', 'Permissions', 'Bash', 'Edit']
+			: ['mcp__*'];
 	const base = allowedTools ?? [];
-	return base.includes('Permissions') ? base : [...base, 'Permissions'];
+	const merged = [...base];
+	for (const tool of extras) {
+		if (!merged.includes(tool)) merged.push(tool);
+	}
+	return merged;
 }
 
 function usePerfRenderLog(enabled: boolean, id: string) {
