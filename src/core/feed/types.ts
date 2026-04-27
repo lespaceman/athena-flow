@@ -84,6 +84,13 @@ export type FeedEventBase = {
 	title: string;
 	body?: string;
 	ui?: FeedEventUI;
+	/**
+	 * Harness-authored display hint forwarded from the originating
+	 * RuntimeEvent. When `display.title` is set, the timeline renderer
+	 * uses it as the row's primary label instead of synthesizing one
+	 * from `tool_input`.
+	 */
+	display?: {title?: string};
 	raw?: unknown;
 };
 

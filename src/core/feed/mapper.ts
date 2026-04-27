@@ -197,6 +197,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			actor_id: actorId,
 			cause: baseCause,
 			title: '',
+			display: runtimeEvent.display,
 			raw: runtimeEvent.payload,
 			data,
 		} as FeedEvent;

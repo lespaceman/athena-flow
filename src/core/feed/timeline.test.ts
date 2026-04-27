@@ -633,6 +633,37 @@ describe('eventSummary', () => {
 		expect(eventSummary(ev).text).toBe('completed');
 	});
 
+	it('uses harness display.title for tool.pre when provided', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: '/bin/zsh -lc "gh issue view 21"'},
+			},
+			display: {title: 'View GitHub issue #21'},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).toBe('View GitHub issue #21');
+		expect(result.segments).toEqual([
+			{text: 'View GitHub issue #21', role: 'target'},
+		]);
+	});
+
+	it('falls back to formatToolSummary when display is absent', () => {
+		const ev = {
+			...base({kind: 'tool.pre'}),
+			kind: 'tool.pre' as const,
+			data: {
+				tool_name: 'Bash',
+				tool_input: {command: 'ls -la'},
+			},
+		};
+		const result = eventSummary(ev);
+		expect(result.text).not.toBe('');
+		expect(result.text).toContain('ls');
+	});
+
 	it('formats plan.update explanation', () => {
 		const ev = {
 			...base({kind: 'plan.update'}),

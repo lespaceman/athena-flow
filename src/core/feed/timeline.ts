@@ -436,6 +436,9 @@ export type SummaryResult = {
 };
 
 export function eventSummary(event: FeedEvent): SummaryResult {
+	const harness = harnessSummary(event);
+	if (harness) return harness;
+
 	switch (event.kind) {
 		case 'tool.delta':
 		case 'tool.pre':
@@ -915,6 +918,14 @@ export function mergedEventSummary(
 	if (event.kind !== 'tool.pre' && event.kind !== 'permission.request') {
 		return eventSummary(event);
 	}
+	const harness = harnessSummary(event) ?? harnessSummary(postEvent);
+	if (harness) {
+		return {
+			...harness,
+			outcome: postOutcome(postEvent),
+			outcomeZero: false,
+		};
+	}
 
 	const toolName = event.data.tool_name;
 	// Prefer tool.pre input, but fall back to tool.post input when the pre
@@ -974,6 +985,37 @@ export function mergedEventSummary(
 		outcome: resultText,
 		outcomeZero: /^0\s/.test(resultText),
 	};
+}
+
+/**
+ * Use the harness-supplied display title (if any) as the row summary.
+ * Returns undefined when the event has no harness hint, so callers can fall
+ * back to their tool-input-derived synthesis.
+ */
+function harnessSummary(event: FeedEvent): SummaryResult | undefined {
+	const title = event.display?.title?.trim();
+	if (!title) return undefined;
+	const text = compactText(title, 200);
+	return {text, segments: [{text, role: 'target'}]};
+}
+
+function postOutcome(postEvent: FeedEvent): string | undefined {
+	if (postEvent.kind === 'tool.failure') {
+		return summarizeToolResult(
+			postEvent.data.tool_name,
+			postEvent.data.tool_input,
+			undefined,
+			postEvent.data.error,
+		);
+	}
+	if (postEvent.kind === 'tool.post') {
+		return summarizeToolResult(
+			postEvent.data.tool_name,
+			postEvent.data.tool_input,
+			postEvent.data.tool_response,
+		);
+	}
+	return undefined;
 }
 
 /**
