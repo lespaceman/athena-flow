@@ -2305,7 +2305,10 @@ export default function App({
 				instanceId={instanceId}
 				harness={runtimeState.harness}
 				workflow={runtimeState.workflow}
-				allowedTools={runtimeState.isolation?.allowedTools}
+				allowedTools={resolveAllowedTools(
+					runtimeState.harness,
+					runtimeState.isolation?.allowedTools,
+				)}
 				athenaSessionId={athenaSessionId}
 			>
 				<AppContent
@@ -2343,6 +2346,18 @@ export default function App({
 			</HookProvider>
 		</ThemeProvider>
 	);
+}
+
+// Codex scoped permission requests (network/filesystem) flow through the
+// shared rule path. Seeding 'Permissions' as approve here turns them into
+// auto-approvals matching the harness's tool allowlist semantics.
+function resolveAllowedTools(
+	harness: AthenaHarness,
+	allowedTools: string[] | undefined,
+): string[] | undefined {
+	if (harness !== 'openai-codex') return allowedTools;
+	const base = allowedTools ?? [];
+	return base.includes('Permissions') ? base : [...base, 'Permissions'];
 }
 
 function usePerfRenderLog(enabled: boolean, id: string) {

@@ -84,11 +84,8 @@ describe('hookController handleEvent', () => {
 		});
 	});
 
-	it('always enqueues scoped permissions approval requests instead of applying tool rules', () => {
+	it('enqueues scoped permissions approval requests when no rule matches', () => {
 		const cb = makeCallbacks();
-		cb._rules = [
-			{id: '1', toolName: 'Permissions', action: 'approve', addedBy: 'test'},
-		];
 		const event = makeEvent('item/permissions/requestApproval', {
 			kind: 'permission.request',
 			hookName: 'item/permissions/requestApproval',
@@ -108,6 +105,57 @@ describe('hookController handleEvent', () => {
 				hookName: 'item/permissions/requestApproval',
 			}),
 		);
+	});
+
+	it('auto-approves scoped permissions with session scope when approve rule matches', () => {
+		const cb = makeCallbacks();
+		cb._rules = [
+			{id: '1', toolName: 'Permissions', action: 'approve', addedBy: 'test'},
+		];
+		const event = makeEvent('item/permissions/requestApproval', {
+			kind: 'permission.request',
+			hookName: 'item/permissions/requestApproval',
+			toolName: 'Permissions',
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {permissions: {network: {enabled: true}}},
+			},
+		});
+		const result = handleEvent(event, cb);
+
+		expect(result.handled).toBe(true);
+		expect(result.decision).toEqual({
+			type: 'json',
+			source: 'rule',
+			intent: {kind: 'permission_allow'},
+			data: {scope: 'session'},
+		});
+		expect(cb.enqueuePermission).not.toHaveBeenCalled();
+	});
+
+	it('auto-denies scoped permissions when deny rule matches (deny precedence)', () => {
+		const cb = makeCallbacks();
+		cb._rules = [
+			{id: '1', toolName: 'Permissions', action: 'deny', addedBy: 'test'},
+			{id: '2', toolName: 'Permissions', action: 'approve', addedBy: 'test'},
+		];
+		const event = makeEvent('item/permissions/requestApproval', {
+			kind: 'permission.request',
+			hookName: 'item/permissions/requestApproval',
+			toolName: 'Permissions',
+			data: {
+				tool_name: 'Permissions',
+				tool_input: {permissions: {network: {enabled: true}}},
+			},
+		});
+		const result = handleEvent(event, cb);
+
+		expect(result.handled).toBe(true);
+		expect(result.decision!.intent).toEqual({
+			kind: 'permission_deny',
+			reason: 'Blocked by rule: test',
+		});
+		expect(cb.enqueuePermission).not.toHaveBeenCalled();
 	});
 
 	it('enqueues AskUserQuestion PreToolUse events', () => {

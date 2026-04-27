@@ -43,11 +43,6 @@ export function handleEvent(
 
 	// ── PermissionRequest: check rules, enqueue if no match ──
 	if (eventKind === 'permission.request' && toolName) {
-		if (isScoped) {
-			cb.enqueuePermission(event);
-			return {handled: true};
-		}
-
 		const rule = matchRule(cb.getRules(), toolName);
 
 		if (rule?.action === 'deny') {
@@ -71,6 +66,9 @@ export function handleEvent(
 					type: 'json',
 					source: 'rule',
 					intent: {kind: 'permission_allow'},
+					// Scoped Codex permission grants are session-scoped under
+					// auto rules so the same capability isn't re-prompted.
+					...(isScoped ? {data: {scope: 'session'}} : {}),
 				},
 			};
 		}
