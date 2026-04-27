@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.32](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.31...cli-v0.3.32) (2026-04-27)
+
+
+### Features
+
+* **codex:** auto-approve scoped permission requests via rule path ([a18ea58](https://github.com/lespaceman/athena-flow-cli/commit/a18ea584f346cf2fa024481605327e2990309e16))
+
 ## [0.3.31](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.30...cli-v0.3.31) (2026-04-26)
 
 
