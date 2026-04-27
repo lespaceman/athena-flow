@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.33](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.32...cli-v0.3.33) (2026-04-27)
+
+
+### Bug Fixes
+
+* **auth:** route OAuth/auth tokens through env, not apiKeyHelper ([059bf29](https://github.com/lespaceman/athena-flow-cli/commit/059bf29a97ab12ab35444bfbcc2075180b9fe53f))
+
 ## [0.3.32](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.31...cli-v0.3.32) (2026-04-27)
 
 
