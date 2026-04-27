@@ -84,7 +84,11 @@ export function buildCodexPromptOptions(input: {
 				? input.workflowPlan.agentRoots
 				: undefined,
 		plugins: resolveCodexWorkflowPlugins(input.workflowPlan),
-		config: resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan),
+		config: {
+			model_auto_compact_token_limit: 130000,
+			...(resolveCodexMcpConfig(input.pluginMcpConfig, input.workflowPlan) ??
+				{}),
+		},
 		ephemeral: input.ephemeral,
 		approvalPolicy: isolation.approvalPolicy,
 		sandbox: isolation.sandbox,

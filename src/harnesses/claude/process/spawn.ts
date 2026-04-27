@@ -187,6 +187,8 @@ export function spawnClaude(options: SpawnClaudeOptions): ChildProcess {
 		cwd: projectDir,
 		stdio: ['ignore', 'pipe', 'pipe'],
 		env: {
+			// Trigger auto-compact at ~95% of 130k (~123.5k tokens used).
+			CLAUDE_CODE_AUTO_COMPACT_WINDOW: '130000',
 			...process.env,
 			...(extraEnv ?? {}),
 			ATHENA_INSTANCE_ID: String(instanceId),
