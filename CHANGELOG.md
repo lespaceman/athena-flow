@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.37](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.36...cli-v0.3.37) (2026-04-27)
+
+
+### Bug Fixes
+
+* **claude:** drop redundant tool-name prefix from display title ([f32e1c5](https://github.com/lespaceman/athena-flow-cli/commit/f32e1c5d187f1bda4ae9ee5784f1159395240cee))
+* **feed:** use harness display title in DETAILS column ([235ee27](https://github.com/lespaceman/athena-flow-cli/commit/235ee2708da33e8ddbbe15aa5a364cbfb436a403))
+
 ## [0.3.36](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.35...cli-v0.3.36) (2026-04-27)
 
 
