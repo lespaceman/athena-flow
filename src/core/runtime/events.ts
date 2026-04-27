@@ -333,6 +333,22 @@ export type RuntimeEventData =
 	| RuntimeEventDataMap[keyof RuntimeEventDataMap]
 	| Record<string, unknown>;
 
+/**
+ * Kinds whose `data` carries a `tool_name` + `tool_input` pair — the surface
+ * harness display builders inspect to synthesize per-call titles.
+ */
+const TOOL_DISPLAY_KINDS: ReadonlySet<RuntimeEventKind> = new Set([
+	'tool.pre',
+	'tool.post',
+	'tool.failure',
+	'permission.request',
+	'permission.denied',
+]);
+
+export function isToolDisplayKind(kind: RuntimeEventKind): boolean {
+	return TOOL_DISPLAY_KINDS.has(kind);
+}
+
 export function mapLegacyHookNameToRuntimeKind(
 	hookName: string | undefined,
 ): RuntimeEventKind {

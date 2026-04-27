@@ -1,6 +1,7 @@
 // src/feed/titleGen.ts
 import type {FeedEvent} from './types';
-import {getGlyphs} from '../../ui/glyphs/index';
+import type {RuntimeEvent} from '../runtime/types';
+import {getGlyphs, type GlyphSet} from '../../ui/glyphs/index';
 
 const MAX_TITLE_LEN = 80;
 
@@ -8,9 +9,37 @@ function truncate(s: string, max = MAX_TITLE_LEN): string {
 	return s.length <= max ? s : s.slice(0, max - 1) + '…';
 }
 
-export function generateTitle(event: FeedEvent, ascii = false): string {
-	const g = getGlyphs(ascii);
+/**
+ * Compose a FeedEvent title.
+ *
+ * If the originating RuntimeEvent carries a harness-authored
+ * `display.title`, use it as-is (truncated). The renderer adds any
+ * leading glyph at display time. Otherwise fall back to the
+ * harness-neutral switch in `generateNeutralTitle()`.
+ */
+export function composeTitle(
+	event: FeedEvent,
+	runtime: RuntimeEvent | null,
+	ascii = false,
+): string {
+	const harnessTitle = runtime?.display?.title?.trim();
+	if (harnessTitle) {
+		return truncate(harnessTitle);
+	}
+	return generateNeutralTitle(event, getGlyphs(ascii));
+}
 
+/**
+ * Backwards-compatible entry point: use `composeTitle` directly when a
+ * RuntimeEvent is available. This wrapper is kept so test files and any
+ * other callers that don't have the runtime in hand can still call by
+ * FeedEvent alone.
+ */
+export function generateTitle(event: FeedEvent, ascii = false): string {
+	return composeTitle(event, null, ascii);
+}
+
+function generateNeutralTitle(event: FeedEvent, g: GlyphSet): string {
 	switch (event.kind) {
 		case 'session.start':
 			return `Session started (${event.data.source})`;

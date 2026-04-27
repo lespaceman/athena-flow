@@ -4,6 +4,7 @@ import type {
 	JsonRpcServerRequest,
 } from '../protocol/jsonrpc';
 import {translateNotification, translateServerRequest} from './eventTranslator';
+import {buildCodexDisplay} from './displayTitle';
 import {getCodexInteractionHints} from './interactionRules';
 import {generateId} from '../../../shared/utils/id';
 
@@ -25,6 +26,7 @@ export function mapNotificationToRuntimeEvent(
 		context: {cwd, transcriptPath: ''},
 		interaction: getCodexInteractionHints(translated.expectsDecision),
 		payload: msg.params,
+		display: buildCodexDisplay(translated.kind, translated.data),
 	};
 }
 
@@ -46,5 +48,6 @@ export function mapServerRequestToRuntimeEvent(
 		context: {cwd, transcriptPath: ''},
 		interaction: getCodexInteractionHints(translated.expectsDecision),
 		payload: msg.params,
+		display: buildCodexDisplay(translated.kind, translated.data),
 	};
 }

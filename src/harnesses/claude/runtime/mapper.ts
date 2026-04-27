@@ -9,6 +9,7 @@ import type {HookEventEnvelope} from '../protocol/envelope';
 import type {RuntimeEvent} from '../../../core/runtime/types';
 import {getInteractionHints} from './interactionRules';
 import {translateClaudeEnvelope} from './eventTranslator';
+import {buildClaudeDisplay} from './displayTitle';
 
 export function mapEnvelopeToRuntimeEvent(
 	envelope: HookEventEnvelope,
@@ -45,5 +46,6 @@ export function mapEnvelopeToRuntimeEvent(
 		context,
 		interaction: getInteractionHints(translated.kind),
 		payload: safePayload,
+		display: buildClaudeDisplay(translated.kind, translated.data),
 	};
 }

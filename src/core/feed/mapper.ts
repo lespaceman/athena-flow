@@ -13,7 +13,7 @@ import type {Session, Run, Actor} from './entities';
 import type {MapperBootstrap} from './bootstrap';
 import {type TodoItem, type TodoWriteInput, isSubagentTool} from './todo';
 import {ActorRegistry} from './entities';
-import {generateTitle} from './titleGen';
+import {composeTitle, generateTitle} from './titleGen';
 import {createTranscriptReader} from './transcript';
 
 export type FeedMapper = {
@@ -201,7 +201,7 @@ export function createFeedMapper(bootstrap?: MapperBootstrap): FeedMapper {
 			data,
 		} as FeedEvent;
 
-		fe.title = generateTitle(fe);
+		fe.title = composeTitle(fe, runtimeEvent);
 
 		// Index only request-bearing events for later decision/resolution correlation.
 		if (

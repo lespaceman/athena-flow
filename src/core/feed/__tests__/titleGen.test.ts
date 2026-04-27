@@ -1,7 +1,8 @@
 // src/feed/__tests__/titleGen.test.ts
 import {describe, it, expect} from 'vitest';
-import {generateTitle} from '../titleGen';
+import {generateTitle, composeTitle} from '../titleGen';
 import type {FeedEvent} from '../types';
+import type {RuntimeEvent} from '../../runtime/types';
 
 function makeFeedEvent(kind: string, data: Record<string, unknown>): FeedEvent {
 	return {
@@ -137,5 +138,48 @@ describe('generateTitle', () => {
 		const longPrompt = 'A'.repeat(100);
 		const event = makeFeedEvent('user.prompt', {prompt: longPrompt, cwd: '/'});
 		expect(generateTitle(event).length).toBeLessThanOrEqual(80);
+	});
+});
+
+function makeRuntime(title: string): RuntimeEvent {
+	return {
+		id: 'r1',
+		timestamp: 0,
+		kind: 'tool.pre',
+		data: {tool_name: 'Bash', tool_input: {}},
+		hookName: 'PreToolUse',
+		sessionId: 'sess-1',
+		context: {cwd: '/', transcriptPath: ''},
+		interaction: {expectsDecision: false},
+		payload: {},
+		display: {title},
+	};
+}
+
+describe('composeTitle', () => {
+	it('uses harness display.title verbatim, no glyph added', () => {
+		const event = makeFeedEvent('tool.pre', {
+			tool_name: 'Bash',
+			tool_input: {command: 'gh issue view 12'},
+		});
+		const runtime = makeRuntime('Bash: View GitHub issue #12');
+		expect(composeTitle(event, runtime)).toBe('Bash: View GitHub issue #12');
+	});
+
+	it('falls back to neutral title when display is absent', () => {
+		const event = makeFeedEvent('tool.pre', {
+			tool_name: 'Bash',
+			tool_input: {},
+		});
+		expect(composeTitle(event, null)).toBe('● Bash');
+	});
+
+	it('truncates harness titles past the 80-char ceiling', () => {
+		const event = makeFeedEvent('tool.pre', {
+			tool_name: 'Bash',
+			tool_input: {},
+		});
+		const runtime = makeRuntime('Bash: ' + 'X'.repeat(200));
+		expect(composeTitle(event, runtime).length).toBeLessThanOrEqual(80);
 	});
 });

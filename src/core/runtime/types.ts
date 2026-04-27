@@ -69,6 +69,17 @@ export type RuntimeEvent = {
 	 * Core logic must not branch on this field.
 	 */
 	payload: unknown;
+
+	/**
+	 * Optional harness-authored display hint. When present, the feed mapper
+	 * uses `display.title` as the basis for FeedEvent.title (a glyph prefix
+	 * is added by the feed layer). When absent, the mapper falls back to
+	 * harness-neutral title generation from kind + data.
+	 */
+	display?: {
+		/** Plain text, no glyphs. e.g. "Bash: View GitHub issue #12", "Read foo.ts". */
+		title?: string;
+	};
 };
 
 // ── Runtime Decision (UI → adapter) ──────────────────────

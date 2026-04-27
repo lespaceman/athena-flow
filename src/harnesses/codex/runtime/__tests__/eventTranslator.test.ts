@@ -263,6 +263,30 @@ describe('translateNotification', () => {
 		expect(result.toolName).toBe('Bash');
 	});
 
+	it('preserves commandActions in tool_input for commandExecution', () => {
+		const result = translateNotification({
+			method: 'item/started',
+			params: {
+				threadId: 'th1',
+				turnId: 't1',
+				item: {
+					id: 'i1',
+					type: 'commandExecution',
+					command: 'sed -n 1,200p foo.ts',
+					cwd: '/proj',
+					commandActions: [
+						{type: 'read', name: 'foo.ts', path: '/proj/foo.ts'},
+					],
+				},
+			},
+		});
+		expect(result.kind).toBe('tool.pre');
+		const data = result.data as {tool_input: Record<string, unknown>};
+		expect(data.tool_input.commandActions).toEqual([
+			{type: 'read', name: 'foo.ts', path: '/proj/foo.ts'},
+		]);
+	});
+
 	it('maps item/completed (commandExecution) to tool.post', () => {
 		const result = translateNotification({
 			method: 'item/completed',

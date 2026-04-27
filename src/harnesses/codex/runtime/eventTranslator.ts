@@ -120,7 +120,11 @@ function resolveToolInput(
 ): Record<string, unknown> {
 	switch (itemType) {
 		case 'commandExecution':
-			return {command: item['command'], cwd: item['cwd']};
+			return {
+				command: item['command'],
+				cwd: item['cwd'],
+				commandActions: item['commandActions'],
+			};
 		case 'fileChange':
 			return {changes: item['changes']};
 		case 'webSearch':

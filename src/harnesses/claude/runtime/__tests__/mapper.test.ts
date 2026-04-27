@@ -95,6 +95,47 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 		expect(event.payload).toEqual({value: 'raw-string'});
 	});
 
+	it('surfaces Bash tool_input.description as display.title', () => {
+		const envelope = makeEnvelope({
+			payload: {
+				hook_event_name: 'PreToolUse',
+				session_id: 'sess-1',
+				transcript_path: '/tmp/t.jsonl',
+				cwd: '/project',
+				tool_name: 'Bash',
+				tool_input: {
+					command: 'gh issue view 12',
+					description: 'View GitHub issue #12',
+				},
+				tool_use_id: 'tu-1',
+			},
+		});
+		const event = mapEnvelopeToRuntimeEvent(envelope);
+		expect(event.display).toEqual({title: 'Bash: View GitHub issue #12'});
+	});
+
+	it('omits display when Bash has no description', () => {
+		const envelope = makeEnvelope();
+		const event = mapEnvelopeToRuntimeEvent(envelope);
+		expect(event.display).toBeUndefined();
+	});
+
+	it('omits display for tools without a description field', () => {
+		const envelope = makeEnvelope({
+			payload: {
+				hook_event_name: 'PreToolUse',
+				session_id: 'sess-1',
+				transcript_path: '/tmp/t.jsonl',
+				cwd: '/project',
+				tool_name: 'Read',
+				tool_input: {file_path: '/foo.ts'},
+				tool_use_id: 'tu-2',
+			},
+		});
+		const event = mapEnvelopeToRuntimeEvent(envelope);
+		expect(event.display).toBeUndefined();
+	});
+
 	it('handles unknown hook names with safe defaults', () => {
 		const envelope = makeEnvelope({
 			hook_event_name: 'FutureEvent' as HookEventEnvelope['hook_event_name'],
