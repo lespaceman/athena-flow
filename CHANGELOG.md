@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.34](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.33...cli-v0.3.34) (2026-04-27)
+
+
+### Features
+
+* **permissions:** auto-approve all MCP tools and Codex outside-sandbox ops ([928c3a8](https://github.com/lespaceman/athena-flow-cli/commit/928c3a8d71e9dd35e624d6cd2b89131e8dcdf2e1))
+
 ## [0.3.33](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.32...cli-v0.3.33) (2026-04-27)
 
 
