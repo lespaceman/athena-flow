@@ -21,5 +21,7 @@ export function buildClaudeDisplay<K extends RuntimeEventKind>(
 	const description = d.tool_input?.['description'];
 	if (typeof description !== 'string' || !description.trim()) return undefined;
 
-	return {title: `${d.tool_name}: ${description.trim()}`};
+	// The ACTION column already labels the tool, so the description alone
+	// reads cleanly in DETAILS without a "Bash: " prefix.
+	return {title: description.trim()};
 }

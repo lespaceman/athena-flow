@@ -111,7 +111,7 @@ describe('mapEnvelopeToRuntimeEvent', () => {
 			},
 		});
 		const event = mapEnvelopeToRuntimeEvent(envelope);
-		expect(event.display).toEqual({title: 'Bash: View GitHub issue #12'});
+		expect(event.display).toEqual({title: 'View GitHub issue #12'});
 	});
 
 	it('omits display when Bash has no description', () => {
