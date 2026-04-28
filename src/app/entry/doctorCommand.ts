@@ -11,6 +11,7 @@ import {
 	generateHookSettings,
 	registerCleanupOnExit,
 } from '../../harnesses/claude/hooks/generateHookSettings';
+import {resolveRuntimeAuthOverlay} from '../../harnesses/claude/auth/runtimeAuth';
 import {
 	collectEnvironment,
 	type DoctorEnvironment,
@@ -102,7 +103,20 @@ function fmtAuth(env: DoctorEnvironment): string {
 	return parts.join(' · ');
 }
 
-function printEnvironment(env: DoctorEnvironment): void {
+function fmtRuntimeOverlay(
+	overlay: ReturnType<typeof resolveRuntimeAuthOverlay>,
+): string {
+	if (!overlay) return c.dim('none');
+	if (overlay.apiKeyHelper) return `apiKeyHelper (${overlay.apiKeyHelper})`;
+	const envKeys = Object.keys(overlay.env ?? {});
+	if (envKeys.length === 0) return c.dim('none');
+	return `env: ${envKeys.join(', ')}`;
+}
+
+function printEnvironment(
+	env: DoctorEnvironment,
+	runtimeOverlay: ReturnType<typeof resolveRuntimeAuthOverlay> = null,
+): void {
 	console.log(c.bold('Environment'));
 	const binary = env.claudeBinary
 		? `${env.claudeBinary}${env.claudeVersion ? c.dim(`  v${env.claudeVersion}`) : ''}`
@@ -154,6 +168,7 @@ function printEnvironment(env: DoctorEnvironment): void {
 			`${env.hookForwarder.source}${env.hookForwarder.scriptPath ? c.dim(`  ${env.hookForwarder.scriptPath}`) : ''}`,
 		),
 	);
+	console.log(field('runtime overlay', fmtRuntimeOverlay(runtimeOverlay)));
 	console.log(c.dim('  settings'));
 	for (const scope of env.settings) {
 		for (const line of fmtScope(scope)) {
@@ -163,7 +178,7 @@ function printEnvironment(env: DoctorEnvironment): void {
 	if (env.providerEnvVars.length > 0) {
 		console.log(
 			c.dim(
-				`  note: ANTHROPIC_*/CLAUDE_CODE_* env vars are stripped from each probe's environment so credentials don't leak across the matrix.`,
+				`  note: ANTHROPIC_*/CLAUDE_CODE_* env vars are stripped from each probe; probes that explicitly exercise a credential re-inject only that one credential.`,
 			),
 		);
 	}
@@ -322,7 +337,17 @@ export async function runDoctorCommand(
 	);
 
 	const cleanups: Array<() => void> = [];
-	const strictSettings = generateHookSettings();
+	// Mirror what production does in spawn.ts: resolve the runtime auth overlay
+	// (settings.env / settings.apiKeyHelper / fallback to a discovered
+	// credential) and bake it into the strict-isolation hook settings file so
+	// the A-group probes can succeed under the same conditions production
+	// would. Without this, headless environments (e.g. Cloud Run) where
+	// CLAUDE_CODE_OAUTH_TOKEN is the only credential see all-red A-probes
+	// even though the production runtime would happily forward that token.
+	const runtimeOverlay = resolveRuntimeAuthOverlay({
+		apiKeyOverride: options.apiKey,
+	});
+	const strictSettings = generateHookSettings(undefined, runtimeOverlay);
 	cleanups.push(strictSettings.cleanup);
 	registerCleanupOnExit(strictSettings.cleanup);
 
@@ -356,6 +381,7 @@ export async function runDoctorCommand(
 		credentials,
 		helperSettingsByCredential,
 		credentialMissingReason,
+		athenaRuntimeEnv: runtimeOverlay?.env,
 	};
 	const probes = buildProbeConfigs(buildOpts);
 
@@ -375,7 +401,7 @@ export async function runDoctorCommand(
 		formatProbeCommand(probe, env.claudeBinary!, aliases);
 
 	if (!options.json) {
-		printEnvironment(env);
+		printEnvironment(env, runtimeOverlay);
 		if (aliases.size > 0) {
 			const aliasColumnWidth =
 				Math.max(...[...aliases.keys()].map(name => name.length)) + 2;

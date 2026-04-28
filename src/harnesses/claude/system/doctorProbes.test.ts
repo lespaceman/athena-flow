@@ -498,7 +498,7 @@ describe('buildProbeConfigs', () => {
 		}
 	});
 
-	it('does NOT inject OAuth tokens into env vars (per Anthropic auth docs)', () => {
+	it('injects OAuth tokens via CLAUDE_CODE_OAUTH_TOKEN (precedence rule 4)', () => {
 		const probes = buildProbeConfigs({
 			strictSettingsPath: '/tmp/s.json',
 			credentials: [
@@ -512,7 +512,9 @@ describe('buildProbeConfigs', () => {
 		const credProbes = probes.filter(p => p.group === 'credential');
 		expect(credProbes).toHaveLength(4);
 		for (const probe of credProbes) {
-			expect(probe.env).toBeUndefined();
+			expect(probe.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe('sk-ant-oat01-x');
+			expect(probe.env?.ANTHROPIC_API_KEY).toBeUndefined();
+			expect(probe.env?.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
 			expect(probe.credentialKind).toBe('oauthToken');
 		}
 	});
@@ -551,8 +553,8 @@ describe('buildProbeConfigs', () => {
 		expect(d2).toHaveLength(4);
 		// API key probes use ANTHROPIC_API_KEY
 		expect(c1[0]!.env?.ANTHROPIC_API_KEY).toBe('sk-ant-api03-key');
-		// OAuth credentials cannot be env-injected
-		expect(c2[0]!.env).toBeUndefined();
+		// OAuth credentials are env-injected via CLAUDE_CODE_OAUTH_TOKEN
+		expect(c2[0]!.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe('sk-ant-oat01-x');
 		expect(c2[0]!.credentialKind).toBe('oauthToken');
 		// D1 references the API-key helper, D2 references the OAuth helper
 		expect(d1[0]!.args).toContain('/tmp/h-key.json');
@@ -565,6 +567,23 @@ describe('buildProbeConfigs', () => {
 		expect(probes.filter(p => p.group === 'helper')).toHaveLength(4);
 		for (const probe of probes.filter(p => p.group === 'credential')) {
 			expect(probe.env).toBeUndefined();
+		}
+	});
+
+	it('attaches athenaRuntimeEnv to A-group probes so they survive the env scrub', () => {
+		const probes = buildProbeConfigs({
+			strictSettingsPath: '/tmp/s.json',
+			athenaRuntimeEnv: {CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat01-x'},
+		});
+		const aProbes = probes.filter(p => p.group === 'athena');
+		expect(aProbes).toHaveLength(2);
+		for (const probe of aProbes) {
+			expect(probe.env?.CLAUDE_CODE_OAUTH_TOKEN).toBe('sk-ant-oat01-x');
+		}
+		// Non-A probes should NOT get the runtime overlay env injected.
+		const inherited = probes.filter(p => p.group === 'inherited');
+		for (const probe of inherited) {
+			expect(probe.env?.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
 		}
 	});
 
@@ -631,9 +650,12 @@ describe('probeSkipReason', () => {
 		);
 	});
 
-	it('skips credential probes for OAuth-kind credentials per Anthropic auth docs', () => {
+	it('skips only the --bare combos for OAuth credential probes (precedence rule 4)', () => {
 		const opts = {
 			strictSettingsPath: '/tmp/s.json',
+			helperSettingsByCredential: new Map([
+				['keychain:Claude Code-credentials|sk-ant-oat01-x', '/tmp/h-oat.json'],
+			]),
 			credentials: [
 				{
 					source: 'keychain:Claude Code-credentials' as const,
@@ -642,8 +664,42 @@ describe('probeSkipReason', () => {
 				},
 			],
 		};
-		const probe = buildProbeConfigs(opts).find(p => p.group === 'credential')!;
-		expect(probeSkipReason(probe, opts)).toMatch(/No API key available/u);
+		const credProbes = buildProbeConfigs(opts).filter(
+			p => p.group === 'credential',
+		);
+		for (const probe of credProbes) {
+			if (probe.args.includes('--bare')) {
+				expect(probeSkipReason(probe, opts)).toMatch(
+					/--bare skips CLAUDE_CODE_OAUTH_TOKEN/u,
+				);
+			} else {
+				expect(probeSkipReason(probe, opts)).toBeNull();
+			}
+		}
+	});
+
+	it('skips OAuth credential probes through apiKeyHelper (Bearer vs x-api-key)', () => {
+		const opts = {
+			strictSettingsPath: '/tmp/s.json',
+			helperSettingsByCredential: new Map([
+				['keychain:Claude Code-credentials|sk-ant-oat01-x', '/tmp/h-oat.json'],
+			]),
+			credentials: [
+				{
+					source: 'keychain:Claude Code-credentials' as const,
+					kind: 'oauthToken' as const,
+					value: 'sk-ant-oat01-x',
+				},
+			],
+		};
+		const helperProbes = buildProbeConfigs(opts).filter(
+			p => p.group === 'helper',
+		);
+		for (const probe of helperProbes) {
+			expect(probeSkipReason(probe, opts)).toMatch(
+				/apiKeyHelper sends output as x-api-key/u,
+			);
+		}
 	});
 
 	it('returns null for credential and helper probes when all inputs are present', () => {

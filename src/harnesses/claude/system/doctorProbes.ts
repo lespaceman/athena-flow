@@ -954,6 +954,15 @@ export type BuildProbesOptions = {
 	helperSettingsByCredential?: Map<string, string>;
 	/** Human-readable reason credential lookup returned no credentials. */
 	credentialMissingReason?: string;
+	/**
+	 * Env vars Athena's production runtime would inject into the spawned
+	 * `claude` process (via `resolveRuntimeAuthOverlay`). When provided, the
+	 * A-group probes re-add these via `probe.env` after the env scrub so the
+	 * baseline path mirrors what production actually does. Without this, A1/A2
+	 * fail in headless environments where `CLAUDE_CODE_OAUTH_TOKEN` is the
+	 * only available credential.
+	 */
+	athenaRuntimeEnv?: Partial<Record<string, string>>;
 };
 
 /** Pre-computed reason a probe should be marked SKIP rather than executed. */
@@ -1008,22 +1017,30 @@ function baseArgs(combo: FlagCombo, extraSettings?: string): string[] {
 }
 
 /**
- * Per the Anthropic auth docs, ANTHROPIC_API_KEY carries Console API keys
- * (X-Api-Key header) and ANTHROPIC_AUTH_TOKEN carries proxy/gateway bearer
- * tokens (Authorization: Bearer). Subscription OAuth tokens (sk-ant-oat…)
- * are NOT a valid value for either — they must go through `apiKeyHelper`
- * or `claude /login`. Returns null for OAuth credentials so the C-group
- * SKIPs them with an explanatory reason instead of producing a misleading
- * 401 by injecting an invalid value.
+ * Per the Anthropic auth docs, each credential kind has exactly one env var
+ * Claude Code accepts:
+ *   • apiKey     → ANTHROPIC_API_KEY      (X-Api-Key header)
+ *   • authToken  → ANTHROPIC_AUTH_TOKEN   (Authorization: Bearer)
+ *   • oauthToken → CLAUDE_CODE_OAUTH_TOKEN (Authorization: Bearer; precedence
+ *                  rule 4, NOT honored under `--bare`)
+ *
+ * Cross-wiring kinds (e.g. injecting an OAuth token as ANTHROPIC_API_KEY)
+ * produces a 401 — same failure mode `runtimeAuth.ts:50-52` warns about.
  */
 function envVarForCredential(credential: CredentialLookup): string | null {
 	if (credential.kind === 'apiKey') return 'ANTHROPIC_API_KEY';
 	if (credential.kind === 'authToken') return 'ANTHROPIC_AUTH_TOKEN';
-	return null;
+	return 'CLAUDE_CODE_OAUTH_TOKEN';
 }
 
 export function buildProbeConfigs(opts: BuildProbesOptions): ProbeConfig[] {
 	const probes: ProbeConfig[] = [];
+	const athenaEnvEntries = Object.entries(opts.athenaRuntimeEnv ?? {}).filter(
+		(entry): entry is [string, string] => typeof entry[1] === 'string',
+	);
+	const athenaEnv = athenaEnvEntries.length
+		? Object.fromEntries(athenaEnvEntries)
+		: undefined;
 
 	// Group A — Athena's own task path and a sanity baseline.
 	probes.push({
@@ -1045,6 +1062,7 @@ export function buildProbeConfigs(opts: BuildProbesOptions): ProbeConfig[] {
 			'--debug',
 			'api,hooks',
 		],
+		...(athenaEnv ? {env: athenaEnv} : {}),
 	});
 	probes.push({
 		id: 'A2',
@@ -1052,6 +1070,7 @@ export function buildProbeConfigs(opts: BuildProbesOptions): ProbeConfig[] {
 		groupLabel: "Athena's task path (baseline)",
 		label: 'default-context (no --bare, default sources, no extra settings)',
 		args: baseArgs({bare: false, emptySources: false}),
+		...(athenaEnv ? {env: athenaEnv} : {}),
 	});
 
 	// Group B — inherited subscription auth (no env override).
@@ -1153,12 +1172,23 @@ export function probeSkipReason(
 			'No credential resolved (would have injected an empty token)'
 		);
 	}
-	// Subscription OAuth tokens (sk-ant-oat…) are not valid values for
-	// ANTHROPIC_API_KEY (X-Api-Key) or ANTHROPIC_AUTH_TOKEN (Bearer). Skip the
-	// env-injection group rather than producing a misleading 401 with a value
-	// the API was never going to accept on those headers.
-	if (probe.group === 'credential' && probe.credentialKind === 'oauthToken') {
-		return 'No API key available. Set ANTHROPIC_API_KEY=sk-ant-api… or pass --api-key=… to run this group (OAuth tokens cannot be injected as env vars per Anthropic auth docs)';
+	// OAuth tokens are env-injectable via CLAUDE_CODE_OAUTH_TOKEN, but Claude
+	// only honors that env var outside `--bare` mode (precedence rule 4 in the
+	// auth docs). Skip the --bare combos with the documented reason; the
+	// no-bare combos run normally.
+	if (
+		probe.group === 'credential' &&
+		probe.credentialKind === 'oauthToken' &&
+		probe.args.includes('--bare')
+	) {
+		return '--bare skips CLAUDE_CODE_OAUTH_TOKEN env (Anthropic auth docs precedence rule 4)';
+	}
+	// apiKeyHelper output is sent as `x-api-key`, but OAuth tokens are Bearer
+	// credentials — wrapping them this way produces a 401 ("Invalid API key").
+	// Skip the entire D-group for oauthToken with that explanation rather than
+	// letting Claude reject it.
+	if (probe.group === 'helper' && probe.credentialKind === 'oauthToken') {
+		return 'apiKeyHelper sends output as x-api-key; OAuth tokens are Bearer credentials and would be rejected as "Invalid API key"';
 	}
 	if (probe.group === 'helper' && !hasCredentials) {
 		return (
