@@ -376,12 +376,20 @@ export async function runDoctorCommand(
 		}
 	}
 
+	const inheritedAuthAvailable =
+		env.auth?.loggedIn === true ||
+		env.apiKeyHelperCommand !== null ||
+		env.settings.some(
+			scope => scope.present && (scope.envBlockKeys?.length ?? 0) > 0,
+		);
+
 	const buildOpts = {
 		strictSettingsPath: strictSettings.settingsPath,
 		credentials,
 		helperSettingsByCredential,
 		credentialMissingReason,
 		athenaRuntimeEnv: runtimeOverlay?.env,
+		inheritedAuthAvailable,
 	};
 	const probes = buildProbeConfigs(buildOpts);
 

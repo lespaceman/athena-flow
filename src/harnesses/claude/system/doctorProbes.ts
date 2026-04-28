@@ -963,6 +963,16 @@ export type BuildProbesOptions = {
 	 * only available credential.
 	 */
 	athenaRuntimeEnv?: Partial<Record<string, string>>;
+	/**
+	 * Whether any inherited auth source could plausibly succeed for the B-group
+	 * (no-bare, no env injection): a logged-in OAuth/keychain credential, an
+	 * apiKeyHelper in some settings scope, or a settings `env` block. When
+	 * false, B-group no-bare probes are skipped — `claude --setting-sources ''`
+	 * with no env auth and no on-disk credential has been observed to block
+	 * indefinitely on hosted runners until an upstream watchdog SIGTERMs the
+	 * process.
+	 */
+	inheritedAuthAvailable?: boolean;
 };
 
 /** Pre-computed reason a probe should be marked SKIP rather than executed. */
@@ -1164,6 +1174,9 @@ export function probeSkipReason(
 	// OAuth/keychain). Guaranteed failure; mark N/A.
 	if (probe.group === 'inherited' && probe.args.includes('--bare')) {
 		return '--bare skips OAuth/keychain and this group injects no env credential — no auth source possible';
+	}
+	if (probe.group === 'inherited' && opts.inheritedAuthAvailable === false) {
+		return 'No inherited auth source detected (no logged-in credential, no apiKeyHelper, no settings env block) — probe would hang or fail trivially';
 	}
 	const hasCredentials = (opts.credentials?.length ?? 0) > 0;
 	if (probe.group === 'credential' && !hasCredentials) {

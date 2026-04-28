@@ -621,6 +621,31 @@ describe('probeSkipReason', () => {
 		expect(probeSkipReason(bBE, buildOpts)).toMatch(/--bare skips OAuth/u);
 	});
 
+	it('skips inherited no-bare probes when inheritedAuthAvailable is false', () => {
+		const opts = {...buildOpts, inheritedAuthAvailable: false};
+		const probes = buildProbeConfigs(opts);
+		const bbe = probes.find(p => p.id === 'B-be')!;
+		const bbE = probes.find(p => p.id === 'B-bE')!;
+		expect(probeSkipReason(bbe, opts)).toMatch(/No inherited auth source/u);
+		expect(probeSkipReason(bbE, opts)).toMatch(/No inherited auth source/u);
+	});
+
+	it('keeps --bare reason for bare inherited probes even when inheritedAuthAvailable is false', () => {
+		const opts = {...buildOpts, inheritedAuthAvailable: false};
+		const probes = buildProbeConfigs(opts);
+		const bBe = probes.find(p => p.id === 'B-Be')!;
+		expect(probeSkipReason(bBe, opts)).toMatch(/--bare skips OAuth/u);
+	});
+
+	it('runs inherited no-bare probes when inheritedAuthAvailable is true', () => {
+		const opts = {...buildOpts, inheritedAuthAvailable: true};
+		const probes = buildProbeConfigs(opts);
+		const bbe = probes.find(p => p.id === 'B-be')!;
+		const bbE = probes.find(p => p.id === 'B-bE')!;
+		expect(probeSkipReason(bbe, opts)).toBeNull();
+		expect(probeSkipReason(bbE, opts)).toBeNull();
+	});
+
 	it('returns the credentialMissingReason for credential probes when no credentials are resolved', () => {
 		const opts = {
 			...buildOpts,
