@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.38](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.37...cli-v0.3.38) (2026-04-28)
+
+
+### Bug Fixes
+
+* **doctor:** validate CLAUDE_CODE_OAUTH_TOKEN env auth path ([271ec5b](https://github.com/lespaceman/athena-flow-cli/commit/271ec5b3949b7fd3827ab781d2f795c93da51428))
+
 ## [0.3.37](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.36...cli-v0.3.37) (2026-04-27)
 
 
