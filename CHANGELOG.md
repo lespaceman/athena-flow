@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.39](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.38...cli-v0.3.39) (2026-04-28)
+
+
+### Bug Fixes
+
+* **doctor:** skip inherited probes when no auth source exists ([f0ab59e](https://github.com/lespaceman/athena-flow-cli/commit/f0ab59eb0fcd697b76bd3640ad00fb8a0b4ca703))
+
 ## [0.3.38](https://github.com/lespaceman/athena-flow-cli/compare/cli-v0.3.37...cli-v0.3.38) (2026-04-28)
 
 
