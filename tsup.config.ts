@@ -26,6 +26,9 @@ export default defineConfig({
 	clean: true,
 	splitting: true,
 	sourcemap: true,
+	loader: {
+		'.md': 'text',
+	},
 	define: {
 		// Injected at build time from POSTHOG_API_KEY env var.
 		// Set this in CI via GitHub Actions secrets. When unset (local dev),

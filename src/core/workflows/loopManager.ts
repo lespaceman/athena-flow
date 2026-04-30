@@ -30,6 +30,7 @@ export type LoopState = {
 	blocked: boolean;
 	blockedReason?: string;
 	reachedLimit: boolean;
+	skeletonNotReplaced: boolean;
 };
 
 export type LoopManager = {
@@ -88,6 +89,7 @@ export function createLoopManager(
 		const blockedReason =
 			blocked && terminalLine ? extractBlockedReason(terminalLine) : undefined;
 		const reachedLimit = iteration >= config.maxIterations;
+		const skeletonNotReplaced = content.includes(TRACKER_SKELETON_MARKER);
 
 		return {
 			active,
@@ -99,6 +101,7 @@ export function createLoopManager(
 			blocked,
 			blockedReason,
 			reachedLimit,
+			skeletonNotReplaced,
 		};
 	}
 

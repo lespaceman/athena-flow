@@ -1,6 +1,8 @@
 import {describe, it, expect, vi} from 'vitest';
 import {EventEmitter} from 'node:events';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type {ChildProcess} from 'node:child_process';
 import type {
 	Runtime,
@@ -470,10 +472,17 @@ describe('runExec', () => {
 		const stdout = createWriteCapture();
 		const stderr = createWriteCapture();
 
+		const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-test-'));
+		const trackerPath = path.join(projectDir, 'tracker.md');
+
 		const spawnProcess = (opts: SpawnArgs): ChildProcess => {
 			const child = makeChildProcess();
 
 			setImmediate(() => {
+				// Simulate the agent replacing the skeleton with real content but
+				// never writing the completion marker, so the loop runs to its
+				// iteration cap.
+				fs.writeFileSync(trackerPath, 'work in progress', 'utf-8');
 				opts.onStdout?.(
 					JSON.stringify({
 						type: 'message',
@@ -487,41 +496,45 @@ describe('runExec', () => {
 			return child;
 		};
 
-		const result = await runExec({
-			prompt: 'hello',
-			projectDir: '/tmp',
-			harness: 'claude-code',
-			isolationConfig: {},
-			onPermission: 'fail',
-			onQuestion: 'fail',
-			ephemeral: true,
-			stdout: stdout.writer,
-			stderr: stderr.writer,
-			runtimeFactory: () => runtime,
-			spawnProcess,
-			workflow: {
-				name: 'test-loop',
-				plugins: [],
-				promptTemplate: '{input}',
-				loop: {
-					enabled: true,
-					completionMarker: '<!-- DONE -->',
-					maxIterations: 5,
-					trackerPath: 'tracker.md',
+		try {
+			const result = await runExec({
+				prompt: 'hello',
+				projectDir,
+				harness: 'claude-code',
+				isolationConfig: {},
+				onPermission: 'fail',
+				onQuestion: 'fail',
+				ephemeral: true,
+				stdout: stdout.writer,
+				stderr: stderr.writer,
+				runtimeFactory: () => runtime,
+				spawnProcess,
+				workflow: {
+					name: 'test-loop',
+					plugins: [],
+					promptTemplate: '{input}',
+					loop: {
+						enabled: true,
+						completionMarker: '<!-- DONE -->',
+						maxIterations: 5,
+						trackerPath: 'tracker.md',
+					},
 				},
-			},
-		});
+			});
 
-		expect(result.success).toBe(false);
-		expect(result.exitCode).toBe(EXEC_EXIT_CODE.WORKFLOW_EXHAUSTED);
-		expect(result.failure?.kind).toBe('workflow');
-		expect(result.failure).toEqual(
-			expect.objectContaining({
-				kind: 'workflow',
-				state: 'exhausted',
-			}),
-		);
-		expect(result.finalMessage).toBeNull();
+			expect(result.success).toBe(false);
+			expect(result.exitCode).toBe(EXEC_EXIT_CODE.WORKFLOW_EXHAUSTED);
+			expect(result.failure?.kind).toBe('workflow');
+			expect(result.failure).toEqual(
+				expect.objectContaining({
+					kind: 'workflow',
+					state: 'exhausted',
+				}),
+			);
+			expect(result.finalMessage).toBeNull();
+		} finally {
+			fs.rmSync(projectDir, {recursive: true, force: true});
+		}
 	});
 
 	it('fails when a looped workflow is blocked', async () => {

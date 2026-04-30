@@ -37,7 +37,8 @@ export type LoopStopReason =
 	| 'completed'
 	| 'blocked'
 	| 'max_iterations'
-	| 'missing_tracker';
+	| 'missing_tracker'
+	| 'skeleton_not_replaced';
 
 /**
  * A plugin dependency with an explicit version pin.

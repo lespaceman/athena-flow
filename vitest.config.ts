@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
@@ -17,4 +18,21 @@ export default defineConfig({
 	esbuild: {
 		jsx: 'automatic',
 	},
+	plugins: [
+		{
+			// Match tsup's `.md` text loader so `import md from './x.md'` returns
+			// the file contents as a string in both production builds and tests.
+			name: 'load-md-as-text',
+			transform(_code, id) {
+				if (id.endsWith('.md')) {
+					const content = fs.readFileSync(id, 'utf-8');
+					return {
+						code: `export default ${JSON.stringify(content)};`,
+						map: null,
+					};
+				}
+				return undefined;
+			},
+		},
+	],
 });

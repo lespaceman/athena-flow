@@ -210,6 +210,14 @@ export function shouldContinueWorkflowRun(
 		};
 	}
 
+	if (loopState.skeletonNotReplaced) {
+		cleanupWorkflowRun(state);
+		return {
+			reason: 'skeleton_not_replaced',
+			maxIterations: loopState.maxIterations,
+		};
+	}
+
 	let reason: LoopStopReason | undefined;
 	if (loopState.completed) {
 		reason = 'completed';

@@ -272,6 +272,10 @@ export function createWorkflowRunner(
 						stopReason = loopStop.blockedReason;
 					} else if (loopStop.reason === 'max_iterations') {
 						status = 'exhausted';
+					} else if (loopStop.reason === 'skeleton_not_replaced') {
+						status = 'failed';
+						stopReason =
+							'Agent did not replace the tracker skeleton. The session completed without engaging with the workflow tracker.';
 					} else {
 						status = 'failed';
 						stopReason = `Loop stopped: ${loopStop.reason}`;
