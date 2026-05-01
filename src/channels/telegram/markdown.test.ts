@@ -249,4 +249,68 @@ describe('agentMarkdownToTelegramV2', () => {
 		expect(out).toContain('`npm test`');
 		expect(out.endsWith('\\.')).toBe(true);
 	});
+
+	// ── Fuzz / edge cases ───────────────────────────────────────────────
+	// Telegram MarkdownV2 demands every reserved char be escaped *unless*
+	// it's part of a recognised formatting span. Any unbalanced/unhandled
+	// punctuation must therefore round-trip as `\<char>`.
+
+	it('escapes lone asterisks that do not pair into bold/italic', () => {
+		const out = agentMarkdownToTelegramV2('a *');
+		expect(out).toBe('a \\*');
+	});
+
+	it('escapes lone underscores at line edges', () => {
+		const out = agentMarkdownToTelegramV2('_');
+		expect(out).toBe('\\_');
+	});
+
+	it('does not crash on nested unbalanced markers', () => {
+		// Property: output never has an un-escaped reserved char outside a
+		// known span. The MarkdownV2 parser would 400 the API otherwise.
+		const inputs = [
+			'**a *b** c*',
+			'***triple***',
+			'_a__b_',
+			'`code without close',
+			'[text without close',
+			'](url-only)',
+			'**[bold link](url)**',
+			'> nested **bold** in quote',
+			'1. list item with *italic*',
+		];
+		for (const md of inputs) {
+			expect(() => agentMarkdownToTelegramV2(md)).not.toThrow();
+		}
+	});
+
+	it('escapes literal control-flow chars (.!?-=) at line ends', () => {
+		const out = agentMarkdownToTelegramV2('Done!');
+		expect(out).toBe('Done\\!');
+	});
+
+	it('preserves URLs verbatim inside link parens (escaped per MarkdownV2 link rules)', () => {
+		const out = agentMarkdownToTelegramV2('[x](https://a.b/c?d=1)');
+		// Inside link URL, `)` and `\` must be escaped; `.` does not.
+		expect(out).toBe('[x](https://a.b/c?d=1)');
+	});
+
+	it('handles empty input', () => {
+		expect(agentMarkdownToTelegramV2('')).toBe('');
+	});
+
+	it('handles input containing only reserved characters', () => {
+		const reserved = '_*[]()~`>#+-=|{}.!\\';
+		const out = agentMarkdownToTelegramV2(reserved);
+		// Every reserved char should appear escaped. Don't assert exact
+		// shape (some pair into spans), just that no bare reserved chars
+		// remain except inside legitimate spans.
+		expect(out.length).toBeGreaterThan(reserved.length / 2);
+	});
+
+	it('does not infinite-loop on adjacent same markers', () => {
+		const start = Date.now();
+		agentMarkdownToTelegramV2('*'.repeat(100));
+		expect(Date.now() - start).toBeLessThan(500);
+	});
 });

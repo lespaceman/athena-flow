@@ -111,6 +111,7 @@ export class TelegramBot {
 	private stopped = false;
 	private readonly log: BotLogger;
 	private consecutiveAuthFailures = 0;
+	private consecutiveErrors = 0;
 
 	constructor(opts: BotOptions, log: BotLogger) {
 		this.token = opts.token;
@@ -133,11 +134,21 @@ export class TelegramBot {
 		return this.stopped;
 	}
 
+	/** Current update offset; persist to skip already-seen updates on restart. */
+	getOffset(): number {
+		return this.offset;
+	}
+
+	setOffset(offset: number): void {
+		if (offset > this.offset) this.offset = offset;
+	}
+
 	async *poll(): AsyncIterable<TelegramUpdate> {
 		while (!this.isStopped()) {
 			try {
 				const updates = await this.getUpdates();
 				this.consecutiveAuthFailures = 0;
+				this.consecutiveErrors = 0;
 				for (const update of updates) {
 					// `stopped` may have flipped during the await above.
 					if (this.isStopped()) return;
@@ -173,9 +184,15 @@ export class TelegramBot {
 					await sleep(retryAfterMs);
 					continue;
 				} else {
+					this.consecutiveErrors++;
 					this.log('warn', `getUpdates failed: ${message}`);
 				}
-				await sleep(1500);
+				// Exponential backoff for transient errors (1.5s, 3s, 6s, …, capped 30s).
+				const backoffMs = Math.min(
+					1500 * Math.pow(2, Math.max(0, this.consecutiveErrors - 1)),
+					30_000,
+				);
+				await sleep(backoffMs);
 			}
 		}
 	}

@@ -60,6 +60,8 @@ export type ChannelDaemonClientOptions = {
 };
 
 const daemonStarts = new Map<string, Promise<void>>();
+// Attach budget: 25 × 40ms ≈ 1s. Daemon usually binds within ~100ms; the wider
+// window absorbs slow node startup on cold caches without prolonging crash loops.
 const ATTACH_RETRY_ATTEMPTS = 25;
 const ATTACH_RETRY_DELAY_MS = 40;
 

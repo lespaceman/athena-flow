@@ -92,7 +92,13 @@ type RuntimeState = {
 	pendingTopics: number[];
 	/** Absolute path to the persisted state JSON file */
 	statePath: string | null;
+	/** Last persisted poll offset; restored to bot after construction. */
+	persistedOffset?: number;
+	/** senderId → last debug-log timestamp for unallowlisted senders (throttle). */
+	unallowlistedLogAt: Map<number, number>;
 };
+
+const UNALLOWLISTED_LOG_THROTTLE_MS = 60_000;
 
 // ── Persisted state ──────────────────────────────────────────────────
 
@@ -101,6 +107,8 @@ type PersistedState = {
 	forum_chat_id: number | string;
 	session_topics: Record<string, number>;
 	pending_topics: number[];
+	/** Last seen update_id + 1; restored to skip already-processed updates. */
+	poll_offset?: number;
 };
 
 function loadState(state: RuntimeState): void {
@@ -122,6 +130,8 @@ function loadState(state: RuntimeState): void {
 	state.pendingTopics = Array.isArray(raw.pending_topics)
 		? raw.pending_topics
 		: [];
+	state.persistedOffset =
+		typeof raw.poll_offset === 'number' ? raw.poll_offset : 0;
 }
 
 function saveState(state: RuntimeState): void {
@@ -131,6 +141,7 @@ function saveState(state: RuntimeState): void {
 		forum_chat_id: state.defaultChatId ?? 0,
 		session_topics: Object.fromEntries(state.sessionTopics),
 		pending_topics: state.pendingTopics,
+		poll_offset: state.bot?.getOffset() ?? state.persistedOffset ?? 0,
 	};
 	const tmp = `${state.statePath}.tmp`;
 	try {
@@ -441,6 +452,9 @@ async function startBot(
 	state.bot = new TelegramBot({token}, (level, message) =>
 		log(sessionId, level, message),
 	);
+	if (state.persistedOffset && state.persistedOffset > 0) {
+		state.bot.setOffset(state.persistedOffset);
+	}
 	void state.bot.setMyCommands(
 		state.forumMode ? BOT_COMMANDS_FORUM : BOT_COMMANDS_BASE,
 	);
@@ -450,14 +464,21 @@ async function startBot(
 		params: {name: NAME, version: VERSION},
 	});
 
+	let lastOffsetSaved = state.bot.getOffset();
 	for await (const update of state.bot.poll()) {
 		if (update.callback_query) {
 			await handleCallbackQuery(state, update.callback_query);
-			continue;
+		} else if (update.message) {
+			await handleIncomingMessage(state, update.message);
 		}
-		const message = update.message;
-		if (!message) continue;
-		await handleIncomingMessage(state, message);
+		// Persist offset every ~10 updates so a restart doesn't replay the
+		// last 24 h of Telegram updates. Forum-mode only — flat-mode does
+		// not currently maintain a state file.
+		const cur = state.bot.getOffset();
+		if (state.statePath && cur - lastOffsetSaved >= 10) {
+			lastOffsetSaved = cur;
+			saveState(state);
+		}
 	}
 }
 
@@ -549,11 +570,16 @@ async function handleIncomingMessage(
 	const senderId = message.from?.id;
 	if (senderId === undefined) return;
 	if (!state.allowedUserIds.has(String(senderId))) {
-		log(
-			'unknown',
-			'debug',
-			`dropping message from non-allowlisted sender: ${senderId}`,
-		);
+		const now = Date.now();
+		const last = state.unallowlistedLogAt.get(senderId) ?? 0;
+		if (now - last >= UNALLOWLISTED_LOG_THROTTLE_MS) {
+			state.unallowlistedLogAt.set(senderId, now);
+			log(
+				'unknown',
+				'debug',
+				`dropping message from non-allowlisted sender: ${senderId}`,
+			);
+		}
 		return;
 	}
 	const text = message.text?.trim() ?? '';
@@ -1128,19 +1154,30 @@ async function sendAndTrack(
 	const key = keyFor(sessionId, id);
 	state.inFlightSends.add(key);
 	const threadId = threadIdForSession(state, sessionId);
-	const result = await state.bot.sendMessage(state.defaultChatId, text, {
-		...mdOptsForThread(threadId),
-		reply_markup: replyMarkup,
-	});
-	state.inFlightSends.delete(key);
+	let result: Awaited<ReturnType<typeof state.bot.sendMessage>> = null;
+	try {
+		result = await state.bot.sendMessage(state.defaultChatId, text, {
+			...mdOptsForThread(threadId),
+			reply_markup: replyMarkup,
+		});
+	} finally {
+		// Always cleanup inFlightSends, even on throw — a leaked entry would
+		// permanently route cancels into cancelDuringSend with no consumer.
+		if (result) {
+			// Set pending BEFORE clearing inFlightSends so a cancel arriving
+			// in this window finds the pending entry instead of slipping
+			// through both maps and orphaning a live Telegram message.
+			state.pendingMessages.set(
+				key,
+				makePending(result.chat.id, result.message_id),
+			);
+		}
+		state.inFlightSends.delete(key);
+	}
 	if (!result) {
 		state.cancelDuringSend.delete(key);
 		return;
 	}
-	state.pendingMessages.set(
-		key,
-		makePending(result.chat.id, result.message_id),
-	);
 	const queuedCancel = state.cancelDuringSend.get(key);
 	if (queuedCancel !== undefined) {
 		state.cancelDuringSend.delete(key);
@@ -1316,6 +1353,7 @@ function main(): void {
 		topicSessions: new Map(),
 		pendingTopics: [],
 		statePath: null,
+		unallowlistedLogAt: new Map(),
 	};
 
 	const reader = new LineReader();

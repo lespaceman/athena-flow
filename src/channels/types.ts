@@ -192,4 +192,9 @@ export type ClaimSource = 'local' | 'channel' | 'rule' | 'timeout';
 
 export type ClaimBehavior = 'allow' | 'deny';
 
+/**
+ * Question equivalent of {@link ClaimSource}. Lacks `'rule'` because the
+ * question relay has no rule-based auto-resolution path — questions only
+ * resolve via local UI, channel, or TTL timeout.
+ */
 export type QuestionClaimSource = 'local' | 'channel' | 'timeout';

@@ -117,17 +117,23 @@ function parseArgs(argv: string[]): Args {
 	if (!channel) throw new Error('--channel is required');
 	if (!entry) throw new Error('--entry is required');
 	if (!socket) throw new Error('--socket is required');
-	const idleTimeoutMs = Number(
-		process.env['ATHENA_CHANNEL_DAEMON_IDLE_MS'] ?? DEFAULT_IDLE_TIMEOUT_MS,
-	);
+	const idleEnv = process.env['ATHENA_CHANNEL_DAEMON_IDLE_MS'];
+	const idleTimeoutMs = Number(idleEnv ?? DEFAULT_IDLE_TIMEOUT_MS);
+	const resolvedIdle =
+		Number.isFinite(idleTimeoutMs) && idleTimeoutMs > 0
+			? Math.max(100, idleTimeoutMs)
+			: DEFAULT_IDLE_TIMEOUT_MS;
+	if (idleEnv !== undefined && resolvedIdle !== idleTimeoutMs) {
+		console.warn(
+			`[athena:channel-daemon] invalid ATHENA_CHANNEL_DAEMON_IDLE_MS=${JSON.stringify(idleEnv)}; using default ${DEFAULT_IDLE_TIMEOUT_MS}ms`,
+		);
+	}
 	return {
 		channel,
 		entry,
 		socket,
 		childArgs,
-		idleTimeoutMs: Number.isFinite(idleTimeoutMs)
-			? Math.max(100, idleTimeoutMs)
-			: DEFAULT_IDLE_TIMEOUT_MS,
+		idleTimeoutMs: resolvedIdle,
 	};
 }
 
@@ -228,6 +234,9 @@ class ChannelDaemon {
 				continue;
 			}
 			this.handleMethod(socket, result.value);
+			// shutdown ends the socket; further lines in the same chunk are
+			// noise and could re-attach the (now-detached) session.
+			if (!this.socketReaders.has(socket)) return;
 		}
 	}
 
@@ -237,6 +246,7 @@ class ChannelDaemon {
 	): void {
 		if (message.method === 'shutdown') {
 			this.detach(socket);
+			this.socketReaders.delete(socket);
 			socket.end();
 			return;
 		}
@@ -330,6 +340,11 @@ class ChannelDaemon {
 					true,
 				),
 			);
+			// Exit the daemon so the next session attach respawns a fresh one
+			// (and a fresh subprocess) — staying alive with a dead child means
+			// every future request silently no-ops via writeToChild's null
+			// guard. Use a small delay so the broadcast flushes first.
+			setTimeout(() => process.exit(1), 50).unref();
 		});
 		this.child.stdin?.on('error', err => {
 			this.broadcast(
@@ -402,6 +417,10 @@ class ChannelDaemon {
 
 	private broadcast(event: ChannelEventMessage): void {
 		// Snapshot keys: sendToSocket → detach can mutate this.sessions.
+		// Note: events that arrive while no session is attached (e.g. during
+		// the ~30s idle window between detach and process exit) are silently
+		// dropped here — by design, since channels are session-scoped and
+		// re-attaching sessions don't replay history.
 		for (const sessionId of [...this.sessions.keys()]) {
 			this.deliverToSession(sessionId, {...event, session_id: sessionId});
 		}

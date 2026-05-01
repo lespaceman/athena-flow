@@ -31,7 +31,14 @@ const INLINE_CODE_RE = /`([^`\n]+)`/g;
 // ── Inline-formatting regexes ────────────────────────────────────────
 
 const HEADING_RE = /^#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm;
-/** GFM table separator rows — no Telegram equivalent; strip entirely. */
+/**
+ * GFM table separator rows — no Telegram equivalent; strip entirely.
+ *
+ * Note: alignment colons (`:---:`, `---:`, `:---`) are matched but not
+ * preserved. Telegram has no table primitive so per-column alignment is
+ * meaningless; the separator row is dropped wholesale. Run line-by-line
+ * (no `m` flag is intentional — callers split first).
+ */
 const TABLE_SEPARATOR_RE =
 	/^[ \t]*\|?[ \t]*:?-{3,}:?[ \t]*(\|[ \t]*:?-{3,}:?[ \t]*)+\|?[ \t]*$/;
 /** Horizontal rules (---  ***  ___) — strip entirely. */
@@ -266,8 +273,17 @@ function renderTextSegment(text: string): string {
 
 // ── Public API ───────────────────────────────────────────────────────
 
+/**
+ * Strip control characters that would either collide with our stash sentinels
+ * (U+0001 / U+0002) or bypass the escape pass (Telegram parses some bytes
+ * specially). Tabs and newlines are preserved.
+ */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F]/g;
+
 export function agentMarkdownToTelegramV2(input: string): string {
-	const segments = tokenize(input);
+	const sanitized = input.replace(CONTROL_CHARS_RE, '');
+	const segments = tokenize(sanitized);
 	const out: string[] = [];
 	for (const seg of segments) {
 		if (seg.kind === 'block-code') {

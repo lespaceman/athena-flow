@@ -41,10 +41,7 @@ function isStringArray(v: unknown): v is string[] {
 
 function isStringMap(v: unknown): v is Record<string, string> {
 	if (!isStringRecord(v)) return false;
-	for (const value of Object.values(v)) {
-		if (typeof value !== 'string') return false;
-	}
-	return true;
+	return Object.values(v).every(value => typeof value === 'string');
 }
 
 function parseQuestions(v: unknown): ChannelQuestion[] | null {

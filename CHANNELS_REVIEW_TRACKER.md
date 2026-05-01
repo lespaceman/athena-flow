@@ -58,10 +58,10 @@ Triage order: C1→C9 (security/DoS) → H1 (dead code) → H2/H3/H6/H7/H11 (lif
 | M13 | `bot.ts` getUpdates                             | No AbortController on long-poll                                      | ✅     | AbortController with `(pollTimeoutSec+5)*2*1000` cap            |
 | M14 | `src/channels/daemon.ts`                        | `writeToChild` silent on dead child                                  | ✅     | reports back to origin or broadcast                             |
 | M15 | `src/channels/daemon.ts`                        | `fanoutEventToSessions` exported only for tests                      | ✅     | @internal JSDoc                                                 |
-| M16 | tests                                           | Untested: `host.ts`, `config.ts`, `daemonPaths`, telegram/index, bot | ⬜     |                                                                 |
-| M17 | tests                                           | No test for `loadChannelConfig` perm rejection                       | ⬜     |                                                                 |
+| M16 | tests                                           | Untested: `host.ts`, `config.ts`, `daemonPaths`, telegram/index, bot | ✅     | new `config.test.ts` + `daemonPaths.test.ts`                    |
+| M17 | tests                                           | No test for `loadChannelConfig` perm rejection                       | ✅     | covered in `config.test.ts` (0644, 0640)                        |
 | M18 | `src/channels/registry.ts`                      | Truncation before MarkdownV2 escape may exceed 4096                  | ✅     | clampToTelegramLimit applied to notify; permission body rebuilt |
-| M19 | `src/app/providers/RuntimeProvider.tsx:102–116` | Memo deps may not be stable                                          | ⬜     | verify                                                          |
+| M19 | `src/app/providers/RuntimeProvider.tsx:102–116` | Memo deps may not be stable                                          | ✅     | verified: `[runtime, channelDefs, athenaSessionId]` correct     |
 | M20 | `src/app/shell/AppShell.tsx:906–911`            | `channelLabelSentRef` lifetime assumption                            | ✅     | inline doc comment                                              |
 | M21 | `src/ui/feed/useFeed.ts:558–562`                | Notify-on-agent.message filter untested                              | ✅     | new `useFeedChannelNotify.test.ts` (3 tests)                    |
 | M22 | `AppShell.tsx`                                  | Single-slot chat queue silently overwrites                           | ✅     | inline doc comment                                              |
@@ -70,30 +70,30 @@ Triage order: C1→C9 (security/DoS) → H1 (dead code) → H2/H3/H6/H7/H11 (lif
 
 | ID  | File                        | Issue                              | Status |
 | --- | --------------------------- | ---------------------------------- | ------ | -------------------------------------------------------------------- |
-| L1  | `host.ts`                   | `'legacy'` literal                 | ⬜     |
-| L2  | `protocol.ts:43–48`         | `Object.entries` preferable        | ⬜     |
-| L3  | `daemon.ts:82–93`           | `Number('30s')` silently default   | ⬜     |
+| L1  | `host.ts`                   | `'legacy'` literal                 | ⏭️     | host.ts removed (no longer applicable)                               |
+| L2  | `protocol.ts:43–48`         | `Object.entries` preferable        | ✅     | `Object.values(v).every(...)`                                        |
+| L3  | `daemon.ts:82–93`           | `Number('30s')` silently default   | ✅     | warns when env value is invalid                                      |
 | L4  | `daemon.ts:138–142,147–152` | `'unknown'` magic string           | ✅     |
-| L5  | `daemonClient.ts:46–47`     | retry constants undocumented       | ⬜     |
+| L5  | `daemonClient.ts:46–47`     | retry constants undocumented       | ✅     | doc comment on attach budget                                         |
 | L6  | misc                        | `'…'` vs `'...'`                   | ✅     | unified to `…`                                                       |
 | L7  | `bot.ts:128–130`            | `as unknown as {stopped}` cast     | ✅     | `isStopped()` getter                                                 |
-| L8  | `bot.ts:140–152`            | "after 3 attempts" log imprecise   | ⬜     |
-| L9  | `markdown.ts:53–56`         | Sentinel collision risk            | ⬜     |
-| L10 | `markdown.ts:223`           | Control chars bypass escape        | ⬜     |
+| L8  | `bot.ts:140–152`            | "after 3 attempts" log imprecise   | ✅     | per-attempt log + final throw msg includes count                     |
+| L9  | `markdown.ts:53–56`         | Sentinel collision risk            | ✅     | input control-char strip in `agentMarkdownToTelegramV2`              |
+| L10 | `markdown.ts:223`           | Control chars bypass escape        | ✅     | same input strip                                                     |
 | L11 | `verdict.ts:113–125`        | recomputes trim                    | ⏭️     | False positive — single-pass already                                 |
 | L12 | `verdict.ts:153–156`        | ternary → table lookup             | ✅     | CB_VERDICT lookup table                                              |
 | L13 | `registry.ts:412–422`       | `200` magic                        | ✅     | INPUT_PREVIEW_MAX_CHARS const                                        |
 | L14 | `registry.ts:46–69`         | reason\* fns near-duplicates       | ✅     | merged via CANCEL_REASON_BY_SOURCE table                             |
 | L15 | `ChannelReady.version`      | unused                             | ⬜     |
-| L16 | `telegram/index.ts:516–522` | unrate-limited debug logs          | ⬜     |
-| L17 | `telegram/index.ts:1056`    | `markResolved` ignores edit errors | ⬜     |
-| L18 | `telegram/index.ts:778–791` | concurrent cancel race             | ⬜     |
+| L16 | `telegram/index.ts:516–522` | unrate-limited debug logs          | ✅     | per-sender 60s throttle on unallowlisted-drop logs                   |
+| L17 | `telegram/index.ts:1056`    | `markResolved` ignores edit errors | ⏭️     | by design — `bot.editMessageText` already debug-logs internally      |
+| L18 | `telegram/index.ts:778–791` | concurrent cancel race             | ⏭️     | by design — last-cancel-wins via `cancelDuringSend` map              |
 | L19 | `channels/index.ts`         | re-exports internal types          | ✅     | dropped `PendingRelay`/`PendingQuestionRelay` exports                |
-| L20 | `types.ts:191–195`          | ClaimSource JSDoc cross-ref        | ⬜     |
-| L21 | `feedEvents.ts`             | tiny module fold                   | ⬜     |
+| L20 | `types.ts:191–195`          | ClaimSource JSDoc cross-ref        | ✅     | `QuestionClaimSource` JSDoc references `ClaimSource`                 |
+| L21 | `feedEvents.ts`             | tiny module fold                   | ⏭️     | kept separate — adds noise to large `types.ts`; clearer as own file  |
 | L22 | `daemon.ts`                 | inline `fanoutEventToSessions`     | ⏭️     | already inlined in Round 2; kept exported for tests with `@internal` |
-| L23 | misc                        | mixed comment styles               | ⬜     |
-| L24 | `markdown.ts`               | `TABLE_SEPARATOR_RE` flag comment  | ⬜     |
+| L23 | misc                        | mixed comment styles               | ⏭️     | too vague — addressed organically as touched files                   |
+| L24 | `markdown.ts`               | `TABLE_SEPARATOR_RE` flag comment  | ✅     | comment added in M8 round                                            |
 
 ## Cross-cutting
 
