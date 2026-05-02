@@ -73,9 +73,18 @@ RuntimeProvider SessionBridge ready runtimeId=...
 Follow-up priorities after this merge:
 
 1. Add a deterministic runtime-provider integration test proving `SessionBridge` startup and `relayPermission` wiring through the rendered TUI provider path.
+   - Done in `test(gateway): cover provider permission relay wiring`.
 2. Add a diagnostic command or `gateway status --json` runtime binding field so manual smoke no longer depends on trace logs.
+   - Done in `feat(gateway): show runtime status for remote links` and `feat(gateway): print runtime in status output`.
 3. Decide whether `tool.pre` events should ever relay remotely; currently only `permission.request` is relayed.
 4. Continue with the remaining R4/R5/R6/R7 items: reconnecting WS client loop, TLS/mTLS, token rotation, rate limits, and in-flight relay replay.
+
+Post-merge continuation:
+
+- `gateway status` and `gateway status --json` now use `~/.config/athena/gateway.json`, so a linked remote client queries the remote gateway rather than the local UDS daemon.
+- Status responses include a list-friendly `runtimes` field showing runtime id, pid, binding state, and pending dispatch count.
+- Human status output includes `runtime=<id> binding=<state> pid=<pid>` for quick smoke verification.
+- `RuntimeProvider` has a deterministic test proving permission relay wiring through `SessionBridge`, and bridge startup now retries every 2s after an initial gateway connection failure.
 
 ## Status (original plan, 2026-05-02)
 
