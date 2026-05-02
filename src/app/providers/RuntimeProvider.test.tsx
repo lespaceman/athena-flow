@@ -101,7 +101,7 @@ describe('HookProvider runtime factory wiring', () => {
 				[],
 				['Read'],
 				expect.any(Object),
-				{autoStart: false, channelRegistry: null},
+				{autoStart: false},
 			),
 		);
 
@@ -136,7 +136,7 @@ describe('HookProvider runtime factory wiring', () => {
 				[],
 				undefined,
 				expect.any(Object),
-				{autoStart: false, channelRegistry: null},
+				{autoStart: false},
 			),
 		);
 	});

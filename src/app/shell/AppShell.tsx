@@ -14,15 +14,7 @@ import DiagnosticsConsentDialog, {
 	type DiagnosticsConsentDecision,
 } from '../../ui/components/DiagnosticsConsentDialog';
 import ErrorBoundary from '../../ui/components/ErrorBoundary';
-import {
-	HookProvider,
-	useChannelRegistry,
-	useRuntime,
-} from '../providers/RuntimeProvider';
-import {
-	MAX_SESSION_LABEL_LEN,
-	type ChannelDefinition,
-} from '../../channels/types';
+import {HookProvider, useRuntime} from '../providers/RuntimeProvider';
 import {useHarnessProcess} from '../process/useHarnessProcess';
 import {useHeaderMetrics} from '../../ui/hooks/useHeaderMetrics';
 import {useTerminalTitle} from '../../ui/hooks/useTerminalTitle';
@@ -158,7 +150,6 @@ type Props = {
 	showSetup?: boolean;
 	athenaSessionId: string;
 	initialTelemetryDiagnosticsConsent?: boolean;
-	channels?: ChannelDefinition[];
 };
 
 type AppPhase =
@@ -892,86 +883,11 @@ function AppContent({
 		],
 	);
 
-	const channelRegistry = useChannelRegistry();
-	// Single-slot queue for inbound chat that arrived while a turn was running.
-	// Newest message wins; older queued messages are silently dropped (the agent
-	// can't "catch up" on multiple parallel chats anyway). If multi-message
-	// queueing is ever needed, switch this to an array and drain on idle.
-	const pendingChatRef = useRef<string | null>(null);
-	const isHarnessRunningRef = useRef(isHarnessRunning);
-	isHarnessRunningRef.current = isHarnessRunning;
-	// Per-AppShell-mount guard: send the topic label exactly once, on the first
-	// channel-injected user input. Resuming a session in a new mount re-sends.
-	const channelLabelSentRef = useRef(false);
-
-	const submitChatAsTurn = useCallback(
-		(text: string) => {
-			setPendingStartupDiagnostics(null);
-			setStartupFailure(null);
-			addMessage('user', text);
-			if (!channelLabelSentRef.current && channelRegistry) {
-				channelLabelSentRef.current = true;
-				channelRegistry.notifySessionLabel(
-					text.slice(0, MAX_SESSION_LABEL_LEN),
-				);
-			}
-			if (!isServerRunning && runtimeError) {
-				channelRegistry?.notify(
-					`Could not deliver: Athena ${harnessLabel} is unavailable (${runtimeError.message})`,
-				);
-				return;
-			}
-			const sessionToResume = currentSessionId ?? initialSessionRef.current;
-			const continuation: TurnContinuation = sessionToResume
-				? {mode: 'resume', handle: sessionToResume}
-				: {mode: 'fresh'};
-			startupAttemptRef.current = {
-				feedEventCountAtSpawn: feedEvents.length,
-			};
-			spawnHarness(text, continuation).catch((err: unknown) => {
-				startupAttemptRef.current = null;
-				console.error('[athena] channel-injected spawn failed:', err);
-			});
-			if (initialSessionRef.current) {
-				initialSessionRef.current = undefined;
-			}
-		},
-		[
-			addMessage,
-			channelRegistry,
-			currentSessionId,
-			feedEvents.length,
-			harnessLabel,
-			isServerRunning,
-			runtimeError,
-			spawnHarness,
-		],
-	);
-
-	useEffect(() => {
-		if (!channelRegistry) return;
-		channelRegistry.setOnChatMessage(({content}) => {
-			const trimmed = content.trim();
-			if (trimmed.length === 0) return;
-			if (isHarnessRunningRef.current) {
-				pendingChatRef.current = trimmed;
-				channelRegistry.notify(
-					'⏳ queued — agent is busy; will run when current turn ends',
-				);
-				return;
-			}
-			submitChatAsTurn(trimmed);
-		});
-		return () => channelRegistry.setOnChatMessage(undefined);
-	}, [channelRegistry, submitChatAsTurn]);
-
-	useEffect(() => {
-		if (isHarnessRunning) return;
-		const pending = pendingChatRef.current;
-		if (pending === null) return;
-		pendingChatRef.current = null;
-		submitChatAsTurn(pending);
-	}, [isHarnessRunning, submitChatAsTurn]);
+	// Channel-driven chat injection (telegram → harness turn) was wired here
+	// against the legacy ChannelRegistry. Removed in M6 demolition; the
+	// gateway-based equivalent lands when the session bridge in
+	// app/channels/sessionBridge.ts wires session.dispatch.turn pushes back
+	// into spawnHarness.
 
 	const getSelectedCommandRef = useRef<
 		() => import('../commands/types').Command | undefined
@@ -2154,7 +2070,6 @@ export default function App({
 	ascii,
 	athenaSessionId: initialAthenaSessionId,
 	initialTelemetryDiagnosticsConsent,
-	channels,
 }: Props) {
 	const [clearCount, setClearCount] = useState(0);
 	const perfEnabled = isPerfEnabled();
@@ -2401,7 +2316,6 @@ export default function App({
 					runtimeState.isolation?.allowedTools,
 				)}
 				athenaSessionId={athenaSessionId}
-				channels={channels}
 			>
 				<AppContent
 					key={clearCount}

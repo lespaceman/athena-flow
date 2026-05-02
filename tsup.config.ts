@@ -18,8 +18,6 @@ export default defineConfig({
 	entry: {
 		cli: 'src/app/entry/cli.tsx',
 		'hook-forwarder': 'src/harnesses/claude/hook-forwarder.ts',
-		'channel-daemon': 'src/channels/daemon.ts',
-		'channel-telegram': 'src/channels/telegram/index.ts',
 		'athena-gateway': 'src/gateway/entry.ts',
 	},
 	format: ['esm'],

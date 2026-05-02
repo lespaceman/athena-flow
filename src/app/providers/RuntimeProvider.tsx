@@ -13,15 +13,9 @@ import {type HookContextValue, type HookProviderProps} from './types';
 import {createRuntime} from '../runtime/createRuntime';
 import type {Runtime} from '../../core/runtime/types';
 import type {SessionStore} from '../../infra/sessions/store';
-import {PermissionRelay} from '../../channels/permissionRelay';
-import {QuestionRelay} from '../../channels/questionRelay';
-import {ChannelRegistry} from '../../channels/registry';
-import type {ChannelDefinition} from '../../channels/types';
-
 const HookContext = createContext<HookContextValue | null>(null);
 const RuntimeRefContext = createContext<Runtime | null>(null);
 const SessionStoreContext = createContext<SessionStore | null>(null);
-const ChannelRegistryContext = createContext<ChannelRegistry | null>(null);
 const EMPTY_MESSAGES: never[] = [];
 const MISSING_CONTEXT = Symbol('missing-hook-context');
 
@@ -29,13 +23,11 @@ function HookProviderContent({
 	runtime,
 	allowedTools,
 	sessionStore,
-	channelRegistry,
 	children,
 }: {
 	runtime: ReturnType<typeof createRuntime>;
 	allowedTools?: string[];
 	sessionStore: ReturnType<typeof createSessionStore>;
-	channelRegistry: ChannelRegistry | null;
 	children: HookProviderProps['children'];
 }) {
 	const hookServer = useFeed(
@@ -43,7 +35,7 @@ function HookProviderContent({
 		EMPTY_MESSAGES,
 		allowedTools,
 		sessionStore,
-		{autoStart: false, channelRegistry},
+		{autoStart: false},
 	);
 
 	return (
@@ -60,7 +52,6 @@ export function HookProvider({
 	runtimeFactory = createRuntime,
 	allowedTools,
 	athenaSessionId,
-	channels,
 	children,
 }: HookProviderProps) {
 	// Runtime must be stable (memoized) — useFeed assumes it doesn't change
@@ -92,32 +83,6 @@ export function HookProvider({
 			}),
 		[athenaSessionId, projectDir],
 	);
-
-	// Channel registry is constructed once per (runtime, channels) pair.
-	// Empty/missing channels list means no registry (no relay, no overhead).
-	const channelDefs: ChannelDefinition[] = useMemo(
-		() => channels ?? [],
-		[channels],
-	);
-	const channelRegistry = useMemo<ChannelRegistry | null>(() => {
-		if (channelDefs.length === 0) return null;
-		const relay = new PermissionRelay({runtime});
-		const questionRelay = new QuestionRelay({runtime});
-		return new ChannelRegistry({
-			sessionId: athenaSessionId,
-			relay,
-			questionRelay,
-			runtime,
-			channels: channelDefs,
-			logError: (channelName, message) => {
-				console.error(`[athena:channel:${channelName}] ${message}`);
-			},
-		});
-	}, [runtime, channelDefs, athenaSessionId]);
-
-	useEffect(() => {
-		return () => channelRegistry?.dispose();
-	}, [channelRegistry]);
 
 	const [readyRuntime, setReadyRuntime] = useState<Runtime | null>(null);
 
@@ -157,16 +122,13 @@ export function HookProvider({
 	return (
 		<RuntimeRefContext.Provider value={runtime}>
 			<SessionStoreContext.Provider value={sessionStore}>
-				<ChannelRegistryContext.Provider value={channelRegistry}>
-					<HookProviderContent
-						runtime={runtime}
-						allowedTools={allowedTools}
-						sessionStore={sessionStore}
-						channelRegistry={channelRegistry}
-					>
-						{children}
-					</HookProviderContent>
-				</ChannelRegistryContext.Provider>
+				<HookProviderContent
+					runtime={runtime}
+					allowedTools={allowedTools}
+					sessionStore={sessionStore}
+				>
+					{children}
+				</HookProviderContent>
 			</SessionStoreContext.Provider>
 		</RuntimeRefContext.Provider>
 	);
@@ -211,8 +173,4 @@ export function useRuntime(): Runtime | null {
 
 export function useSessionStore(): SessionStore | null {
 	return useContext(SessionStoreContext);
-}
-
-export function useChannelRegistry(): ChannelRegistry | null {
-	return useContext(ChannelRegistryContext);
 }

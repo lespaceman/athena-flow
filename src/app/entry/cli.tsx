@@ -27,7 +27,6 @@ import {
 } from '../../infra/telemetry/index';
 import {writeGlobalConfig} from '../../infra/plugins/config';
 import {bootstrapRuntimeConfig} from '../bootstrap/bootstrapConfig';
-import {resolveChannels} from '../channels/setup';
 import {resolveTheme} from '../../ui/theme/index';
 import {shouldShowSetup} from '../../setup/shouldShowSetup';
 import {
@@ -674,17 +673,8 @@ async function main(): Promise<void> {
 	const {athenaSessionId, initialSessionId} = interactiveSession;
 	const instanceId = process.pid;
 
-	// Resolve channel attachments: CLI flag wins; otherwise project, then global config.
-	const channelNames =
-		(cli.flags.channel?.length ?? 0) > 0
-			? (cli.flags.channel ?? [])
-			: (projectConfig.channels ?? globalConfig.channels ?? []);
-	const channelResolution = resolveChannels(channelNames);
-	for (const failure of channelResolution.failures) {
-		console.error(
-			`Warning: skipping channel "${failure.name}": ${failure.reason}`,
-		);
-	}
+	// Channel attachments are deferred to the gateway in M6+; the legacy
+	// per-session channel-subprocess wiring has been removed.
 
 	render(
 		<App
@@ -708,7 +698,6 @@ async function main(): Promise<void> {
 			ascii={cli.flags.ascii}
 			showSetup={showSetup}
 			initialTelemetryDiagnosticsConsent={globalConfig.telemetryDiagnostics}
-			channels={channelResolution.definitions}
 		/>,
 		inkRenderOptions(),
 	);

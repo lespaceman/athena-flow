@@ -34,11 +34,6 @@ import {
 	handleEvent,
 	type ControllerCallbacks,
 } from '../../core/controller/runtimeController';
-import type {ChannelRegistry} from '../../channels/registry';
-import type {
-	ChannelFeedEventInput,
-	PushChannelFeedEvent,
-} from '../../channels/feedEvents';
 import {
 	getActivePerfCycleId,
 	logPerfEvent,
@@ -47,69 +42,6 @@ import {
 } from '../../shared/utils/perf';
 import {FeedStore} from '../../core/feed/feedStore';
 import {generateId} from '../../shared/utils/id';
-
-function buildChannelFeedEvent(
-	input: ChannelFeedEventInput,
-	context: {sessionId: string; runId: string; seq: number},
-): FeedEvent {
-	const ts = Date.now();
-	const event_id = `channel-${generateId()}`;
-	const baseFields = {
-		event_id,
-		seq: context.seq,
-		ts,
-		session_id: context.sessionId,
-		run_id: context.runId,
-		level: 'info' as const,
-	};
-	switch (input.kind) {
-		case 'channel.permission.relayed':
-			return {
-				...baseFields,
-				kind: 'channel.permission.relayed',
-				data: input.data,
-				actor_id: `channel:${input.data.channel_name}`,
-				title: `Relayed ${input.data.tool_name} prompt to ${input.data.channel_name} (${input.data.channel_request_id})`,
-			};
-		case 'channel.permission.resolved': {
-			const channelLabel = input.data.channel_name || input.data.source;
-			const behaviorLabel = input.data.behavior ?? 'unknown';
-			return {
-				...baseFields,
-				kind: 'channel.permission.resolved',
-				data: input.data,
-				actor_id: `channel:${channelLabel}`,
-				title: `Resolved ${input.data.tool_name} (${input.data.source}: ${behaviorLabel}) ${input.data.channel_request_id}`,
-			};
-		}
-		case 'channel.question.relayed':
-			return {
-				...baseFields,
-				kind: 'channel.question.relayed',
-				data: input.data,
-				actor_id: `channel:${input.data.channel_name}`,
-				title: `Relayed question to ${input.data.channel_name} (${input.data.channel_request_id})`,
-			};
-		case 'channel.question.resolved': {
-			const channelLabel = input.data.channel_name || input.data.source;
-			return {
-				...baseFields,
-				kind: 'channel.question.resolved',
-				data: input.data,
-				actor_id: `channel:${channelLabel}`,
-				title: `Resolved question (${input.data.source}) ${input.data.channel_request_id}`,
-			};
-		}
-		case 'channel.chat.inbound':
-			return {
-				...baseFields,
-				kind: 'channel.chat.inbound',
-				data: input.data,
-				actor_id: `channel:${input.data.channel_name}`,
-				title: `${input.data.channel_name}: ${input.data.content.slice(0, 80)}`,
-			};
-	}
-}
 
 export type UseFeedResult = {
 	items: FeedItem[];
@@ -189,7 +121,6 @@ export function useFeed(
 	sessionStore?: SessionStore,
 	options?: {
 		autoStart?: boolean;
-		channelRegistry?: ChannelRegistry | null;
 	},
 ): UseFeedResult {
 	// Restore stored session data on mount (if resuming)
@@ -239,10 +170,6 @@ export function useFeed(
 	rulesRef.current = rules;
 	feedEventsRef.current = feedEvents;
 	sessionStoreRef.current = sessionStore;
-
-	const channelRegistry = options?.channelRegistry ?? null;
-	const channelRegistryRef = useRef<ChannelRegistry | null>(channelRegistry);
-	channelRegistryRef.current = channelRegistry;
 
 	useEffect(() => {
 		return () => {
@@ -371,15 +298,6 @@ export function useFeed(
 						: undefined,
 			};
 
-			const registry = channelRegistryRef.current;
-			if (
-				registry &&
-				!registry.tryClaimLocal(requestId, isAllow ? 'allow' : 'deny')
-			) {
-				dequeuePermission(requestId);
-				return;
-			}
-
 			runtime.sendDecision(requestId, runtimeDecision);
 			dequeuePermission(requestId);
 		},
@@ -388,11 +306,6 @@ export function useFeed(
 
 	const resolveQuestion = useCallback(
 		(requestId: string, answers: Record<string, string>) => {
-			const registry = channelRegistryRef.current;
-			if (registry && !registry.tryClaimLocalQuestion(requestId, answers)) {
-				dequeueQuestion(requestId);
-				return;
-			}
 			const runtimeDecision: RuntimeDecision = {
 				type: 'json',
 				source: 'user',
@@ -457,34 +370,6 @@ export function useFeed(
 
 	const autoStart = options?.autoStart ?? true;
 
-	useEffect(() => {
-		const registry = channelRegistry;
-		if (!registry) return;
-		const push: PushChannelFeedEvent = (input: ChannelFeedEventInput) => {
-			const session = mapperRef.current.getSession();
-			const run = mapperRef.current.getCurrentRun();
-			const sessionId = session?.session_id ?? 'unknown';
-			const runId = run?.run_id ?? 'unknown';
-			const seq = mapperRef.current.allocateSeq();
-			const event = buildChannelFeedEvent(input, {sessionId, runId, seq});
-			if (sessionStoreRef.current) {
-				try {
-					sessionStoreRef.current.recordFeedEvents([event]);
-				} catch (err) {
-					sessionStoreRef.current.markDegraded(
-						`recordFeedEvents (channel) failed: ${err instanceof Error ? err.message : err}`,
-					);
-				}
-			}
-			feedStoreRef.current!.pushEvents([event]);
-		};
-		registry.setPushFeedEvent(push);
-		registry.startAll();
-		return () => {
-			registry.setPushFeedEvent(undefined);
-		};
-	}, [channelRegistry]);
-
 	// Main effect: subscribe to runtime events
 	useEffect(() => {
 		abortRef.current = new AbortController();
@@ -493,12 +378,6 @@ export function useFeed(
 			getRules: () => rulesRef.current,
 			enqueuePermission,
 			enqueueQuestion,
-			relayPermission: (event: RuntimeEvent) => {
-				channelRegistryRef.current?.requestPermission(event);
-			},
-			relayQuestion: (event: RuntimeEvent) => {
-				channelRegistryRef.current?.requestQuestion(event);
-			},
 			signal: abortRef.current.signal,
 		};
 
@@ -546,19 +425,12 @@ export function useFeed(
 				}
 
 				if (!abortRef.current.signal.aborted && newFeedEvents.length > 0) {
-					// Auto-dequeue permissions/questions from incoming events
 					for (const fe of newFeedEvents) {
 						if (
 							fe.kind === 'permission.decision' &&
 							fe.cause?.hook_request_id
 						) {
 							dequeuePermission(fe.cause.hook_request_id);
-						}
-						if (fe.kind === 'agent.message' && fe.data.scope === 'root') {
-							channelRegistryRef.current?.notify(fe.data.message, {
-								source: fe.data.source,
-								...(fe.data.model ? {model: fe.data.model} : {}),
-							});
 						}
 					}
 

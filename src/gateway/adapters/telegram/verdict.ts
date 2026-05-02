@@ -15,7 +15,7 @@
  * channel-request-id alphabet, sourced from `../ids`.
  */
 
-import {CHANNEL_REQUEST_ID_REGEX, isValidChannelRequestId} from '../ids';
+import {CHANNEL_REQUEST_ID_REGEX, isValidChannelRequestId} from './ids';
 
 export type ParsedVerdict = {
 	channelRequestId: string;
