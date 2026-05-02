@@ -88,7 +88,7 @@ describe('schema migrations', () => {
 		const row = db.prepare('SELECT version FROM schema_version').get() as {
 			version: number;
 		};
-		expect(row.version).toBe(5);
+		expect(row.version).toBe(6);
 
 		// Verify token columns exist and can be updated
 		db.prepare(
@@ -138,7 +138,7 @@ describe('schema migrations', () => {
 		const row = db.prepare('SELECT version FROM schema_version').get() as {
 			version: number;
 		};
-		expect(row.version).toBe(5);
+		expect(row.version).toBe(6);
 
 		db.prepare(
 			'INSERT INTO adapter_sessions (session_id, started_at, tokens_context_window_size) VALUES (?, ?, ?)',
@@ -183,7 +183,7 @@ describe('schema migrations', () => {
 		const row = db.prepare('SELECT version FROM schema_version').get() as {
 			version: number;
 		};
-		expect(row.version).toBe(5);
+		expect(row.version).toBe(6);
 
 		db.prepare(
 			`INSERT INTO workflow_runs (id, session_id, started_at, iteration, max_iterations, status)
@@ -212,6 +212,118 @@ describe('schema migrations', () => {
 			.prepare('SELECT run_id FROM adapter_sessions WHERE session_id = ?')
 			.get('as2') as {run_id: string | null};
 		expect(as2.run_id).toBeNull();
+
+		db.close();
+	});
+
+	it('migrates v5 → v6 by adding gateway and channel tables', () => {
+		const db = new Database(':memory:');
+		db.exec('PRAGMA foreign_keys = ON');
+		db.exec('CREATE TABLE schema_version (version INTEGER NOT NULL)');
+		db.prepare('INSERT INTO schema_version (version) VALUES (?)').run(5);
+		db.exec(
+			'CREATE TABLE session (id TEXT PRIMARY KEY, project_dir TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, label TEXT, event_count INTEGER DEFAULT 0)',
+		);
+		db.exec(
+			'CREATE TABLE runtime_events (id TEXT PRIMARY KEY, seq INTEGER NOT NULL UNIQUE, timestamp INTEGER NOT NULL, hook_name TEXT NOT NULL, adapter_session_id TEXT, payload JSON NOT NULL)',
+		);
+		db.exec(
+			'CREATE TABLE feed_events (event_id TEXT PRIMARY KEY, runtime_event_id TEXT, seq INTEGER NOT NULL, kind TEXT NOT NULL, run_id TEXT NOT NULL, actor_id TEXT NOT NULL, timestamp INTEGER NOT NULL, data JSON NOT NULL, FOREIGN KEY (runtime_event_id) REFERENCES runtime_events(id))',
+		);
+		db.exec(
+			"CREATE TABLE workflow_runs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, workflow_name TEXT, started_at INTEGER NOT NULL, ended_at INTEGER, iteration INTEGER NOT NULL DEFAULT 0, max_iterations INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'running', stop_reason TEXT, tracker_path TEXT, FOREIGN KEY (session_id) REFERENCES session(id))",
+		);
+		db.exec(
+			'CREATE TABLE adapter_sessions (session_id TEXT PRIMARY KEY, started_at INTEGER NOT NULL, ended_at INTEGER, model TEXT, source TEXT, tokens_input INTEGER, tokens_output INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, tokens_context_size INTEGER, tokens_context_window_size INTEGER, run_id TEXT REFERENCES workflow_runs(id))',
+		);
+
+		// Pre-populate so we can verify FK references after migration.
+		db.prepare(
+			'INSERT INTO session (id, project_dir, created_at, updated_at) VALUES (?, ?, ?, ?)',
+		).run('s1', '/tmp', Date.now(), Date.now());
+		db.prepare(
+			'INSERT INTO adapter_sessions (session_id, started_at) VALUES (?, ?)',
+		).run('as1', Date.now());
+
+		initSchema(db);
+
+		const row = db.prepare('SELECT version FROM schema_version').get() as {
+			version: number;
+		};
+		expect(row.version).toBe(6);
+
+		// channel_messages: insert + idempotency uniqueness
+		db.prepare(
+			`INSERT INTO channel_messages (channel_id, account_id, peer_id, provider_message_id, direction, session_id, idempotency_key, created_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		).run(
+			'telegram',
+			'default',
+			'12345',
+			'msg-1',
+			'in',
+			'as1',
+			'tg-update-1',
+			Date.now(),
+		);
+		expect(() =>
+			db
+				.prepare(
+					`INSERT INTO channel_messages (channel_id, account_id, peer_id, provider_message_id, direction, idempotency_key, created_at)
+					 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				)
+				.run(
+					'telegram',
+					'default',
+					'12345',
+					'msg-2',
+					'in',
+					'tg-update-1',
+					Date.now(),
+				),
+		).toThrow(/UNIQUE/i);
+
+		// direction CHECK constraint
+		expect(() =>
+			db
+				.prepare(
+					`INSERT INTO channel_messages (channel_id, account_id, provider_message_id, direction, created_at)
+					 VALUES (?, ?, ?, ?, ?)`,
+				)
+				.run('telegram', 'default', 'm', 'sideways', Date.now()),
+		).toThrow(/CHECK/i);
+
+		// gateway_function_invocations: caller_kind + status checks
+		db.prepare(
+			`INSERT INTO gateway_function_invocations (name, caller_kind, request_hash, status, started_at)
+			 VALUES (?, ?, ?, ?, ?)`,
+		).run('summarize_pr', 'agent', 'hash-abc', 'ok', Date.now());
+		expect(() =>
+			db
+				.prepare(
+					`INSERT INTO gateway_function_invocations (name, caller_kind, request_hash, status, started_at)
+					 VALUES (?, ?, ?, ?, ?)`,
+				)
+				.run('summarize_pr', 'cron', 'hash-def', 'ok', Date.now()),
+		).toThrow(/CHECK/i);
+
+		// channel_outbox: insert + due index works
+		db.prepare(
+			`INSERT INTO channel_outbox (channel_id, account_id, payload_json, next_attempt_at, created_at)
+			 VALUES (?, ?, ?, ?, ?)`,
+		).run(
+			'telegram',
+			'default',
+			'{"text":"hi"}',
+			Date.now() + 1000,
+			Date.now(),
+		);
+		const due = db
+			.prepare(
+				'SELECT count(*) as n FROM channel_outbox WHERE next_attempt_at >= ?',
+			)
+			.get(0) as {n: number};
+		expect(due.n).toBe(1);
 
 		db.close();
 	});

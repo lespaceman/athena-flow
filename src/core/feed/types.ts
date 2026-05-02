@@ -59,7 +59,11 @@ export type FeedEventKind =
 	| 'channel.permission.resolved'
 	| 'channel.question.relayed'
 	| 'channel.question.resolved'
-	| 'channel.chat.inbound';
+	| 'channel.chat.inbound'
+	| 'channel.chat.outbound'
+	| 'gateway.function.invoked'
+	| 'gateway.function.completed'
+	| 'gateway.function.failed';
 
 export type FeedEventLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -425,6 +429,44 @@ export type ChannelChatInboundData = {
 	content: string;
 };
 
+export type ChannelChatOutboundData = {
+	channel_name: string;
+	target_peer_id: string;
+	content: string;
+	provider_message_id?: string;
+	idempotency_key?: string;
+};
+
+export type GatewayFunctionCallerKind = 'agent' | 'channel' | 'hook';
+
+export type GatewayFunctionInvokedData = {
+	function_name: string;
+	caller_kind: GatewayFunctionCallerKind;
+	idempotency_key?: string;
+	args_preview?: string;
+};
+
+export type GatewayFunctionCompletedData = {
+	function_name: string;
+	caller_kind: GatewayFunctionCallerKind;
+	http_status?: number;
+	duration_ms: number;
+};
+
+export type GatewayFunctionFailedData = {
+	function_name: string;
+	caller_kind: GatewayFunctionCallerKind;
+	reason:
+		| 'http_error'
+		| 'timeout'
+		| 'transport'
+		| 'validation'
+		| 'unauthorized';
+	http_status?: number;
+	duration_ms: number;
+	error_message: string;
+};
+
 // Phase 2 stubs
 export type TodoPriority = 'p0' | 'p1' | 'p2';
 export type TodoFeedStatus = 'open' | 'doing' | 'blocked' | 'done';
@@ -540,6 +582,22 @@ export type FeedEvent =
 	| (FeedEventBase & {
 			kind: 'channel.chat.inbound';
 			data: ChannelChatInboundData;
+	  })
+	| (FeedEventBase & {
+			kind: 'channel.chat.outbound';
+			data: ChannelChatOutboundData;
+	  })
+	| (FeedEventBase & {
+			kind: 'gateway.function.invoked';
+			data: GatewayFunctionInvokedData;
+	  })
+	| (FeedEventBase & {
+			kind: 'gateway.function.completed';
+			data: GatewayFunctionCompletedData;
+	  })
+	| (FeedEventBase & {
+			kind: 'gateway.function.failed';
+			data: GatewayFunctionFailedData;
 	  });
 
 // ── Compile-time drift checks ────────────────────────────

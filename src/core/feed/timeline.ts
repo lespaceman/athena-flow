@@ -349,6 +349,10 @@ export function eventDetail(event: FeedEvent): string {
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
 		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed':
 			return '\u2500'; // ─ em dash placeholder
 	}
 }
@@ -514,7 +518,11 @@ export function eventSummary(event: FeedEvent): SummaryResult {
 		case 'channel.permission.resolved':
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
-		case 'channel.chat.inbound': {
+		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed': {
 			const text = eventSummaryText(event);
 			return {text, segments: [{text, role: 'target'}]};
 		}
@@ -732,6 +740,26 @@ function eventSummaryText(event: FeedEvent): string {
 				`${event.data.channel_name}: ${event.data.content}`,
 				200,
 			);
+		case 'channel.chat.outbound':
+			return compactText(
+				`${event.data.channel_name} → ${event.data.target_peer_id}: ${event.data.content}`,
+				200,
+			);
+		case 'gateway.function.invoked':
+			return compactText(
+				`fn invoked: ${event.data.function_name} (${event.data.caller_kind})`,
+				200,
+			);
+		case 'gateway.function.completed':
+			return compactText(
+				`fn ok: ${event.data.function_name} ${event.data.duration_ms}ms`,
+				200,
+			);
+		case 'gateway.function.failed':
+			return compactText(
+				`fn ${event.data.reason}: ${event.data.function_name} — ${event.data.error_message}`,
+				200,
+			);
 		case 'compact.post':
 			return compactText(`compacted (${event.data.trigger})`, 200);
 		case 'tool.pre':
@@ -846,6 +874,10 @@ export function expansionForEvent(event: FeedEvent): string {
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
 		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed':
 			return JSON.stringify(event.raw ?? event.data, null, 2);
 	}
 }

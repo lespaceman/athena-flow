@@ -23,7 +23,11 @@ export type DefaultRenderKind =
 	| 'channel.permission.resolved'
 	| 'channel.question.relayed'
 	| 'channel.question.resolved'
-	| 'channel.chat.inbound';
+	| 'channel.chat.inbound'
+	| 'channel.chat.outbound'
+	| 'gateway.function.invoked'
+	| 'gateway.function.completed'
+	| 'gateway.function.failed';
 
 export const DEFAULT_RENDER: ReadonlySet<DefaultRenderKind> =
 	new Set<DefaultRenderKind>([
@@ -40,6 +44,10 @@ export const DEFAULT_RENDER: ReadonlySet<DefaultRenderKind> =
 		'channel.question.relayed',
 		'channel.question.resolved',
 		'channel.chat.inbound',
+		'channel.chat.outbound',
+		'gateway.function.invoked',
+		'gateway.function.completed',
+		'gateway.function.failed',
 	]);
 
 export function isDefaultRenderKind(k: FeedEventKind): k is DefaultRenderKind {

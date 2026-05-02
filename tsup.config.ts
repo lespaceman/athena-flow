@@ -20,6 +20,7 @@ export default defineConfig({
 		'hook-forwarder': 'src/harnesses/claude/hook-forwarder.ts',
 		'channel-daemon': 'src/channels/daemon.ts',
 		'channel-telegram': 'src/channels/telegram/index.ts',
+		'athena-gateway': 'src/gateway/entry.ts',
 	},
 	format: ['esm'],
 	target: 'node18',

@@ -198,6 +198,28 @@ export default tseslint.config(
 		},
 	},
 	{
+		files: ['src/gateway/**/*.{ts,tsx}'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [
+								...relativeImportPatterns('app'),
+								...relativeImportPatterns('harnesses'),
+								...relativeImportPatterns('ui'),
+								...relativeImportPatterns('channels'),
+							],
+							message:
+								'Gateway must stay UI/harness/app/channel-independent. Import only from core, infra, and shared.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		files: ['src/shared/**/*.{ts,tsx}'],
 		rules: {
 			'no-restricted-imports': [

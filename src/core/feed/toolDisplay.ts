@@ -1039,6 +1039,10 @@ export function resolveEventDisplay(event: FeedEvent): {
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
 		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed':
 			return {toolColumn: '', segments: []};
 	}
 }
@@ -1131,6 +1135,10 @@ export function resolveEventToolColumn(event: FeedEvent): string {
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
 		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed':
 			return '';
 	}
 }

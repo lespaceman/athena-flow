@@ -573,7 +573,11 @@ export function renderDetailLines(
 		case 'channel.permission.resolved':
 		case 'channel.question.relayed':
 		case 'channel.question.resolved':
-		case 'channel.chat.inbound': {
+		case 'channel.chat.inbound':
+		case 'channel.chat.outbound':
+		case 'gateway.function.invoked':
+		case 'gateway.function.completed':
+		case 'gateway.function.failed': {
 			const header = buildCompactHeader(event, width, {theme});
 			const json = JSON.stringify(event.raw ?? event.data, null, 2);
 			const content = highlightCode(json, cw, 'json');

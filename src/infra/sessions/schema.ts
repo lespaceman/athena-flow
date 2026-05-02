@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export function initSchema(db: Database.Database): void {
 	db.exec('PRAGMA journal_mode = WAL');
@@ -69,6 +69,58 @@ export function initSchema(db: Database.Database): void {
 			tracker_path TEXT,
 			FOREIGN KEY (session_id) REFERENCES session(id)
 		);
+
+		-- Channel I/O ledger: every inbound chat normalized by an adapter and every
+		-- outbound chat dispatched back to a provider gets one row. Idempotency
+		-- key prevents double-delivery on retry/restart; session_id ties chat to a
+		-- particular Athena interactive runtime when known.
+		CREATE TABLE IF NOT EXISTS channel_messages (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel_id TEXT NOT NULL,
+			account_id TEXT NOT NULL,
+			peer_id TEXT,
+			room_id TEXT,
+			thread_id TEXT,
+			provider_message_id TEXT NOT NULL,
+			direction TEXT NOT NULL CHECK(direction IN ('in','out')),
+			session_id TEXT REFERENCES adapter_sessions(session_id),
+			agent_id TEXT,
+			idempotency_key TEXT,
+			feed_event_id TEXT,
+			created_at INTEGER NOT NULL
+		);
+
+		-- Audit log for cloud function invocations brokered by the gateway. One
+		-- row per invocation across all callers (agent tool, /run channel cmd,
+		-- hook helper). Idempotency cache is in-memory + write-through here.
+		CREATE TABLE IF NOT EXISTS gateway_function_invocations (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			caller_kind TEXT NOT NULL CHECK(caller_kind IN ('agent','channel','hook')),
+			session_id TEXT REFERENCES adapter_sessions(session_id),
+			agent_id TEXT,
+			idempotency_key TEXT,
+			request_hash TEXT NOT NULL,
+			status TEXT NOT NULL CHECK(status IN ('pending','ok','error','timeout')),
+			http_status INTEGER,
+			duration_ms INTEGER,
+			error TEXT,
+			started_at INTEGER NOT NULL,
+			completed_at INTEGER
+		);
+
+		-- Durable retry queue for outbound channel sends. Drained by the gateway
+		-- daemon on startup and after transient send failures.
+		CREATE TABLE IF NOT EXISTS channel_outbox (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			channel_id TEXT NOT NULL,
+			account_id TEXT NOT NULL,
+			payload_json TEXT NOT NULL,
+			attempt INTEGER NOT NULL DEFAULT 0,
+			next_attempt_at INTEGER NOT NULL,
+			last_error TEXT,
+			created_at INTEGER NOT NULL
+		);
 	`);
 
 	db.exec(`
@@ -77,6 +129,15 @@ export function initSchema(db: Database.Database): void {
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_feed_seq ON feed_events(seq);
 		CREATE INDEX IF NOT EXISTS idx_runtime_seq ON runtime_events(seq);
 		CREATE INDEX IF NOT EXISTS idx_workflow_runs_session ON workflow_runs(session_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_channel_messages_idem
+			ON channel_messages(channel_id, account_id, idempotency_key)
+			WHERE idempotency_key IS NOT NULL;
+		CREATE INDEX IF NOT EXISTS idx_channel_messages_session_key
+			ON channel_messages(channel_id, account_id, peer_id, room_id, thread_id, created_at);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_fn_idem
+			ON gateway_function_invocations(name, idempotency_key)
+			WHERE idempotency_key IS NOT NULL;
+		CREATE INDEX IF NOT EXISTS idx_outbox_due ON channel_outbox(next_attempt_at);
 	`);
 
 	// Check schema version
@@ -146,6 +207,66 @@ export function initSchema(db: Database.Database): void {
 				CREATE INDEX IF NOT EXISTS idx_workflow_runs_session ON workflow_runs(session_id);
 				ALTER TABLE adapter_sessions ADD COLUMN run_id TEXT REFERENCES workflow_runs(id);
 				UPDATE schema_version SET version = 5;
+			`);
+		}
+
+		const versionAfterV5 = (
+			db.prepare('SELECT version FROM schema_version').get() as {
+				version: number;
+			}
+		).version;
+		if (versionAfterV5 === 5) {
+			db.exec(`
+				CREATE TABLE IF NOT EXISTS channel_messages (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					channel_id TEXT NOT NULL,
+					account_id TEXT NOT NULL,
+					peer_id TEXT,
+					room_id TEXT,
+					thread_id TEXT,
+					provider_message_id TEXT NOT NULL,
+					direction TEXT NOT NULL CHECK(direction IN ('in','out')),
+					session_id TEXT REFERENCES adapter_sessions(session_id),
+					agent_id TEXT,
+					idempotency_key TEXT,
+					feed_event_id TEXT,
+					created_at INTEGER NOT NULL
+				);
+				CREATE TABLE IF NOT EXISTS gateway_function_invocations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					name TEXT NOT NULL,
+					caller_kind TEXT NOT NULL CHECK(caller_kind IN ('agent','channel','hook')),
+					session_id TEXT REFERENCES adapter_sessions(session_id),
+					agent_id TEXT,
+					idempotency_key TEXT,
+					request_hash TEXT NOT NULL,
+					status TEXT NOT NULL CHECK(status IN ('pending','ok','error','timeout')),
+					http_status INTEGER,
+					duration_ms INTEGER,
+					error TEXT,
+					started_at INTEGER NOT NULL,
+					completed_at INTEGER
+				);
+				CREATE TABLE IF NOT EXISTS channel_outbox (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					channel_id TEXT NOT NULL,
+					account_id TEXT NOT NULL,
+					payload_json TEXT NOT NULL,
+					attempt INTEGER NOT NULL DEFAULT 0,
+					next_attempt_at INTEGER NOT NULL,
+					last_error TEXT,
+					created_at INTEGER NOT NULL
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_channel_messages_idem
+					ON channel_messages(channel_id, account_id, idempotency_key)
+					WHERE idempotency_key IS NOT NULL;
+				CREATE INDEX IF NOT EXISTS idx_channel_messages_session_key
+					ON channel_messages(channel_id, account_id, peer_id, room_id, thread_id, created_at);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_fn_idem
+					ON gateway_function_invocations(name, idempotency_key)
+					WHERE idempotency_key IS NOT NULL;
+				CREATE INDEX IF NOT EXISTS idx_outbox_due ON channel_outbox(next_attempt_at);
+				UPDATE schema_version SET version = 6;
 			`);
 		}
 	}

@@ -42,6 +42,7 @@ import {resolveInteractiveSession} from './interactiveSession';
 import {runWorkflowCommand} from './workflowCommand';
 import {runMarketplaceCommand} from './marketplaceCommand';
 import {runChannelCommand} from './channelCommand';
+import {runGatewayCommand} from './gatewayCommand';
 import {runDoctorCommand} from './doctorCommand';
 import {resolveWorkflowInstall} from '../../infra/plugins/marketplace';
 import {
@@ -81,6 +82,7 @@ const KNOWN_COMMANDS = new Set([
 	'workflow',
 	'marketplace',
 	'channel',
+	'gateway',
 	'telemetry',
 	'doctor',
 ]);
@@ -478,6 +480,12 @@ async function main(): Promise<void> {
 				},
 			}),
 		);
+		return;
+	}
+
+	if (command === 'gateway') {
+		const [subcommand = '', ...subcommandArgs] = commandArgs;
+		await exitWith(await runGatewayCommand({subcommand, subcommandArgs}));
 		return;
 	}
 

@@ -191,5 +191,21 @@ function generateNeutralTitle(event: FeedEvent, g: GlyphSet): string {
 			return truncate(
 				`Channel ${event.data.channel_name}: ${event.data.content}`,
 			);
+		case 'channel.chat.outbound':
+			return truncate(
+				`Channel ${event.data.channel_name} → ${event.data.target_peer_id}: ${event.data.content}`,
+			);
+		case 'gateway.function.invoked':
+			return truncate(
+				`Cloud fn → ${event.data.function_name} (${event.data.caller_kind})`,
+			);
+		case 'gateway.function.completed':
+			return truncate(
+				`Cloud fn ✓ ${event.data.function_name} (${event.data.duration_ms}ms)`,
+			);
+		case 'gateway.function.failed':
+			return truncate(
+				`Cloud fn ✗ ${event.data.function_name}: ${event.data.error_message}`,
+			);
 	}
 }
