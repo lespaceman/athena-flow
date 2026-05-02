@@ -201,7 +201,12 @@ function inkRenderOptions() {
 }
 
 // Set terminal tab title immediately so it appears before React renders.
-process.stdout.write('\x1b]1;Athena\x07\x1b]2;Athena\x07');
+// Only when stdout is a TTY — otherwise we'd be writing escape sequences
+// into a pipe (e.g. `athena gateway status --json | jq`) and corrupting
+// the consumer.
+if (process.stdout.isTTY) {
+	process.stdout.write('\x1b]1;Athena\x07\x1b]2;Athena\x07');
+}
 
 // Register cleanup handlers early to catch all exit scenarios
 processRegistry.registerCleanupHandlers();
@@ -484,6 +489,9 @@ async function main(): Promise<void> {
 
 	if (command === 'gateway') {
 		const [subcommand = '', ...subcommandArgs] = commandArgs;
+		// Top-level meow consumes --json into cli.flags before subcommand args
+		// are sliced off; forward it so `gateway probe/status` see it.
+		if (cli.flags.json) subcommandArgs.push('--json');
 		await exitWith(await runGatewayCommand({subcommand, subcommandArgs}));
 		return;
 	}

@@ -39,13 +39,29 @@ import {
 } from '../sessionRegistry';
 import type {ConnectionContext, RequestHandler} from './server';
 
-const require = createRequire(import.meta.url);
+// Build-time inject from tsup `define`. Replaced literally with the
+// stringified version. Falls back to a createRequire-based runtime lookup
+// in vitest where the define isn't applied.
+declare const __ATHENA_VERSION__: string;
+const require_ = createRequire(import.meta.url);
 
 let cachedVersion: string | null = null;
 function readVersion(): string {
 	if (cachedVersion !== null) return cachedVersion;
 	try {
-		const pkg = require('../../../package.json') as {version?: string};
+		// `__ATHENA_VERSION__` is a literal post-bundle. Wrapping in a try
+		// guards against the source-path (vitest) where the identifier is
+		// undeclared and the ReferenceError must be swallowed.
+		const injected: unknown = __ATHENA_VERSION__;
+		if (typeof injected === 'string' && injected.length > 0) {
+			cachedVersion = injected;
+			return cachedVersion;
+		}
+	} catch {
+		// fall through to require-based read
+	}
+	try {
+		const pkg = require_('../../../package.json') as {version?: string};
 		cachedVersion = pkg.version ?? '0.0.0';
 	} catch {
 		cachedVersion = '0.0.0';

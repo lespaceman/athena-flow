@@ -34,6 +34,13 @@ export default defineConfig({
 		// Set this in CI via GitHub Actions secrets. When unset (local dev),
 		// telemetry silently no-ops.
 		__POSTHOG_API_KEY__: JSON.stringify(process.env['POSTHOG_API_KEY'] ?? ''),
+		// Injected from package.json at build time so the bundled daemon
+		// reports a real version. createRequire('../../../package.json') from
+		// the source file doesn't resolve correctly after bundling.
+		__ATHENA_VERSION__: JSON.stringify(
+			(JSON.parse(readFileSync('package.json', 'utf-8')) as {version?: string})
+				.version ?? '0.0.0',
+		),
 	},
 	external: [
 		'better-sqlite3',
