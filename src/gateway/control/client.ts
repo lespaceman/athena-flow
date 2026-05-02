@@ -9,18 +9,22 @@
  */
 
 import crypto from 'node:crypto';
-import net from 'node:net';
 import type {
 	ControlEnvelope,
 	ControlPushEnvelope,
 	ControlResponseEnvelope,
 } from '../../shared/gateway-protocol';
-import {encodeLine, LineReader, LineReaderOverflowError} from './lineReader';
+import {
+	TransportUnreachableError,
+	type ClientTransport,
+} from '../transport/types';
+import {createUdsClientTransport} from '../transport/uds';
 
 export type ControlClientOptions = {
 	socketPath: string;
 	token: string;
 	timeoutMs?: number;
+	transport?: ClientTransport;
 };
 
 export class GatewayUnreachableError extends Error {
@@ -72,50 +76,28 @@ export async function connect(
 	opts: ControlClientOptions,
 ): Promise<ControlClient> {
 	const timeoutMs = opts.timeoutMs ?? 5_000;
-	const socket = net.createConnection({path: opts.socketPath});
+	const transport =
+		opts.transport ??
+		createUdsClientTransport({socketPath: opts.socketPath, timeoutMs});
+	let connection;
+	try {
+		connection = await transport.connect();
+	} catch (err) {
+		if (err instanceof TransportUnreachableError) {
+			throw new GatewayUnreachableError(err.message);
+		}
+		throw err;
+	}
 
-	await new Promise<void>((resolve, reject) => {
-		const timer = setTimeout(() => {
-			socket.destroy();
-			reject(
-				new GatewayUnreachableError(`connect timed out after ${timeoutMs}ms`),
-			);
-		}, timeoutMs);
-		socket.once('connect', () => {
-			clearTimeout(timer);
-			resolve();
-		});
-		socket.once('error', err => {
-			clearTimeout(timer);
-			const code = (err as NodeJS.ErrnoException).code;
-			if (code === 'ENOENT' || code === 'ECONNREFUSED') {
-				reject(
-					new GatewayUnreachableError(
-						`gateway not reachable at ${opts.socketPath}: ${err.message}`,
-					),
-				);
-			} else {
-				reject(err);
-			}
-		});
-	});
-
-	const reader = new LineReader();
-	const helloWaiters: Array<(line: string) => void> = [];
+	const helloWaiters: Array<(frame: unknown) => void> = [];
 	const pending = new Map<string, PendingResolver>();
 	const pushSubs = new Map<string, Set<(env: ControlPushEnvelope) => void>>();
 	let helloAcked = false;
 
-	const handleLine = (line: string): void => {
+	const handleFrame = (parsed: unknown): void => {
 		if (!helloAcked) {
 			const w = helloWaiters.shift();
-			if (w) w(line);
-			return;
-		}
-		let parsed: unknown;
-		try {
-			parsed = JSON.parse(line);
-		} catch {
+			if (w) w(parsed);
 			return;
 		}
 		if (!isStringRecord(parsed)) return;
@@ -142,21 +124,9 @@ export async function connect(
 		}
 	};
 
-	socket.on('data', chunk => {
-		let lines: string[];
-		try {
-			lines = reader.push(chunk);
-		} catch (err) {
-			if (err instanceof LineReaderOverflowError) {
-				socket.destroy();
-				return;
-			}
-			throw err;
-		}
-		for (const line of lines) handleLine(line);
-	});
+	connection.onFrame(handleFrame);
 
-	socket.on('close', () => {
+	connection.onClose(() => {
 		for (const [, p] of pending) {
 			clearTimeout(p.timer);
 			p.reject(new GatewayProtocolError('connection closed'));
@@ -164,20 +134,13 @@ export async function connect(
 		pending.clear();
 	});
 
-	const helloLinePromise = new Promise<string>(resolve =>
+	const helloFramePromise = new Promise<unknown>(resolve =>
 		helloWaiters.push(resolve),
 	);
-	socket.write(encodeLine({kind: 'connect', token: opts.token}));
-	const helloLine = await helloLinePromise;
-	let hello: unknown;
-	try {
-		hello = JSON.parse(helloLine);
-	} catch {
-		socket.destroy();
-		throw new GatewayProtocolError('invalid hello frame');
-	}
+	connection.send({kind: 'connect', token: opts.token});
+	const hello = await helloFramePromise;
 	if (!isStringRecord(hello) || hello['ok'] !== true) {
-		socket.destroy();
+		connection.close();
 		const errPayload =
 			isStringRecord(hello) && isStringRecord(hello['error'])
 				? hello['error']
@@ -213,7 +176,7 @@ export async function connect(
 				pending.set(requestId, {resolve, reject, timer});
 			},
 		);
-		socket.write(encodeLine(envelope));
+		connection.send(envelope);
 		const res = await responsePromise;
 		if (res.request_id !== requestId) {
 			throw new GatewayProtocolError('response request_id mismatch');
@@ -244,8 +207,7 @@ export async function connect(
 		request,
 		onPush,
 		close: () => {
-			socket.end();
-			socket.destroy();
+			connection.close();
 		},
 	};
 }

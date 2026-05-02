@@ -14,6 +14,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {isLoopbackHost, type GatewayListenSpec} from './paths';
 
 const TOKEN_BYTES = 32;
 
@@ -48,4 +49,21 @@ export function timingSafeTokenEqual(a: string, b: string): boolean {
 		return false;
 	}
 	return crypto.timingSafeEqual(ab, bb);
+}
+
+export function requireTokenForBind(
+	spec: GatewayListenSpec,
+	token: string | undefined,
+): void {
+	if (spec.kind === 'uds' || isLoopbackHost(spec.host)) return;
+	if (!token || token.length < 16) {
+		throw new Error(
+			`gateway: refusing to bind ${spec.host}:${spec.port} without token configured`,
+		);
+	}
+	if (!spec.insecure) {
+		throw new Error(
+			`gateway: refusing to bind ${spec.host}:${spec.port} without TLS; pass --insecure only for trusted tunnels`,
+		);
+	}
 }

@@ -14,6 +14,8 @@ import {createRuntime} from '../runtime/createRuntime';
 import type {Runtime} from '../../core/runtime/types';
 import type {SessionStore} from '../../infra/sessions/store';
 import {SessionBridge} from '../channels/sessionBridge';
+import type {RuntimeEvent, RuntimeDecision} from '../../core/runtime/types';
+import {writeGatewayTrace} from '../../gateway/transport/trace';
 const HookContext = createContext<HookContextValue | null>(null);
 const RuntimeRefContext = createContext<Runtime | null>(null);
 const SessionStoreContext = createContext<SessionStore | null>(null);
@@ -25,19 +27,54 @@ function HookProviderContent({
 	runtime,
 	allowedTools,
 	sessionStore,
+	sessionBridge,
 	children,
 }: {
 	runtime: ReturnType<typeof createRuntime>;
 	allowedTools?: string[];
 	sessionStore: ReturnType<typeof createSessionStore>;
+	sessionBridge: SessionBridge | null;
 	children: HookProviderProps['children'];
 }) {
+	const relayPermission = useMemo(() => {
+		if (!sessionBridge) return undefined;
+		return (event: RuntimeEvent) => {
+			writeGatewayTrace(
+				`RuntimeProvider relayPermission event=${event.id} tool=${resolveToolName(event)}`,
+			);
+			void sessionBridge
+				.relayPermission({
+					toolName: resolveToolName(event),
+					description:
+						event.display?.title ?? `${resolveToolName(event)} request`,
+					inputPreview: previewToolInput(event),
+					...(event.interaction.defaultTimeoutMs !== undefined
+						? {ttlMs: event.interaction.defaultTimeoutMs}
+						: {}),
+				})
+				.then(res => {
+					const decision = permissionRelayDecision(res.result);
+					if (!decision) return;
+					runtime.sendDecision(event.id, decision);
+				})
+				.catch(err => {
+					if (process.env['ATHENA_GATEWAY_TRACE'] === '1') {
+						console.error(
+							`[athena] gateway relayPermission failed: ${
+								err instanceof Error ? err.message : String(err)
+							}`,
+						);
+					}
+				});
+		};
+	}, [runtime, sessionBridge]);
+
 	const hookServer = useFeed(
 		runtime,
 		EMPTY_MESSAGES,
 		allowedTools,
 		sessionStore,
-		{autoStart: false},
+		{autoStart: false, ...(relayPermission ? {relayPermission} : {})},
 	);
 
 	return (
@@ -112,6 +149,9 @@ export function HookProvider({
 			runtimeId: athenaSessionId,
 			defaultAgentId: 'main',
 		});
+		writeGatewayTrace(
+			`RuntimeProvider starting SessionBridge runtimeId=${athenaSessionId}`,
+		);
 		bridge
 			.start()
 			.then(() => {
@@ -119,9 +159,17 @@ export function HookProvider({
 					void bridge.stop();
 					return;
 				}
+				writeGatewayTrace(
+					`RuntimeProvider SessionBridge ready runtimeId=${athenaSessionId}`,
+				);
 				setSessionBridge(bridge);
 			})
-			.catch(() => {
+			.catch(err => {
+				writeGatewayTrace(
+					`RuntimeProvider SessionBridge failed runtimeId=${athenaSessionId} error=${
+						err instanceof Error ? err.message : String(err)
+					}`,
+				);
 				// Daemon not running, unauthorized, or already-registered. The
 				// session continues without bridge; channel-driven turns and
 				// cross-channel relays are simply unavailable.
@@ -161,6 +209,7 @@ export function HookProvider({
 						runtime={runtime}
 						allowedTools={allowedTools}
 						sessionStore={sessionStore}
+						sessionBridge={sessionBridge}
 					>
 						{children}
 					</HookProviderContent>
@@ -219,4 +268,45 @@ export function useSessionStore(): SessionStore | null {
  */
 export function useSessionBridge(): SessionBridge | null {
 	return useContext(SessionBridgeContext);
+}
+
+function resolveToolName(event: RuntimeEvent): string {
+	const data = event.data as Record<string, unknown>;
+	return (
+		event.toolName ??
+		(typeof data['tool_name'] === 'string' ? data['tool_name'] : undefined) ??
+		'Tool'
+	);
+}
+
+function previewToolInput(event: RuntimeEvent): string {
+	const data = event.data as Record<string, unknown>;
+	const input = data['tool_input'] ?? event.payload;
+	if (typeof input === 'string') return input.slice(0, 4_000);
+	try {
+		return JSON.stringify(input, null, 2).slice(0, 4_000);
+	} catch {
+		return String(input).slice(0, 4_000);
+	}
+}
+
+function permissionRelayDecision(
+	result: Awaited<ReturnType<SessionBridge['relayPermission']>>['result'],
+): RuntimeDecision | null {
+	if (result.kind !== 'verdict') return null;
+	if (result.behavior === 'allow') {
+		return {
+			type: 'json',
+			source: 'user',
+			intent: {kind: 'permission_allow'},
+		};
+	}
+	return {
+		type: 'json',
+		source: 'user',
+		intent: {
+			kind: 'permission_deny',
+			reason: `Denied by ${result.channelId}`,
+		},
+	};
 }

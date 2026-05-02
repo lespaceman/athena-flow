@@ -34,6 +34,7 @@ import {
 	handleEvent,
 	type ControllerCallbacks,
 } from '../../core/controller/runtimeController';
+import {writeGatewayTrace} from '../../gateway/transport/trace';
 import {
 	getActivePerfCycleId,
 	logPerfEvent,
@@ -121,6 +122,8 @@ export function useFeed(
 	sessionStore?: SessionStore,
 	options?: {
 		autoStart?: boolean;
+		relayPermission?: (event: RuntimeEvent) => void;
+		relayQuestion?: (event: RuntimeEvent) => void;
 	},
 ): UseFeedResult {
 	// Restore stored session data on mount (if resuming)
@@ -378,6 +381,10 @@ export function useFeed(
 			getRules: () => rulesRef.current,
 			enqueuePermission,
 			enqueueQuestion,
+			...(options?.relayPermission
+				? {relayPermission: options.relayPermission}
+				: {}),
+			...(options?.relayQuestion ? {relayQuestion: options.relayQuestion} : {}),
 			signal: abortRef.current.signal,
 		};
 
@@ -403,6 +410,14 @@ export function useFeed(
 			});
 			// Run controller for rule matching / queue management
 			try {
+				if (
+					options?.relayPermission &&
+					runtimeEvent.kind === 'permission.request'
+				) {
+					writeGatewayTrace(
+						`useFeed permission event relay-enabled id=${runtimeEvent.id} tool=${runtimeEvent.toolName ?? ''}`,
+					);
+				}
 				const result = handleEvent(runtimeEvent, controllerCallbacks);
 
 				if (result.handled && result.decision) {
@@ -519,6 +534,8 @@ export function useFeed(
 		dequeueQuestion,
 		refreshRuntimeStatus,
 		autoStart,
+		options?.relayPermission,
+		options?.relayQuestion,
 	]);
 
 	// Derive items (content ordering)

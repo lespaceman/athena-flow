@@ -250,6 +250,11 @@ const cli = meow(
 			--bot-token     Telegram bot token (channel telegram configure)
 			--user-id       Telegram allowed user id (channel telegram configure)
 			--chat-id       Telegram destination chat id (defaults to --user-id)
+			--token         Gateway link token (gateway link)
+			--tls-ca        Gateway custom CA path (gateway link)
+			--bind          Gateway listen address host:port (gateway start)
+			--insecure      Allow plain WS on non-loopback trusted tunnels (gateway start)
+			--grace-period-ms Gateway reconnect grace period in milliseconds (gateway start)
 			--dry-run       Print resolved bootstrap (workflow, isolation, plugins, harness) and exit (exec mode)
 			--project       Scope workflow command to project config (workflow use)
 			--global        Scope workflow command to global config (workflow use, default)
@@ -352,6 +357,22 @@ const cli = meow(
 			},
 			chatId: {
 				type: 'string',
+			},
+			token: {
+				type: 'string',
+			},
+			tlsCa: {
+				type: 'string',
+			},
+			bind: {
+				type: 'string',
+			},
+			insecure: {
+				type: 'boolean',
+				default: false,
+			},
+			gracePeriodMs: {
+				type: 'number',
 			},
 			dryRun: {
 				type: 'boolean',
@@ -492,6 +513,21 @@ async function main(): Promise<void> {
 		// Top-level meow consumes --json into cli.flags before subcommand args
 		// are sliced off; forward it so `gateway probe/status` see it.
 		if (cli.flags.json) subcommandArgs.push('--json');
+		if (typeof cli.flags.token === 'string') {
+			subcommandArgs.push('--token', cli.flags.token);
+		}
+		if (typeof cli.flags.tlsCa === 'string') {
+			subcommandArgs.push('--tls-ca', cli.flags.tlsCa);
+		}
+		if (typeof cli.flags.bind === 'string') {
+			subcommandArgs.push('--bind', cli.flags.bind);
+		}
+		if (cli.flags.insecure) {
+			subcommandArgs.push('--insecure');
+		}
+		if (typeof cli.flags.gracePeriodMs === 'number') {
+			subcommandArgs.push('--grace-period-ms', String(cli.flags.gracePeriodMs));
+		}
 		await exitWith(await runGatewayCommand({subcommand, subcommandArgs}));
 		return;
 	}

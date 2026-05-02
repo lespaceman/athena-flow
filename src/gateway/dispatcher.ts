@@ -55,6 +55,8 @@ export type DispatcherOptions = {
 	 * absent the dispatcher drops on no_runtime (legacy behavior).
 	 */
 	inboundQueue?: InboundQueue;
+	/** False when a runtime is registered but temporarily disconnected. */
+	canDispatch?: () => boolean;
 	log?: (level: 'debug' | 'info' | 'warn' | 'error', message: string) => void;
 };
 
@@ -69,6 +71,7 @@ export class Dispatcher {
 	private readonly sendOutbound: DispatcherOptions['sendOutbound'];
 	private readonly resolveAgent: AgentResolver;
 	private readonly inboundQueue: InboundQueue | undefined;
+	private readonly canDispatch: () => boolean;
 	private readonly log: DispatcherOptions['log'];
 
 	constructor(opts: DispatcherOptions) {
@@ -77,12 +80,13 @@ export class Dispatcher {
 		this.sendOutbound = opts.sendOutbound;
 		this.resolveAgent = opts.resolveAgent ?? (input => input.defaultAgentId);
 		this.inboundQueue = opts.inboundQueue;
+		this.canDispatch = opts.canDispatch ?? (() => true);
 		this.log = opts.log;
 	}
 
 	handleInbound(inbound: NormalizedInbound): DispatchResult {
 		const current = this.registry.getCurrent();
-		if (!current) {
+		if (!current || !this.canDispatch()) {
 			if (!this.inboundQueue) {
 				this.log?.(
 					'debug',
@@ -150,7 +154,7 @@ export class Dispatcher {
 	drainPending(): {dispatched: number; dropped: number} {
 		if (!this.inboundQueue) return {dispatched: 0, dropped: 0};
 		const current = this.registry.getCurrent();
-		if (!current) return {dispatched: 0, dropped: 0};
+		if (!current || !this.canDispatch()) return {dispatched: 0, dropped: 0};
 		const parked = this.inboundQueue.drain();
 		let dispatched = 0;
 		let dropped = 0;

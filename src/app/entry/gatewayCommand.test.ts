@@ -1,10 +1,12 @@
-import {describe, expect, it, beforeEach, afterEach} from 'vitest';
+import {describe, expect, it, beforeEach, afterEach, vi} from 'vitest';
+import {EventEmitter} from 'node:events';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {runGatewayCommand} from './gatewayCommand';
 import {startDaemon, type DaemonHandle} from '../../gateway/daemon';
 import type {GatewayPaths} from '../../gateway/paths';
+import type {RuntimeEndpoint} from '../../shared/gateway-protocol';
 
 function captureLogs() {
 	const out: string[] = [];
@@ -65,6 +67,60 @@ describe('runGatewayCommand', () => {
 		expect(cap.err.join('\n')).toContain('Unknown gateway subcommand');
 	});
 
+	it('link writes remote gateway endpoint config', async () => {
+		const cap = captureLogs();
+		let written: RuntimeEndpoint | undefined;
+		const code = await runGatewayCommand(
+			{
+				subcommand: 'link',
+				subcommandArgs: ['ws://127.0.0.1:18789', '--token', 'secret-token'],
+			},
+			{
+				...cap.baseDeps,
+				writeClientConfig: config => {
+					written = config;
+				},
+			},
+		);
+
+		expect(code).toBe(0);
+		expect(written).toEqual({
+			mode: 'remote',
+			url: 'ws://127.0.0.1:18789',
+			token: 'secret-token',
+		});
+		expect(cap.out.join('\n')).toContain('linked');
+	});
+
+	it('link requires --token', async () => {
+		const cap = captureLogs();
+		const code = await runGatewayCommand(
+			{subcommand: 'link', subcommandArgs: ['ws://127.0.0.1:18789']},
+			cap.baseDeps,
+		);
+
+		expect(code).toBe(2);
+		expect(cap.err.join('\n')).toContain('--token');
+	});
+
+	it('unlink rewrites gateway endpoint config to local mode', async () => {
+		const cap = captureLogs();
+		let written: RuntimeEndpoint | undefined;
+		const code = await runGatewayCommand(
+			{subcommand: 'unlink', subcommandArgs: []},
+			{
+				...cap.baseDeps,
+				writeClientConfig: config => {
+					written = config;
+				},
+			},
+		);
+
+		expect(code).toBe(0);
+		expect(written).toEqual({mode: 'local'});
+		expect(cap.out.join('\n')).toContain('local');
+	});
+
 	// Smoke-only: with a nonexistent daemon binary, spawn fails or exits non-zero.
 	it('start returns non-zero if the daemon binary is missing', async () => {
 		const cap = captureLogs();
@@ -73,6 +129,40 @@ describe('runGatewayCommand', () => {
 			cap.baseDeps,
 		);
 		expect(code).not.toBe(0);
+	});
+
+	it('start forwards bind flags to the daemon entry', async () => {
+		const cap = captureLogs();
+		const spawned = vi.fn((_entry: string, _args: string[]) => {
+			const child = new EventEmitter() as EventEmitter & {
+				once: EventEmitter['once'];
+			};
+			setTimeout(() => child.emit('exit', 0), 0);
+			return child as never;
+		});
+
+		const code = await runGatewayCommand(
+			{
+				subcommand: 'start',
+				subcommandArgs: [
+					'--bind',
+					'127.0.0.1:0',
+					'--insecure',
+					'--grace-period-ms',
+					'1000',
+				],
+			},
+			{...cap.baseDeps, spawnDaemon: spawned},
+		);
+
+		expect(code).toBe(0);
+		expect(spawned).toHaveBeenCalledWith('/nonexistent/daemon.js', [
+			'--bind',
+			'127.0.0.1:0',
+			'--insecure',
+			'--grace-period-ms',
+			'1000',
+		]);
 	});
 
 	describe('with a running daemon', () => {

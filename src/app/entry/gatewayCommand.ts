@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process';
+import type {ChildProcess} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -8,17 +9,23 @@ import {
 	GatewayUnreachableError,
 } from '../../gateway/control/client';
 import {resolveGatewayPaths} from '../../gateway/paths';
+import {writeGatewayClientConfig} from '../../infra/config/gatewayClient';
 import type {
 	PingResponsePayload,
+	RuntimeEndpoint,
 	StatusResponsePayload,
 } from '../../shared/gateway-protocol';
+import {isSupportedGatewayUrl} from '../../shared/gateway-protocol';
 
 const USAGE = `Usage: athena-flow gateway <subcommand> [--json]
 
 Subcommands:
   start     Run the gateway daemon in foreground (only mode in this build).
+            Options: [--bind <host:port>] [--insecure] [--grace-period-ms <n>]
   status    Print daemon pid, uptime, and version.
   probe     Send a ping RPC and report reachability + latency.
+  link      Store a remote WS/WSS gateway endpoint for this user.
+  unlink    Restore local UDS gateway mode for this user.
 `;
 
 export type GatewayCommandInput = {
@@ -32,6 +39,8 @@ export type GatewayCommandDeps = {
 	resolveDaemonEntry?: () => string;
 	resolveSocketPath?: () => string;
 	resolveTokenPath?: () => string;
+	writeClientConfig?: (config: RuntimeEndpoint) => void;
+	spawnDaemon?: (entry: string, args: string[]) => ChildProcess;
 };
 
 function defaultResolveDaemonEntry(): string {
@@ -71,6 +80,12 @@ export async function runGatewayCommand(
 		deps.resolveSocketPath ?? (() => resolveGatewayPaths().socketPath);
 	const resolveTokenPath =
 		deps.resolveTokenPath ?? (() => resolveGatewayPaths().tokenPath);
+	const writeClientConfig =
+		deps.writeClientConfig ?? (config => writeGatewayClientConfig(config));
+	const spawnDaemon =
+		deps.spawnDaemon ??
+		((entry: string, args: string[]) =>
+			spawn(process.execPath, [entry, ...args], {stdio: 'inherit'}));
 
 	const {subcommand, subcommandArgs} = input;
 
@@ -84,9 +99,8 @@ export async function runGatewayCommand(
 		// stub — M8 will reuse it for `spawn(detached: true)` background mode
 		// plus launchd/systemd install. For now it costs an extra Node startup
 		// but isolates the daemon's lifecycle from the CLI process.
-		void subcommandArgs;
 		const entry = resolveDaemonEntry();
-		const child = spawn(process.execPath, [entry], {stdio: 'inherit'});
+		const child = spawnDaemon(entry, subcommandArgs);
 		return await new Promise<number>(resolve => {
 			child.once('exit', code => resolve(code ?? 0));
 			child.once('error', err => {
@@ -94,6 +108,32 @@ export async function runGatewayCommand(
 				resolve(1);
 			});
 		});
+	}
+
+	if (subcommand === 'link') {
+		const parsed = parseLinkArgs(subcommandArgs);
+		if (!parsed.ok) {
+			logError(parsed.message);
+			return 2;
+		}
+		writeClientConfig({
+			mode: 'remote',
+			url: parsed.url,
+			token: parsed.token,
+			...(parsed.tlsCaPath !== undefined ? {tlsCaPath: parsed.tlsCaPath} : {}),
+		});
+		logOut(`gateway: linked remote endpoint ${parsed.url}`);
+		return 0;
+	}
+
+	if (subcommand === 'unlink') {
+		if (subcommandArgs.length > 0) {
+			logError('gateway unlink does not accept arguments');
+			return 2;
+		}
+		writeClientConfig({mode: 'local'});
+		logOut('gateway: using local gateway endpoint');
+		return 0;
 	}
 
 	if (subcommand === 'probe') {
@@ -159,6 +199,64 @@ export async function runGatewayCommand(
 	logError(`Unknown gateway subcommand: ${subcommand}`);
 	logError(USAGE);
 	return 2;
+}
+
+type LinkArgs =
+	| {ok: true; url: string; token: string; tlsCaPath?: string}
+	| {ok: false; message: string};
+
+function parseLinkArgs(args: string[]): LinkArgs {
+	const positional: string[] = [];
+	let token: string | undefined;
+	let tlsCaPath: string | undefined;
+	for (let i = 0; i < args.length; i += 1) {
+		const arg = args[i]!;
+		if (arg === '--token') {
+			token = args[i + 1];
+			i += 1;
+			continue;
+		}
+		if (arg === '--tls-ca') {
+			tlsCaPath = args[i + 1];
+			i += 1;
+			continue;
+		}
+		if (arg.startsWith('--token=')) {
+			token = arg.slice('--token='.length);
+			continue;
+		}
+		if (arg.startsWith('--tls-ca=')) {
+			tlsCaPath = arg.slice('--tls-ca='.length);
+			continue;
+		}
+		if (arg.startsWith('--')) {
+			return {ok: false, message: `gateway link: unknown option ${arg}`};
+		}
+		positional.push(arg);
+	}
+
+	const url = positional[0];
+	if (!url) {
+		return {ok: false, message: 'gateway link requires a ws:// or wss:// URL'};
+	}
+	if (positional.length > 1) {
+		return {ok: false, message: 'gateway link accepts exactly one URL'};
+	}
+	if (!isSupportedGatewayUrl(url)) {
+		return {ok: false, message: 'gateway link URL must use ws:// or wss://'};
+	}
+	if (!token) {
+		return {ok: false, message: 'gateway link requires --token <token>'};
+	}
+	if (tlsCaPath !== undefined && tlsCaPath.length === 0) {
+		return {ok: false, message: 'gateway link --tls-ca requires a path'};
+	}
+	return {
+		ok: true,
+		url,
+		token,
+		...(tlsCaPath !== undefined ? {tlsCaPath} : {}),
+	};
 }
 
 function reportProbeFailure(

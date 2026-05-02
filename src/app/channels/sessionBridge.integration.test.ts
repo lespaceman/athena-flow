@@ -20,6 +20,18 @@ import os from 'node:os';
 import path from 'node:path';
 import {startDaemon, type DaemonHandle} from '../../gateway/daemon';
 import type {GatewayPaths} from '../../gateway/paths';
+import {createDispatcher} from '../../gateway/control/handlers';
+import {
+	startControlServer,
+	type ControlServer,
+} from '../../gateway/control/server';
+import {SessionRegistry} from '../../gateway/sessionRegistry';
+import {Dispatcher} from '../../gateway/dispatcher';
+import {InboundQueue} from '../../gateway/state/inboundQueue';
+import {openGatewayState, type GatewayStateDb} from '../../gateway/state/db';
+import {RelayCoordinator} from '../../gateway/relay/coordinator';
+import {ChannelManager} from '../../gateway/channelManager';
+import {createLoopbackWsServerTransport} from '../../gateway/transport/tlsWs';
 import {SessionBridge} from './sessionBridge';
 import type {
 	AdapterContext,
@@ -104,23 +116,76 @@ const inbound: NormalizedInbound = {
 describe('SessionBridge integration', () => {
 	let paths: GatewayPaths;
 	let daemon: DaemonHandle | undefined;
+	let controlServer: ControlServer | undefined;
+	let stateDb: GatewayStateDb | undefined;
 	let bridge: SessionBridge | undefined;
 
 	beforeEach(() => {
 		paths = tmpPaths();
 		daemon = undefined;
+		controlServer = undefined;
+		stateDb = undefined;
 		bridge = undefined;
 	});
 
 	afterEach(async () => {
 		if (bridge) await bridge.stop();
+		if (controlServer) await controlServer.close();
 		if (daemon) await daemon.stop();
+		stateDb?.close();
 		try {
 			fs.rmSync(path.dirname(paths.runDir), {recursive: true, force: true});
 		} catch {
 			// best-effort
 		}
 	}, 60_000);
+
+	it('registers through an explicit remote WS endpoint', async () => {
+		const token = 'remote-token';
+		const channelManager = new ChannelManager();
+		const registry = new SessionRegistry();
+		stateDb = openGatewayState(':memory:');
+		const dispatcher = new Dispatcher({
+			registry,
+			pushDispatch: () => {},
+			sendOutbound: (channelId, msg) => channelManager.send(channelId, msg),
+			inboundQueue: new InboundQueue(stateDb),
+		});
+		const relayCoordinator = new RelayCoordinator({
+			adapters: () => channelManager.listAdapters(),
+		});
+		const wsTransport = createLoopbackWsServerTransport({
+			host: '127.0.0.1',
+			port: 0,
+		});
+		controlServer = await startControlServer({
+			socketPath: 'unused-for-ws',
+			token,
+			startedAt: Date.now(),
+			handler: createDispatcher({
+				startedAt: Date.now(),
+				registry,
+				dispatcher,
+				channelManager,
+				relayCoordinator,
+			}),
+			transport: wsTransport,
+		});
+
+		bridge = new SessionBridge({
+			runtimeId: 'remote-s1',
+			defaultAgentId: 'main',
+			endpoint: {
+				mode: 'remote',
+				url: wsTransport.endpoint().url,
+				token,
+			},
+		});
+
+		await bridge.start();
+
+		expect(registry.getCurrent()?.runtimeId).toBe('remote-s1');
+	}, 15_000);
 
 	it('round-trips dispatch.turn → completeTurn → adapter.send', async () => {
 		daemon = await startDaemon({

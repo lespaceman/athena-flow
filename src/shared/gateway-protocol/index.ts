@@ -9,6 +9,8 @@ export type {
 	ControlResponseEnvelope,
 	ControlPushEnvelope,
 } from './envelope';
+export type {LocalEndpoint, RemoteEndpoint, RuntimeEndpoint} from './endpoint';
+export {isSupportedGatewayUrl, parseRuntimeEndpoint} from './endpoint';
 export type {
 	ControlRequestKind,
 	ControlPushKind,

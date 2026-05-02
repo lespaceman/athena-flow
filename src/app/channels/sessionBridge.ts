@@ -25,6 +25,9 @@
 
 import {connect, type ControlClient} from '../../gateway/control/client';
 import {resolveGatewayPaths, type GatewayPaths} from '../../gateway/paths';
+import {writeGatewayTrace} from '../../gateway/transport/trace';
+import {createWsClientTransport} from '../../gateway/transport/wsClient';
+import {readGatewayClientConfig} from '../../infra/config/gatewayClient';
 import type {
 	ChannelLocation,
 	ControlPushEnvelope,
@@ -47,6 +50,7 @@ import type {
 	SessionTurnCompleteResponsePayload,
 	SessionUnregisterRequestPayload,
 	SessionUnregisterResponsePayload,
+	RuntimeEndpoint,
 } from '../../shared/gateway-protocol';
 import {readFileSync} from 'node:fs';
 
@@ -64,6 +68,10 @@ export type SessionBridgeOptions = {
 	paths?: GatewayPaths;
 	/** Override token loader for tests. */
 	loadToken?: (tokenPath: string) => string;
+	/** Explicit endpoint; defaults to ~/.config/athena/gateway.json. */
+	endpoint?: RuntimeEndpoint;
+	/** Override endpoint loader for tests. */
+	loadEndpoint?: () => RuntimeEndpoint;
 	/** Pre-resolved client; bypasses the UDS connect step (test affordance). */
 	client?: ControlClient;
 };
@@ -109,12 +117,23 @@ export class SessionBridge {
 		if (this.started) {
 			throw new Error('session bridge already started');
 		}
+		const endpoint =
+			this.opts.endpoint ??
+			(this.opts.paths
+				? {mode: 'local' as const}
+				: (this.opts.loadEndpoint ?? readGatewayClientConfig)());
 		const paths = this.opts.paths ?? resolveGatewayPaths();
+		writeGatewayTrace(
+			`sessionBridge start runtimeId=${this.opts.runtimeId} endpoint=${endpoint.mode}${
+				endpoint.mode === 'remote' ? ` url=${endpoint.url}` : ''
+			}`,
+		);
 		const client =
 			this.opts.client ??
-			(await connect({
-				socketPath: paths.socketPath,
-				token: (this.opts.loadToken ?? defaultLoadToken)(paths.tokenPath),
+			(await connectForEndpoint({
+				endpoint,
+				paths,
+				loadToken: this.opts.loadToken ?? defaultLoadToken,
 			}));
 		this.client = client;
 		this.turnDispatchUnsubscribe = client.onPush(
@@ -144,6 +163,9 @@ export class SessionBridge {
 			SessionRegisterRequestPayload,
 			SessionRegisterResponsePayload
 		>('session.register', req);
+		writeGatewayTrace(
+			`sessionBridge registered runtimeId=${this.opts.runtimeId}`,
+		);
 		this.started = true;
 		return res;
 	}
@@ -196,6 +218,9 @@ export class SessionBridge {
 	async relayPermission(
 		req: SessionBridgePermissionRequest,
 	): Promise<RelayPermissionResponsePayload> {
+		writeGatewayTrace(
+			`sessionBridge relayPermission tool=${req.toolName} runtimeId=${this.opts.runtimeId}`,
+		);
 		const client = this.requireClient();
 		const payload: RelayPermissionRequestPayload = {
 			...(req.channelRequestId !== undefined
@@ -279,4 +304,22 @@ export type {PermissionRelayResult, QuestionRelayResult};
 
 function defaultLoadToken(tokenPath: string): string {
 	return readFileSync(tokenPath, 'utf8').trim();
+}
+
+async function connectForEndpoint(opts: {
+	endpoint: RuntimeEndpoint;
+	paths: GatewayPaths;
+	loadToken: (tokenPath: string) => string;
+}): Promise<ControlClient> {
+	if (opts.endpoint.mode === 'remote') {
+		return connect({
+			socketPath: opts.paths.socketPath,
+			token: opts.endpoint.token,
+			transport: createWsClientTransport({url: opts.endpoint.url}),
+		});
+	}
+	return connect({
+		socketPath: opts.paths.socketPath,
+		token: opts.loadToken(opts.paths.tokenPath),
+	});
 }

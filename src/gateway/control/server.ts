@@ -19,16 +19,17 @@
  * depth check against socket leaks.
  */
 
-import fs from 'node:fs';
-import net from 'node:net';
-import path from 'node:path';
 import type {
 	ControlEnvelope,
 	ControlPushEnvelope,
 	ControlResponseEnvelope,
 } from '../../shared/gateway-protocol';
 import {timingSafeTokenEqual} from '../auth';
-import {encodeLine, LineReader, LineReaderOverflowError} from './lineReader';
+import {
+	createUdsServerTransport,
+	type UdsServerTransportOptions,
+} from '../transport/uds';
+import type {FramedConnection, ServerTransport} from '../transport/types';
 
 const CONNECT_TIMEOUT_MS = 2_000;
 
@@ -57,6 +58,7 @@ export type ControlServerOptions = {
 	onDisconnect?: (ctx: ConnectionContext) => void;
 	/** Override stderr for tests. */
 	logError?: (message: string) => void;
+	transport?: ServerTransport;
 };
 
 export type ControlServer = {
@@ -92,16 +94,16 @@ export async function startControlServer(
 	const {socketPath, token, startedAt, handler} = opts;
 	const logError =
 		opts.logError ?? ((m: string) => process.stderr.write(m + '\n'));
+	const transport =
+		opts.transport ??
+		createUdsServerTransport({
+			socketPath,
+			logError,
+		} satisfies UdsServerTransportOptions);
 
-	await unlinkIfStale(socketPath);
-	fs.mkdirSync(path.dirname(socketPath), {recursive: true, mode: 0o700});
-
-	const activeSockets = new Set<net.Socket>();
-	const server = net.createServer({pauseOnConnect: false}, socket => {
-		activeSockets.add(socket);
-		socket.once('close', () => activeSockets.delete(socket));
+	const listener = await transport.listen(connection => {
 		handleConnection(
-			socket,
+			connection,
 			token,
 			startedAt,
 			handler,
@@ -111,78 +113,13 @@ export async function startControlServer(
 		);
 	});
 
-	await new Promise<void>((resolve, reject) => {
-		const onError = (err: Error) => reject(err);
-		server.once('error', onError);
-		server.listen(socketPath, () => {
-			server.off('error', onError);
-			try {
-				if (process.platform !== 'win32') {
-					fs.chmodSync(socketPath, 0o600);
-				}
-			} catch (err) {
-				logError(
-					`gateway: chmod 0600 on socket failed: ${
-						err instanceof Error ? err.message : String(err)
-					}`,
-				);
-			}
-			resolve();
-		});
-	});
-
 	return {
-		close: () =>
-			new Promise<void>(resolve => {
-				// `server.close()` only fires its callback once all sockets close.
-				// In-flight handlers (e.g. a long-poll relay waiting on a human)
-				// keep client sockets alive indefinitely, so we destroy them
-				// explicitly to bound shutdown time.
-				for (const socket of activeSockets) {
-					socket.destroy();
-				}
-				activeSockets.clear();
-				server.close(() => {
-					try {
-						fs.unlinkSync(socketPath);
-					} catch {
-						// best-effort
-					}
-					resolve();
-				});
-			}),
+		close: () => listener.close(),
 	};
 }
 
-async function unlinkIfStale(socketPath: string): Promise<void> {
-	if (!fs.existsSync(socketPath)) return;
-	const alive = await new Promise<boolean>(resolve => {
-		const probe = net.connect(socketPath);
-		const timer = setTimeout(() => {
-			probe.destroy();
-			resolve(false);
-		}, 250);
-		probe.once('connect', () => {
-			clearTimeout(timer);
-			probe.end();
-			resolve(true);
-		});
-		probe.once('error', () => {
-			clearTimeout(timer);
-			resolve(false);
-		});
-	});
-	if (!alive) {
-		try {
-			fs.unlinkSync(socketPath);
-		} catch {
-			// best-effort
-		}
-	}
-}
-
 function handleConnection(
-	socket: net.Socket,
+	connection: FramedConnection,
 	expectedToken: string,
 	startedAt: number,
 	handler: RequestHandler,
@@ -191,118 +128,84 @@ function handleConnection(
 	onDisconnect?: (ctx: ConnectionContext) => void,
 ): void {
 	let authed = false;
-	const reader = new LineReader();
 	const connectTimer = setTimeout(() => {
-		socket.destroy();
+		connection.close();
 	}, CONNECT_TIMEOUT_MS);
-
-	const writeLine = (line: string): void => {
-		if (!socket.writable) return;
-		socket.write(line);
-	};
 
 	const ctx: ConnectionContext = {
 		connectionId: nextConnectionId(),
-		push: env => writeLine(encodeLine(env)),
-		disconnect: () => socket.destroy(),
+		push: env => connection.send(env),
+		disconnect: () => connection.close(),
 	};
 
-	socket.on('data', chunk => {
-		let lines: string[];
-		try {
-			lines = reader.push(chunk);
-		} catch (err) {
-			if (err instanceof LineReaderOverflowError) {
-				logError(`gateway: control connection overflow — closing`);
-			}
-			socket.destroy();
+	connection.onFrame(parsed => {
+		if (!isStringRecord(parsed)) {
+			connection.close();
 			return;
 		}
 
-		for (const line of lines) {
-			let parsed: unknown;
-			try {
-				parsed = JSON.parse(line);
-			} catch {
-				socket.destroy();
+		if (!authed) {
+			if (parsed['kind'] !== 'connect') {
+				connection.close();
 				return;
 			}
-			if (!isStringRecord(parsed)) {
-				socket.destroy();
-				return;
-			}
-
-			if (!authed) {
-				if (parsed['kind'] !== 'connect') {
-					socket.destroy();
-					return;
-				}
-				const tok = parsed['token'];
-				if (
-					typeof tok !== 'string' ||
-					!timingSafeTokenEqual(tok, expectedToken)
-				) {
-					writeLine(
-						encodeLine({
-							ok: false,
-							error: {code: 'unauthorized', message: 'invalid token'},
-						}),
-					);
-					socket.end();
-					return;
-				}
-				authed = true;
-				clearTimeout(connectTimer);
-				writeLine(
-					encodeLine({
-						ok: true,
-						hello: {daemonPid: process.pid, startedAt},
-					}),
-				);
-				onConnect?.(ctx);
-				continue;
-			}
-
-			const requestId =
-				typeof parsed['request_id'] === 'string'
-					? (parsed['request_id'] as string)
-					: '';
+			const tok = parsed['token'];
 			if (
-				typeof parsed['kind'] !== 'string' ||
-				typeof parsed['ts'] !== 'number' ||
-				!('payload' in parsed) ||
-				requestId.length === 0
+				typeof tok !== 'string' ||
+				!timingSafeTokenEqual(tok, expectedToken)
 			) {
-				writeLine(
-					encodeLine(nowError(requestId, 'bad_request', 'malformed envelope')),
-				);
-				continue;
+				connection.send({
+					ok: false,
+					error: {code: 'unauthorized', message: 'invalid token'},
+				});
+				connection.close();
+				return;
 			}
-			void Promise.resolve()
-				.then(() => handler(parsed as ControlEnvelope, ctx))
-				.then(res => writeLine(encodeLine(res)))
-				.catch((err: unknown) =>
-					writeLine(
-						encodeLine(
-							nowError(
-								requestId,
-								'handler_error',
-								err instanceof Error ? err.message : String(err),
-							),
-						),
-					),
-				);
+			authed = true;
+			clearTimeout(connectTimer);
+			connection.send({
+				ok: true,
+				hello: {daemonPid: process.pid, startedAt},
+			});
+			onConnect?.(ctx);
+			return;
 		}
+
+		const requestId =
+			typeof parsed['request_id'] === 'string'
+				? (parsed['request_id'] as string)
+				: '';
+		if (
+			typeof parsed['kind'] !== 'string' ||
+			typeof parsed['ts'] !== 'number' ||
+			!('payload' in parsed) ||
+			requestId.length === 0
+		) {
+			connection.send(nowError(requestId, 'bad_request', 'malformed envelope'));
+			return;
+		}
+		void Promise.resolve()
+			.then(() => handler(parsed as ControlEnvelope, ctx))
+			.then(res => connection.send(res))
+			.catch((err: unknown) =>
+				connection.send(
+					nowError(
+						requestId,
+						'handler_error',
+						err instanceof Error ? err.message : String(err),
+					),
+				),
+			);
 	});
 
-	socket.on('error', err => {
+	connection.onError(err => {
 		const code = (err as NodeJS.ErrnoException).code;
 		if (code !== 'EPIPE' && code !== 'ECONNRESET') {
 			logError(`gateway: socket error: ${err.message}`);
 		}
 	});
 
-	socket.on('close', () => {
+	connection.onClose(() => {
 		clearTimeout(connectTimer);
 		if (authed) {
 			onDisconnect?.(ctx);

@@ -215,6 +215,90 @@ describe('M5 session flow', () => {
 			c2.close();
 		}
 	});
+
+	it('keeps a stale registration during grace and rebinds the same runtime', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			disconnectGracePeriodMs: 1_000,
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+		const c1 = await connect({socketPath: paths.socketPath, token});
+		await c1.request('session.register', {
+			runtimeId: 'r1',
+			defaultAgentId: 'main',
+			pid: 1,
+		});
+		c1.close();
+		await waitUntil(
+			() =>
+				daemon!.registry.getCurrent()?.runtimeId === 'r1' &&
+				!daemon!.registry.hasActiveBinding('r1'),
+		);
+
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:stale'});
+		await waitUntil(() => daemon!.inboundQueue.size() === 1);
+
+		const c2 = await connect({socketPath: paths.socketPath, token});
+		try {
+			const dispatchPushed =
+				vi.fn<(p: SessionDispatchTurnPushPayload) => void>();
+			c2.onPush('session.dispatch.turn', env =>
+				dispatchPushed(env.payload as SessionDispatchTurnPushPayload),
+			);
+			await c2.request('session.register', {
+				runtimeId: 'r1',
+				defaultAgentId: 'main',
+				pid: 2,
+			});
+			await waitUntil(() => dispatchPushed.mock.calls.length === 1);
+			expect(dispatchPushed.mock.calls[0]?.[0].inbound.idempotencyKey).toBe(
+				'fk:stale',
+			);
+			expect(daemon.registry.getCurrent()?.pid).toBe(2);
+			expect(daemon.inboundQueue.size()).toBe(0);
+		} finally {
+			c2.close();
+		}
+	});
+
+	it('expires a stale registration after the grace window', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			disconnectGracePeriodMs: 25,
+		});
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+		const c1 = await connect({socketPath: paths.socketPath, token});
+		await c1.request('session.register', {
+			runtimeId: 'r1',
+			defaultAgentId: 'main',
+			pid: 1,
+		});
+		c1.close();
+
+		await waitUntil(() => daemon!.registry.getCurrent() === null, 500);
+
+		const c2 = await connect({socketPath: paths.socketPath, token});
+		try {
+			await c2.request('session.register', {
+				runtimeId: 'r2',
+				defaultAgentId: 'main',
+				pid: 2,
+			});
+			expect(daemon.registry.getCurrent()?.runtimeId).toBe('r2');
+		} finally {
+			c2.close();
+		}
+	});
 });
 
 async function waitUntil(cond: () => boolean, timeoutMs = 2000): Promise<void> {

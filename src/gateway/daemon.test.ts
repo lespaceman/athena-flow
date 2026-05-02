@@ -4,6 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {startDaemon} from './daemon';
 import type {GatewayPaths} from './paths';
+import {connect} from './control/client';
+import {createWsClientTransport} from './transport/wsClient';
 
 function tmpPaths(): GatewayPaths {
 	const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'athena-gw-test-'));
@@ -94,5 +96,35 @@ describe('startDaemon', () => {
 			}),
 		).rejects.toMatchObject({name: 'GatewayAlreadyRunningError'});
 		await first.stop();
+	});
+
+	it('serves control traffic over loopback WS when bind is configured', async () => {
+		const handle = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			listenSpec: {
+				kind: 'tcp',
+				host: '127.0.0.1',
+				port: 0,
+				insecure: false,
+			},
+		});
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+		const client = await connect({
+			socketPath: paths.socketPath,
+			token,
+			transport: createWsClientTransport({url: handle.listener.url!}),
+		});
+		const res = await client.request<Record<string, never>, {pong: boolean}>(
+			'ping',
+			{},
+		);
+
+		expect(res.pong).toBe(true);
+		client.close();
+		await handle.stop();
 	});
 });

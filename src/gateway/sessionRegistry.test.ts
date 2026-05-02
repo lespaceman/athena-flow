@@ -36,6 +36,36 @@ describe('SessionRegistry', () => {
 		).toThrow(AlreadyRegisteredError);
 	});
 
+	it('allows the same runtime to re-register for reconnect', () => {
+		const reg = makeRegistry();
+		const first = reg.register({
+			runtimeId: 'r1',
+			defaultAgentId: 'main',
+			pid: 99,
+		});
+		const rebound = reg.register({
+			runtimeId: 'r1',
+			defaultAgentId: 'main',
+			pid: 100,
+		});
+
+		expect(rebound.registeredAt).toBe(first.registeredAt);
+		expect(reg.getCurrent()?.pid).toBe(100);
+	});
+
+	it('tracks active and stale connection binding independently from registration', () => {
+		const reg = makeRegistry();
+		reg.register({runtimeId: 'r1', defaultAgentId: 'main', pid: 99});
+
+		expect(reg.hasActiveBinding('r1')).toBe(false);
+		reg.bindConnection('r1', 'c1');
+		expect(reg.hasActiveBinding('r1')).toBe(true);
+		expect(reg.markConnectionStale('c1')).toBe('r1');
+		expect(reg.hasActiveBinding('r1')).toBe(false);
+		reg.bindConnection('r1', 'c2');
+		expect(reg.hasActiveBinding('r1')).toBe(true);
+	});
+
 	it('allows re-register after unregister', () => {
 		const reg = makeRegistry();
 		reg.register({runtimeId: 'r1', defaultAgentId: 'main', pid: 99});

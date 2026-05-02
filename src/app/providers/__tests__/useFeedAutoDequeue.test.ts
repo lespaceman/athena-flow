@@ -195,6 +195,22 @@ describe('useFeed permission auto-dequeue', () => {
 		expect(result.current.permissionQueueCount).toBe(0);
 	});
 
+	it('relays permission requests when a relay callback is configured', () => {
+		const runtime = createMockRuntime();
+		const relayPermission = vi.fn();
+		renderHook(() =>
+			useFeed(runtime, [], undefined, undefined, {relayPermission}),
+		);
+
+		act(() => {
+			runtime.emitEvent(makePermissionEvent('req-relay'));
+		});
+
+		expect(relayPermission).toHaveBeenCalledWith(
+			expect.objectContaining({id: 'req-relay', toolName: 'Bash'}),
+		);
+	});
+
 	it('dequeues question when question_answer decision arrives via onDecision', async () => {
 		const runtime = createMockRuntime();
 		const {result} = renderHook(() => useFeed(runtime));

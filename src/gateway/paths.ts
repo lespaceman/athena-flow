@@ -22,6 +22,16 @@ export type GatewayPaths = {
 	statePath: string;
 };
 
+export type GatewayListenSpec =
+	| {kind: 'uds'; socketPath: string}
+	| {kind: 'tcp'; host: string; port: number; insecure: boolean};
+
+export type ResolveListenSpecOptions = {
+	paths: GatewayPaths;
+	bind?: string;
+	insecure?: boolean;
+};
+
 export function resolveGatewayPaths(
 	env: NodeJS.ProcessEnv = process.env,
 ): GatewayPaths {
@@ -45,4 +55,46 @@ export function resolveGatewayPaths(
 	}
 
 	return {runDir, configDir, socketPath, lockPath, tokenPath, statePath};
+}
+
+export function resolveListenSpec(
+	opts: ResolveListenSpecOptions,
+): GatewayListenSpec {
+	if (!opts.bind) {
+		return {kind: 'uds', socketPath: opts.paths.socketPath};
+	}
+	const parsed = parseHostPort(opts.bind);
+	return {
+		kind: 'tcp',
+		host: parsed.host,
+		port: parsed.port,
+		insecure: opts.insecure ?? false,
+	};
+}
+
+function parseHostPort(bind: string): {host: string; port: number} {
+	const idx = bind.lastIndexOf(':');
+	if (idx <= 0 || idx === bind.length - 1) {
+		throw new Error(
+			`gateway: invalid --bind value ${bind}; expected host:port`,
+		);
+	}
+	const host = bind.slice(0, idx);
+	const portText = bind.slice(idx + 1);
+	const port = Number(portText);
+	if (!Number.isInteger(port) || port < 0 || port > 65535) {
+		throw new Error(`gateway: invalid --bind port ${portText}`);
+	}
+	return {host, port};
+}
+
+export function isLoopbackHost(host: string): boolean {
+	const normalized = host.toLowerCase();
+	return (
+		normalized === 'localhost' ||
+		normalized === '::1' ||
+		normalized === '[::1]' ||
+		normalized === '0:0:0:0:0:0:0:1' ||
+		normalized.startsWith('127.')
+	);
 }
