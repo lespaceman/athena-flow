@@ -24,8 +24,6 @@ import {SessionBridge} from './sessionBridge';
 import type {
 	AdapterContext,
 	ChannelAdapter,
-	ChannelHealthListener,
-	ChannelInboundListener,
 	NormalizedInbound,
 	OutboundMessage,
 	PermissionRelayRequest,
@@ -41,13 +39,16 @@ class FakeAdapter implements ChannelAdapter {
 		relayPermission: true,
 		relayQuestion: false,
 	} as const;
-	private inboundListeners = new Set<ChannelInboundListener>();
-	private healthListeners = new Set<ChannelHealthListener>();
+	private ctx: AdapterContext | null = null;
 	sentMessages: OutboundMessage[] = [];
 	pendingPermission: ((res: PermissionRelayResult) => void) | null = null;
 
-	async start(_ctx: AdapterContext): Promise<void> {}
-	async stop(_reason: StopReason): Promise<void> {}
+	async start(ctx: AdapterContext): Promise<void> {
+		this.ctx = ctx;
+	}
+	async stop(_reason: StopReason): Promise<void> {
+		this.ctx = null;
+	}
 	async send(msg: OutboundMessage) {
 		this.sentMessages.push(msg);
 		return {providerMessageId: `m${this.sentMessages.length}`, deliveredAt: 1};
@@ -68,22 +69,8 @@ class FakeAdapter implements ChannelAdapter {
 		});
 	}
 
-	on(event: 'inbound', cb: ChannelInboundListener): void;
-	on(event: 'health', cb: ChannelHealthListener): void;
-	on(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.add(cb as ChannelInboundListener);
-		else this.healthListeners.add(cb as ChannelHealthListener);
-	}
-	off(event: 'inbound', cb: ChannelInboundListener): void;
-	off(event: 'health', cb: ChannelHealthListener): void;
-	off(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.delete(cb as ChannelInboundListener);
-		else this.healthListeners.delete(cb as ChannelHealthListener);
-	}
 	emitInbound(msg: NormalizedInbound): void {
-		for (const cb of this.inboundListeners) cb(msg);
+		this.ctx?.emitInbound(msg);
 	}
 }
 
@@ -141,6 +128,7 @@ describe('SessionBridge integration', () => {
 			silent: true,
 			paths,
 			skipSignalHandlers: true,
+			skipChannelLoad: true,
 		});
 		const adapter = new FakeAdapter();
 		await daemon.channelManager.register(adapter);
@@ -180,6 +168,7 @@ describe('SessionBridge integration', () => {
 			silent: true,
 			paths,
 			skipSignalHandlers: true,
+			skipChannelLoad: true,
 		});
 		const adapter = new FakeAdapter();
 		await daemon.channelManager.register(adapter);
@@ -216,6 +205,7 @@ describe('SessionBridge integration', () => {
 			silent: true,
 			paths,
 			skipSignalHandlers: true,
+			skipChannelLoad: true,
 		});
 		const adapter = new FakeAdapter();
 		await daemon.channelManager.register(adapter);
@@ -247,6 +237,7 @@ describe('SessionBridge integration', () => {
 			silent: true,
 			paths,
 			skipSignalHandlers: true,
+			skipChannelLoad: true,
 		});
 		const adapter = new FakeAdapter();
 		await daemon.channelManager.register(adapter);

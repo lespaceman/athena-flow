@@ -75,3 +75,41 @@ export type HealthSample = {
 	lastInboundAt?: number;
 	note?: string;
 };
+
+/**
+ * Build a `ChannelLocation` for a 1:1 DM. Optional `threadId` covers
+ * adapters that thread DMs (rare; Telegram doesn't, Slack DMs can).
+ */
+export function peerLocation(input: {
+	channelId: string;
+	accountId: string;
+	peerId: string;
+	threadId?: string;
+}): ChannelLocation {
+	return {
+		channelId: input.channelId,
+		accountId: input.accountId,
+		peer: {id: input.peerId, kind: 'user'},
+		...(input.threadId !== undefined ? {thread: {id: input.threadId}} : {}),
+	};
+}
+
+/**
+ * Build a `ChannelLocation` for a group/channel room. `kind` defaults to
+ * `'group'`; pass `'channel'` for broadcast surfaces (Telegram channels,
+ * Slack public channels with no membership cap).
+ */
+export function roomLocation(input: {
+	channelId: string;
+	accountId: string;
+	roomId: string;
+	kind?: 'group' | 'channel';
+	threadId?: string;
+}): ChannelLocation {
+	return {
+		channelId: input.channelId,
+		accountId: input.accountId,
+		room: {id: input.roomId, kind: input.kind ?? 'group'},
+		...(input.threadId !== undefined ? {thread: {id: input.threadId}} : {}),
+	};
+}

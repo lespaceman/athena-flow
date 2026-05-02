@@ -2,8 +2,6 @@ import {describe, expect, it, vi} from 'vitest';
 import type {
 	AdapterContext,
 	ChannelAdapter,
-	ChannelHealthListener,
-	ChannelInboundListener,
 	NormalizedInbound,
 	OutboundMessage,
 	StopReason,
@@ -16,9 +14,13 @@ import {
 
 class FakeAdapter implements ChannelAdapter {
 	readonly id: string;
-	readonly capabilities = {chat: true, threads: false} as const;
-	private inboundListeners = new Set<ChannelInboundListener>();
-	private healthListeners = new Set<ChannelHealthListener>();
+	readonly capabilities = {
+		chat: true,
+		threads: false,
+		relayPermission: false,
+		relayQuestion: false,
+	} as const;
+	private ctx: AdapterContext | null = null;
 	startCalls = 0;
 	stopCalls: StopReason[] = [];
 	sentMessages: OutboundMessage[] = [];
@@ -28,13 +30,15 @@ class FakeAdapter implements ChannelAdapter {
 		this.id = id;
 	}
 
-	async start(_ctx: AdapterContext): Promise<void> {
+	async start(ctx: AdapterContext): Promise<void> {
 		this.startCalls++;
+		this.ctx = ctx;
 		if (this.startError) throw this.startError;
 	}
 
 	async stop(reason: StopReason): Promise<void> {
 		this.stopCalls.push(reason);
+		this.ctx = null;
 	}
 
 	async send(msg: OutboundMessage) {
@@ -46,28 +50,12 @@ class FakeAdapter implements ChannelAdapter {
 		return {ok: true, checkedAt: 1};
 	}
 
-	on(event: 'inbound', cb: ChannelInboundListener): void;
-	on(event: 'health', cb: ChannelHealthListener): void;
-	on(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.add(cb as ChannelInboundListener);
-		else this.healthListeners.add(cb as ChannelHealthListener);
-	}
-
-	off(event: 'inbound', cb: ChannelInboundListener): void;
-	off(event: 'health', cb: ChannelHealthListener): void;
-	off(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.delete(cb as ChannelInboundListener);
-		else this.healthListeners.delete(cb as ChannelHealthListener);
-	}
-
 	emitInbound(msg: NormalizedInbound): void {
-		for (const cb of this.inboundListeners) cb(msg);
+		this.ctx?.emitInbound(msg);
 	}
 
 	emitHealth(at: number, ok: boolean): void {
-		for (const cb of this.healthListeners) cb({at, transportOk: ok});
+		this.ctx?.emitHealth({at, transportOk: ok});
 	}
 }
 

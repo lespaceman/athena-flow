@@ -1,7 +1,7 @@
 /**
  * Build `ChannelAdapter` instances from `~/.config/athena/channels/*.json`
- * sidecars. The gateway daemon calls `instantiateAdapters(sidecars)` on
- * startup before accepting client connections.
+ * sidecars by dispatching to the registered `AdapterModule` for the
+ * sidecar's name.
  *
  * Unknown channel names are reported as errors but do not abort startup —
  * a single misconfigured sidecar must not block other channels from coming
@@ -10,39 +10,23 @@
 
 import type {ChannelAdapter} from '../../shared/gateway-protocol';
 import type {ChannelSidecar} from '../../infra/config/channels';
-import {TelegramAdapter, type TelegramAdapterOptions} from './telegram/adapter';
+import {findAdapterModule} from './registry';
 
 export type InstantiateResult =
 	| {ok: true; adapter: ChannelAdapter}
 	| {ok: false; reason: string};
 
 export function instantiateAdapter(sidecar: ChannelSidecar): InstantiateResult {
-	switch (sidecar.name) {
-		case 'telegram':
-			return buildTelegramAdapter(sidecar);
-		default:
-			return {ok: false, reason: `unknown channel: ${sidecar.name}`};
+	const module = findAdapterModule(sidecar.name);
+	if (!module) {
+		return {ok: false, reason: `unknown channel: ${sidecar.name}`};
 	}
-}
-
-function buildTelegramAdapter(sidecar: ChannelSidecar): InstantiateResult {
-	const token = sidecar.options['bot_token'];
-	if (typeof token !== 'string' || token.length === 0) {
-		return {ok: false, reason: 'telegram: bot_token missing'};
-	}
-	const defaultChatRaw = sidecar.options['default_chat_id'];
-	const apiBaseRaw = sidecar.options['api_base'];
-	const pollTimeoutRaw = sidecar.options['poll_timeout_sec'];
-	const opts: TelegramAdapterOptions = {
-		token,
+	const parsed = module.parseConfig({
+		options: sidecar.options,
 		allowedUserIds: sidecar.allowedUserIds,
-		...(typeof defaultChatRaw === 'string' || typeof defaultChatRaw === 'number'
-			? {defaultChatId: defaultChatRaw}
-			: {}),
-		...(typeof apiBaseRaw === 'string' ? {apiBase: apiBaseRaw} : {}),
-		...(typeof pollTimeoutRaw === 'number'
-			? {pollTimeoutSec: pollTimeoutRaw}
-			: {}),
-	};
-	return {ok: true, adapter: new TelegramAdapter(opts)};
+	});
+	if (!parsed.ok) {
+		return {ok: false, reason: `${sidecar.name}: ${parsed.reason}`};
+	}
+	return {ok: true, adapter: module.create(parsed.config)};
 }

@@ -17,8 +17,6 @@ import type {GatewayPaths} from '../paths';
 import type {
 	AdapterContext,
 	ChannelAdapter,
-	ChannelHealthListener,
-	ChannelInboundListener,
 	NormalizedInbound,
 	OutboundMessage,
 	SessionDispatchTurnPushPayload,
@@ -28,13 +26,21 @@ import {connect} from './client';
 
 class FakeAdapter implements ChannelAdapter {
 	readonly id = 'fake';
-	readonly capabilities = {chat: true, threads: false} as const;
-	private inboundListeners = new Set<ChannelInboundListener>();
-	private healthListeners = new Set<ChannelHealthListener>();
+	readonly capabilities = {
+		chat: true,
+		threads: false,
+		relayPermission: false,
+		relayQuestion: false,
+	} as const;
+	private ctx: AdapterContext | null = null;
 	sentMessages: OutboundMessage[] = [];
 
-	async start(_ctx: AdapterContext): Promise<void> {}
-	async stop(_reason: StopReason): Promise<void> {}
+	async start(ctx: AdapterContext): Promise<void> {
+		this.ctx = ctx;
+	}
+	async stop(_reason: StopReason): Promise<void> {
+		this.ctx = null;
+	}
 	async send(msg: OutboundMessage) {
 		this.sentMessages.push(msg);
 		return {providerMessageId: 'pm1', deliveredAt: 1};
@@ -42,22 +48,8 @@ class FakeAdapter implements ChannelAdapter {
 	async probe() {
 		return {ok: true, checkedAt: 1};
 	}
-	on(event: 'inbound', cb: ChannelInboundListener): void;
-	on(event: 'health', cb: ChannelHealthListener): void;
-	on(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.add(cb as ChannelInboundListener);
-		else this.healthListeners.add(cb as ChannelHealthListener);
-	}
-	off(event: 'inbound', cb: ChannelInboundListener): void;
-	off(event: 'health', cb: ChannelHealthListener): void;
-	off(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound')
-			this.inboundListeners.delete(cb as ChannelInboundListener);
-		else this.healthListeners.delete(cb as ChannelHealthListener);
-	}
 	emitInbound(msg: NormalizedInbound): void {
-		for (const cb of this.inboundListeners) cb(msg);
+		this.ctx?.emitInbound(msg);
 	}
 }
 

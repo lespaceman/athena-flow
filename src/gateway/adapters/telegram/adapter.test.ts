@@ -81,10 +81,44 @@ function makeAdapter(allow: string[] = []) {
 	return {adapter, fake};
 }
 
-async function start(adapter: TelegramAdapter, log: LogFn = () => {}) {
-	const ac = new AbortController();
-	await adapter.start({log, signal: ac.signal});
-	return ac;
+type StartHandle = {
+	abort: AbortController;
+	inbound: unknown[];
+	health: unknown[];
+};
+
+async function start(
+	adapter: TelegramAdapter,
+	log: LogFn = () => {},
+): Promise<StartHandle> {
+	const abort = new AbortController();
+	const inbound: unknown[] = [];
+	const health: unknown[] = [];
+	await adapter.start({
+		log,
+		signal: abort.signal,
+		emitInbound: msg => inbound.push(msg),
+		emitHealth: sample => health.push(sample),
+	});
+	return {abort, inbound, health};
+}
+
+async function startWithHooks(
+	adapter: TelegramAdapter,
+	hooks: {
+		onInbound?: (msg: unknown) => void;
+		onHealth?: (sample: unknown) => void;
+		log?: LogFn;
+	},
+): Promise<AbortController> {
+	const abort = new AbortController();
+	await adapter.start({
+		log: hooks.log ?? (() => {}),
+		signal: abort.signal,
+		emitInbound: hooks.onInbound ?? (() => {}),
+		emitHealth: hooks.onHealth ?? (() => {}),
+	});
+	return abort;
 }
 
 const dmUpdate: TelegramUpdate = {
@@ -101,16 +135,14 @@ const dmUpdate: TelegramUpdate = {
 describe('TelegramAdapter', () => {
 	it('normalizes inbound DM into a NormalizedInbound', async () => {
 		const {adapter, fake} = makeAdapter();
-		const seen: unknown[] = [];
-		adapter.on('inbound', m => seen.push(m));
-		await start(adapter);
+		const handle = await start(adapter);
 
 		fake.queue(dmUpdate);
-		await waitUntil(() => seen.length === 1);
+		await waitUntil(() => handle.inbound.length === 1);
 		await adapter.stop('shutdown');
 
-		expect(seen).toHaveLength(1);
-		const msg = seen[0] as {
+		expect(handle.inbound).toHaveLength(1);
+		const msg = handle.inbound[0] as {
 			text: string;
 			idempotencyKey: string;
 			location: {peer?: {id: string}};
@@ -124,14 +156,12 @@ describe('TelegramAdapter', () => {
 
 	it('drops messages from non-allowlisted senders when allow list is non-empty', async () => {
 		const {adapter, fake} = makeAdapter(['9999']);
-		const seen: unknown[] = [];
-		adapter.on('inbound', m => seen.push(m));
-		await start(adapter);
+		const handle = await start(adapter);
 		fake.queue(dmUpdate); // sender id 99 — not allowed
 		// Give the loop a tick.
 		await new Promise(r => setTimeout(r, 10));
 		await adapter.stop('shutdown');
-		expect(seen).toEqual([]);
+		expect(handle.inbound).toEqual([]);
 	});
 
 	it('sends outbound to peer chat and surfaces provider_message_id', async () => {
@@ -192,16 +222,20 @@ describe('TelegramAdapter', () => {
 		await adapter.stop('shutdown');
 	});
 
-	it('emits warn-level log when inbound listener throws', async () => {
+	it('emits warn-level log when inbound emitter throws', async () => {
 		const {adapter, fake} = makeAdapter();
 		const log = vi.fn<LogFn>();
-		adapter.on('inbound', () => {
-			throw new Error('listener boom');
+		await startWithHooks(adapter, {
+			log,
+			onInbound: () => {
+				throw new Error('emitter boom');
+			},
 		});
-		await start(adapter, log);
 		fake.queue(dmUpdate);
 		await waitUntil(() =>
-			log.mock.calls.some(c => c[0] === 'warn' && /listener threw/.test(c[1])),
+			log.mock.calls.some(
+				c => c[0] === 'warn' && /emitInbound threw/.test(c[1]),
+			),
 		);
 		await adapter.stop('shutdown');
 	});

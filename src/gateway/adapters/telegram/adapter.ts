@@ -17,8 +17,6 @@ import type {
 	AdapterContext,
 	ChannelAdapter,
 	ChannelCapabilities,
-	ChannelHealthListener,
-	ChannelInboundListener,
 	HealthSample,
 	NormalizedInbound,
 	OutboundMessage,
@@ -73,8 +71,6 @@ export class TelegramAdapter implements ChannelAdapter {
 
 	private bot: TelegramBot | null = null;
 	private readonly opts: TelegramAdapterOptions;
-	private readonly inboundListeners = new Set<ChannelInboundListener>();
-	private readonly healthListeners = new Set<ChannelHealthListener>();
 	private readonly relay: TelegramRelay;
 	private pollTask: Promise<void> | null = null;
 	private lastInboundAt: number | undefined;
@@ -196,26 +192,6 @@ export class TelegramAdapter implements ChannelAdapter {
 		};
 	}
 
-	on(event: 'inbound', cb: ChannelInboundListener): void;
-	on(event: 'health', cb: ChannelHealthListener): void;
-	on(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound') {
-			this.inboundListeners.add(cb as ChannelInboundListener);
-		} else {
-			this.healthListeners.add(cb as ChannelHealthListener);
-		}
-	}
-
-	off(event: 'inbound', cb: ChannelInboundListener): void;
-	off(event: 'health', cb: ChannelHealthListener): void;
-	off(event: 'inbound' | 'health', cb: unknown): void {
-		if (event === 'inbound') {
-			this.inboundListeners.delete(cb as ChannelInboundListener);
-		} else {
-			this.healthListeners.delete(cb as ChannelHealthListener);
-		}
-	}
-
 	private async runPollLoop(): Promise<void> {
 		const bot = this.bot;
 		const ctx = this.ctx;
@@ -234,17 +210,15 @@ export class TelegramAdapter implements ChannelAdapter {
 				if (!inbound) continue;
 				this.lastInboundAt = inbound.receivedAt;
 				this.markHealth(true);
-				for (const cb of this.inboundListeners) {
-					try {
-						cb(inbound);
-					} catch (err) {
-						ctx.log(
-							'warn',
-							`telegram inbound listener threw: ${
-								err instanceof Error ? err.message : String(err)
-							}`,
-						);
-					}
+				try {
+					ctx.emitInbound(inbound);
+				} catch (err) {
+					ctx.log(
+						'warn',
+						`telegram emitInbound threw: ${
+							err instanceof Error ? err.message : String(err)
+						}`,
+					);
 				}
 			}
 		} catch (err) {
@@ -261,6 +235,8 @@ export class TelegramAdapter implements ChannelAdapter {
 
 	private markHealth(ok: boolean, note?: string): void {
 		this.lastTransportOk = ok;
+		const ctx = this.ctx;
+		if (!ctx) return;
 		const sample: HealthSample = {
 			at: Date.now(),
 			transportOk: ok,
@@ -269,12 +245,10 @@ export class TelegramAdapter implements ChannelAdapter {
 				: {}),
 			...(note !== undefined ? {note} : {}),
 		};
-		for (const cb of this.healthListeners) {
-			try {
-				cb(sample);
-			} catch {
-				// listener errors must not break the poll loop
-			}
+		try {
+			ctx.emitHealth(sample);
+		} catch {
+			// upstream emitter errors must not break the poll loop
 		}
 	}
 }

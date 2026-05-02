@@ -39,8 +39,6 @@ type Entry = {
 	adapter: ChannelAdapter;
 	abort: AbortController;
 	startPromise: Promise<void>;
-	healthListener: ChannelHealthListener;
-	inboundListener: ChannelInboundListener;
 	lastHealth?: HealthSample;
 };
 
@@ -114,25 +112,21 @@ export class ChannelManager {
 			if (entry) entry.lastHealth = sample;
 			this.healthSink?.(sample);
 		};
-		adapter.on('inbound', inboundListener);
-		adapter.on('health', healthListener);
 
 		const startPromise = adapter.start({
 			log: (level, msg) => this.log?.(level, `[${adapter.id}] ${msg}`),
 			signal: abort.signal,
+			emitInbound: inboundListener,
+			emitHealth: healthListener,
 		});
 		this.entries.set(adapter.id, {
 			adapter,
 			abort,
 			startPromise,
-			healthListener,
-			inboundListener,
 		});
 		try {
 			await startPromise;
 		} catch (err) {
-			adapter.off('inbound', inboundListener);
-			adapter.off('health', healthListener);
 			this.entries.delete(adapter.id);
 			throw err;
 		}
@@ -145,8 +139,6 @@ export class ChannelManager {
 		}
 		this.entries.delete(id);
 		entry.abort.abort();
-		entry.adapter.off('inbound', entry.inboundListener);
-		entry.adapter.off('health', entry.healthListener);
 		await entry.adapter.stop(reason);
 	}
 

@@ -44,6 +44,7 @@ export type {
 	ProbeResult,
 	HealthSample,
 } from './channel-events';
+export {peerLocation, roomLocation} from './channel-events';
 export type {
 	ChannelCapabilities,
 	StopReason,
@@ -52,6 +53,7 @@ export type {
 	ChannelInboundListener,
 	ChannelHealthListener,
 	ChannelAdapter,
+	AdapterModule,
 } from './adapter';
 export type {
 	RelayCancelReason,
