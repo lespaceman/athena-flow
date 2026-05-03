@@ -32,6 +32,10 @@ import {openGatewayState, type GatewayStateDb} from '../../gateway/state/db';
 import {RelayCoordinator} from '../../gateway/relay/coordinator';
 import {ChannelManager} from '../../gateway/channelManager';
 import {createLoopbackWsServerTransport} from '../../gateway/transport/tlsWs';
+import {
+	GatewayProtocolError,
+	type ControlClient,
+} from '../../gateway/control/client';
 import {SessionBridge} from './sessionBridge';
 import type {
 	AdapterContext,
@@ -395,46 +399,65 @@ describe('SessionBridge integration', () => {
 		expect(res.channelRequestId).toMatch(/^[a-km-z]{5}$/);
 	}, 15_000);
 
-	it('treats already_registered as terminal and stops the reconnect loop', async () => {
-		daemon = await startDaemon({
-			foreground: true,
-			silent: true,
-			paths,
-			skipSignalHandlers: true,
-			skipChannelLoad: true,
-			disconnectGracePeriodMs: 0,
-			listenSpec: {
-				kind: 'tcp',
-				host: '127.0.0.1',
-				port: 0,
-				insecure: false,
+	it('reconnect loop hitting already_registered becomes terminal and surfaces the error to callers', async () => {
+		const closeHandlers: Array<() => void> = [];
+		const requestImpls: Array<(kind: string) => Promise<unknown>> = [
+			// First connect: register succeeds.
+			async kind => (kind === 'session.register' ? {hello: {}} : {}),
+			// Reconnect: register rejects with already_registered.
+			async kind => {
+				if (kind === 'session.register') {
+					throw new GatewayProtocolError(
+						'already_registered: occupied',
+						'already_registered',
+					);
+				}
+				return {};
 			},
-		});
-		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
-
-		const first = new SessionBridge({
-			runtimeId: 'occupier',
-			defaultAgentId: 'main',
-			endpoint: {mode: 'remote', url: daemon.listener.url!, token},
-		});
-		await first.start();
+		];
+		let connectIdx = 0;
+		const fakeClient = (): ControlClient => {
+			const handler = requestImpls[connectIdx++]!;
+			let myCloseHandlers: Array<() => void> = [];
+			return {
+				request: async kind => handler(kind) as never,
+				onPush: () => () => {},
+				onClose: cb => {
+					myCloseHandlers.push(cb);
+					closeHandlers.push(cb);
+					return () => {
+						myCloseHandlers = myCloseHandlers.filter(h => h !== cb);
+					};
+				},
+				close: () => {
+					for (const cb of myCloseHandlers) cb();
+				},
+			};
+		};
 
 		bridge = new SessionBridge({
-			runtimeId: 'late-arrival',
+			runtimeId: 'r-terminal',
 			defaultAgentId: 'main',
-			endpoint: {mode: 'remote', url: daemon.listener.url!, token},
+			endpoint: {mode: 'remote', url: 'ws://unused', token: 't'},
+			connectClient: async () => fakeClient(),
 			backoffMs: [10],
 		});
-		await expect(bridge.start()).rejects.toThrow(/already_registered/);
+		await bridge.start();
+		expect(bridge.getConnectionState()).toBe('connected');
 
-		// Now simulate that this bridge was previously up and dropped: kick a
-		// reconnect via onClose path by faking a disconnect — but since start()
-		// failed the bridge is in an undefined state. Instead exercise the loop
-		// directly by starting against an occupied gateway from a bridge that
-		// previously succeeded. Easier: prove first bridge survives and second
-		// stays unrecoverable.
-		expect(first.getConnectionState()).toBe('connected');
-		await first.stop();
+		// Trigger the close path; the loop will reconnect, hit already_registered,
+		// and become terminal.
+		for (const cb of closeHandlers) cb();
+		await waitUntil(() => bridge!.getConnectionState() === 'stopped', 2_000);
+
+		await expect(
+			bridge.completeTurn({
+				dispatchId: 'd1',
+				location: inbound.location,
+				text: 'x',
+				idempotencyKey: 'k1',
+			}),
+		).rejects.toThrow(/already_registered/);
 	}, 15_000);
 
 	it('cancelRelayPermission short-circuits a pending request', async () => {

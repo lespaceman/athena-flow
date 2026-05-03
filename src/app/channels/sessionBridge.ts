@@ -78,6 +78,11 @@ export type SessionBridgeOptions = {
 	loadEndpoint?: () => RuntimeEndpoint;
 	/** Pre-resolved client; bypasses the UDS connect step (test affordance). */
 	client?: ControlClient;
+	/** Test affordance: replaces the connect step on every attempt (incl. reconnect). */
+	connectClient?: (input: {
+		endpoint: RuntimeEndpoint;
+		paths: GatewayPaths;
+	}) => Promise<ControlClient>;
 	/** Test affordance: override the reconnect backoff schedule (ms per attempt). */
 	backoffMs?: readonly number[];
 };
@@ -129,6 +134,7 @@ export class SessionBridge {
 	private reconnectAttempts = 0;
 	private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	private sleepResolver: (() => void) | null = null;
+	private terminalError: Error | null = null;
 
 	constructor(opts: SessionBridgeOptions) {
 		this.opts = opts;
@@ -327,6 +333,9 @@ export class SessionBridge {
 		if (this.reconnecting) {
 			await this.reconnecting;
 		}
+		if (this.stopped) {
+			throw this.terminalError ?? new Error('session bridge stopped');
+		}
 		return this.requireClient();
 	}
 
@@ -355,6 +364,7 @@ export class SessionBridge {
 						err instanceof GatewayProtocolError &&
 						err.code === 'already_registered'
 					) {
+						this.terminalError = err;
 						this.stopped = true;
 						writeGatewayTrace(
 							`sessionBridge reconnect terminal err=already_registered runtimeId=${this.opts.runtimeId}`,
@@ -414,8 +424,9 @@ export class SessionBridge {
 		endpoint: RuntimeEndpoint;
 		paths: GatewayPaths;
 	}): Promise<SessionRegisterResponsePayload> {
-		const client =
-			this.opts.client && !this.client
+		const client = this.opts.connectClient
+			? await this.opts.connectClient(input)
+			: this.opts.client && !this.client
 				? this.opts.client
 				: await connectForEndpoint({
 						endpoint: input.endpoint,
