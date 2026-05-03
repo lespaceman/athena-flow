@@ -78,6 +78,7 @@ Follow-up priorities after this merge:
    - Done in `feat(gateway): show runtime status for remote links` and `feat(gateway): print runtime in status output`.
 3. Decide whether `tool.pre` events should ever relay remotely; currently only `permission.request` is relayed.
 4. Continue with the remaining R4/R5/R6/R7 items: reconnecting WS client loop, TLS/mTLS, token rotation, rate limits, and in-flight relay replay.
+   - SessionBridge now reconnects and re-registers before the next bridge RPC after a WS disconnect (`feat(gateway): reconnect session bridge before RPCs`). Full background reconnect loop, heartbeat, and relay replay remain.
 
 Post-merge continuation:
 
@@ -85,6 +86,7 @@ Post-merge continuation:
 - Status responses include a list-friendly `runtimes` field showing runtime id, pid, binding state, and pending dispatch count.
 - Human status output includes `runtime=<id> binding=<state> pid=<pid>` for quick smoke verification.
 - `RuntimeProvider` has a deterministic test proving permission relay wiring through `SessionBridge`, and bridge startup now retries every 2s after an initial gateway connection failure.
+- `SessionBridge` now observes control-client close events, marks itself disconnected, and reconnects/re-registers before the next bridge RPC. A WS integration test covers completing a previously dispatched turn after disconnect/reconnect inside the daemon grace window.
 
 ## Status (original plan, 2026-05-02)
 
