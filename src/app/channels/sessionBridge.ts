@@ -106,8 +106,11 @@ export class SessionBridge {
 	private readonly opts: SessionBridgeOptions;
 	private client: ControlClient | null = null;
 	private turnDispatchUnsubscribe: (() => void) | null = null;
+	private clientCloseUnsubscribe: (() => void) | null = null;
 	private readonly turnDispatchHandlers = new Set<TurnDispatchHandler>();
 	private started = false;
+	private disconnected = false;
+	private reconnecting: Promise<void> | null = null;
 
 	constructor(opts: SessionBridgeOptions) {
 		this.opts = opts;
@@ -128,41 +131,7 @@ export class SessionBridge {
 				endpoint.mode === 'remote' ? ` url=${endpoint.url}` : ''
 			}`,
 		);
-		const client =
-			this.opts.client ??
-			(await connectForEndpoint({
-				endpoint,
-				paths,
-				loadToken: this.opts.loadToken ?? defaultLoadToken,
-			}));
-		this.client = client;
-		this.turnDispatchUnsubscribe = client.onPush(
-			'session.dispatch.turn',
-			(envelope: ControlPushEnvelope) => {
-				const payload = envelope.payload as SessionDispatchTurnPushPayload;
-				for (const cb of this.turnDispatchHandlers) {
-					try {
-						const r = cb(payload);
-						if (r && typeof (r as Promise<unknown>).catch === 'function') {
-							(r as Promise<unknown>).catch(() => {
-								// handler errors must not break the push channel
-							});
-						}
-					} catch {
-						// handler errors must not break the push channel
-					}
-				}
-			},
-		);
-		const req: SessionRegisterRequestPayload = {
-			runtimeId: this.opts.runtimeId,
-			defaultAgentId: this.opts.defaultAgentId,
-			pid: this.opts.pid ?? process.pid,
-		};
-		const res = await client.request<
-			SessionRegisterRequestPayload,
-			SessionRegisterResponsePayload
-		>('session.register', req);
+		const res = await this.connectAndRegister({endpoint, paths});
 		writeGatewayTrace(
 			`sessionBridge registered runtimeId=${this.opts.runtimeId}`,
 		);
@@ -186,9 +155,12 @@ export class SessionBridge {
 		}
 		this.turnDispatchUnsubscribe?.();
 		this.turnDispatchUnsubscribe = null;
+		this.clientCloseUnsubscribe?.();
+		this.clientCloseUnsubscribe = null;
 		client.close();
 		this.client = null;
 		this.started = false;
+		this.disconnected = false;
 	}
 
 	onTurnDispatch(cb: TurnDispatchHandler): () => void {
@@ -201,7 +173,7 @@ export class SessionBridge {
 	async completeTurn(
 		input: SessionBridgeTurnComplete,
 	): Promise<SessionTurnCompleteResponsePayload> {
-		const client = this.requireClient();
+		const client = await this.requireConnectedClient();
 		const req: SessionTurnCompleteRequestPayload = {
 			runtimeId: this.opts.runtimeId,
 			dispatchId: input.dispatchId,
@@ -221,7 +193,7 @@ export class SessionBridge {
 		writeGatewayTrace(
 			`sessionBridge relayPermission tool=${req.toolName} runtimeId=${this.opts.runtimeId}`,
 		);
-		const client = this.requireClient();
+		const client = await this.requireConnectedClient();
 		const payload: RelayPermissionRequestPayload = {
 			...(req.channelRequestId !== undefined
 				? {channelRequestId: req.channelRequestId}
@@ -242,7 +214,7 @@ export class SessionBridge {
 	async relayQuestion(
 		req: SessionBridgeQuestionRequest,
 	): Promise<RelayQuestionResponsePayload> {
-		const client = this.requireClient();
+		const client = await this.requireConnectedClient();
 		const payload: RelayQuestionRequestPayload = {
 			...(req.channelRequestId !== undefined
 				? {channelRequestId: req.channelRequestId}
@@ -263,7 +235,7 @@ export class SessionBridge {
 		channelRequestId: string,
 		reason: RelayCancelReason,
 	): Promise<boolean> {
-		const client = this.requireClient();
+		const client = await this.requireConnectedClient();
 		const payload: RelayPermissionCancelRequestPayload = {
 			channelRequestId,
 			reason,
@@ -279,7 +251,7 @@ export class SessionBridge {
 		channelRequestId: string,
 		reason: RelayCancelReason,
 	): Promise<boolean> {
-		const client = this.requireClient();
+		const client = await this.requireConnectedClient();
 		const payload: RelayQuestionCancelRequestPayload = {
 			channelRequestId,
 			reason,
@@ -297,6 +269,94 @@ export class SessionBridge {
 			throw new Error('session bridge not started');
 		}
 		return client;
+	}
+
+	private async requireConnectedClient(): Promise<ControlClient> {
+		if (!this.started) {
+			throw new Error('session bridge not started');
+		}
+		if (this.disconnected) {
+			await this.reconnect();
+		}
+		return this.requireClient();
+	}
+
+	private async reconnect(): Promise<void> {
+		if (this.reconnecting) {
+			await this.reconnecting;
+			return;
+		}
+		this.reconnecting = (async () => {
+			const endpoint =
+				this.opts.endpoint ??
+				(this.opts.paths
+					? {mode: 'local' as const}
+					: (this.opts.loadEndpoint ?? readGatewayClientConfig)());
+			const paths = this.opts.paths ?? resolveGatewayPaths();
+			writeGatewayTrace(
+				`sessionBridge reconnect runtimeId=${this.opts.runtimeId}`,
+			);
+			await this.connectAndRegister({endpoint, paths});
+			writeGatewayTrace(
+				`sessionBridge reconnected runtimeId=${this.opts.runtimeId}`,
+			);
+		})().finally(() => {
+			this.reconnecting = null;
+		});
+		await this.reconnecting;
+	}
+
+	private async connectAndRegister(input: {
+		endpoint: RuntimeEndpoint;
+		paths: GatewayPaths;
+	}): Promise<SessionRegisterResponsePayload> {
+		const client =
+			this.opts.client && !this.client
+				? this.opts.client
+				: await connectForEndpoint({
+						endpoint: input.endpoint,
+						paths: input.paths,
+						loadToken: this.opts.loadToken ?? defaultLoadToken,
+					});
+		this.replaceClient(client);
+		const req: SessionRegisterRequestPayload = {
+			runtimeId: this.opts.runtimeId,
+			defaultAgentId: this.opts.defaultAgentId,
+			pid: this.opts.pid ?? process.pid,
+		};
+		const res = await client.request<
+			SessionRegisterRequestPayload,
+			SessionRegisterResponsePayload
+		>('session.register', req);
+		this.disconnected = false;
+		return res;
+	}
+
+	private replaceClient(client: ControlClient): void {
+		this.turnDispatchUnsubscribe?.();
+		this.clientCloseUnsubscribe?.();
+		this.client = client;
+		this.turnDispatchUnsubscribe = client.onPush(
+			'session.dispatch.turn',
+			(envelope: ControlPushEnvelope) => {
+				const payload = envelope.payload as SessionDispatchTurnPushPayload;
+				for (const cb of this.turnDispatchHandlers) {
+					try {
+						const r = cb(payload);
+						if (r && typeof (r as Promise<unknown>).catch === 'function') {
+							(r as Promise<unknown>).catch(() => {
+								// handler errors must not break the push channel
+							});
+						}
+					} catch {
+						// handler errors must not break the push channel
+					}
+				}
+			},
+		);
+		this.clientCloseUnsubscribe = client.onClose(() => {
+			this.disconnected = true;
+		});
 	}
 }
 

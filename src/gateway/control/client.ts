@@ -63,6 +63,7 @@ export type ControlClient = {
 		kind: string,
 		cb: (envelope: ControlPushEnvelope) => void,
 	) => () => void;
+	onClose: (cb: () => void) => () => void;
 	close: () => void;
 };
 
@@ -92,6 +93,7 @@ export async function connect(
 	const helloWaiters: Array<(frame: unknown) => void> = [];
 	const pending = new Map<string, PendingResolver>();
 	const pushSubs = new Map<string, Set<(env: ControlPushEnvelope) => void>>();
+	const closeSubs = new Set<() => void>();
 	let helloAcked = false;
 
 	const handleFrame = (parsed: unknown): void => {
@@ -132,6 +134,13 @@ export async function connect(
 			p.reject(new GatewayProtocolError('connection closed'));
 		}
 		pending.clear();
+		for (const cb of closeSubs) {
+			try {
+				cb();
+			} catch {
+				// listener errors must not crash the client
+			}
+		}
 	});
 
 	const helloFramePromise = new Promise<unknown>(resolve =>
@@ -206,6 +215,10 @@ export async function connect(
 	return {
 		request,
 		onPush,
+		onClose: cb => {
+			closeSubs.add(cb);
+			return () => closeSubs.delete(cb);
+		},
 		close: () => {
 			connection.close();
 		},

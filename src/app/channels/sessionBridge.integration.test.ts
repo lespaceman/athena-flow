@@ -227,6 +227,60 @@ describe('SessionBridge integration', () => {
 		expect(adapter.sentMessages[0]?.text).toBe('hi back');
 	}, 15_000);
 
+	it('reconnects and re-registers before completing a turn after WS disconnect', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			disconnectGracePeriodMs: 5_000,
+			listenSpec: {
+				kind: 'tcp',
+				host: '127.0.0.1',
+				port: 0,
+				insecure: false,
+			},
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+
+		bridge = new SessionBridge({
+			runtimeId: 'ws-reconnect-1',
+			defaultAgentId: 'main',
+			endpoint: {
+				mode: 'remote',
+				url: daemon.listener.url!,
+				token,
+			},
+		});
+		await bridge.start();
+
+		const seen = vi.fn();
+		bridge.onTurnDispatch(seen);
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:reconnect'});
+		await waitUntil(() => seen.mock.calls.length === 1);
+		const payload = seen.mock.calls[0][0] as {dispatchId: string};
+
+		(bridge as unknown as {client: {close: () => void}}).client.close();
+		await waitUntil(
+			() => daemon!.registry.getBinding()?.state === 'stale',
+			2_000,
+		);
+
+		const reply = await bridge.completeTurn({
+			dispatchId: payload.dispatchId,
+			location: inbound.location,
+			text: 'reconnected reply',
+			idempotencyKey: 'reply:reconnect',
+		});
+
+		expect(reply).toMatchObject({delivered: true});
+		expect(adapter.sentMessages.at(-1)?.text).toBe('reconnected reply');
+		expect(daemon.registry.getBinding()?.state).toBe('active');
+	}, 15_000);
+
 	it('drains parked inbound on session.register', async () => {
 		daemon = await startDaemon({
 			foreground: true,
