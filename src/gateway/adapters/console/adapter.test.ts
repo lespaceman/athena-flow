@@ -217,3 +217,146 @@ describe('ConsoleAdapter — outbound', () => {
 		).rejects.toThrow(/before start|not connected|before broker/);
 	});
 });
+
+describe('ConsoleAdapter — permission relay', () => {
+	it('round-trips an allow verdict through the broker', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+
+		const abort = new AbortController();
+		const verdictPromise = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'abcde',
+				toolName: 'shell',
+				description: 'run ls',
+				inputPreview: 'ls -la',
+			},
+			abort.signal,
+		);
+
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		const sent = fake.sent[0]!;
+		expect(sent.kind).toBe('console.permission.request');
+		if (sent.kind !== 'console.permission.request') {
+			throw new Error('wrong kind');
+		}
+		expect(sent.channelRequestId).toBe('abcde');
+
+		fake.deliver({
+			kind: 'console.permission.response',
+			frameId: 'r',
+			sentAt: 0,
+			channelRequestId: 'abcde',
+			decision: 'allow',
+		});
+
+		const result = await verdictPromise;
+		expect(result).toEqual({
+			kind: 'verdict',
+			behavior: 'allow',
+			channelId: 'console',
+		});
+
+		await adapter.stop('shutdown');
+	});
+
+	it('round-trips a deny verdict', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'aaaaa',
+				toolName: 't',
+				description: 'd',
+				inputPreview: 'i',
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		fake.deliver({
+			kind: 'console.permission.response',
+			frameId: 'r',
+			sentAt: 0,
+			channelRequestId: 'aaaaa',
+			decision: 'deny',
+		});
+		expect((await p).kind).toBe('verdict');
+		await adapter.stop('shutdown');
+	});
+
+	it('sends console.permission.cancel on signal abort', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'bbbbb',
+				toolName: 't',
+				description: 'd',
+				inputPreview: 'i',
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		abort.abort();
+		const result = await p;
+		expect(result.kind).toBe('cancelled');
+		expect(fake.sent.length).toBe(2);
+		const cancelFrame = fake.sent[1]!;
+		expect(cancelFrame.kind).toBe('console.permission.cancel');
+		if (cancelFrame.kind !== 'console.permission.cancel') {
+			throw new Error('wrong kind');
+		}
+		expect(cancelFrame.channelRequestId).toBe('bbbbb');
+		await adapter.stop('shutdown');
+	});
+
+	it('ignores late responses after cancellation', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'ccccc',
+				toolName: 't',
+				description: 'd',
+				inputPreview: 'i',
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		abort.abort();
+		await p;
+		// late response — should be silently dropped
+		fake.deliver({
+			kind: 'console.permission.response',
+			frameId: 'late',
+			sentAt: 0,
+			channelRequestId: 'ccccc',
+			decision: 'allow',
+		});
+		await new Promise(r => setTimeout(r, 10));
+		await adapter.stop('shutdown');
+		// no throw means we ignored the late frame correctly
+	});
+
+	it('cancels pending relays on stop with kind=cancelled', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'ddddd',
+				toolName: 't',
+				description: 'd',
+				inputPreview: 'i',
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		await adapter.stop('shutdown');
+		const result = await p;
+		expect(result.kind).toBe('cancelled');
+	});
+});

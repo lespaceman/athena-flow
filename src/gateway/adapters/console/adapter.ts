@@ -49,6 +49,14 @@ export class ConsoleAdapter implements ChannelAdapter {
 	private readonly opts: ConsoleAdapterOptions;
 	private client: ConsoleBrokerClient | null = null;
 	private ctx: AdapterContext | null = null;
+	private readonly pendingPermissions = new Map<
+		string,
+		{
+			resolve: (result: PermissionRelayResult) => void;
+			abortListener: () => void;
+			signal: AbortSignal;
+		}
+	>();
 
 	constructor(opts: ConsoleAdapterOptions) {
 		this.opts = opts;
@@ -85,6 +93,7 @@ export class ConsoleAdapter implements ChannelAdapter {
 	}
 
 	async stop(_reason: StopReason): Promise<void> {
+		this.disposePermissions();
 		this.client?.close('shutdown');
 		this.client = null;
 		this.ctx = null;
@@ -132,11 +141,76 @@ export class ConsoleAdapter implements ChannelAdapter {
 		};
 	}
 
-	async requestPermissionVerdict(
-		_req: PermissionRelayRequest,
-		_signal: AbortSignal,
+	requestPermissionVerdict(
+		req: PermissionRelayRequest,
+		signal: AbortSignal,
 	): Promise<PermissionRelayResult> {
-		return {kind: 'no_relay'};
+		const client = this.client;
+		if (!client || !client.isReady()) {
+			return Promise.resolve({kind: 'no_relay'});
+		}
+		if (signal.aborted) {
+			return Promise.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+		}
+		client.sendFrame({
+			kind: 'console.permission.request',
+			frameId: makeFrameId(),
+			sentAt: Date.now(),
+			address: {
+				runnerId: this.opts.runnerId,
+				...(this.opts.workspaceId !== undefined
+					? {workspaceId: this.opts.workspaceId}
+					: {}),
+			},
+			channelRequestId: req.channelRequestId,
+			toolName: req.toolName,
+			description: req.description,
+			inputPreview: req.inputPreview,
+		});
+		return new Promise<PermissionRelayResult>(resolve => {
+			const abortListener = (): void => {
+				const entry = this.pendingPermissions.get(req.channelRequestId);
+				if (!entry) return;
+				this.pendingPermissions.delete(req.channelRequestId);
+				try {
+					this.client?.sendFrame({
+						kind: 'console.permission.cancel',
+						frameId: makeFrameId(),
+						sentAt: Date.now(),
+						channelRequestId: req.channelRequestId,
+						reason: 'resolved_by_other_channel',
+					});
+				} catch {
+					// best-effort cancel
+				}
+				resolve({kind: 'cancelled', reason: 'resolved_by_other_channel'});
+			};
+			signal.addEventListener('abort', abortListener);
+			this.pendingPermissions.set(req.channelRequestId, {
+				resolve,
+				abortListener,
+				signal,
+			});
+		});
+	}
+
+	private settlePermissionResponse(
+		channelRequestId: string,
+		decision: 'allow' | 'deny',
+	): void {
+		const entry = this.pendingPermissions.get(channelRequestId);
+		if (!entry) return;
+		this.pendingPermissions.delete(channelRequestId);
+		entry.signal.removeEventListener('abort', entry.abortListener);
+		entry.resolve({kind: 'verdict', behavior: decision, channelId: CONSOLE_ID});
+	}
+
+	private disposePermissions(): void {
+		for (const [id, entry] of [...this.pendingPermissions.entries()]) {
+			this.pendingPermissions.delete(id);
+			entry.signal.removeEventListener('abort', entry.abortListener);
+			entry.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+		}
 	}
 
 	async requestQuestionAnswer(
@@ -147,18 +221,25 @@ export class ConsoleAdapter implements ChannelAdapter {
 	}
 
 	private handleInboundFrame(frame: AthenaConsoleFrame): void {
-		if (frame.kind !== 'console.message.in') return;
-		const inbound = normalizeInbound(frame, this.opts.runnerId);
-		if (!inbound) return;
-		const ctx = this.ctx;
-		if (!ctx) return;
-		try {
-			ctx.emitInbound(inbound);
-		} catch (err) {
-			ctx.log(
-				'warn',
-				`console emitInbound threw: ${err instanceof Error ? err.message : String(err)}`,
-			);
+		switch (frame.kind) {
+			case 'console.message.in': {
+				const inbound = normalizeInbound(frame, this.opts.runnerId);
+				if (!inbound || !this.ctx) return;
+				try {
+					this.ctx.emitInbound(inbound);
+				} catch (err) {
+					this.ctx.log(
+						'warn',
+						`console emitInbound threw: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+				return;
+			}
+			case 'console.permission.response':
+				this.settlePermissionResponse(frame.channelRequestId, frame.decision);
+				return;
+			default:
+				return;
 		}
 	}
 }
