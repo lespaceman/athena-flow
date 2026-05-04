@@ -256,6 +256,29 @@ describe('RelayCoordinator', () => {
 		).toThrow(/channel_request_id_collision/);
 	});
 
+	it('disposeAll(connection_lost) propagates the reason on pending entries', async () => {
+		const adapter = makeAdapter('a', {
+			permission: (_req, signal) =>
+				new Promise(resolve =>
+					signal.addEventListener('abort', () =>
+						resolve({kind: 'cancelled', reason: 'connection_lost'}),
+					),
+				),
+		});
+		const coord = new RelayCoordinator({adapters: () => [adapter]});
+		const {result} = coord.requestPermission({
+			toolName: 'Bash',
+			description: 'ls',
+			inputPreview: '',
+		});
+		coord.disposeAll('connection_lost');
+		await expect(result).resolves.toEqual({
+			kind: 'cancelled',
+			reason: 'connection_lost',
+		});
+		expect(coord.pendingCount()).toBe(0);
+	});
+
 	it('disposeAll cancels every pending entry', async () => {
 		const adapter = makeAdapter('a', {
 			permission: (_req, signal) =>

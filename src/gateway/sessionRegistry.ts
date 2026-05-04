@@ -25,12 +25,14 @@ export type RuntimeConnectionBinding =
 			state: 'active';
 			connectionId: string;
 			boundAt: number;
+			epoch: number;
 			lastRebindAt?: number;
 	  }
 	| {
 			state: 'stale';
 			connectionId: string;
 			staleSince: number;
+			epoch: number;
 			lastRebindAt?: number;
 	  };
 
@@ -122,10 +124,12 @@ export class SessionRegistry {
 			previous !== null &&
 			(previous.state === 'stale' || previous.connectionId !== connectionId);
 		const lastRebindAt = isRebind ? now : previous?.lastRebindAt;
+		const epoch = previous ? previous.epoch + (isRebind ? 1 : 0) : 1;
 		this.binding = {
 			state: 'active',
 			connectionId,
 			boundAt: now,
+			epoch,
 			...maybeLastRebindAt(lastRebindAt),
 		};
 	}
@@ -143,6 +147,7 @@ export class SessionRegistry {
 			state: 'stale',
 			connectionId,
 			staleSince: this.now(),
+			epoch: this.binding.epoch,
 			...maybeLastRebindAt(this.binding.lastRebindAt),
 		};
 		return this.current.runtimeId;

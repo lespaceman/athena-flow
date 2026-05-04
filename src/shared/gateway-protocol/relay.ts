@@ -13,6 +13,7 @@ export type RelayCancelReason =
 	| 'resolved_locally'
 	| 'resolved_by_other_channel'
 	| 'auto_resolved'
+	| 'connection_lost'
 	| 'timeout';
 
 export type RelayQuestionOption = {

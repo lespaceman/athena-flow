@@ -270,6 +270,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 						} catch {
 							// already unregistered
 						}
+						relayCoordinator.disposeAll('connection_lost');
 						return;
 					}
 					const runtimeId = current.runtimeId;
@@ -285,6 +286,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 							} catch {
 								// already unregistered
 							}
+							relayCoordinator.disposeAll('connection_lost');
 						}
 					}, disconnectGracePeriodMs);
 					staleRuntimeTimers.set(runtimeId, timer);

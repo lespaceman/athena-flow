@@ -66,6 +66,32 @@ describe('SessionRegistry', () => {
 		expect(reg.hasActiveBinding('r1')).toBe(true);
 	});
 
+	it('increments binding epoch on each rebind', () => {
+		const reg = makeRegistry();
+		reg.register({runtimeId: 'r1', defaultAgentId: 'main', pid: 99});
+		reg.bindConnection('r1', 'c1');
+		const first = reg.getBinding();
+		expect(first?.state).toBe('active');
+		expect(first?.epoch).toBe(1);
+
+		reg.markConnectionStale('c1');
+		const stale = reg.getBinding();
+		expect(stale?.state).toBe('stale');
+		expect(stale?.epoch).toBe(1);
+
+		reg.bindConnection('r1', 'c2');
+		const second = reg.getBinding();
+		expect(second?.state).toBe('active');
+		expect(second?.epoch).toBe(2);
+
+		// Re-binding the same connectionId without going stale is a no-op rebind.
+		reg.bindConnection('r1', 'c2');
+		expect(reg.getBinding()?.epoch).toBe(2);
+
+		reg.bindConnection('r1', 'c3');
+		expect(reg.getBinding()?.epoch).toBe(3);
+	});
+
 	it('allows re-register after unregister', () => {
 		const reg = makeRegistry();
 		reg.register({runtimeId: 'r1', defaultAgentId: 'main', pid: 99});

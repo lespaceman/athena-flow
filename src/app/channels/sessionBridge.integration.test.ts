@@ -513,6 +513,57 @@ describe('SessionBridge integration', () => {
 		expect(adapter.permissionCallCount).toBe(1);
 	}, 15_000);
 
+	it('disposes pending relays with connection_lost when grace fully unregisters', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			disconnectGracePeriodMs: 50,
+			listenSpec: {
+				kind: 'tcp',
+				host: '127.0.0.1',
+				port: 0,
+				insecure: false,
+			},
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+
+		bridge = new SessionBridge({
+			runtimeId: 'connection-lost-1',
+			defaultAgentId: 'main',
+			endpoint: {mode: 'remote', url: daemon.listener.url!, token},
+			backoffMs: [50, 100],
+		});
+		await bridge.start();
+
+		// Fire the relay but don't await — it will reject once the bridge gives up.
+		const relayPromise = bridge.relayPermission({
+			toolName: 'Bash',
+			description: 'list files',
+			inputPreview: 'ls',
+			ttlMs: 200,
+		});
+		// Pre-attach a no-op catch so the rejection isn't surfaced as
+		// unhandled before the assertion below awaits it.
+		relayPromise.catch(() => {});
+		await waitUntil(() => adapter.pendingPermission !== null);
+		expect(daemon.relayCoordinator.pendingCount()).toBe(1);
+
+		// Tear the bridge down so it stops reconnecting; the underlying WS drop
+		// + grace expiry should fully unregister the runtime and dispose the
+		// pending relay with reason='connection_lost'.
+		await bridge.stop();
+		bridge = undefined;
+
+		await waitUntil(() => daemon!.relayCoordinator.pendingCount() === 0, 3_000);
+		expect(daemon.registry.getCurrent()).toBeNull();
+		await expect(relayPromise).rejects.toBeDefined();
+	}, 15_000);
+
 	it('cancelRelayPermission short-circuits a pending request', async () => {
 		daemon = await startDaemon({
 			foreground: true,
