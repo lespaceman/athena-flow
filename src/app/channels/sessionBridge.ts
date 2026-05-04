@@ -24,17 +24,14 @@
  */
 
 import {
-	connect,
+	connectGatewayControlClient,
 	GatewayProtocolError,
+	resolveGatewayPaths,
 	type ControlClient,
-} from '../../gateway/control/client';
-import {resolveGatewayPaths, type GatewayPaths} from '../../gateway/paths';
-import {generateChannelRequestId} from '../../gateway/relay/ids';
-import {writeGatewayTrace} from '../../gateway/transport/trace';
-import {
-	createWsClientTransport,
-	wsClientOptionsForEndpoint,
-} from '../../gateway/transport/wsClient';
+	type GatewayPaths,
+} from './gatewayControlClient';
+import {generateChannelRequestId} from '../../shared/gateway-protocol/channelRequestId';
+import {writeGatewayTrace} from '../../infra/gatewayTrace';
 import {readGatewayClientConfig} from '../../infra/config/gatewayClient';
 import {trackGatewayTransportReconnect} from '../../infra/telemetry/events';
 import type {
@@ -61,7 +58,6 @@ import type {
 	SessionUnregisterResponsePayload,
 	RuntimeEndpoint,
 } from '../../shared/gateway-protocol';
-import {readFileSync} from 'node:fs';
 
 /**
  * Long timeout used for relay requests — they wait on a human, so the
@@ -479,10 +475,10 @@ export class SessionBridge {
 			? await this.opts.connectClient(input)
 			: this.opts.client && !this.client
 				? this.opts.client
-				: await connectForEndpoint({
+				: await connectGatewayControlClient({
 						endpoint: input.endpoint,
 						paths: input.paths,
-						loadToken: this.opts.loadToken ?? defaultLoadToken,
+						loadToken: this.opts.loadToken,
 					});
 		const previousClient = this.client;
 		this.replaceClient(client);
@@ -540,30 +536,3 @@ export class SessionBridge {
 }
 
 export type {PermissionRelayResult, QuestionRelayResult};
-
-function defaultLoadToken(tokenPath: string): string {
-	return readFileSync(tokenPath, 'utf8').trim();
-}
-
-async function connectForEndpoint(opts: {
-	endpoint: RuntimeEndpoint;
-	paths: GatewayPaths;
-	loadToken: (tokenPath: string) => string;
-}): Promise<ControlClient> {
-	if (opts.endpoint.mode === 'remote') {
-		return connect({
-			socketPath: opts.paths.socketPath,
-			token: opts.endpoint.token,
-			transport: createWsClientTransport(
-				wsClientOptionsForEndpoint({
-					url: opts.endpoint.url,
-					tlsCaPath: opts.endpoint.tlsCaPath,
-				}),
-			),
-		});
-	}
-	return connect({
-		socketPath: opts.paths.socketPath,
-		token: opts.loadToken(opts.paths.tokenPath),
-	});
-}

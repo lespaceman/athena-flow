@@ -198,6 +198,66 @@ export default tseslint.config(
 		},
 	},
 	{
+		files: ['src/app/channels/**/*.{ts,tsx}'],
+		ignores: [
+			...testFileGlobs,
+			// The facade is the single allowed importer of gateway control/transport
+			// internals — it exists precisely to keep them out of every other
+			// channels file.
+			'src/app/channels/gatewayControlClient.ts',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: legacyImportPatterns,
+							message:
+								'Import from new structure boundaries (app/core/harnesses/infra/ui/shared), not legacy shim paths.',
+						},
+						{
+							group: [
+								...relativeImportPatterns('gateway/relay'),
+								...relativeImportPatterns('gateway/transport/trace'),
+								...relativeImportPatterns('gateway/transport/wsClient'),
+								...relativeImportPatterns('gateway/control/client'),
+							],
+							message:
+								'Channels must reach the gateway through the gatewayControlClient facade, shared protocol types, or infra helpers — not transport/control/relay internals.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: ['src/app/providers/**/*.{ts,tsx}'],
+		ignores: testFileGlobs,
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: legacyImportPatterns,
+							message:
+								'Import from new structure boundaries (app/core/harnesses/infra/ui/shared), not legacy shim paths.',
+						},
+						{
+							group: [
+								...relativeImportPatterns('gateway/relay'),
+								...relativeImportPatterns('gateway/transport/trace'),
+							],
+							message:
+								'Providers must import the trace writer from infra/gatewayTrace and channel ids from shared/gateway-protocol.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		files: ['src/gateway/**/*.{ts,tsx}'],
 		rules: {
 			'no-restricted-imports': [

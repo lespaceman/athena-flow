@@ -68,3 +68,25 @@ export type {
 	QuestionRelayRequest,
 	QuestionRelayResult,
 } from './relay';
+export {
+	CHANNEL_REQUEST_ID_LENGTH,
+	CHANNEL_REQUEST_ID_REGEX,
+	generateChannelRequestId,
+	isValidChannelRequestId,
+} from './channelRequestId';
+export type {
+	AthenaConsoleFrameKind,
+	AthenaConsoleAddress,
+	AthenaConsoleFrameBase,
+	AthenaConsoleHelloFrame,
+	AthenaConsoleReadyFrame,
+	AthenaConsoleInboundMessageFrame,
+	AthenaConsoleOutboundMessageFrame,
+	AthenaConsolePermissionRequestFrame,
+	AthenaConsolePermissionResponseFrame,
+	AthenaConsoleQuestionRequestFrame,
+	AthenaConsoleQuestionResponseFrame,
+	AthenaConsoleAckFrame,
+	AthenaConsoleErrorFrame,
+	AthenaConsoleFrame,
+} from './athenaConsole';
