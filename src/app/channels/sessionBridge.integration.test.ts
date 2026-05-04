@@ -31,7 +31,7 @@ import {InboundQueue} from '../../gateway/state/inboundQueue';
 import {openGatewayState, type GatewayStateDb} from '../../gateway/state/db';
 import {RelayCoordinator} from '../../gateway/relay/coordinator';
 import {ChannelManager} from '../../gateway/channelManager';
-import {createLoopbackWsServerTransport} from '../../gateway/transport/tlsWs';
+import {createWsServerTransport} from '../../gateway/transport/tlsWs';
 import {
 	GatewayProtocolError,
 	type ControlClient,
@@ -158,7 +158,7 @@ describe('SessionBridge integration', () => {
 		const relayCoordinator = new RelayCoordinator({
 			adapters: () => channelManager.listAdapters(),
 		});
-		const wsTransport = createLoopbackWsServerTransport({
+		const wsTransport = createWsServerTransport({
 			host: '127.0.0.1',
 			port: 0,
 		});

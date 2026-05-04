@@ -12,10 +12,15 @@ import {resolveGatewayPaths, resolveListenSpec} from './paths';
 async function main(): Promise<void> {
 	const args = parseGatewayDaemonArgs(process.argv.slice(2));
 	const paths = resolveGatewayPaths();
+	const tls =
+		args.tlsCertPath && args.tlsKeyPath
+			? {certPath: args.tlsCertPath, keyPath: args.tlsKeyPath}
+			: undefined;
 	const listenSpec = resolveListenSpec({
 		paths,
 		...(args.bind !== undefined ? {bind: args.bind} : {}),
 		insecure: args.insecure,
+		...(tls ? {tls} : {}),
 	});
 	await startDaemon({
 		foreground: true,

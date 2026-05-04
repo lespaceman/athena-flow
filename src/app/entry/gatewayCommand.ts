@@ -10,7 +10,10 @@ import {
 	GatewayUnreachableError,
 } from '../../gateway/control/client';
 import {resolveGatewayPaths} from '../../gateway/paths';
-import {createWsClientTransport} from '../../gateway/transport/wsClient';
+import {
+	createWsClientTransport,
+	wsClientOptionsForEndpoint,
+} from '../../gateway/transport/wsClient';
 import {
 	readGatewayClientConfig,
 	writeGatewayClientConfig,
@@ -239,10 +242,13 @@ async function defaultConnectGateway(
 			socketPath: opts.socketPath,
 			token: opts.endpoint.token,
 			timeoutMs: opts.timeoutMs,
-			transport: createWsClientTransport({
-				url: opts.endpoint.url,
-				timeoutMs: opts.timeoutMs,
-			}),
+			transport: createWsClientTransport(
+				wsClientOptionsForEndpoint({
+					url: opts.endpoint.url,
+					timeoutMs: opts.timeoutMs,
+					tlsCaPath: opts.endpoint.tlsCaPath,
+				}),
+			),
 		});
 	}
 	return connect({
@@ -263,12 +269,20 @@ function parseLinkArgs(args: string[]): LinkArgs {
 	for (let i = 0; i < args.length; i += 1) {
 		const arg = args[i]!;
 		if (arg === '--token') {
-			token = args[i + 1];
+			const v = args[i + 1];
+			if (!v || v.startsWith('--')) {
+				return {ok: false, message: 'gateway link --token requires a value'};
+			}
+			token = v;
 			i += 1;
 			continue;
 		}
 		if (arg === '--tls-ca') {
-			tlsCaPath = args[i + 1];
+			const v = args[i + 1];
+			if (!v || v.startsWith('--')) {
+				return {ok: false, message: 'gateway link --tls-ca requires a path'};
+			}
+			tlsCaPath = v;
 			i += 1;
 			continue;
 		}

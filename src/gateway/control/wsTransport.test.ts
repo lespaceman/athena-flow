@@ -14,7 +14,7 @@ import {InboundQueue} from '../state/inboundQueue';
 import {openGatewayState, type GatewayStateDb} from '../state/db';
 import {RelayCoordinator} from '../relay/coordinator';
 import {createWsClientTransport} from '../transport/wsClient';
-import {createLoopbackWsServerTransport} from '../transport/tlsWs';
+import {createWsServerTransport} from '../transport/tlsWs';
 import type {
 	AdapterContext,
 	ChannelAdapter,
@@ -124,7 +124,7 @@ describe('loopback WS control transport', () => {
 				runtimeConnections.delete(runtimeId);
 			},
 		};
-		const transport = createLoopbackWsServerTransport({
+		const transport = createWsServerTransport({
 			host: '127.0.0.1',
 			port: 0,
 		});

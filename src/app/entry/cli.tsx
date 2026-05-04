@@ -252,6 +252,8 @@ const cli = meow(
 			--chat-id       Telegram destination chat id (defaults to --user-id)
 			--token         Gateway link token (gateway link)
 			--tls-ca        Gateway custom CA path (gateway link)
+			--tls-cert      Gateway TLS certificate path (gateway start)
+			--tls-key       Gateway TLS private key path (gateway start)
 			--bind          Gateway listen address host:port (gateway start)
 			--insecure      Allow plain WS on non-loopback trusted tunnels (gateway start)
 			--grace-period-ms Gateway reconnect grace period in milliseconds (gateway start)
@@ -362,6 +364,12 @@ const cli = meow(
 				type: 'string',
 			},
 			tlsCa: {
+				type: 'string',
+			},
+			tlsCert: {
+				type: 'string',
+			},
+			tlsKey: {
 				type: 'string',
 			},
 			bind: {
@@ -518,6 +526,12 @@ async function main(): Promise<void> {
 		}
 		if (typeof cli.flags.tlsCa === 'string') {
 			subcommandArgs.push('--tls-ca', cli.flags.tlsCa);
+		}
+		if (typeof cli.flags.tlsCert === 'string') {
+			subcommandArgs.push('--tls-cert', cli.flags.tlsCert);
+		}
+		if (typeof cli.flags.tlsKey === 'string') {
+			subcommandArgs.push('--tls-key', cli.flags.tlsKey);
 		}
 		if (typeof cli.flags.bind === 'string') {
 			subcommandArgs.push('--bind', cli.flags.bind);

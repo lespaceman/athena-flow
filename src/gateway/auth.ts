@@ -61,9 +61,10 @@ export function requireTokenForBind(
 			`gateway: refusing to bind ${spec.host}:${spec.port} without token configured`,
 		);
 	}
+	if (spec.tls) return;
 	if (!spec.insecure) {
 		throw new Error(
-			`gateway: refusing to bind ${spec.host}:${spec.port} without TLS; pass --insecure only for trusted tunnels`,
+			`gateway: refusing to bind ${spec.host}:${spec.port} without TLS; pass --tls-cert/--tls-key, or --insecure only for trusted reverse-proxy/tunnel deployments`,
 		);
 	}
 }

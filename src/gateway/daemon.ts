@@ -24,6 +24,7 @@ import {
 import {Dispatcher} from './dispatcher';
 import {acquireLock, type LockHandle} from './lock';
 import {
+	isLoopbackHost,
 	resolveGatewayPaths,
 	resolveListenSpec,
 	type GatewayListenSpec,
@@ -35,7 +36,7 @@ import {SessionRegistry} from './sessionRegistry';
 import {openGatewayState, type GatewayStateDb} from './state/db';
 import {InboundQueue} from './state/inboundQueue';
 import {Outbox} from './state/outbox';
-import {createLoopbackWsServerTransport} from './transport/tlsWs';
+import {createWsServerTransport} from './transport/tlsWs';
 import {writeGatewayTrace} from './transport/trace';
 
 export type DaemonOptions = {
@@ -235,10 +236,11 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 	try {
 		const transport =
 			listenSpec.kind === 'tcp'
-				? createLoopbackWsServerTransport({
+				? createWsServerTransport({
 						host: listenSpec.host,
 						port: listenSpec.port,
-						allowNonLoopback: listenSpec.insecure,
+						allowNonLoopback: listenSpec.insecure || Boolean(listenSpec.tls),
+						...(listenSpec.tls ? {tls: listenSpec.tls} : {}),
 					})
 				: undefined;
 		server = await startControlServer({
@@ -309,6 +311,17 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 		const target =
 			listener.kind === 'tcp' ? listener.url : `socket=${paths.socketPath}`;
 		process.stdout.write(`athena-gateway: ok pid=${pid} ${target}\n`);
+	}
+	if (
+		listenSpec.kind === 'tcp' &&
+		listenSpec.insecure &&
+		!listenSpec.tls &&
+		!isLoopbackHost(listenSpec.host)
+	) {
+		process.stderr.write(
+			`athena-gateway: WARNING --insecure is set on a non-loopback bind (${listenSpec.host}:${listenSpec.port}); ` +
+				`token travels in plaintext. Use only behind TLS-terminating reverse proxy or Tailscale/WireGuard tunnel.\n`,
+		);
 	}
 
 	let stopping = false;

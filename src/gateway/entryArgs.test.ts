@@ -22,4 +22,23 @@ describe('parseGatewayDaemonArgs', () => {
 	it('rejects unknown options', () => {
 		expect(() => parseGatewayDaemonArgs(['--wat'])).toThrow(/unknown/);
 	});
+
+	it('parses TLS flags in space and equals form', () => {
+		expect(
+			parseGatewayDaemonArgs([
+				'--tls-cert',
+				'/etc/ssl/gw.crt',
+				'--tls-key=/etc/ssl/gw.key',
+			]),
+		).toMatchObject({
+			tlsCertPath: '/etc/ssl/gw.crt',
+			tlsKeyPath: '/etc/ssl/gw.key',
+		});
+	});
+
+	it('rejects --tls-cert without --tls-key', () => {
+		expect(() =>
+			parseGatewayDaemonArgs(['--tls-cert', '/etc/ssl/gw.crt']),
+		).toThrow(/together/);
+	});
 });

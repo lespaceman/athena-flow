@@ -1,10 +1,10 @@
 import {describe, expect, it} from 'vitest';
 import {WebSocket} from 'ws';
-import {createLoopbackWsServerTransport} from './tlsWs';
+import {createWsServerTransport} from './tlsWs';
 
-describe('createLoopbackWsServerTransport heartbeat', () => {
+describe('createWsServerTransport heartbeat', () => {
 	it('terminates a connection that stops responding to pings', async () => {
-		const transport = createLoopbackWsServerTransport({
+		const transport = createWsServerTransport({
 			host: '127.0.0.1',
 			port: 0,
 			pingIntervalMs: 30,
@@ -30,8 +30,44 @@ describe('createLoopbackWsServerTransport heartbeat', () => {
 		await server.close();
 	}, 5_000);
 
+	it('rejects connect attempts exceeding the per-IP rate limit', async () => {
+		const transport = createWsServerTransport({
+			host: '127.0.0.1',
+			port: 0,
+			pingIntervalMs: 0,
+			rateLimitPerMin: 2,
+		});
+		const accepted: number[] = [];
+		const server = await transport.listen(() => {
+			accepted.push(Date.now());
+		});
+		const url = transport.endpoint().url;
+
+		const open = (): Promise<'ok' | 'rejected'> =>
+			new Promise(resolve => {
+				const ws = new WebSocket(url);
+				ws.once('open', () => {
+					ws.close();
+					resolve('ok');
+				});
+				ws.once('error', () => resolve('rejected'));
+				ws.once('unexpected-response', () => resolve('rejected'));
+			});
+
+		const a = await open();
+		const b = await open();
+		const c = await open();
+		expect(a).toBe('ok');
+		expect(b).toBe('ok');
+		expect(c).toBe('rejected');
+		// Give the server a tick to record both accepted connects.
+		await new Promise(r => setTimeout(r, 50));
+		expect(accepted.length).toBe(2);
+		await server.close();
+	}, 5_000);
+
 	it('keeps a healthy connection alive across multiple ping intervals', async () => {
-		const transport = createLoopbackWsServerTransport({
+		const transport = createWsServerTransport({
 			host: '127.0.0.1',
 			port: 0,
 			pingIntervalMs: 30,

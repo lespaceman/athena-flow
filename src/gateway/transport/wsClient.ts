@@ -1,4 +1,5 @@
 import {WebSocket} from 'ws';
+import {readFileSync} from 'node:fs';
 import {
 	TransportUnreachableError,
 	type ClientTransport,
@@ -9,6 +10,8 @@ import {traceGatewayFrame} from './trace';
 export type WsClientTransportOptions = {
 	url: string;
 	timeoutMs?: number;
+	/** Custom CA bundle path for self-signed gateway certs. */
+	tlsCaPath?: string;
 };
 
 export function createWsClientTransport(
@@ -20,11 +23,28 @@ export function createWsClientTransport(
 	};
 }
 
+/**
+ * Build a `WsClientTransportOptions`-shaped object that omits `tlsCaPath`
+ * when undefined, so spreading the result doesn't write the optional key.
+ */
+export function wsClientOptionsForEndpoint(input: {
+	url: string;
+	timeoutMs?: number;
+	tlsCaPath?: string;
+}): WsClientTransportOptions {
+	return {
+		url: input.url,
+		...(input.timeoutMs !== undefined ? {timeoutMs: input.timeoutMs} : {}),
+		...(input.tlsCaPath !== undefined ? {tlsCaPath: input.tlsCaPath} : {}),
+	};
+}
+
 async function connectWs(
 	opts: WsClientTransportOptions,
 ): Promise<FramedConnection> {
 	const timeoutMs = opts.timeoutMs ?? 5_000;
-	const ws = new WebSocket(opts.url);
+	const wsOpts = opts.tlsCaPath ? {ca: readFileSync(opts.tlsCaPath)} : {};
+	const ws = new WebSocket(opts.url, wsOpts);
 
 	await new Promise<void>((resolve, reject) => {
 		const timer = setTimeout(() => {

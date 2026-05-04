@@ -30,7 +30,10 @@ import {
 } from '../../gateway/control/client';
 import {resolveGatewayPaths, type GatewayPaths} from '../../gateway/paths';
 import {writeGatewayTrace} from '../../gateway/transport/trace';
-import {createWsClientTransport} from '../../gateway/transport/wsClient';
+import {
+	createWsClientTransport,
+	wsClientOptionsForEndpoint,
+} from '../../gateway/transport/wsClient';
 import {readGatewayClientConfig} from '../../infra/config/gatewayClient';
 import type {
 	ChannelLocation,
@@ -503,7 +506,12 @@ async function connectForEndpoint(opts: {
 		return connect({
 			socketPath: opts.paths.socketPath,
 			token: opts.endpoint.token,
-			transport: createWsClientTransport({url: opts.endpoint.url}),
+			transport: createWsClientTransport(
+				wsClientOptionsForEndpoint({
+					url: opts.endpoint.url,
+					tlsCaPath: opts.endpoint.tlsCaPath,
+				}),
+			),
 		});
 	}
 	return connect({

@@ -22,14 +22,26 @@ export type GatewayPaths = {
 	statePath: string;
 };
 
+export type GatewayTlsConfig = {
+	certPath: string;
+	keyPath: string;
+};
+
 export type GatewayListenSpec =
 	| {kind: 'uds'; socketPath: string}
-	| {kind: 'tcp'; host: string; port: number; insecure: boolean};
+	| {
+			kind: 'tcp';
+			host: string;
+			port: number;
+			insecure: boolean;
+			tls?: GatewayTlsConfig;
+	  };
 
 export type ResolveListenSpecOptions = {
 	paths: GatewayPaths;
 	bind?: string;
 	insecure?: boolean;
+	tls?: GatewayTlsConfig;
 };
 
 export function resolveGatewayPaths(
@@ -69,6 +81,7 @@ export function resolveListenSpec(
 		host: parsed.host,
 		port: parsed.port,
 		insecure: opts.insecure ?? false,
+		...(opts.tls ? {tls: opts.tls} : {}),
 	};
 }
 

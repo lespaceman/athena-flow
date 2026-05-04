@@ -43,4 +43,16 @@ describe('requireTokenForBind', () => {
 			/--insecure/,
 		);
 	});
+
+	it('allows non-loopback bind with TLS configured even without --insecure', () => {
+		const spec: GatewayListenSpec = {
+			kind: 'tcp',
+			host: '0.0.0.0',
+			port: 18789,
+			insecure: false,
+			tls: {certPath: '/etc/ssl/gw.crt', keyPath: '/etc/ssl/gw.key'},
+		};
+
+		expect(() => requireTokenForBind(spec, 'secret-token-1234')).not.toThrow();
+	});
 });

@@ -104,6 +104,32 @@ describe('runGatewayCommand', () => {
 		expect(cap.err.join('\n')).toContain('--token');
 	});
 
+	it('link rejects --tls-ca with no value', async () => {
+		const cap = captureLogs();
+		const code = await runGatewayCommand(
+			{
+				subcommand: 'link',
+				subcommandArgs: ['wss://gw.example.com', '--token', 'tok', '--tls-ca'],
+			},
+			cap.baseDeps,
+		);
+		expect(code).toBe(2);
+		expect(cap.err.join('\n')).toContain('--tls-ca requires a path');
+	});
+
+	it('link rejects --tls-ca followed by another flag', async () => {
+		const cap = captureLogs();
+		const code = await runGatewayCommand(
+			{
+				subcommand: 'link',
+				subcommandArgs: ['wss://gw.example.com', '--tls-ca', '--token', 'tok'],
+			},
+			cap.baseDeps,
+		);
+		expect(code).toBe(2);
+		expect(cap.err.join('\n')).toContain('--tls-ca requires a path');
+	});
+
 	it('unlink rewrites gateway endpoint config to local mode', async () => {
 		const cap = captureLogs();
 		let written: RuntimeEndpoint | undefined;
