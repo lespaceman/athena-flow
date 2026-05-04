@@ -127,12 +127,19 @@ Mutual TLS (presenting a client cert in addition to the token) is on the R6 road
 ## Quick reference
 
 ```
-athena-gateway start
+athena-gateway
     [--bind <host:port>]
     [--insecure]
     [--tls-cert <path>] [--tls-key <path>]
     [--grace-period-ms <n>]
     [--silent]
+
+# or via the user-facing CLI (spawns the same daemon binary):
+athena gateway start
+    [--bind <host:port>]
+    [--insecure]
+    [--tls-cert <path>] [--tls-key <path>]
+    [--grace-period-ms <n>]
 
 athena gateway link <ws-or-wss-url>
     --token <t>

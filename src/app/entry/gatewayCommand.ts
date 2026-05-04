@@ -30,7 +30,9 @@ const USAGE = `Usage: athena-flow gateway <subcommand> [--json]
 
 Subcommands:
   start     Run the gateway daemon in foreground (only mode in this build).
-            Options: [--bind <host:port>] [--insecure] [--grace-period-ms <n>]
+            Options: [--bind <host:port>] [--insecure]
+                     [--tls-cert <path>] [--tls-key <path>]
+                     [--grace-period-ms <n>]
   status    Print daemon pid, uptime, and version.
   probe     Send a ping RPC and report reachability + latency.
   link      Store a remote WS/WSS gateway endpoint for this user.
