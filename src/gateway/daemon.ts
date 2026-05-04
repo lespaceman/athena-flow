@@ -38,6 +38,34 @@ import {InboundQueue} from './state/inboundQueue';
 import {Outbox} from './state/outbox';
 import {createWsServerTransport} from './transport/tlsWs';
 import {writeGatewayTrace} from './transport/trace';
+import {
+	trackGatewayRuntimeExpired,
+	trackGatewayRuntimeRebind,
+	trackGatewayTransportConnect,
+	trackGatewayTransportDisconnect,
+} from '../infra/telemetry/events';
+import type {ListenerStatusEntry} from '../shared/gateway-protocol';
+
+function buildListenerStatus(
+	spec: GatewayListenSpec,
+	resolvedPort: number | null,
+): ListenerStatusEntry {
+	if (spec.kind === 'uds') {
+		return {kind: 'uds', socketPath: spec.socketPath};
+	}
+	const port = resolvedPort ?? spec.port;
+	const tls = Boolean(spec.tls);
+	const scheme = tls ? 'wss' : 'ws';
+	return {
+		kind: 'tcp',
+		host: spec.host,
+		port,
+		url: `${scheme}://${spec.host}:${port}`,
+		tls,
+		insecure: spec.insecure,
+		loopback: isLoopbackHost(spec.host),
+	};
+}
 
 export type DaemonOptions = {
 	/** When true the daemon stays in foreground (no detach). */
@@ -102,6 +130,12 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 	const listenSpec = opts.listenSpec ?? resolveListenSpec({paths});
 	requireTokenForBind(listenSpec, token);
 
+	const listenerHints = {
+		transport: (listenSpec.kind === 'tcp' ? 'ws' : 'uds') as 'ws' | 'uds',
+		tls: listenSpec.kind === 'tcp' && Boolean(listenSpec.tls),
+		loopback: listenSpec.kind === 'uds' || isLoopbackHost(listenSpec.host),
+	};
+
 	const stateDb: GatewayStateDb = openGatewayState(paths.statePath);
 	const inboundQueue = new InboundQueue(stateDb);
 	const outbox = new Outbox(stateDb);
@@ -116,7 +150,9 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 	// map is the only state the daemon keeps about active connections.
 	const runtimeConnections = new Map<string, ConnectionContext>();
 	const staleRuntimeTimers = new Map<string, NodeJS.Timeout>();
+	const connectionOpenedAt = new Map<string, number>();
 	const disconnectGracePeriodMs = opts.disconnectGracePeriodMs ?? 0;
+	let listenerStatus: ListenerStatusEntry | null = null;
 	const pushDispatch = (
 		payload: import('../shared/gateway-protocol').SessionDispatchTurnPushPayload,
 	): void => {
@@ -208,17 +244,30 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 		dispatcher,
 		channelManager,
 		relayCoordinator,
+		getListener: () => listenerStatus ?? buildListenerStatus(listenSpec, null),
 		registerRuntimeConnection: (runtimeId, ctx) => {
 			const timer = staleRuntimeTimers.get(runtimeId);
 			if (timer) {
 				clearTimeout(timer);
 				staleRuntimeTimers.delete(runtimeId);
 			}
+			const previousBinding = registry.getBinding();
+			const wasStale = previousBinding?.state === 'stale';
+			const staleSince = wasStale ? previousBinding.staleSince : null;
 			registry.bindConnection(runtimeId, ctx.connectionId);
 			runtimeConnections.set(runtimeId, ctx);
 			writeGatewayTrace(
 				`daemon registered runtime runtimeId=${runtimeId} connectionId=${ctx.connectionId}`,
 			);
+			if (wasStale && staleSince !== null) {
+				const newBinding = registry.getBinding();
+				if (newBinding?.state === 'active') {
+					trackGatewayRuntimeRebind({
+						gapMs: Date.now() - staleSince,
+						epoch: newBinding.epoch,
+					});
+				}
+			}
 		},
 		unregisterRuntimeConnection: runtimeId => {
 			const timer = staleRuntimeTimers.get(runtimeId);
@@ -249,7 +298,23 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 			startedAt,
 			handler,
 			...(transport !== undefined ? {transport} : {}),
+			onConnect: ctx => {
+				connectionOpenedAt.set(ctx.connectionId, Date.now());
+				trackGatewayTransportConnect({
+					transport: listenerHints.transport,
+					tls: listenerHints.tls,
+					loopback: listenerHints.loopback,
+				});
+			},
 			onDisconnect: ctx => {
+				const openedAt = connectionOpenedAt.get(ctx.connectionId);
+				connectionOpenedAt.delete(ctx.connectionId);
+				const durationMs = openedAt !== undefined ? Date.now() - openedAt : 0;
+				trackGatewayTransportDisconnect({
+					transport: listenerHints.transport,
+					reason: 'closed',
+					durationMs,
+				});
 				// If the registered runtime's connection drops without unregister,
 				// either clean up immediately (local default) or keep the registration
 				// stale for a remote reconnect grace window.
@@ -263,6 +328,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 						`daemon runtime connection disconnected runtimeId=${current.runtimeId} connectionId=${ctx.connectionId}`,
 					);
 					runtimeConnections.delete(current.runtimeId);
+					const staleAt = Date.now();
 					registry.markConnectionStale(ctx.connectionId);
 					if (disconnectGracePeriodMs <= 0) {
 						try {
@@ -292,6 +358,9 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 							// Single-runtime v1: blanket dispose is safe. Multi-runtime
 							// must scope this to runtimeId.
 							relayCoordinator.disposeAll('connection_lost');
+							trackGatewayRuntimeExpired({
+								gapMs: Date.now() - staleAt,
+							});
 						}
 					}, disconnectGracePeriodMs);
 					staleRuntimeTimers.set(runtimeId, timer);
@@ -306,8 +375,10 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 				port: endpoint.port,
 				url: endpoint.url,
 			};
+			listenerStatus = buildListenerStatus(listenSpec, endpoint.port);
 		} else {
 			listener = {kind: 'uds', socketPath: listenSpec.socketPath};
+			listenerStatus = buildListenerStatus(listenSpec, null);
 		}
 	} catch (err) {
 		lock.release();

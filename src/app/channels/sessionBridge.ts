@@ -36,6 +36,7 @@ import {
 	wsClientOptionsForEndpoint,
 } from '../../gateway/transport/wsClient';
 import {readGatewayClientConfig} from '../../infra/config/gatewayClient';
+import {trackGatewayTransportReconnect} from '../../infra/telemetry/events';
 import type {
 	ChannelLocation,
 	ControlPushEnvelope,
@@ -388,6 +389,7 @@ export class SessionBridge {
 		if (this.reconnecting) return this.reconnecting;
 		this.reconnectAttempts = 0;
 		const target = this.resolveEndpointPaths();
+		const transportKind = target.endpoint.mode === 'remote' ? 'ws' : 'uds';
 		this.reconnecting = (async () => {
 			while (!this.stopped) {
 				const attempt = this.reconnectAttempts;
@@ -417,6 +419,11 @@ export class SessionBridge {
 					}
 					this.reconnectAttempts = attempt + 1;
 					const delay = this.delayForAttempt(attempt);
+					trackGatewayTransportReconnect({
+						transport: transportKind,
+						attempt: this.reconnectAttempts,
+						backoffMs: delay,
+					});
 					const msg = err instanceof Error ? err.message : String(err);
 					writeGatewayTrace(
 						`sessionBridge reconnect failed attempt=${attempt} delayMs=${delay} err=${msg}`,
