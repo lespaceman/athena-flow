@@ -32,9 +32,23 @@ export type ConsoleReconnectOptions = {
 	maxDelayMs?: number;
 };
 
+export type PairingTokenProvider = () => Promise<string>;
+
 export type ConsoleBrokerClientOptions = {
 	brokerUrl: string;
-	pairingToken: string;
+	/**
+	 * Static pairing token. Mutually exclusive with `pairingTokenProvider`.
+	 * Use this for legacy long-lived pairing tokens; for short-lived
+	 * dashboard access tokens that must be refreshed before reconnect, use
+	 * `pairingTokenProvider`.
+	 */
+	pairingToken?: string;
+	/**
+	 * Async provider invoked before each connect (initial and reconnect) to
+	 * obtain a fresh access token. The latest resolved token is the one
+	 * redacted in error/log strings. Mutually exclusive with `pairingToken`.
+	 */
+	pairingTokenProvider?: PairingTokenProvider;
 	tlsCaPath?: string;
 	log: ConsoleBrokerClientLogger;
 	connectTimeoutMs?: number;
@@ -66,6 +80,18 @@ const DEFAULT_MAX_RECONNECT_MS = 30_000;
 export function createConsoleBrokerClient(
 	opts: ConsoleBrokerClientOptions,
 ): ConsoleBrokerClient {
+	const hasStatic =
+		typeof opts.pairingToken === 'string' && opts.pairingToken.length > 0;
+	const hasProvider = typeof opts.pairingTokenProvider === 'function';
+	if (hasStatic === hasProvider) {
+		throw new Error(
+			'console broker client: exactly one of pairingToken or pairingTokenProvider is required',
+		);
+	}
+	const provider: PairingTokenProvider = hasStatic
+		? async () => opts.pairingToken!
+		: opts.pairingTokenProvider!;
+
 	const initialDelay =
 		opts.reconnect?.initialDelayMs ?? DEFAULT_INITIAL_RECONNECT_MS;
 	const maxDelay = opts.reconnect?.maxDelayMs ?? DEFAULT_MAX_RECONNECT_MS;
@@ -75,6 +101,7 @@ export function createConsoleBrokerClient(
 	let reconnectAttempt = 0;
 	let reconnectTimer: NodeJS.Timeout | null = null;
 	let lastHello: ConsoleHelloPayload | null = null;
+	let currentToken: string | null = null;
 	const frameHandlers = new Set<(frame: AthenaConsoleFrame) => void>();
 	const closeHandlers = new Set<(reason: string) => void>();
 	const readyHandlers = new Set<
@@ -83,7 +110,8 @@ export function createConsoleBrokerClient(
 	const tokenRedacted = '<redacted>';
 
 	function redact(message: string): string {
-		return message.split(opts.pairingToken).join(tokenRedacted);
+		if (!currentToken) return message;
+		return message.split(currentToken).join(tokenRedacted);
 	}
 
 	function emitClose(reason: string): void {
@@ -121,7 +149,23 @@ export function createConsoleBrokerClient(
 
 	async function attemptConnect(hello: ConsoleHelloPayload): Promise<void> {
 		const timeoutMs = opts.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
-		const headers = {Authorization: `Bearer ${opts.pairingToken}`};
+		let token: string;
+		try {
+			token = await provider();
+		} catch (err) {
+			throw new Error(
+				`console broker connect failed: pairing token provider threw: ${
+					err instanceof Error ? err.message : String(err)
+				}`,
+			);
+		}
+		if (typeof token !== 'string' || token.length === 0) {
+			throw new Error(
+				'console broker connect failed: pairing token provider returned empty token',
+			);
+		}
+		currentToken = token;
+		const headers = {Authorization: `Bearer ${token}`};
 		const wsOpts = opts.tlsCaPath
 			? {headers, ca: readFileSync(opts.tlsCaPath)}
 			: {headers};

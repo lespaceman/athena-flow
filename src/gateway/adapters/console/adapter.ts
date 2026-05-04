@@ -14,6 +14,8 @@
  */
 
 import {readFileSync} from 'node:fs';
+import {refreshDashboardAccessToken} from '../../../infra/config/dashboardAuth';
+import type {PairingTokenProvider} from './client';
 import type {
 	AdapterContext,
 	AthenaConsoleFrame,
@@ -76,13 +78,15 @@ export class ConsoleAdapter implements ChannelAdapter {
 			throw new Error('console adapter already started');
 		}
 		this.ctx = ctx;
-		const pairingToken = resolvePairingToken(this.opts);
+		const tokenSource = resolvePairingTokenSource(this.opts);
 		const factory: ConsoleBrokerClientFactory =
 			this.opts.brokerClientFactory ??
 			(input => createConsoleBrokerClient(input));
 		const client = factory({
 			brokerUrl: this.opts.brokerUrl,
-			pairingToken,
+			...(tokenSource.kind === 'static'
+				? {pairingToken: tokenSource.token}
+				: {pairingTokenProvider: tokenSource.provider}),
 			...(this.opts.tlsCaPath !== undefined
 				? {tlsCaPath: this.opts.tlsCaPath}
 				: {}),
@@ -448,9 +452,24 @@ export class ConsoleAdapter implements ChannelAdapter {
 	}
 }
 
-function resolvePairingToken(opts: ConsoleAdapterOptions): string {
+type PairingTokenSource =
+	| {kind: 'static'; token: string}
+	| {kind: 'provider'; provider: PairingTokenProvider};
+
+function resolvePairingTokenSource(
+	opts: ConsoleAdapterOptions,
+): PairingTokenSource {
+	if (opts.dashboardConfig === true) {
+		const provider =
+			opts.pairingTokenProvider ??
+			(async () => {
+				const result = await refreshDashboardAccessToken();
+				return result.accessToken;
+			});
+		return {kind: 'provider', provider};
+	}
 	if (opts.pairingToken !== undefined && opts.pairingToken.length > 0) {
-		return opts.pairingToken;
+		return {kind: 'static', token: opts.pairingToken};
 	}
 	if (opts.tokenPath !== undefined && opts.tokenPath.length > 0) {
 		try {
@@ -460,7 +479,7 @@ function resolvePairingToken(opts: ConsoleAdapterOptions): string {
 					`console adapter: token_path ${opts.tokenPath} is empty`,
 				);
 			}
-			return value;
+			return {kind: 'static', token: value};
 		} catch (err) {
 			const code = (err as NodeJS.ErrnoException).code;
 			throw new Error(
@@ -470,7 +489,9 @@ function resolvePairingToken(opts: ConsoleAdapterOptions): string {
 			);
 		}
 	}
-	throw new Error('console adapter: no pairing_token or token_path configured');
+	throw new Error(
+		'console adapter: no pairing_token, token_path, or dashboard_config configured',
+	);
 }
 
 let outboundCounter = 0;

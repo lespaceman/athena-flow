@@ -35,13 +35,26 @@ export const consoleModule: AdapterModule<ConsoleAdapterOptions> = {
 		}
 		const pairingToken = options['pairing_token'];
 		const tokenPath = options['token_path'];
-		if (
-			(pairingToken === undefined || pairingToken === '') &&
-			(tokenPath === undefined || tokenPath === '')
-		) {
+		const dashboardConfig = options['dashboard_config'];
+		if (dashboardConfig !== undefined && typeof dashboardConfig !== 'boolean') {
+			return {ok: false, reason: 'dashboard_config must be a boolean'};
+		}
+		const useDashboardConfig = dashboardConfig === true;
+		const hasInline =
+			typeof pairingToken === 'string' && pairingToken.length > 0;
+		const hasTokenPath = typeof tokenPath === 'string' && tokenPath.length > 0;
+		if (useDashboardConfig && (hasInline || hasTokenPath)) {
 			return {
 				ok: false,
-				reason: 'either pairing_token or token_path is required',
+				reason:
+					'dashboard_config is mutually exclusive with pairing_token and token_path',
+			};
+		}
+		if (!useDashboardConfig && !hasInline && !hasTokenPath) {
+			return {
+				ok: false,
+				reason:
+					'either pairing_token, token_path, or dashboard_config is required',
 			};
 		}
 		if (pairingToken !== undefined && typeof pairingToken !== 'string') {
@@ -63,8 +76,12 @@ export const consoleModule: AdapterModule<ConsoleAdapterOptions> = {
 			brokerUrl,
 			runnerId,
 			...(workspaceId !== undefined ? {workspaceId} : {}),
-			...(pairingToken !== undefined ? {pairingToken} : {}),
-			...(tokenPath !== undefined ? {tokenPath} : {}),
+			...(useDashboardConfig
+				? {dashboardConfig: true}
+				: {
+						...(pairingToken !== undefined ? {pairingToken} : {}),
+						...(tokenPath !== undefined ? {tokenPath} : {}),
+					}),
 			...(tlsCaPath !== undefined ? {tlsCaPath} : {}),
 		};
 		return {ok: true, config};

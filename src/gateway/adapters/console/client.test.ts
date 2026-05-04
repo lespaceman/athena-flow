@@ -403,3 +403,178 @@ describe('ConsoleBrokerClient — reconnect', () => {
 		expect(handle.acceptCount()).toBe(1);
 	});
 });
+
+describe('ConsoleBrokerClient — pairingTokenProvider', () => {
+	let server: WebSocketServer;
+	let port: number;
+	let serverSockets: ServerWebSocket[] = [];
+
+	beforeEach(async () => {
+		server = new WebSocketServer({port: 0, host: '127.0.0.1'});
+		await new Promise<void>(resolve =>
+			server.once('listening', () => resolve()),
+		);
+		const addr = server.address();
+		if (typeof addr !== 'object' || addr === null) throw new Error('no addr');
+		port = addr.port;
+		serverSockets = [];
+		server.on('connection', ws => {
+			serverSockets.push(ws);
+		});
+	});
+
+	afterEach(async () => {
+		for (const ws of serverSockets) ws.terminate();
+		await new Promise<void>(resolve => server.close(() => resolve()));
+	});
+
+	const url = (): string => `ws://127.0.0.1:${port}/adapter`;
+
+	function autoReady(): void {
+		server.on('connection', ws => {
+			ws.on('message', () => {
+				ws.send(
+					JSON.stringify({
+						kind: 'console.ready',
+						frameId: 'r',
+						sentAt: 0,
+						protocolVersion: 1,
+						brokerName: 'b',
+						address: {runnerId: 'r1'},
+					}),
+				);
+			});
+		});
+	}
+
+	it('throws when neither pairingToken nor pairingTokenProvider is given', () => {
+		expect(() =>
+			createConsoleBrokerClient({brokerUrl: url(), log: () => {}}),
+		).toThrow(/exactly one/);
+	});
+
+	it('throws when both pairingToken and pairingTokenProvider are given', () => {
+		expect(() =>
+			createConsoleBrokerClient({
+				brokerUrl: url(),
+				pairingToken: 't',
+				pairingTokenProvider: async () => 't',
+				log: () => {},
+			}),
+		).toThrow(/exactly one/);
+	});
+
+	it('calls the provider before initial connect and uses the returned token', async () => {
+		autoReady();
+		const provider = vi.fn().mockResolvedValue('access-1');
+		const headerSeen: Array<string | string[] | undefined> = [];
+		server.once('connection', (_ws, req) => {
+			headerSeen.push(req.headers['authorization']);
+		});
+
+		const client = createConsoleBrokerClient({
+			brokerUrl: url(),
+			pairingTokenProvider: provider,
+			log: () => {},
+		});
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		expect(provider).toHaveBeenCalledTimes(1);
+		expect(headerSeen[0]).toBe('Bearer access-1');
+		client.close('done');
+	});
+
+	it('calls the provider again before reconnect and sends the new token', async () => {
+		autoReady();
+		const tokens = ['access-1', 'access-2'];
+		const provider = vi.fn().mockImplementation(async () => tokens.shift()!);
+		const headerSeen: Array<string | string[] | undefined> = [];
+		server.on('connection', (_ws, req) => {
+			headerSeen.push(req.headers['authorization']);
+		});
+
+		const client = createConsoleBrokerClient({
+			brokerUrl: url(),
+			pairingTokenProvider: provider,
+			log: () => {},
+			reconnect: {initialDelayMs: 5, maxDelayMs: 50},
+		});
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		expect(provider).toHaveBeenCalledTimes(1);
+
+		// trigger reconnect by terminating the only server-side socket
+		for (const ws of server.clients) ws.terminate();
+
+		await vi.waitFor(
+			() => {
+				expect(provider.mock.calls.length).toBeGreaterThanOrEqual(2);
+			},
+			{timeout: 1_000},
+		);
+		await vi.waitFor(() => expect(client.isReady()).toBe(true), {
+			timeout: 1_000,
+		});
+		expect(headerSeen[0]).toBe('Bearer access-1');
+		expect(headerSeen.slice(1)).toContain('Bearer access-2');
+		client.close('done');
+	});
+
+	it('rejects connect when the provider throws', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: url(),
+			pairingTokenProvider: async () => {
+				throw new Error('refresh failed');
+			},
+			log: () => {},
+		});
+		await expect(
+			client.connect({
+				runnerId: 'r1',
+				clientName: 'athena-cli',
+				clientVersion: 'x',
+			}),
+		).rejects.toThrow(/pairing token provider threw: refresh failed/);
+	});
+
+	it('rejects connect when the provider returns an empty token', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: url(),
+			pairingTokenProvider: async () => '',
+			log: () => {},
+		});
+		await expect(
+			client.connect({
+				runnerId: 'r1',
+				clientName: 'athena-cli',
+				clientVersion: 'x',
+			}),
+		).rejects.toThrow(/empty token/);
+	});
+
+	it('redacts a provider-returned token from thrown errors', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: 'ws://127.0.0.1:1/adapter', // unreachable, will time out
+			pairingTokenProvider: async () => 'super-provider-secret',
+			log: () => {},
+			connectTimeoutMs: 50,
+		});
+		try {
+			await client.connect({
+				runnerId: 'r1',
+				clientName: 'athena-cli',
+				clientVersion: 'x',
+			});
+			throw new Error('expected connect to fail');
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			expect(msg).not.toContain('super-provider-secret');
+		}
+	});
+});

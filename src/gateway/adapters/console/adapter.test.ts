@@ -659,3 +659,48 @@ describe('ConsoleAdapter — question relay', () => {
 		await adapter.stop('shutdown');
 	});
 });
+
+describe('ConsoleAdapter: dashboard_config token source', () => {
+	function makeAdapterWithDashboardConfig(provider?: () => Promise<string>) {
+		const fake = new FakeBrokerClient();
+		const factoryInputs: Array<{
+			pairingToken?: string;
+			pairingTokenProvider?: () => Promise<string>;
+		}> = [];
+		const adapter = new ConsoleAdapter({
+			brokerUrl: 'wss://broker.test/adapter',
+			runnerId: 'r1',
+			dashboardConfig: true,
+			...(provider !== undefined ? {pairingTokenProvider: provider} : {}),
+			brokerClientFactory: input => {
+				factoryInputs.push({
+					pairingToken: input.pairingToken,
+					pairingTokenProvider: input.pairingTokenProvider,
+				});
+				return fake;
+			},
+		});
+		return {adapter, fake, factoryInputs};
+	}
+
+	it('forwards a pairingTokenProvider to the broker client and never a static token', async () => {
+		const provider = vi.fn().mockResolvedValue('access-from-dashboard');
+		const {adapter, factoryInputs} = makeAdapterWithDashboardConfig(provider);
+		await startAdapter(adapter);
+		expect(factoryInputs).toHaveLength(1);
+		expect(factoryInputs[0]!.pairingToken).toBeUndefined();
+		expect(factoryInputs[0]!.pairingTokenProvider).toBe(provider);
+		await adapter.stop('shutdown');
+	});
+
+	it('rejects construction when neither pairing source is configured', async () => {
+		const adapter = new ConsoleAdapter({
+			brokerUrl: 'wss://broker.test/adapter',
+			runnerId: 'r1',
+			brokerClientFactory: () => new FakeBrokerClient(),
+		});
+		await expect(startAdapter(adapter)).rejects.toThrow(
+			/no pairing_token, token_path, or dashboard_config/,
+		);
+	});
+});
