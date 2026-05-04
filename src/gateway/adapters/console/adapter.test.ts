@@ -361,6 +361,66 @@ describe('ConsoleAdapter — permission relay', () => {
 	});
 });
 
+describe('ConsoleAdapter — reconnect health + relay disposal', () => {
+	it('emits transportOk:false then transportOk:true on a broker reconnect', async () => {
+		const {adapter, fake} = makeAdapter();
+		const handle = await startAdapter(adapter);
+		expect(handle.health.at(-1)).toMatchObject({transportOk: true});
+		fake.simulateReconnect();
+		const last = handle.health.at(-1) as {transportOk: boolean};
+		const prev = handle.health.at(-2) as {transportOk: boolean};
+		expect(prev.transportOk).toBe(false);
+		expect(last.transportOk).toBe(true);
+		await adapter.stop('shutdown');
+	});
+
+	it('disposes pending permission relays as cancelled when broker closes', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestPermissionVerdict(
+			{
+				channelRequestId: 'eeeee',
+				toolName: 't',
+				description: 'd',
+				inputPreview: 'i',
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		fake.simulateReconnect();
+		const result = await p;
+		expect(result.kind).toBe('cancelled');
+		await adapter.stop('shutdown');
+	});
+
+	it('disposes pending question relays as cancelled when broker closes', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestQuestionAnswer(
+			{
+				channelRequestId: 'qeee',
+				title: 't',
+				questions: [
+					{
+						key: 'k',
+						header: 'h',
+						question: 'q',
+						multi_select: false,
+						options: [{label: 'a', description: ''}],
+					},
+				],
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		fake.simulateReconnect();
+		expect((await p).kind).toBe('cancelled');
+		await adapter.stop('shutdown');
+	});
+});
+
 describe('ConsoleAdapter — question relay', () => {
 	const sampleQuestion = {
 		key: 'priority',

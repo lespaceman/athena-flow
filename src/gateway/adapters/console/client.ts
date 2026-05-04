@@ -3,18 +3,15 @@
  * connection to the rich-client broker and speaks the `AthenaConsoleFrame`
  * protocol.
  *
- * Scope of this module:
- *   - open one WSS connection (single-shot in K2; reconnect lives in K7);
- *   - perform `console.hello` → `console.ready` handshake;
- *   - emit typed inbound frames to a single registered handler;
- *   - send outbound frames via `sendFrame()`;
- *   - close cleanly on `close(reason)`.
- *
  * Notes:
  *   - Pairing token travels via the `Authorization: Bearer …` header. It is
  *     never appended to the URL query string and never logged.
  *   - This client is independent from `gateway/transport/wsClient.ts`, which
  *     speaks `ControlEnvelope` for the runtime control plane.
+ *   - Reconnect uses full-jitter backoff, capped at `maxDelayMs`. Reconnect
+ *     is silent (no `connect()` reissue from callers); the `onReady`
+ *     callback fires after each successful re-handshake so subscribers can
+ *     refresh their transport-health view.
  */
 
 import {readFileSync} from 'node:fs';
@@ -30,12 +27,18 @@ export type ConsoleBrokerClientLogger = (
 	message: string,
 ) => void;
 
+export type ConsoleReconnectOptions = {
+	initialDelayMs?: number;
+	maxDelayMs?: number;
+};
+
 export type ConsoleBrokerClientOptions = {
 	brokerUrl: string;
 	pairingToken: string;
 	tlsCaPath?: string;
 	log: ConsoleBrokerClientLogger;
 	connectTimeoutMs?: number;
+	reconnect?: ConsoleReconnectOptions;
 };
 
 export type ConsoleHelloPayload = {
@@ -56,12 +59,21 @@ export type ConsoleBrokerClient = {
 };
 
 const DEFAULT_CONNECT_TIMEOUT_MS = 10_000;
+const DEFAULT_INITIAL_RECONNECT_MS = 1_000;
+const DEFAULT_MAX_RECONNECT_MS = 30_000;
 
 export function createConsoleBrokerClient(
 	opts: ConsoleBrokerClientOptions,
 ): ConsoleBrokerClient {
+	const initialDelay =
+		opts.reconnect?.initialDelayMs ?? DEFAULT_INITIAL_RECONNECT_MS;
+	const maxDelay = opts.reconnect?.maxDelayMs ?? DEFAULT_MAX_RECONNECT_MS;
 	let ws: WebSocket | null = null;
 	let ready: AthenaConsoleReadyFrame | null = null;
+	let closeRequested = false;
+	let reconnectAttempt = 0;
+	let reconnectTimer: NodeJS.Timeout | null = null;
+	let lastHello: ConsoleHelloPayload | null = null;
 	const frameHandlers = new Set<(frame: AthenaConsoleFrame) => void>();
 	const closeHandlers = new Set<(reason: string) => void>();
 	const readyHandlers = new Set<
@@ -83,14 +95,38 @@ export function createConsoleBrokerClient(
 		}
 	}
 
-	async function connect(hello: ConsoleHelloPayload): Promise<void> {
-		if (ws) throw new Error('console broker client already connected');
+	function scheduleReconnect(): void {
+		if (closeRequested || !lastHello) return;
+		const exp = Math.min(maxDelay, initialDelay * 2 ** reconnectAttempt);
+		const delay = Math.floor(Math.random() * exp);
+		reconnectAttempt++;
+		const hello = lastHello;
+		reconnectTimer = setTimeout(() => {
+			reconnectTimer = null;
+			void attemptConnect(hello).then(
+				() => {
+					reconnectAttempt = 0;
+				},
+				err => {
+					opts.log(
+						'warn',
+						`console broker reconnect failed: ${redact(err instanceof Error ? err.message : String(err))}`,
+					);
+					scheduleReconnect();
+				},
+			);
+		}, delay);
+	}
+
+	async function attemptConnect(hello: ConsoleHelloPayload): Promise<void> {
 		const timeoutMs = opts.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS;
 		const headers = {Authorization: `Bearer ${opts.pairingToken}`};
 		const wsOpts = opts.tlsCaPath
 			? {headers, ca: readFileSync(opts.tlsCaPath)}
 			: {headers};
-		ws = new WebSocket(opts.brokerUrl, wsOpts);
+		const next = new WebSocket(opts.brokerUrl, wsOpts);
+		ws = next;
+		ready = null;
 
 		try {
 			await new Promise<void>((resolve, reject) => {
@@ -107,15 +143,13 @@ export function createConsoleBrokerClient(
 					clearTimeout(timer);
 					reject(err);
 				};
-				// Single timer covers both `open` and `ready` — a broker that accepts
-				// the socket but never replies must still surface as a timeout.
 				const timer = setTimeout(() => {
 					finishErr(
 						new Error(`console broker connect timed out after ${timeoutMs}ms`),
 					);
 				}, timeoutMs);
 
-				ws!.once('open', () => {
+				next.once('open', () => {
 					try {
 						const helloFrame: AthenaConsoleHelloFrame = {
 							kind: 'console.hello',
@@ -125,19 +159,19 @@ export function createConsoleBrokerClient(
 							clientName: hello.clientName,
 							clientVersion: hello.clientVersion,
 						};
-						ws!.send(JSON.stringify(helloFrame));
+						next.send(JSON.stringify(helloFrame));
 					} catch (err) {
 						finishErr(err instanceof Error ? err : new Error(String(err)));
 					}
 				});
 
-				ws!.once('error', err => {
+				next.once('error', err => {
 					finishErr(
 						new Error(`console broker connect failed: ${redact(err.message)}`),
 					);
 				});
 
-				ws!.once('close', (code, reasonBuf) => {
+				const earlyCloseListener = (code: number, reasonBuf: Buffer): void => {
 					if (!ready) {
 						const reason = reasonBuf.toString();
 						finishErr(
@@ -146,9 +180,10 @@ export function createConsoleBrokerClient(
 							),
 						);
 					}
-				});
+				};
+				next.once('close', earlyCloseListener);
 
-				ws!.on('message', data => {
+				next.on('message', data => {
 					let parsed: AthenaConsoleFrame;
 					try {
 						parsed = JSON.parse(String(data)) as AthenaConsoleFrame;
@@ -162,6 +197,7 @@ export function createConsoleBrokerClient(
 					if (!ready) {
 						if (parsed.kind === 'console.ready') {
 							ready = parsed;
+							next.removeListener('close', earlyCloseListener);
 							const address = parsed.address;
 							for (const h of [...readyHandlers]) {
 								try {
@@ -201,28 +237,46 @@ export function createConsoleBrokerClient(
 			});
 		} catch (err) {
 			try {
-				ws.terminate();
+				next.terminate();
 			} catch {
 				// best-effort
 			}
-			ws = null;
-			ready = null;
+			if (ws === next) {
+				ws = null;
+				ready = null;
+			}
 			throw err;
 		}
 
-		ws.on('close', (_code, reasonBuf) => {
+		// Permanent close listener — drives reconnect.
+		next.on('close', (_code, reasonBuf) => {
+			if (next !== ws) return; // a later attempt has already taken over
 			ws = null;
 			ready = null;
 			emitClose(reasonBuf.toString() || 'closed');
+			if (!closeRequested) scheduleReconnect();
 		});
 	}
 
+	async function connect(hello: ConsoleHelloPayload): Promise<void> {
+		if (ws) throw new Error('console broker client already connected');
+		closeRequested = false;
+		lastHello = hello;
+		await attemptConnect(hello);
+	}
+
 	function close(reason: string): void {
-		if (!ws) return;
-		try {
-			ws.close(1000, reason);
-		} catch {
-			ws.terminate();
+		closeRequested = true;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		if (ws) {
+			try {
+				ws.close(1000, reason);
+			} catch {
+				ws.terminate();
+			}
 		}
 		ws = null;
 		ready = null;

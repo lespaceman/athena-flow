@@ -3,6 +3,39 @@ import {WebSocketServer, type WebSocket as ServerWebSocket} from 'ws';
 import {createConsoleBrokerClient} from './client';
 import type {AthenaConsoleFrame} from '../../../shared/gateway-protocol';
 
+async function makeReadyServer(): Promise<{
+	server: WebSocketServer;
+	port: number;
+	acceptCount: () => number;
+	close: () => Promise<void>;
+}> {
+	const server = new WebSocketServer({port: 0, host: '127.0.0.1'});
+	await new Promise<void>(resolve => server.once('listening', () => resolve()));
+	let count = 0;
+	server.on('connection', ws => {
+		count++;
+		ws.on('message', () => {
+			ws.send(
+				JSON.stringify({
+					kind: 'console.ready',
+					frameId: 'r',
+					sentAt: 0,
+					protocolVersion: 1,
+					brokerName: 'b',
+					address: {runnerId: 'r1'},
+				}),
+			);
+		});
+	});
+	const port = (server.address() as {port: number}).port;
+	return {
+		server,
+		port,
+		acceptCount: () => count,
+		close: () => new Promise<void>(resolve => server.close(() => resolve())),
+	};
+}
+
 describe('ConsoleBrokerClient', () => {
 	let server: WebSocketServer;
 	let port: number;
@@ -180,6 +213,34 @@ describe('ConsoleBrokerClient', () => {
 		}
 	});
 
+	it('emits onReady on initial handshake', async () => {
+		const client = makeClient();
+		const readyAddrs: Array<{runnerId: string}> = [];
+		client.onReady(addr => readyAddrs.push(addr));
+		server.once('connection', ws => {
+			ws.on('message', () => {
+				ws.send(
+					JSON.stringify({
+						kind: 'console.ready',
+						frameId: 'r',
+						sentAt: 0,
+						protocolVersion: 1,
+						brokerName: 'b',
+						address: {runnerId: 'r1'},
+					}),
+				);
+			});
+		});
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		expect(readyAddrs).toHaveLength(1);
+		expect(readyAddrs[0]!.runnerId).toBe('r1');
+		client.close('done');
+	});
+
 	it('emits inbound frames to the registered handler', async () => {
 		const client = makeClient();
 		const received: AthenaConsoleFrame[] = [];
@@ -223,5 +284,92 @@ describe('ConsoleBrokerClient', () => {
 		});
 		expect(received[0]!.kind).toBe('console.message.in');
 		client.close('done');
+	});
+});
+
+describe('ConsoleBrokerClient — reconnect', () => {
+	let handle: Awaited<ReturnType<typeof makeReadyServer>>;
+
+	beforeEach(async () => {
+		handle = await makeReadyServer();
+	});
+
+	afterEach(async () => {
+		await handle.close();
+	});
+
+	it('reconnects after server-initiated close (post-ready)', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: `ws://127.0.0.1:${handle.port}/adapter`,
+			pairingToken: 'tok',
+			log: () => {},
+			reconnect: {initialDelayMs: 5, maxDelayMs: 50},
+		});
+
+		const closes: string[] = [];
+		client.onClose(reason => closes.push(reason));
+
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		expect(handle.acceptCount()).toBe(1);
+
+		// kill the only server-side socket; client should reconnect
+		for (const ws of handle.server.clients) ws.terminate();
+
+		await vi.waitFor(
+			() => expect(handle.acceptCount()).toBeGreaterThanOrEqual(2),
+			{
+				timeout: 1000,
+			},
+		);
+		await vi.waitFor(() => expect(client.isReady()).toBe(true), {
+			timeout: 1000,
+		});
+		client.close('done');
+	});
+
+	it('emits onReady after each reconnect', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: `ws://127.0.0.1:${handle.port}/adapter`,
+			pairingToken: 'tok',
+			log: () => {},
+			reconnect: {initialDelayMs: 5, maxDelayMs: 50},
+		});
+		const readyEvents: number[] = [];
+		client.onReady(() => readyEvents.push(Date.now()));
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		expect(readyEvents).toHaveLength(1);
+		for (const ws of handle.server.clients) ws.terminate();
+		await vi.waitFor(
+			() => expect(readyEvents.length).toBeGreaterThanOrEqual(2),
+			{
+				timeout: 1000,
+			},
+		);
+		client.close('done');
+	});
+
+	it('stops reconnecting after explicit close()', async () => {
+		const client = createConsoleBrokerClient({
+			brokerUrl: `ws://127.0.0.1:${handle.port}/adapter`,
+			pairingToken: 'tok',
+			log: () => {},
+			reconnect: {initialDelayMs: 5, maxDelayMs: 50},
+		});
+		await client.connect({
+			runnerId: 'r1',
+			clientName: 'athena-cli',
+			clientVersion: 'x',
+		});
+		client.close('done');
+		await new Promise(r => setTimeout(r, 100));
+		expect(handle.acceptCount()).toBe(1);
 	});
 });

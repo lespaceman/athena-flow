@@ -89,13 +89,27 @@ export class ConsoleAdapter implements ChannelAdapter {
 			log: ctx.log,
 		});
 		client.onFrame(frame => this.handleInboundFrame(frame));
+		client.onReady(() => {
+			ctx.emitHealth({at: Date.now(), transportOk: true});
+		});
+		client.onClose(reason => {
+			// Pending relays will not be answered by the next connection — the
+			// broker has no replay obligation for this adapter version. Cancel
+			// them so awaiting callers don't dangle.
+			this.disposePermissions('connection_lost');
+			this.disposeQuestions('connection_lost');
+			ctx.emitHealth({
+				at: Date.now(),
+				transportOk: false,
+				note: `broker connection closed: ${reason}`,
+			});
+		});
 		await client.connect({
 			runnerId: this.opts.runnerId,
 			clientName: CLIENT_NAME,
 			clientVersion: CLIENT_VERSION,
 		});
 		this.client = client;
-		ctx.emitHealth({at: Date.now(), transportOk: true});
 		ctx.signal.addEventListener('abort', () => {
 			this.client?.close('manager abort');
 		});
@@ -215,11 +229,13 @@ export class ConsoleAdapter implements ChannelAdapter {
 		entry.resolve({kind: 'verdict', behavior: decision, channelId: CONSOLE_ID});
 	}
 
-	private disposePermissions(): void {
+	private disposePermissions(
+		reason: 'auto_resolved' | 'connection_lost' = 'auto_resolved',
+	): void {
 		for (const [id, entry] of [...this.pendingPermissions.entries()]) {
 			this.pendingPermissions.delete(id);
 			entry.signal.removeEventListener('abort', entry.abortListener);
-			entry.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+			entry.resolve({kind: 'cancelled', reason});
 		}
 	}
 
@@ -296,15 +312,22 @@ export class ConsoleAdapter implements ChannelAdapter {
 		entry.resolve({kind: 'answer', answers: filtered, channelId: CONSOLE_ID});
 	}
 
-	private disposeQuestions(): void {
+	private disposeQuestions(
+		reason: 'auto_resolved' | 'connection_lost' = 'auto_resolved',
+	): void {
 		for (const [id, entry] of [...this.pendingQuestions.entries()]) {
 			this.pendingQuestions.delete(id);
 			entry.signal.removeEventListener('abort', entry.abortListener);
-			entry.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+			entry.resolve({kind: 'cancelled', reason});
 		}
 	}
 
 	private handleInboundFrame(frame: AthenaConsoleFrame): void {
+		// Most frame kinds (hello/ready/error/ack/cancel/outbound/request) are
+		// not produced broker→adapter, or are consumed by the broker client
+		// itself before reaching this handler. We intentionally only react to
+		// the handful of kinds that drive adapter state.
+		// eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
 		switch (frame.kind) {
 			case 'console.message.in': {
 				const inbound = normalizeInbound(frame, this.opts.runnerId);
