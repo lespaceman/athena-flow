@@ -54,11 +54,23 @@ export type RuntimeStatusEntry = {
 	pid: number;
 	registeredAt: number;
 	binding:
-		| {state: 'active'; boundAt: number; lastRebindAt?: number}
-		| {state: 'stale'; staleSince: number; lastRebindAt?: number}
+		| {state: 'active'; boundAt: number; epoch: number; lastRebindAt?: number}
+		| {state: 'stale'; staleSince: number; epoch: number; lastRebindAt?: number}
 		| {state: 'none'};
 	pendingDispatchCount: number;
 };
+
+export type ListenerStatusEntry =
+	| {kind: 'uds'; socketPath: string}
+	| {
+			kind: 'tcp';
+			host: string;
+			port: number;
+			url: string;
+			tls: boolean;
+			insecure: boolean;
+			loopback: boolean;
+	  };
 
 export type StatusRequestPayload = Record<string, never>;
 export type StatusResponsePayload = {
@@ -66,6 +78,7 @@ export type StatusResponsePayload = {
 	startedAt: number;
 	uptimeMs: number;
 	version: string;
+	listener: ListenerStatusEntry;
 	channels: ChannelStatusEntry[];
 	runtimes: RuntimeStatusEntry[];
 };

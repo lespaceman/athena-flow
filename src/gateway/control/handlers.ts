@@ -27,6 +27,7 @@ import type {
 	SessionTurnCompleteRequestPayload,
 	SessionUnregisterRequestPayload,
 	SessionUnregisterResponsePayload,
+	ListenerStatusEntry,
 	RuntimeStatusEntry,
 	StatusResponsePayload,
 } from '../../shared/gateway-protocol';
@@ -87,6 +88,12 @@ export type DispatcherDeps = {
 		ctx: ConnectionContext,
 	) => void;
 	unregisterRuntimeConnection?: (runtimeId: string) => void;
+	/**
+	 * Returns the daemon's effective listener at status-query time. Daemon
+	 * sets it after the listener actually binds (port 0 resolves at listen);
+	 * absent in tests that exercise the dispatcher directly.
+	 */
+	getListener?: () => ListenerStatusEntry;
 };
 
 export function createDispatcher(deps: DispatcherDeps): RequestHandler {
@@ -115,6 +122,10 @@ export function createDispatcher(deps: DispatcherDeps): RequestHandler {
 					startedAt: deps.startedAt,
 					uptimeMs: ts - deps.startedAt,
 					version: readVersion(),
+					listener: deps.getListener?.() ?? {
+						kind: 'uds',
+						socketPath: '<unknown>',
+					},
 					channels,
 					runtimes: runtimeStatusEntries(deps.registry),
 				};
@@ -376,12 +387,14 @@ function runtimeStatusEntries(
 					? {
 							state: 'active',
 							boundAt: binding.boundAt,
+							epoch: binding.epoch,
 							...maybeLastRebindAt(binding.lastRebindAt),
 						}
 					: binding?.state === 'stale'
 						? {
 								state: 'stale',
 								staleSince: binding.staleSince,
+								epoch: binding.epoch,
 								...maybeLastRebindAt(binding.lastRebindAt),
 							}
 						: {state: 'none'},

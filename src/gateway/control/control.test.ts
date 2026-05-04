@@ -82,6 +82,50 @@ describe('gateway control plane', () => {
 		expect(res.startedAt).toBeLessThanOrEqual(Date.now());
 		expect(res.channels).toEqual([]);
 		expect(typeof res.version).toBe('string');
+		expect(res.listener).toEqual({
+			kind: 'uds',
+			socketPath: paths.socketPath,
+		});
+		expect(res.runtimes).toEqual([]);
+		client.close();
+	});
+
+	it('reports tcp listener metadata when bound on loopback ws', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+			listenSpec: {
+				kind: 'tcp',
+				host: '127.0.0.1',
+				port: 0,
+				insecure: false,
+			},
+		});
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+		const wsUrl = daemon.listener.url;
+		expect(wsUrl).toBeDefined();
+		const {createWsClientTransport} = await import('../transport/wsClient');
+		const client = await connect({
+			socketPath: paths.socketPath,
+			token,
+			transport: createWsClientTransport({url: wsUrl!}),
+		});
+		const res = await client.request<
+			Record<string, never>,
+			StatusResponsePayload
+		>('status', {});
+		expect(res.listener).toEqual({
+			kind: 'tcp',
+			host: '127.0.0.1',
+			port: daemon.listener.port,
+			url: daemon.listener.url,
+			tls: false,
+			insecure: false,
+			loopback: true,
+		});
 		client.close();
 	});
 
@@ -115,6 +159,7 @@ describe('gateway control plane', () => {
 				binding: {
 					state: 'active',
 					boundAt: expect.any(Number),
+					epoch: 1,
 				},
 				pendingDispatchCount: 0,
 			},

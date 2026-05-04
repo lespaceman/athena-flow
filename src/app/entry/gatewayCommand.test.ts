@@ -311,7 +311,7 @@ describe('runGatewayCommand', () => {
 			expect(Array.isArray(parsed.channels)).toBe(true);
 		});
 
-		it('status human output reports connected runtime', async () => {
+		it('status human output reports connected runtime and listener', async () => {
 			const cap = captureLogs();
 			const close = vi.fn();
 			const request = vi.fn(async () => ({
@@ -319,6 +319,15 @@ describe('runGatewayCommand', () => {
 				startedAt: 100,
 				uptimeMs: 50,
 				version: 'test',
+				listener: {
+					kind: 'tcp' as const,
+					host: '127.0.0.1',
+					port: 18789,
+					url: 'ws://127.0.0.1:18789',
+					tls: false,
+					insecure: false,
+					loopback: true,
+				},
 				channels: [],
 				runtimes: [
 					{
@@ -326,7 +335,7 @@ describe('runGatewayCommand', () => {
 						defaultAgentId: 'main',
 						pid: 1234,
 						registeredAt: 110,
-						binding: {state: 'active', boundAt: 120},
+						binding: {state: 'active' as const, boundAt: 120, epoch: 1},
 						pendingDispatchCount: 0,
 					},
 				],
@@ -344,9 +353,9 @@ describe('runGatewayCommand', () => {
 			);
 
 			expect(code).toBe(0);
-			expect(cap.out.join('\n')).toContain(
-				'runtime=runtime-1 binding=active pid=1234',
-			);
+			const line = cap.out.join('\n');
+			expect(line).toContain('listener=ws://127.0.0.1:18789');
+			expect(line).toContain('runtime=runtime-1 binding=active pid=1234');
 		});
 
 		it('status uses the linked remote endpoint when configured', async () => {
@@ -357,6 +366,15 @@ describe('runGatewayCommand', () => {
 				startedAt: 100,
 				uptimeMs: 50,
 				version: 'test',
+				listener: {
+					kind: 'tcp' as const,
+					host: '127.0.0.1',
+					port: 18789,
+					url: 'ws://127.0.0.1:18789',
+					tls: false,
+					insecure: false,
+					loopback: true,
+				},
 				channels: [],
 				runtimes: [
 					{
@@ -364,7 +382,7 @@ describe('runGatewayCommand', () => {
 						defaultAgentId: 'main',
 						pid: 1234,
 						registeredAt: 110,
-						binding: {state: 'active', boundAt: 120},
+						binding: {state: 'active' as const, boundAt: 120, epoch: 1},
 						pendingDispatchCount: 0,
 					},
 				],

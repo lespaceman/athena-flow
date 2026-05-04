@@ -254,9 +254,10 @@ export async function runGatewayCommand(
 			if (json) {
 				logOut(JSON.stringify(res));
 			} else {
+				const listenerSummary = formatListenerSummary(res.listener);
 				const runtimeSummary = formatRuntimeSummary(res.runtimes[0]);
 				logOut(
-					`gateway: running pid=${res.daemonPid} uptime=${res.uptimeMs}ms version=${res.version}${runtimeSummary}`,
+					`gateway: running pid=${res.daemonPid} uptime=${res.uptimeMs}ms version=${res.version} ${listenerSummary}${runtimeSummary}`,
 				);
 			}
 			return 0;
@@ -416,4 +417,17 @@ function formatRuntimeSummary(
 			? ` rebound=${formatElapsed(Date.now() - lastRebindAt)}`
 			: '';
 	return ` runtime=${r.runtimeId} binding=${r.binding.state} pid=${r.pid}${rebind}`;
+}
+
+function formatListenerSummary(
+	listener: StatusResponsePayload['listener'],
+): string {
+	if (listener.kind === 'uds') {
+		return `listener=uds:${listener.socketPath}`;
+	}
+	const flags: string[] = [];
+	if (listener.tls) flags.push('tls');
+	if (listener.insecure) flags.push('insecure');
+	const suffix = flags.length > 0 ? ` (${flags.join(',')})` : '';
+	return `listener=${listener.url}${suffix}`;
 }
