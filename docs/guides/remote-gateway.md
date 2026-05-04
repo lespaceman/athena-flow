@@ -107,7 +107,7 @@ Mutual TLS (presenting a client cert in addition to the token) is on the R6 road
 - **Heartbeat:** the gateway pings every 15 s and terminates connections that don't pong within 30 s of the most recent ping.
 - **Connect rate limit:** 10 attempts per source IP per minute, in-memory. Defends the token against online brute force. Reset on daemon restart.
 - **Disconnect grace window:** TCP listeners default to 60 s — a runtime can drop and reconnect transparently within that window without losing its registration. Tune with `--grace-period-ms`.
-- **Token rotation:** run `athena gateway rotate-token` on the host. The command rewrites `~/.config/athena/gateway/token` (mode 0600) and prints the new value once. The running daemon caches the previous token in memory, so restart it to drop existing connections; clients then re-run `athena gateway link --token <new>`. Add `--json` to capture `{ok, token, tokenPath}` from automation.
+- **Token rotation:** run `athena gateway rotate-token` on the host. The command rewrites `~/.config/athena/gateway/token` (mode 0600) and prints the new value once. The running daemon caches the previous token in memory, so restart it to drop existing connections; clients then re-run `athena gateway link --token <new>`. Add `--json` to capture `{ok, token, tokenPath}` from automation. **The new token is written to stdout** — treat the command's output as sensitive: avoid CI log capture, shell history, and pipes into world-readable destinations. Prefer reading the value back from `~/.config/athena/gateway/token` when the rotation runs unattended.
 
 ## Threat model
 
