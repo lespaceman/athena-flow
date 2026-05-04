@@ -360,3 +360,114 @@ describe('ConsoleAdapter — permission relay', () => {
 		expect(result.kind).toBe('cancelled');
 	});
 });
+
+describe('ConsoleAdapter — question relay', () => {
+	const sampleQuestion = {
+		key: 'priority',
+		header: 'Priority',
+		question: 'Which priority?',
+		multi_select: false,
+		options: [
+			{label: 'high', description: 'P0'},
+			{label: 'low', description: 'P3'},
+		],
+	};
+
+	it('round-trips an answer through the broker', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestQuestionAnswer(
+			{
+				channelRequestId: 'qabcd',
+				title: 'Pick one',
+				questions: [sampleQuestion],
+			},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		expect(fake.sent[0]!.kind).toBe('console.question.request');
+
+		fake.deliver({
+			kind: 'console.question.response',
+			frameId: 'r',
+			sentAt: 0,
+			channelRequestId: 'qabcd',
+			answers: {priority: 'high'},
+		});
+
+		const result = await p;
+		expect(result.kind).toBe('answer');
+		if (result.kind !== 'answer') throw new Error('wrong kind');
+		expect(result.answers).toEqual({priority: 'high'});
+		expect(result.channelId).toBe('console');
+
+		await adapter.stop('shutdown');
+	});
+
+	it('sends console.question.cancel on signal abort', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestQuestionAnswer(
+			{channelRequestId: 'qaa', title: 't', questions: [sampleQuestion]},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		abort.abort();
+		const result = await p;
+		expect(result.kind).toBe('cancelled');
+		expect(fake.sent.length).toBe(2);
+		const cancelFrame = fake.sent[1]!;
+		expect(cancelFrame.kind).toBe('console.question.cancel');
+		if (cancelFrame.kind !== 'console.question.cancel') {
+			throw new Error('wrong kind');
+		}
+		expect(cancelFrame.channelRequestId).toBe('qaa');
+		await adapter.stop('shutdown');
+	});
+
+	it('drops answers for unknown keys but accepts the rest', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestQuestionAnswer(
+			{channelRequestId: 'qbb', title: 't', questions: [sampleQuestion]},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		fake.deliver({
+			kind: 'console.question.response',
+			frameId: 'r',
+			sentAt: 0,
+			channelRequestId: 'qbb',
+			answers: {priority: 'high', unknown: 'ignored'},
+		});
+		const result = await p;
+		expect(result.kind).toBe('answer');
+		if (result.kind !== 'answer') throw new Error('wrong kind');
+		expect(result.answers).toEqual({priority: 'high'});
+		await adapter.stop('shutdown');
+	});
+
+	it('returns cancelled when no answers match question keys', async () => {
+		const {adapter, fake} = makeAdapter();
+		await startAdapter(adapter);
+		const abort = new AbortController();
+		const p = adapter.requestQuestionAnswer(
+			{channelRequestId: 'qcc', title: 't', questions: [sampleQuestion]},
+			abort.signal,
+		);
+		await vi.waitFor(() => expect(fake.sent).toHaveLength(1));
+		fake.deliver({
+			kind: 'console.question.response',
+			frameId: 'r',
+			sentAt: 0,
+			channelRequestId: 'qcc',
+			answers: {totally: 'wrong'},
+		});
+		const result = await p;
+		expect(result.kind).toBe('cancelled');
+		await adapter.stop('shutdown');
+	});
+});

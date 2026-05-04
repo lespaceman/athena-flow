@@ -57,6 +57,15 @@ export class ConsoleAdapter implements ChannelAdapter {
 			signal: AbortSignal;
 		}
 	>();
+	private readonly pendingQuestions = new Map<
+		string,
+		{
+			questionKeys: string[];
+			resolve: (result: QuestionRelayResult) => void;
+			abortListener: () => void;
+			signal: AbortSignal;
+		}
+	>();
 
 	constructor(opts: ConsoleAdapterOptions) {
 		this.opts = opts;
@@ -94,6 +103,7 @@ export class ConsoleAdapter implements ChannelAdapter {
 
 	async stop(_reason: StopReason): Promise<void> {
 		this.disposePermissions();
+		this.disposeQuestions();
 		this.client?.close('shutdown');
 		this.client = null;
 		this.ctx = null;
@@ -213,11 +223,85 @@ export class ConsoleAdapter implements ChannelAdapter {
 		}
 	}
 
-	async requestQuestionAnswer(
-		_req: QuestionRelayRequest,
-		_signal: AbortSignal,
+	requestQuestionAnswer(
+		req: QuestionRelayRequest,
+		signal: AbortSignal,
 	): Promise<QuestionRelayResult> {
-		return {kind: 'no_relay'};
+		const client = this.client;
+		if (!client || !client.isReady()) {
+			return Promise.resolve({kind: 'no_relay'});
+		}
+		if (signal.aborted) {
+			return Promise.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+		}
+		client.sendFrame({
+			kind: 'console.question.request',
+			frameId: makeFrameId(),
+			sentAt: Date.now(),
+			address: {
+				runnerId: this.opts.runnerId,
+				...(this.opts.workspaceId !== undefined
+					? {workspaceId: this.opts.workspaceId}
+					: {}),
+			},
+			channelRequestId: req.channelRequestId,
+			title: req.title,
+			questions: req.questions,
+		});
+		return new Promise<QuestionRelayResult>(resolve => {
+			const abortListener = (): void => {
+				const entry = this.pendingQuestions.get(req.channelRequestId);
+				if (!entry) return;
+				this.pendingQuestions.delete(req.channelRequestId);
+				try {
+					this.client?.sendFrame({
+						kind: 'console.question.cancel',
+						frameId: makeFrameId(),
+						sentAt: Date.now(),
+						channelRequestId: req.channelRequestId,
+						reason: 'resolved_by_other_channel',
+					});
+				} catch {
+					// best-effort cancel
+				}
+				resolve({kind: 'cancelled', reason: 'resolved_by_other_channel'});
+			};
+			signal.addEventListener('abort', abortListener);
+			this.pendingQuestions.set(req.channelRequestId, {
+				questionKeys: req.questions.map(q => q.key),
+				resolve,
+				abortListener,
+				signal,
+			});
+		});
+	}
+
+	private settleQuestionResponse(
+		channelRequestId: string,
+		answers: Record<string, string>,
+	): void {
+		const entry = this.pendingQuestions.get(channelRequestId);
+		if (!entry) return;
+		const filtered: Record<string, string> = {};
+		for (const key of entry.questionKeys) {
+			const value = answers[key];
+			if (typeof value === 'string') filtered[key] = value;
+		}
+		this.pendingQuestions.delete(channelRequestId);
+		entry.signal.removeEventListener('abort', entry.abortListener);
+		if (Object.keys(filtered).length === 0) {
+			entry.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+			return;
+		}
+		entry.resolve({kind: 'answer', answers: filtered, channelId: CONSOLE_ID});
+	}
+
+	private disposeQuestions(): void {
+		for (const [id, entry] of [...this.pendingQuestions.entries()]) {
+			this.pendingQuestions.delete(id);
+			entry.signal.removeEventListener('abort', entry.abortListener);
+			entry.resolve({kind: 'cancelled', reason: 'auto_resolved'});
+		}
 	}
 
 	private handleInboundFrame(frame: AthenaConsoleFrame): void {
@@ -237,6 +321,9 @@ export class ConsoleAdapter implements ChannelAdapter {
 			}
 			case 'console.permission.response':
 				this.settlePermissionResponse(frame.channelRequestId, frame.decision);
+				return;
+			case 'console.question.response':
+				this.settleQuestionResponse(frame.channelRequestId, frame.answers);
 				return;
 			default:
 				return;
