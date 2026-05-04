@@ -132,15 +132,17 @@ export class ConsoleAdapter implements ChannelAdapter {
 			throw new Error('console adapter: send called before broker is ready');
 		}
 		const messageId = makeOutboundMessageId();
+		// Workspace id falls back to the inbound message's accountId so a
+		// reply lands in the same routing surface even when the operator did
+		// not pin workspace_id in sidecar config.
+		const workspaceId = this.opts.workspaceId ?? msg.location.accountId;
 		const frame: AthenaConsoleFrame = {
 			kind: 'console.message.out',
 			frameId: makeFrameId(),
 			sentAt: Date.now(),
 			address: {
 				runnerId: this.opts.runnerId,
-				...(this.opts.workspaceId !== undefined
-					? {workspaceId: this.opts.workspaceId}
-					: {}),
+				...(workspaceId.length > 0 ? {workspaceId} : {}),
 				...(msg.location.peer?.id !== undefined
 					? {userId: msg.location.peer.id}
 					: {}),

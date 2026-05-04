@@ -216,6 +216,25 @@ describe('ConsoleAdapter — outbound', () => {
 			}),
 		).rejects.toThrow(/before start|not connected|before broker/);
 	});
+
+	it('falls back to location.accountId for workspaceId when config omits it', async () => {
+		const {adapter, fake} = makeAdapter({workspaceId: undefined});
+		await startAdapter(adapter);
+		await adapter.send({
+			location: {
+				channelId: 'console',
+				accountId: 'ws-from-inbound',
+				peer: {id: 'u1', kind: 'user'},
+			},
+			text: 'reply',
+			idempotencyKey: 'k',
+		});
+		const frame = fake.sent[0]!;
+		expect(frame.kind).toBe('console.message.out');
+		if (frame.kind !== 'console.message.out') return;
+		expect(frame.address.workspaceId).toBe('ws-from-inbound');
+		await adapter.stop('shutdown');
+	});
 });
 
 describe('ConsoleAdapter — permission relay', () => {
