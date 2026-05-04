@@ -68,3 +68,19 @@ export type {
 	QuestionRelayRequest,
 	QuestionRelayResult,
 } from './relay';
+export type {
+	AthenaConsoleFrameKind,
+	AthenaConsoleAddress,
+	AthenaConsoleFrameBase,
+	AthenaConsoleHelloFrame,
+	AthenaConsoleReadyFrame,
+	AthenaConsoleInboundMessageFrame,
+	AthenaConsoleOutboundMessageFrame,
+	AthenaConsolePermissionRequestFrame,
+	AthenaConsolePermissionResponseFrame,
+	AthenaConsoleQuestionRequestFrame,
+	AthenaConsoleQuestionResponseFrame,
+	AthenaConsoleAckFrame,
+	AthenaConsoleErrorFrame,
+	AthenaConsoleFrame,
+} from './athenaConsole';
