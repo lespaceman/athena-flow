@@ -332,6 +332,87 @@ describe('SessionBridge integration', () => {
 		expect(bridge.getConnectionState()).toBe('connected');
 	}, 15_000);
 
+	it('buffers dispatches that arrive before the first onTurnDispatch subscriber', async () => {
+		// Pre-park inbound so drainPending fires synchronously inside the
+		// session.register handler — before the AppShell-equivalent subscriber
+		// has a chance to attach. Without buffering these pushes are lost.
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:pre1'});
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:pre2'});
+		await waitUntil(() => daemon!.inboundQueue.size() === 2);
+
+		bridge = new SessionBridge({
+			runtimeId: 'late-sub-1',
+			defaultAgentId: 'main',
+			paths,
+		});
+		await bridge.start();
+
+		// Subscribe AFTER start. With the bridge's pre-fix behavior the two
+		// drained pushes would have been dropped on the floor here.
+		const seen: string[] = [];
+		bridge.onTurnDispatch(p => seen.push(p.inbound.idempotencyKey));
+
+		await waitUntil(() => seen.length === 2, 3_000);
+		expect(seen).toEqual(['fk:pre1', 'fk:pre2']);
+	}, 15_000);
+
+	it('replays buffered dispatches when a subscriber re-attaches after being removed', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+
+		bridge = new SessionBridge({
+			runtimeId: 'churn-1',
+			defaultAgentId: 'main',
+			paths,
+		});
+
+		const firstSeen: string[] = [];
+		const off = bridge.onTurnDispatch(p =>
+			firstSeen.push(p.inbound.idempotencyKey),
+		);
+		await bridge.start();
+
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:while-on'});
+		await waitUntil(() => firstSeen.length === 1);
+		expect(firstSeen).toEqual(['fk:while-on']);
+
+		// Subscriber goes away — mimics React detaching the AppShell handler
+		// during a re-render or unmount window.
+		off();
+
+		adapter.emitInbound({...inbound, idempotencyKey: 'fk:while-off'});
+		// Wait long enough for the push to land at the bridge.
+		await waitUntil(
+			() =>
+				(bridge as unknown as {bufferedDispatches: unknown[]})
+					.bufferedDispatches.length === 1,
+			3_000,
+		);
+
+		// New subscriber attaches — should receive the buffered push.
+		const secondSeen: string[] = [];
+		bridge.onTurnDispatch(p => secondSeen.push(p.inbound.idempotencyKey));
+		await waitUntil(() => secondSeen.length === 1);
+		expect(secondSeen).toEqual(['fk:while-off']);
+	}, 15_000);
+
 	it('drains parked inbound on session.register', async () => {
 		daemon = await startDaemon({
 			foreground: true,

@@ -5,6 +5,14 @@ export type InstanceSocketFrame =
 	| {type: 'pong'; ts: number}
 	| {type: 'job_assignment'; runId: string; runSpec?: unknown}
 	| {type: 'assignment_accepted'; runId: string}
+	| {
+			type: 'run_event';
+			runId: string;
+			seq: number;
+			ts: number;
+			kind: string;
+			payload?: unknown;
+	  }
 	| {type: 'cancel'; runId: string}
 	| {type: 'error'; code: string; message?: string};
 
@@ -37,6 +45,9 @@ export type InstanceSocketClient = {
 	close(reason?: string): void;
 	onFrame(handler: (frame: InstanceSocketFrame) => void): void;
 	onClose(handler: (reason: string) => void): void;
+	sendRunEvent(
+		frame: Omit<Extract<InstanceSocketFrame, {type: 'run_event'}>, 'type'>,
+	): void;
 };
 
 const DEFAULT_HEARTBEAT_MS = 30_000;
@@ -233,5 +244,11 @@ export function createInstanceSocketClient(
 		closeHandlers.add(handler);
 	}
 
-	return {connect, close, onFrame, onClose};
+	function sendRunEvent(
+		frame: Omit<Extract<InstanceSocketFrame, {type: 'run_event'}>, 'type'>,
+	): void {
+		send({type: 'run_event', ...frame});
+	}
+
+	return {connect, close, onFrame, onClose, sendRunEvent};
 }

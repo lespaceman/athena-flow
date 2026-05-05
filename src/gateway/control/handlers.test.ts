@@ -191,3 +191,45 @@ describe('dispatcher: relay.* require a registered runtime connection', () => {
 		expect(res.ok).toBe(true);
 	});
 });
+
+describe('dispatcher: channels.reload', () => {
+	it('delegates to the configured channel reloader', async () => {
+		const reloadChannels = vi.fn(async () => ({
+			results: [
+				{
+					id: 'console',
+					ok: true,
+					action: 'registered' as const,
+				},
+			],
+		}));
+		const handle = createDispatcher({
+			startedAt: 0,
+			reloadChannels,
+		});
+
+		const res = await handle(
+			envelope('channels.reload', {}),
+			makeConnection('conn-x'),
+		);
+
+		expect(reloadChannels).toHaveBeenCalledTimes(1);
+		expect(res.ok).toBe(true);
+		if (!res.ok) return;
+		expect(res.payload).toEqual({
+			results: [{id: 'console', ok: true, action: 'registered'}],
+		});
+	});
+
+	it('returns unsupported when the daemon did not configure a reloader', async () => {
+		const handle = createDispatcher({startedAt: 0});
+
+		const res = await handle(
+			envelope('channels.reload', {}),
+			makeConnection('conn-x'),
+		);
+
+		const err = expectError(res);
+		expect(err.error.code).toBe('unsupported');
+	});
+});

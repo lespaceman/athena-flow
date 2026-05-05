@@ -20,6 +20,7 @@ import {
 	writeGatewayClientConfig,
 } from '../../infra/config/gatewayClient';
 import type {
+	ChannelsReloadResponsePayload,
 	PingResponsePayload,
 	RuntimeEndpoint,
 	StatusResponsePayload,
@@ -41,6 +42,7 @@ Subcommands:
   rotate-token  Regenerate the gateway token file (server-side).
                 Restart the daemon to drop existing connections; clients
                 must re-run "athena gateway link --token <new>".
+  reload-channels  Reload channel sidecars without restarting the daemon.
 `;
 
 export type GatewayCommandInput = {
@@ -234,6 +236,44 @@ export async function runGatewayCommand(
 		}
 	}
 
+	if (subcommand === 'reload-channels') {
+		const json = flagJson(subcommandArgs);
+		const extras = subcommandArgs.filter(a => a !== '--json');
+		if (extras.length > 0) {
+			logError(`gateway reload-channels: unexpected argument ${extras[0]}`);
+			return 2;
+		}
+		const socketPath = resolveSocketPath();
+		const tokenPath = resolveTokenPath();
+		const endpoint = readClientConfig();
+		try {
+			const client = await connectGateway({
+				endpoint,
+				socketPath,
+				tokenPath,
+				timeoutMs: 3_000,
+			});
+			const res = await client.request<
+				Record<string, never>,
+				ChannelsReloadResponsePayload
+			>('channels.reload', {});
+			client.close();
+			if (json) {
+				logOut(JSON.stringify({ok: true, ...res}));
+			} else if (res.results.length === 0) {
+				logOut('gateway: channels reloaded (no channel sidecars found)');
+			} else {
+				logOut('gateway: channels reloaded');
+				for (const result of res.results) {
+					logOut(formatChannelReloadResult(result));
+				}
+			}
+			return 0;
+		} catch (err) {
+			return reportProbeFailure(err, json, logOut, logError);
+		}
+	}
+
 	if (subcommand === 'status') {
 		const json = flagJson(subcommandArgs);
 		const socketPath = resolveSocketPath();
@@ -255,9 +295,10 @@ export async function runGatewayCommand(
 				logOut(JSON.stringify(res));
 			} else {
 				const listenerSummary = formatListenerSummary(res.listener);
+				const channelSummary = formatChannelSummary(res.channels);
 				const runtimeSummary = formatRuntimeSummary(res.runtimes[0]);
 				logOut(
-					`gateway: running pid=${res.daemonPid} uptime=${res.uptimeMs}ms version=${res.version} ${listenerSummary}${runtimeSummary}`,
+					`gateway: running pid=${res.daemonPid} uptime=${res.uptimeMs}ms version=${res.version} ${listenerSummary}${channelSummary}${runtimeSummary}`,
 				);
 			}
 			return 0;
@@ -417,6 +458,24 @@ function formatRuntimeSummary(
 			? ` rebound=${formatElapsed(Date.now() - lastRebindAt)}`
 			: '';
 	return ` runtime=${r.runtimeId} binding=${r.binding.state} pid=${r.pid}${rebind}`;
+}
+
+function formatChannelReloadResult(
+	result: ChannelsReloadResponsePayload['results'][number],
+): string {
+	const suffix = result.reason ? `: ${result.reason}` : '';
+	return `  ${result.id} ${result.action}${suffix}`;
+}
+
+function formatChannelSummary(
+	channels: StatusResponsePayload['channels'],
+): string {
+	if (channels.length === 0) return ' channels=<none>';
+	const parts = channels.map(channel => {
+		const note = channel.note ? `(${channel.note})` : '';
+		return `${channel.id}:${channel.state}${note}`;
+	});
+	return ` channels=${parts.join(',')}`;
 }
 
 function formatListenerSummary(

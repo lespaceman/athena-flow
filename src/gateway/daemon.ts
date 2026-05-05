@@ -44,7 +44,10 @@ import {
 	trackGatewayTransportConnect,
 	trackGatewayTransportDisconnect,
 } from '../infra/telemetry/events';
-import type {ListenerStatusEntry} from '../shared/gateway-protocol';
+import type {
+	ChannelReloadResult,
+	ListenerStatusEntry,
+} from '../shared/gateway-protocol';
 
 function buildListenerStatus(
 	spec: GatewayListenSpec,
@@ -65,6 +68,11 @@ function buildListenerStatus(
 		insecure: spec.insecure,
 		loopback: isLoopbackHost(spec.host),
 	};
+}
+
+function pathIdFromSidecarPath(filePath: string): string {
+	const base = filePath.split(/[\\/]/).pop() ?? filePath;
+	return base.endsWith('.json') ? base.slice(0, -'.json'.length) : base;
 }
 
 export type DaemonOptions = {
@@ -208,8 +216,94 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 		dispatcher.handleInbound(inbound);
 	});
 
+	const channelConfigHome = opts.env?.HOME;
+	const reloadChannels = async (): Promise<{
+		results: ChannelReloadResult[];
+	}> => {
+		const results: ChannelReloadResult[] = [];
+		const {sidecars, errors} = loadChannelSidecars(channelConfigHome);
+		for (const err of errors) {
+			const id = pathIdFromSidecarPath(err.path);
+			results.push({
+				id,
+				ok: false,
+				action: 'failed',
+				reason: err.reason,
+			});
+		}
+
+		const sidecarIds = new Set(sidecars.map(s => s.name));
+		for (const channel of channelManager.listChannels()) {
+			if (sidecarIds.has(channel.id)) continue;
+			try {
+				await channelManager.unregister(channel.id, 'shutdown');
+				results.push({
+					id: channel.id,
+					ok: true,
+					action: 'unregistered',
+				});
+			} catch (err) {
+				results.push({
+					id: channel.id,
+					ok: false,
+					action: 'failed',
+					reason: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+
+		for (const sidecar of sidecars) {
+			const existed = channelManager
+				.listChannels()
+				.some(channel => channel.id === sidecar.name);
+			if (existed) {
+				try {
+					await channelManager.unregister(sidecar.name, 'shutdown');
+				} catch (err) {
+					results.push({
+						id: sidecar.name,
+						ok: false,
+						action: 'failed',
+						reason: err instanceof Error ? err.message : String(err),
+					});
+					continue;
+				}
+			}
+			const built = instantiateAdapter(sidecar);
+			if (!built.ok) {
+				results.push({
+					id: sidecar.name,
+					ok: false,
+					action: 'failed',
+					reason: built.reason,
+				});
+				continue;
+			}
+			try {
+				await channelManager.register(built.adapter);
+				results.push({
+					id: sidecar.name,
+					ok: true,
+					action: existed ? 'replaced' : 'registered',
+				});
+				if (!opts.silent) {
+					process.stdout.write(`athena-gateway: registered ${sidecar.name}\n`);
+				}
+			} catch (err) {
+				results.push({
+					id: sidecar.name,
+					ok: false,
+					action: 'failed',
+					reason: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+
+		return {results};
+	};
+
 	if (!opts.skipChannelLoad) {
-		const {sidecars, errors} = loadChannelSidecars();
+		const {sidecars, errors} = loadChannelSidecars(channelConfigHome);
 		for (const err of errors) {
 			process.stderr.write(
 				`athena-gateway: skipping ${err.path}: ${err.reason}\n`,
@@ -245,6 +339,7 @@ export async function startDaemon(opts: DaemonOptions): Promise<DaemonHandle> {
 		channelManager,
 		relayCoordinator,
 		getListener: () => listenerStatus ?? buildListenerStatus(listenSpec, null),
+		reloadChannels,
 		registerRuntimeConnection: (runtimeId, ctx) => {
 			const timer = staleRuntimeTimers.get(runtimeId);
 			if (timer) {

@@ -50,6 +50,8 @@ app     ← can import from all layers
 
 **Feed Pipeline:** `RuntimeEvent` → `mapper.ts` normalizes to `FeedEvent[]` → stored in `IndexedTimeline` (in-memory) + `SessionStore` (SQLite) → consumed by React hooks (`useFeed`). This decouples runtime delivery from UI rendering.
 
+**Runtime Lifecycle:** `HookProvider` owns runtime startup and teardown. `useFeed` is a subscription hook only; it consumes runtime events and must not call `runtime.start()` or `runtime.stop()`.
+
 **Workflow State Machine:** States: idle → starting → running → completing → done. Tracks iterations, completion markers, blocker detection. Persisted in SQLite `workflow_runs` table.
 
 **Session Persistence:** SQLite with WAL mode, exclusive write lock, foreign keys. Schema version 5. Tables: `runtime_events`, `feed_events`, `adapter_sessions`, `workflow_runs`.

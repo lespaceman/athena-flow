@@ -10,6 +10,7 @@ import {createRequire} from 'node:module';
 import type {
 	ChannelSendRequestPayload,
 	ChannelSendResponsePayload,
+	ChannelsReloadResponsePayload,
 	ControlEnvelope,
 	ControlPushEnvelope,
 	ControlResponseEnvelope,
@@ -30,6 +31,7 @@ import type {
 	ListenerStatusEntry,
 	RuntimeStatusEntry,
 	StatusResponsePayload,
+	ChannelReloadResult,
 } from '../../shared/gateway-protocol';
 import type {ChannelManager} from '../channelManager';
 import type {Dispatcher} from '../dispatcher';
@@ -94,6 +96,7 @@ export type DispatcherDeps = {
 	 * absent in tests that exercise the dispatcher directly.
 	 */
 	getListener?: () => ListenerStatusEntry;
+	reloadChannels?: () => Promise<{results: ChannelReloadResult[]}>;
 };
 
 export function createDispatcher(deps: DispatcherDeps): RequestHandler {
@@ -116,6 +119,7 @@ export function createDispatcher(deps: DispatcherDeps): RequestHandler {
 							? ('degraded' as const)
 							: ('running' as const),
 					...(c.health?.at !== undefined ? {lastHealthAt: c.health.at} : {}),
+					...(c.health?.note !== undefined ? {note: c.health.note} : {}),
 				}));
 				const payload: StatusResponsePayload = {
 					daemonPid: process.pid,
@@ -129,6 +133,19 @@ export function createDispatcher(deps: DispatcherDeps): RequestHandler {
 					channels,
 					runtimes: runtimeStatusEntries(deps.registry),
 				};
+				return ok(envelope, ts, payload);
+			}
+			case 'channels.reload': {
+				if (!deps.reloadChannels) {
+					return error(
+						envelope,
+						ts,
+						'unsupported',
+						'channel reload not configured',
+					);
+				}
+				const payload: ChannelsReloadResponsePayload =
+					await deps.reloadChannels();
 				return ok(envelope, ts, payload);
 			}
 			case 'session.register': {

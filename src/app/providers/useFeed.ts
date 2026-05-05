@@ -115,13 +115,19 @@ function buildSyntheticNotificationEvent(
 	};
 }
 
+/**
+ * Subscribe to runtime events and project them into feed/controller state.
+ *
+ * Lifecycle: this hook does not start or stop the runtime. HookProvider owns
+ * runtime startup and teardown so subscription effect churn cannot unbind the
+ * hook server.
+ */
 export function useFeed(
 	runtime: Runtime,
 	messages: Message[] = [],
 	initialAllowedTools?: string[],
 	sessionStore?: SessionStore,
 	options?: {
-		autoStart?: boolean;
 		relayPermission?: (event: RuntimeEvent) => void;
 		relayQuestion?: (event: RuntimeEvent) => void;
 	},
@@ -371,9 +377,8 @@ export function useFeed(
 		);
 	}, [emitNotification]);
 
-	const autoStart = options?.autoStart ?? true;
-
-	// Main effect: subscribe to runtime events
+	// Main effect: subscribe to runtime events. Runtime lifecycle is owned by
+	// HookProvider; this hook only observes and maps runtime activity.
 	useEffect(() => {
 		abortRef.current = new AbortController();
 
@@ -512,19 +517,12 @@ export function useFeed(
 			},
 		);
 
-		if (autoStart) {
-			void runtime.start().finally(() => {
-				refreshRuntimeStatus(true);
-			});
-		} else {
-			refreshRuntimeStatus(true);
-		}
+		refreshRuntimeStatus(true);
 
 		return () => {
 			abortRef.current.abort();
 			unsub();
 			unsubDecision();
-			runtime.stop();
 		};
 	}, [
 		runtime,
@@ -533,7 +531,6 @@ export function useFeed(
 		dequeuePermission,
 		dequeueQuestion,
 		refreshRuntimeStatus,
-		autoStart,
 		options?.relayPermission,
 		options?.relayQuestion,
 	]);

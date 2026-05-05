@@ -336,7 +336,10 @@ describe('runGatewayCommand', () => {
 					insecure: false,
 					loopback: true,
 				},
-				channels: [],
+				channels: [
+					{id: 'console', state: 'degraded' as const, note: 'broker closed'},
+					{id: 'telegram', state: 'running' as const},
+				],
 				runtimes: [
 					{
 						runtimeId: 'runtime-1',
@@ -363,6 +366,9 @@ describe('runGatewayCommand', () => {
 			expect(code).toBe(0);
 			const line = cap.out.join('\n');
 			expect(line).toContain('listener=ws://127.0.0.1:18789');
+			expect(line).toContain(
+				'channels=console:degraded(broker closed),telegram:running',
+			);
 			expect(line).toContain('runtime=runtime-1 binding=active pid=1234');
 		});
 
@@ -425,6 +431,40 @@ describe('runGatewayCommand', () => {
 			);
 			expect(close).toHaveBeenCalledTimes(1);
 			expect(JSON.parse(cap.out[0]!).runtimes).toHaveLength(1);
+		});
+
+		it('reload-channels sends the reload RPC and prints results', async () => {
+			const cap = captureLogs();
+			const close = vi.fn();
+			const request = vi.fn(async () => ({
+				results: [
+					{id: 'console', ok: true, action: 'registered' as const},
+					{
+						id: 'telegram',
+						ok: false,
+						action: 'failed' as const,
+						reason: 'bad token',
+					},
+				],
+			}));
+			const code = await runGatewayCommand(
+				{subcommand: 'reload-channels', subcommandArgs: []},
+				{
+					...cap.baseDeps,
+					connectGateway: async () => ({
+						request,
+						onPush: vi.fn(),
+						close,
+					}),
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(request).toHaveBeenCalledWith('channels.reload', {});
+			expect(close).toHaveBeenCalledTimes(1);
+			const output = cap.out.join('\n');
+			expect(output).toContain('console registered');
+			expect(output).toContain('telegram failed: bad token');
 		});
 	});
 

@@ -194,6 +194,45 @@ describe('createInstanceSocketClient', () => {
 		client.close('done');
 	});
 
+	it('sends run_event frames for remote execution output', async () => {
+		const received: unknown[] = [];
+		server.once('connection', ws => {
+			ws.on('message', data => {
+				received.push(JSON.parse(String(data)));
+			});
+		});
+
+		const client = createInstanceSocketClient({
+			dashboardUrl: `http://127.0.0.1:${port}`,
+			instanceId: 'inst_1',
+			accessToken: 'access-1',
+			heartbeatIntervalMs: 60_000,
+		});
+		await client.connect();
+		client.sendRunEvent({
+			runId: 'run_42',
+			seq: 1,
+			ts: 123,
+			kind: 'exec.started',
+			payload: {ok: true},
+		});
+
+		await vi.waitFor(
+			() => {
+				expect(received).toContainEqual({
+					type: 'run_event',
+					runId: 'run_42',
+					seq: 1,
+					ts: 123,
+					kind: 'exec.started',
+					payload: {ok: true},
+				});
+			},
+			{timeout: 1_000},
+		);
+		client.close('done');
+	});
+
 	it('emits close handler when the server terminates the socket', async () => {
 		server.once('connection', ws => {
 			setTimeout(() => ws.close(1011, 'server gone'), 5);

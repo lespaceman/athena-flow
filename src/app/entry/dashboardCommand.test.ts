@@ -1,6 +1,8 @@
 import {describe, expect, it, vi} from 'vitest';
 import {runDashboardCommand} from './dashboardCommand';
 import type {DashboardClientConfig} from '../../infra/config/dashboardClient';
+import type {ConsoleChannelConfig} from './dashboardCommand';
+import type {StatusResponsePayload} from '../../shared/gateway-protocol';
 
 function captureLogs() {
 	const out: string[] = [];
@@ -28,10 +30,15 @@ function makeDeps(overrides: {
 	fetchMock?: ReturnType<typeof vi.fn>;
 	stored?: DashboardClientConfig | null;
 	written?: DashboardClientConfig[];
+	consoleWrites?: ConsoleChannelConfig[];
+	reloadGatewayChannels?: ReturnType<typeof vi.fn>;
+	consoleConfig?: ConsoleChannelConfig | null;
+	gatewayStatus?: ReturnType<typeof vi.fn>;
 	removed?: {count: number};
 	now?: number;
 }) {
 	const writes = overrides.written ?? [];
+	const consoleWrites = overrides.consoleWrites ?? [];
 	const stored = {value: overrides.stored ?? null};
 	const removed = overrides.removed ?? {count: 0};
 	const cap = captureLogs();
@@ -59,6 +66,22 @@ function makeDeps(overrides: {
 				stored.value = null;
 				removed.count += 1;
 			},
+			writeConsoleChannelConfig: (config: ConsoleChannelConfig) => {
+				consoleWrites.push(config);
+			},
+			readConsoleChannelConfig: () => overrides.consoleConfig ?? null,
+			reloadGatewayChannels:
+				overrides.reloadGatewayChannels ??
+				vi.fn(async () => ({
+					ok: true,
+					message: 'reloaded',
+				})),
+			getGatewayStatus:
+				overrides.gatewayStatus ??
+				vi.fn(async () => ({
+					ok: false,
+					message: 'gateway not reachable',
+				})),
 			configPath: () => '/tmp/athena/dashboard.json',
 			logOut: cap.logOut,
 			logError: cap.logError,
@@ -276,6 +299,149 @@ describe('runDashboardCommand: pair', () => {
 	});
 });
 
+describe('runDashboardCommand: doctor', () => {
+	const stored: DashboardClientConfig = {
+		dashboardUrl: 'http://localhost:3000',
+		instanceId: 'inst_1',
+		refreshToken: 'do-not-print',
+		fingerprint: 'fp-stored',
+		pairedAt: 1,
+	};
+
+	function gatewayStatus(
+		overrides: Partial<StatusResponsePayload> = {},
+	): StatusResponsePayload {
+		return {
+			daemonPid: 123,
+			startedAt: 1,
+			uptimeMs: 2,
+			version: '9.9.9',
+			listener: {
+				kind: 'uds',
+				socketPath: '/tmp/gateway.sock',
+			},
+			channels: [],
+			runtimes: [],
+			...overrides,
+		};
+	}
+
+	it('labels pairing as failed when the CLI is not paired', async () => {
+		const {deps, cap} = makeDeps({});
+		const code = await runDashboardCommand(
+			{
+				subcommand: 'doctor',
+				subcommandArgs: ['--runner', 'runner_1'],
+				flags: {},
+			},
+			deps,
+		);
+
+		expect(code).toBe(1);
+		expect(cap.out.join('\n')).toContain('pairing: fail');
+		expect(cap.out.join('\n')).toContain('not paired');
+	});
+
+	it('reports healthy pairing, gateway, console adapter, and runtime planes', async () => {
+		const {deps, cap} = makeDeps({
+			stored,
+			consoleConfig: {
+				broker_url: 'ws://localhost:3000/api/runners/runner_1/console/adapter',
+				runner_id: 'runner_1',
+				dashboard_config: true,
+			},
+			gatewayStatus: vi.fn(async () => ({
+				ok: true,
+				status: gatewayStatus({
+					channels: [{id: 'console', state: 'running'}],
+					runtimes: [
+						{
+							runtimeId: 'runtime-1',
+							defaultAgentId: 'main',
+							pid: 1234,
+							registeredAt: 10,
+							binding: {
+								state: 'active',
+								boundAt: 10,
+								lastRebindAt: 15,
+								epoch: 1,
+							},
+							pendingDispatchCount: 0,
+						},
+					],
+				}),
+			})),
+		});
+
+		const code = await runDashboardCommand(
+			{
+				subcommand: 'doctor',
+				subcommandArgs: ['--runner', 'runner_1'],
+				flags: {},
+			},
+			deps,
+		);
+
+		expect(code).toBe(0);
+		const out = cap.out.join('\n');
+		expect(out).toContain('pairing: ok');
+		expect(out).toContain('console-sidecar: ok');
+		expect(out).toContain('gateway: ok');
+		expect(out).toContain('console-adapter: ok');
+		expect(out).toContain('runtime: ok');
+		expect(out).not.toContain('do-not-print');
+	});
+
+	it('flags a console sidecar runner mismatch before blaming the gateway', async () => {
+		const {deps, cap} = makeDeps({
+			stored,
+			consoleConfig: {
+				broker_url:
+					'ws://localhost:3000/api/runners/other_runner/console/adapter',
+				runner_id: 'other_runner',
+				dashboard_config: true,
+			},
+			gatewayStatus: vi.fn(async () => ({
+				ok: true,
+				status: gatewayStatus(),
+			})),
+		});
+
+		const code = await runDashboardCommand(
+			{
+				subcommand: 'doctor',
+				subcommandArgs: ['--runner', 'runner_1'],
+				flags: {},
+			},
+			deps,
+		);
+
+		expect(code).toBe(1);
+		expect(cap.out.join('\n')).toContain('console-sidecar: fail');
+		expect(cap.out.join('\n')).toContain('linked to other_runner');
+	});
+
+	it('emits token-free JSON diagnostics', async () => {
+		const {deps, cap} = makeDeps({stored});
+
+		const code = await runDashboardCommand(
+			{subcommand: 'doctor', subcommandArgs: [], flags: {json: true}},
+			deps,
+		);
+
+		expect(code).toBe(1);
+		const parsed = JSON.parse(cap.out.join('\n'));
+		expect(parsed.ok).toBe(false);
+		expect(parsed.planes).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({plane: 'pairing', ok: true}),
+				expect.objectContaining({plane: 'gateway', ok: false}),
+			]),
+		);
+		expect(cap.out.join('\n')).not.toContain('do-not-print');
+	});
+});
+
 describe('runDashboardCommand: refresh', () => {
 	const stored: DashboardClientConfig = {
 		dashboardUrl: 'https://example.com',
@@ -471,8 +637,10 @@ describe('runDashboardCommand: connect', () => {
 		const calls = {
 			connect: 0,
 			closed: [] as string[],
+			runEvents: [] as unknown[],
 		};
 		const closeHandlers: Array<(reason: string) => void> = [];
+		const frameHandlers: Array<(frame: unknown) => void> = [];
 		let lastOpts: {
 			dashboardUrl: string;
 			instanceId: string;
@@ -491,9 +659,14 @@ describe('runDashboardCommand: connect', () => {
 				close: (reason?: string) => {
 					calls.closed.push(reason ?? '');
 				},
-				onFrame: () => {},
+				onFrame: (handler: (frame: unknown) => void) => {
+					frameHandlers.push(handler);
+				},
 				onClose: (handler: (reason: string) => void) => {
 					closeHandlers.push(handler);
+				},
+				sendRunEvent: (frame: unknown) => {
+					calls.runEvents.push(frame);
 				},
 			};
 		};
@@ -503,6 +676,9 @@ describe('runDashboardCommand: connect', () => {
 			lastOpts: () => lastOpts,
 			emitClose: (reason: string) => {
 				for (const h of closeHandlers) h(reason);
+			},
+			emitFrame: (frame: unknown) => {
+				for (const h of frameHandlers) h(frame);
 			},
 		};
 	}
@@ -584,6 +760,86 @@ describe('runDashboardCommand: connect', () => {
 		expect(cap.err.join('\n')).toContain('server gone');
 	});
 
+	it('executes job assignments received from the dashboard socket', async () => {
+		const fakeSocket = makeFakeSocket();
+		const executeRemoteAssignment = vi.fn(async () => {});
+		const {deps} = makeDeps({stored});
+
+		const pending = runDashboardCommand(
+			{subcommand: 'connect', subcommandArgs: [], flags: {}},
+			{
+				...deps,
+				performRefresh: happyRefresh,
+				makeInstanceSocketClient: fakeSocket.factory,
+				executeRemoteAssignment,
+				waitForShutdown: () => new Promise<string>(() => {}),
+			},
+		);
+		await vi.waitFor(() => expect(fakeSocket.calls.connect).toBe(1));
+
+		fakeSocket.emitFrame({
+			type: 'job_assignment',
+			runId: 'run_42',
+			runSpec: {prompt: 'hello'},
+		});
+
+		await vi.waitFor(() => expect(executeRemoteAssignment).toHaveBeenCalled());
+		expect(executeRemoteAssignment).toHaveBeenCalledWith(
+			expect.objectContaining({
+				client: expect.any(Object),
+				frame: expect.objectContaining({
+					type: 'job_assignment',
+					runId: 'run_42',
+				}),
+			}),
+		);
+		fakeSocket.emitClose('done');
+		await pending;
+	});
+
+	it('does not drop job assignments emitted during socket connect', async () => {
+		const executeRemoteAssignment = vi.fn(async () => {});
+		const {deps} = makeDeps({stored});
+		let frameHandler: ((frame: unknown) => void) | undefined;
+		let closeHandler: ((reason: string) => void) | undefined;
+
+		const pending = runDashboardCommand(
+			{subcommand: 'connect', subcommandArgs: [], flags: {}},
+			{
+				...deps,
+				performRefresh: happyRefresh,
+				makeInstanceSocketClient: () => ({
+					connect: async () => {
+						frameHandler?.({
+							type: 'job_assignment',
+							runId: 'run_during_connect',
+							runSpec: {prompt: 'hello'},
+						});
+					},
+					close: () => {},
+					onFrame: handler => {
+						frameHandler = handler as (frame: unknown) => void;
+					},
+					onClose: handler => {
+						closeHandler = handler;
+					},
+					sendRunEvent: () => {},
+				}),
+				executeRemoteAssignment,
+				waitForShutdown: () => new Promise<string>(() => {}),
+			},
+		);
+
+		await vi.waitFor(() => expect(executeRemoteAssignment).toHaveBeenCalled());
+		expect(executeRemoteAssignment).toHaveBeenCalledWith(
+			expect.objectContaining({
+				frame: expect.objectContaining({runId: 'run_during_connect'}),
+			}),
+		);
+		closeHandler?.('done');
+		await pending;
+	});
+
 	it('reports socket connect failure and exits 1', async () => {
 		const {deps, cap} = makeDeps({stored});
 		const code = await runDashboardCommand(
@@ -604,6 +860,97 @@ describe('runDashboardCommand: connect', () => {
 		);
 		expect(code).toBe(1);
 		expect(cap.err.join('\n')).toContain('refused');
+	});
+});
+
+describe('runDashboardCommand: console link', () => {
+	const stored: DashboardClientConfig = {
+		dashboardUrl: 'http://localhost:3000',
+		instanceId: 'inst_1',
+		refreshToken: 'do-not-print',
+		fingerprint: 'fp-stored',
+		pairedAt: 1,
+	};
+
+	it('requires an existing dashboard pairing', async () => {
+		const {deps, cap} = makeDeps({});
+		const code = await runDashboardCommand(
+			{subcommand: 'console', subcommandArgs: ['link', 'runner_1'], flags: {}},
+			deps,
+		);
+		expect(code).toBe(1);
+		expect(cap.err.join('\n')).toContain('not paired');
+	});
+
+	it('writes a console sidecar from the paired dashboard URL and reloads gateway channels', async () => {
+		const reloadGatewayChannels = vi.fn(async () => ({
+			ok: true,
+			message: 'loaded console',
+		}));
+		const consoleWrites: ConsoleChannelConfig[] = [];
+		const {deps, cap} = makeDeps({
+			stored,
+			consoleWrites,
+			reloadGatewayChannels,
+		});
+
+		const code = await runDashboardCommand(
+			{subcommand: 'console', subcommandArgs: ['link', 'runner_1'], flags: {}},
+			deps,
+		);
+
+		expect(code).toBe(0);
+		expect(consoleWrites).toEqual([
+			{
+				broker_url: 'ws://localhost:3000/api/runners/runner_1/console/adapter',
+				runner_id: 'runner_1',
+				dashboard_config: true,
+			},
+		]);
+		expect(reloadGatewayChannels).toHaveBeenCalledTimes(1);
+		expect(cap.out.join('\n')).toContain('console linked runner runner_1');
+		expect(cap.out.join('\n')).toContain('gateway channels reloaded');
+		expect([...cap.out, ...cap.err].join('\n')).not.toContain('do-not-print');
+	});
+
+	it('derives wss broker URLs for https dashboards', async () => {
+		const consoleWrites: ConsoleChannelConfig[] = [];
+		const {deps} = makeDeps({
+			stored: {...stored, dashboardUrl: 'https://app.example.com'},
+			consoleWrites,
+		});
+
+		const code = await runDashboardCommand(
+			{subcommand: 'console', subcommandArgs: ['link', 'runner_1'], flags: {}},
+			deps,
+		);
+
+		expect(code).toBe(0);
+		expect(consoleWrites[0]?.broker_url).toBe(
+			'wss://app.example.com/api/runners/runner_1/console/adapter',
+		);
+	});
+
+	it('keeps the sidecar write when gateway reload is unavailable', async () => {
+		const consoleWrites: ConsoleChannelConfig[] = [];
+		const {deps, cap} = makeDeps({
+			stored,
+			consoleWrites,
+			reloadGatewayChannels: vi.fn(async () => ({
+				ok: false,
+				message: 'gateway not reachable',
+			})),
+		});
+
+		const code = await runDashboardCommand(
+			{subcommand: 'console', subcommandArgs: ['link', 'runner_1'], flags: {}},
+			deps,
+		);
+
+		expect(code).toBe(0);
+		expect(consoleWrites).toHaveLength(1);
+		expect(cap.err.join('\n')).toContain('gateway not reachable');
+		expect(cap.out.join('\n')).toContain('start or reload the gateway');
 	});
 });
 

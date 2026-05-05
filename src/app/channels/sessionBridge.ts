@@ -126,6 +126,13 @@ export class SessionBridge {
 	private readonly opts: SessionBridgeOptions;
 	private readonly backoffSchedule: readonly number[];
 	private readonly turnDispatchHandlers = new Set<TurnDispatchHandler>();
+	// Pushes that arrive with no subscriber attached are parked here and
+	// replayed when the first handler subscribes. Required because
+	// `bridge.start()` (and therefore the daemon's `drainPending`) can
+	// complete before the React tree mounts the AppShell effect that calls
+	// `onTurnDispatch`. Without this, the first wave of pushes — and
+	// anything that lands in a re-subscribe gap — is silently dropped.
+	private bufferedDispatches: SessionDispatchTurnPushPayload[] = [];
 	private client: ControlClient | null = null;
 	private turnDispatchUnsubscribe: (() => void) | null = null;
 	private clientCloseUnsubscribe: (() => void) | null = null;
@@ -217,13 +224,41 @@ export class SessionBridge {
 		client.close();
 		this.client = null;
 		this.started = false;
+		this.bufferedDispatches = [];
 	}
 
 	onTurnDispatch(cb: TurnDispatchHandler): () => void {
+		const wasEmpty = this.turnDispatchHandlers.size === 0;
 		this.turnDispatchHandlers.add(cb);
+		if (wasEmpty && this.bufferedDispatches.length > 0) {
+			const drained = this.bufferedDispatches;
+			this.bufferedDispatches = [];
+			writeGatewayTrace(
+				`sessionBridge replaying buffered dispatches count=${drained.length} runtimeId=${this.opts.runtimeId}`,
+			);
+			for (const payload of drained) {
+				this.invokeDispatchHandler(cb, payload);
+			}
+		}
 		return () => {
 			this.turnDispatchHandlers.delete(cb);
 		};
+	}
+
+	private invokeDispatchHandler(
+		cb: TurnDispatchHandler,
+		payload: SessionDispatchTurnPushPayload,
+	): void {
+		try {
+			const r = cb(payload);
+			if (r && typeof (r as Promise<unknown>).catch === 'function') {
+				(r as Promise<unknown>).catch(() => {
+					// handler errors must not break the push channel
+				});
+			}
+		} catch {
+			// handler errors must not break the push channel
+		}
 	}
 
 	async completeTurn(
@@ -511,17 +546,15 @@ export class SessionBridge {
 			'session.dispatch.turn',
 			(envelope: ControlPushEnvelope) => {
 				const payload = envelope.payload as SessionDispatchTurnPushPayload;
+				if (this.turnDispatchHandlers.size === 0) {
+					this.bufferedDispatches.push(payload);
+					writeGatewayTrace(
+						`sessionBridge buffered dispatch (no handlers) runtimeId=${this.opts.runtimeId} bufferSize=${this.bufferedDispatches.length} dispatchId=${payload.dispatchId}`,
+					);
+					return;
+				}
 				for (const cb of this.turnDispatchHandlers) {
-					try {
-						const r = cb(payload);
-						if (r && typeof (r as Promise<unknown>).catch === 'function') {
-							(r as Promise<unknown>).catch(() => {
-								// handler errors must not break the push channel
-							});
-						}
-					} catch {
-						// handler errors must not break the push channel
-					}
+					this.invokeDispatchHandler(cb, payload);
 				}
 			},
 		);

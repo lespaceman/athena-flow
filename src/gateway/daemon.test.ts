@@ -127,4 +127,47 @@ describe('startDaemon', () => {
 		client.close();
 		await handle.stop();
 	});
+
+	it('reloads channel sidecars through the control plane', async () => {
+		const home = path.join(path.dirname(paths.runDir), 'home');
+		const channelDir = path.join(home, '.config', 'athena', 'channels');
+		fs.mkdirSync(channelDir, {recursive: true, mode: 0o700});
+		const sidecarPath = path.join(channelDir, 'unknown.json');
+		fs.writeFileSync(sidecarPath, JSON.stringify({enabled: true}), {
+			mode: 0o600,
+		});
+		const handle = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			env: {HOME: home},
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+		});
+		const token = fs.readFileSync(paths.tokenPath, 'utf-8').trim();
+		const client = await connect({socketPath: paths.socketPath, token});
+
+		const res = await client.request<
+			Record<string, never>,
+			{
+				results: Array<{
+					id: string;
+					ok: boolean;
+					action: string;
+					reason?: string;
+				}>;
+			}
+		>('channels.reload', {});
+
+		expect(res.results).toEqual([
+			{
+				id: 'unknown',
+				ok: false,
+				action: 'failed',
+				reason: 'unknown channel: unknown',
+			},
+		]);
+		client.close();
+		await handle.stop();
+	});
 });

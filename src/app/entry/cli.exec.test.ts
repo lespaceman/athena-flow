@@ -535,6 +535,25 @@ describe('cli exec mode', () => {
 		}
 	});
 
+	it('forwards --runner to dashboard doctor as a subcommand argument', async () => {
+		const cli = await runCli([
+			'dashboard',
+			'doctor',
+			'--runner',
+			'runner_1',
+			'--json',
+		]);
+		try {
+			expect(runDashboardMock).toHaveBeenCalledWith({
+				subcommand: 'doctor',
+				subcommandArgs: ['--runner', 'runner_1'],
+				flags: {url: undefined, name: undefined, json: true},
+			});
+		} finally {
+			cli.restore();
+		}
+	});
+
 	it('routes workflow install through the interactive install wizard path', async () => {
 		const cli = await runCli(['workflow', 'install', 'e2e-test-builder']);
 		try {

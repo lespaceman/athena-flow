@@ -75,7 +75,7 @@ function HookProviderContent({
 		EMPTY_MESSAGES,
 		allowedTools,
 		sessionStore,
-		{autoStart: false, ...(relayPermission ? {relayPermission} : {})},
+		relayPermission ? {relayPermission} : {},
 	);
 
 	return (

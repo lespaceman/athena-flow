@@ -902,6 +902,12 @@ function AppContent({
 	>(null);
 	const isHarnessRunningRef = useRef(isHarnessRunning);
 	isHarnessRunningRef.current = isHarnessRunning;
+	const submitDispatchAsTurnRef = useRef<
+		| ((
+				payload: import('../../shared/gateway-protocol').SessionDispatchTurnPushPayload,
+		  ) => void)
+		| null
+	>(null);
 
 	const submitDispatchAsTurn = useCallback(
 		(
@@ -932,7 +938,12 @@ function AppContent({
 		},
 		[addMessage, currentSessionId, feedEvents.length, spawnHarness],
 	);
+	submitDispatchAsTurnRef.current = submitDispatchAsTurn;
 
+	// Subscribe with stable deps so we don't churn the SessionBridge handler on
+	// every render. Each churn briefly empties the bridge's handler set; while
+	// SessionBridge buffers pushes that arrive in those gaps, avoiding the
+	// churn keeps us out of that path entirely.
 	useEffect(() => {
 		if (!sessionBridge) return;
 		const off = sessionBridge.onTurnDispatch(payload => {
@@ -940,10 +951,10 @@ function AppContent({
 				queuedDispatchRef.current = payload;
 				return;
 			}
-			submitDispatchAsTurn(payload);
+			submitDispatchAsTurnRef.current?.(payload);
 		});
 		return off;
-	}, [sessionBridge, submitDispatchAsTurn]);
+	}, [sessionBridge]);
 
 	// Drain queued dispatch when the harness finishes.
 	useEffect(() => {

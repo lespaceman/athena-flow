@@ -26,6 +26,7 @@ import type {
 export type ControlRequestKind =
 	| 'ping'
 	| 'status'
+	| 'channels.reload'
 	| 'session.register'
 	| 'session.unregister'
 	| 'session.turn.complete'
@@ -46,6 +47,7 @@ export type ChannelStatusEntry = {
 	id: string;
 	state: 'starting' | 'running' | 'degraded' | 'stopped' | 'parked';
 	lastHealthAt?: number;
+	note?: string;
 };
 
 export type RuntimeStatusEntry = {
@@ -81,6 +83,18 @@ export type StatusResponsePayload = {
 	listener: ListenerStatusEntry;
 	channels: ChannelStatusEntry[];
 	runtimes: RuntimeStatusEntry[];
+};
+
+export type ChannelReloadResult = {
+	id: string;
+	ok: boolean;
+	action: 'registered' | 'replaced' | 'unchanged' | 'unregistered' | 'failed';
+	reason?: string;
+};
+
+export type ChannelsReloadRequestPayload = Record<string, never>;
+export type ChannelsReloadResponsePayload = {
+	results: ChannelReloadResult[];
 };
 
 /**
