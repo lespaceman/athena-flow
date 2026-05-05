@@ -75,8 +75,16 @@ jobs:
           set -euo pipefail
           NEW='${{ steps.bump.outputs.version }}'
           git add package.json package-lock.json .release-please-manifest.json
-          git commit -m "chore: release $NEW"
-          git tag "cli-v$NEW"
+          if git diff --cached --quiet; then
+            echo "No version-bump changes to commit; assuming repo is already at $NEW."
+          else
+            git commit -m "chore: release $NEW"
+          fi
+          if git rev-parse -q --verify "refs/tags/cli-v$NEW" >/dev/null; then
+            echo "Tag cli-v$NEW already exists; reusing."
+          else
+            git tag "cli-v$NEW"
+          fi
 
       # `npm publish` runs `prepublishOnly` (lint + typecheck + lint:dead +
       # test + build) before pushing the tarball. No need to duplicate.
@@ -99,13 +107,20 @@ jobs:
 
       - name: Push commit + tag
         if: ${{ !inputs.dry_run }}
-        run: git push origin HEAD --follow-tags
+        run: |
+          set -euo pipefail
+          git push origin HEAD || echo "No commits to push."
+          git push origin "cli-v${{ steps.bump.outputs.version }}" || echo "Tag already on remote."
 
       - name: Create GitHub release
         if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "cli-v${{ steps.bump.outputs.version }}" \
-            --title "cli-v${{ steps.bump.outputs.version }}" \
-            --generate-notes
+          set -euo pipefail
+          TAG='cli-v${{ steps.bump.outputs.version }}'
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; skipping."
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
