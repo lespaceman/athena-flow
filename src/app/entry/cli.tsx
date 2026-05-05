@@ -226,7 +226,7 @@ const cli = meow(
 			workflow <sub>        Manage workflows (install, list, search, remove, upgrade, use)
 			marketplace <sub>     Manage marketplace sources (add, remove, list)
 			channel <sub>         Manage external channels
-			dashboard <sub>       Manage dashboard remote-instance pairing (pair, status, refresh, unpair)
+			dashboard <sub>       Manage dashboard remote-instance pairing (pair, status, refresh, connect, unpair)
 			telemetry [action]    Manage anonymous telemetry (enable/disable/status)
 			doctor                Diagnose Claude headless setup (use with --harness=claude)
 

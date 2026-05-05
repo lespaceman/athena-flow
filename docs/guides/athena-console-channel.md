@@ -40,10 +40,22 @@ Required keys:
   loopback hosts (`127.0.0.1`, `localhost`, `::1`).
 - `runner_id` — broker-visible runner identity. One adapter socket binds to
   one runner identity for v1.
-- `pairing_token` (inline) **or** `token_path` (file) — pairing JWT or
-  bearer credential. Tokens travel in the `Authorization` header only;
-  never in the URL query string and never in logs. **`token_path` and
-  `tls_ca_path` must be absolute paths — `~` is not expanded.**
+- One of:
+  - `dashboard_config: true` (recommended) — the adapter mints a fresh
+    short-lived access token via `/api/instances/refresh` before each broker
+    connect, using the refresh credential stored at
+    `~/.config/athena/dashboard.json`. Pair this machine first with
+    `athena dashboard pair <token> --url <dashboard-origin>`.
+  - `pairing_token` (inline) — long-lived bearer string. Use only for tests
+    and one-off setups; not recommended for production because dashboard
+    access tokens expire after 15 minutes.
+  - `token_path` (absolute file path) — bearer credential read once at
+    daemon start. Same caveat as `pairing_token`.
+
+  These three modes are mutually exclusive. Tokens always travel in the
+  `Authorization` header — never in the URL query string and never in logs.
+  **`token_path` and `tls_ca_path` must be absolute paths — `~` is not
+  expanded.**
 
 Optional keys:
 
@@ -51,23 +63,76 @@ Optional keys:
   outbound frame for routing.
 - `tls_ca_path` — PEM bundle for self-signed broker TLS in dev.
 
+Dashboard-managed sidecar (recommended):
+
+    {
+      "broker_url": "wss://dashboard.example.com/api/runners/runner_123/console/adapter",
+      "runner_id": "runner_123",
+      "workspace_id": "workspace_42",
+      "dashboard_config": true
+    }
+
 ## Pairing flow
 
-1. The broker (e.g. dashboard Worker) issues a runner-scoped pairing token
-   when the operator pairs a runner from the product UI.
+### Recommended: dashboard-managed pairing
+
+1.  From the dashboard UI, copy the displayed pairing command:
+
+        athena dashboard pair <pairing-token> --url <dashboard-origin>
+
+    `athena-flow` and `drisp` are interchangeable aliases. The pairing
+    token is single-use and short-lived (typically a few minutes).
+
+2.  Run the command on the machine you want to pair. It posts to
+    `/api/instances/pair`, then writes a long-lived refresh credential to
+    `~/.config/athena/dashboard.json` (mode 0600, directory mode 0700).
+
+        athena dashboard status     # confirm pairing
+        athena dashboard refresh    # rotates the refresh token, mints a fresh access token
+        athena dashboard connect    # opens the dashboard instance socket (runs until SIGINT)
+        athena dashboard unpair     # forgets the local refresh credential
+
+    Human output never prints tokens. Only `athena dashboard refresh --json`
+    includes the access/refresh tokens (for scripted use); status and pair
+    JSON output omit them.
+
+3.  Drop a console sidecar at `~/.config/athena/channels/console.json`
+    with `dashboard_config: true`. On daemon start, the adapter calls
+    `refreshDashboardAccessToken()` before each broker connect (initial and
+    reconnect), then sends the resulting access token via the
+    `Authorization` header. The refresh token in
+    `~/.config/athena/dashboard.json` is rotated on every refresh.
+
+4.  The adapter sends `console.hello`, the broker replies with
+    `console.ready`, and the channel is live.
+
+### Legacy: static pairing token
+
+1. The broker issues a runner-scoped pairing token when the operator
+   pairs a runner from the product UI.
 2. The operator drops the token at `token_path` (or pastes inline as
    `pairing_token` for one-off tests).
 3. On daemon start, the gateway reads the sidecar, instantiates the
    adapter, and opens a single WSS to `broker_url` with
    `Authorization: Bearer <token>`.
-4. The adapter sends `console.hello`, the broker replies with
-   `console.ready`, and the channel is live.
+
+This path does not auto-refresh — when the token expires the broker
+closes the socket and the adapter cannot reconnect. Prefer
+`dashboard_config: true` for any multi-hour deployment.
 
 ## Security model
 
-- Tokens are loaded once at start. A future task adds rotation via SIGHUP or
-  control-plane RPC; for now, restart the daemon to pick up a new token.
-- Tokens are redacted from all log output and thrown errors.
+- With `dashboard_config: true`, the adapter mints a short-lived access
+  token before each broker connect (initial and reconnect). Only the
+  long-lived refresh token is stored on disk, at
+  `~/.config/athena/dashboard.json` (mode 0600). Refresh tokens rotate on
+  every refresh; a stolen refresh token is invalidated on the next legitimate
+  refresh.
+- With static `pairing_token` / `token_path`, the token is loaded once at
+  daemon start. To rotate, replace the file/value and restart the daemon.
+- Tokens are redacted from all log output and thrown errors. With
+  `dashboard_config`, the redacted value is the most-recently-resolved
+  access token.
 - Outbound frames carry `runnerId` and `workspaceId`. Routing across runners
   is the broker's responsibility — the adapter binds to one runner.
 - Rich-client socket auth (browser session, mobile JWT, etc.) is the

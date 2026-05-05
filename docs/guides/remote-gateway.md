@@ -150,3 +150,24 @@ athena gateway status [--json]
 athena gateway probe [--json]
 athena gateway rotate-token [--json]
 ```
+
+## Pairing with the dashboard
+
+The gateway above is the runtime control plane. To pair this machine with
+the dashboard (so it appears as a remote instance and can host the
+dashboard-managed console channel), use the separate `athena dashboard`
+command group:
+
+```
+athena dashboard pair <pairing-token> --url <dashboard-origin>
+athena dashboard status [--json]
+athena dashboard refresh [--json]
+athena dashboard connect          # opens the instance WebSocket; runs until SIGINT
+athena dashboard unpair
+```
+
+`athena-flow` and `drisp` are interchangeable aliases. Pairing stores
+only the long-lived refresh token at `~/.config/athena/dashboard.json`
+(mode 0600); short-lived access tokens are minted on demand. See
+`docs/guides/athena-console-channel.md` for how to wire the resulting
+credential into a console sidecar via `dashboard_config: true`.
