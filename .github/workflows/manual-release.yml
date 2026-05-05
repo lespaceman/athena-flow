@@ -1,0 +1,111 @@
+name: Manual Release
+
+# One-shot release workflow. Run from the Actions tab and pick either:
+#   - an explicit semver string (e.g. "0.4.1", "1.0.0-rc.1"), or
+#   - a bump keyword: patch | minor | major | prerelease
+#
+# The job bumps package.json + the release-please manifest, runs the full
+# verification suite via prepublishOnly, npm-publishes @drisp/cli, tags the
+# commit as cli-v<version>, pushes, and drafts a GitHub release.
+#
+# This bypasses release-please entirely. Use it for hotfixes or when you
+# want a specific version cut without waiting for the auto release PR.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver string (e.g. 0.4.1) or bump type (patch | minor | major | prerelease)'
+        required: true
+        default: 'patch'
+      dry_run:
+        description: 'Dry run (skip npm publish, git push, and release creation)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Resolve target version
+        id: bump
+        env:
+          INPUT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$INPUT" =~ ^(patch|minor|major|prerelease)$ ]]; then
+            RAW=$(npm version "$INPUT" --no-git-tag-version)
+            NEW=${RAW#v}
+          else
+            npm version "$INPUT" --no-git-tag-version --allow-same-version >/dev/null
+            NEW="$INPUT"
+          fi
+          node -e "
+            const fs = require('fs');
+            const path = '.release-please-manifest.json';
+            const m = JSON.parse(fs.readFileSync(path, 'utf8'));
+            m['.'] = process.argv[1];
+            fs.writeFileSync(path, JSON.stringify(m, null, '\t') + '\n');
+          " "$NEW"
+          echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $NEW"
+
+      - name: Commit + tag
+        run: |
+          set -euo pipefail
+          NEW='${{ steps.bump.outputs.version }}'
+          git add package.json package-lock.json .release-please-manifest.json
+          git commit -m "chore: release $NEW"
+          git tag "cli-v$NEW"
+
+      # `npm publish` runs `prepublishOnly` (lint + typecheck + lint:dead +
+      # test + build) before pushing the tarball. No need to duplicate.
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+
+      - name: Verify (dry run)
+        if: ${{ inputs.dry_run }}
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run lint:dead
+          npm test
+          npm run build
+          npm pack --dry-run
+
+      - name: Push commit + tag
+        if: ${{ !inputs.dry_run }}
+        run: git push origin HEAD --follow-tags
+
+      - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "cli-v${{ steps.bump.outputs.version }}" \
+            --title "cli-v${{ steps.bump.outputs.version }}" \
+            --generate-notes
