@@ -272,6 +272,35 @@ describe('createWorkflowRunner', () => {
 		);
 	});
 
+	it('completes cleanly when tracker skeleton is left untouched', async () => {
+		const projectDir = makeTempDir();
+
+		const startTurn = vi.fn().mockResolvedValue(OK_RESULT);
+		const persistRunState = vi.fn();
+
+		const handle = createWorkflowRunner({
+			sessionId: 's1',
+			projectDir,
+			prompt: 'do it',
+			workflow: {
+				name: 'wf',
+				plugins: [],
+				promptTemplate: '{input}',
+				loop: {enabled: true, maxIterations: 5},
+			},
+			startTurn,
+			persistRunState,
+		});
+
+		const result = await handle.result;
+		expect(result.status).toBe('completed');
+		expect(result.stopReason).toBeUndefined();
+		expect(startTurn).toHaveBeenCalledTimes(1);
+		expect(persistRunState).toHaveBeenLastCalledWith(
+			expect.objectContaining({status: 'completed', stopReason: undefined}),
+		);
+	});
+
 	it('uses injected createTracker instead of fs', async () => {
 		const createTracker = vi.fn();
 		const startTurn = vi.fn().mockResolvedValue(OK_RESULT);
