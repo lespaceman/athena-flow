@@ -256,7 +256,6 @@ const cli = meow(
 			--token         Gateway link token (gateway link)
 			--url           Dashboard origin (dashboard pair)
 			--name          Friendly machine name (dashboard pair)
-			--runner        Runner id (dashboard doctor)
 			--tls-ca        Gateway custom CA path (gateway link)
 			--tls-cert      Gateway TLS certificate path (gateway start)
 			--tls-key       Gateway TLS private key path (gateway start)
@@ -563,9 +562,6 @@ async function main(): Promise<void> {
 
 	if (command === 'dashboard') {
 		const [subcommand = '', ...subcommandArgs] = commandArgs;
-		if (typeof cli.flags.runner === 'string') {
-			subcommandArgs.push('--runner', cli.flags.runner);
-		}
 		await exitWith(
 			await runDashboardCommand({
 				subcommand,
@@ -573,6 +569,8 @@ async function main(): Promise<void> {
 				flags: {
 					url: typeof cli.flags.url === 'string' ? cli.flags.url : undefined,
 					name: typeof cli.flags.name === 'string' ? cli.flags.name : undefined,
+					runner:
+						typeof cli.flags.runner === 'string' ? cli.flags.runner : undefined,
 					json: Boolean(cli.flags.json),
 				},
 			}),

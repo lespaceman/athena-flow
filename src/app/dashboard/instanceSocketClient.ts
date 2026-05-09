@@ -1,20 +1,22 @@
 import {WebSocket} from 'ws';
 
+export type RunEventFrame = {
+	type: 'run_event';
+	runId: string;
+	seq: number;
+	ts: number;
+	kind: string;
+	payload?: unknown;
+};
+
 export type InstanceSocketFrame =
 	| {type: 'ping'; ts: number}
 	| {type: 'pong'; ts: number}
 	| {type: 'job_assignment'; runId: string; runSpec?: unknown}
 	| {type: 'assignment_accepted'; runId: string}
-	| {
-			type: 'run_event';
-			runId: string;
-			seq: number;
-			ts: number;
-			kind: string;
-			payload?: unknown;
-	  }
 	| {type: 'cancel'; runId: string}
-	| {type: 'error'; code: string; message?: string};
+	| {type: 'error'; code: string; message?: string}
+	| RunEventFrame;
 
 export type InstanceSocketLogger = (
 	level: 'debug' | 'info' | 'warn' | 'error',
@@ -45,9 +47,7 @@ export type InstanceSocketClient = {
 	close(reason?: string): void;
 	onFrame(handler: (frame: InstanceSocketFrame) => void): void;
 	onClose(handler: (reason: string) => void): void;
-	sendRunEvent(
-		frame: Omit<Extract<InstanceSocketFrame, {type: 'run_event'}>, 'type'>,
-	): void;
+	sendRunEvent(event: Omit<RunEventFrame, 'type'>): void;
 };
 
 const DEFAULT_HEARTBEAT_MS = 30_000;
@@ -81,9 +81,20 @@ export function createInstanceSocketClient(
 	const closeHandlers = new Set<(reason: string) => void>();
 	let ws: WebSocket | null = null;
 	let heartbeat: NodeJS.Timeout | null = null;
+	let droppedSinceClose = 0;
 
 	function send(frame: InstanceSocketFrame): void {
-		if (!ws || ws.readyState !== ws.OPEN) return;
+		if (!ws || ws.readyState !== ws.OPEN) {
+			droppedSinceClose += 1;
+			if (droppedSinceClose === 1) {
+				log(
+					'warn',
+					`instance socket dropped frame (socket not open): type=${frame.type}`,
+				);
+			}
+			return;
+		}
+		droppedSinceClose = 0;
 		try {
 			ws.send(JSON.stringify(frame));
 		} catch (err) {
@@ -244,10 +255,8 @@ export function createInstanceSocketClient(
 		closeHandlers.add(handler);
 	}
 
-	function sendRunEvent(
-		frame: Omit<Extract<InstanceSocketFrame, {type: 'run_event'}>, 'type'>,
-	): void {
-		send({type: 'run_event', ...frame});
+	function sendRunEvent(event: Omit<RunEventFrame, 'type'>): void {
+		send({type: 'run_event', ...event});
 	}
 
 	return {connect, close, onFrame, onClose, sendRunEvent};
