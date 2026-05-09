@@ -31,6 +31,7 @@ function makeOptions(
 		submitSearchQuery: vi.fn(),
 		submitPromptOrSlashCommand: vi.fn(),
 		displayedEntriesRef: {current: []},
+		getEntrySearchText: entry => entry.searchText,
 		...overrides,
 	};
 }

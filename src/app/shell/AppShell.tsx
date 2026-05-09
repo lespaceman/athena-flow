@@ -664,7 +664,8 @@ function AppContent({
 		postByToolUseId,
 		verbose,
 	});
-	const {runSummaries, filteredEntries, searchMatches} = timeline;
+	const {runSummaries, filteredEntries, searchMatches, getEntrySearchText} =
+		timeline;
 
 	const todoPanel = useTodoPanel({
 		tasks,
@@ -1031,6 +1032,7 @@ function AppContent({
 			dispatchUi({type: 'submit_search_query', query, firstMatchIndex}),
 		submitPromptOrSlashCommand,
 		displayedEntriesRef: displayedFeedEntriesRef,
+		getEntrySearchText,
 		getSelectedCommand: () => getSelectedCommandRef.current(),
 	});
 	const visualInputRows = Math.max(2, inputRows);

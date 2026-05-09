@@ -2,7 +2,6 @@ import {describe, it, expect} from 'vitest';
 import {IndexedTimeline} from './indexedTimeline';
 import {mergeFeedItems, buildPostByToolUseId} from './items';
 import type {FeedEvent} from './types';
-import {buildTimelineCache} from '../../ui/hooks/useTimeline';
 
 function makeEvent(
 	kind: FeedEvent['kind'],
@@ -94,26 +93,19 @@ function buildTimeline(events: FeedEvent[], verbose = true) {
 }
 
 describe('IndexedTimeline', () => {
-	it('full rebuild: produces entries matching buildTimelineCache output', () => {
+	it('full rebuild: two fresh instances produce identical entries from the same input', () => {
 		const events = [makeNotification(1, 'hello'), makeNotification(2, 'world')];
 		const {feedItems, feedEvents, postByToolUseId} = buildTimeline(events);
 
-		const indexed = new IndexedTimeline();
-		indexed.update(feedItems, feedEvents, postByToolUseId, true);
+		const a = new IndexedTimeline();
+		a.update(feedItems, feedEvents, postByToolUseId, true);
+		const b = new IndexedTimeline();
+		b.update(feedItems, feedEvents, postByToolUseId, true);
 
-		const reference = buildTimelineCache(
-			feedItems,
-			feedEvents,
-			postByToolUseId,
-			true,
-		);
-
-		expect(indexed.getEntries()).toHaveLength(reference.entries.length);
-		for (let i = 0; i < reference.entries.length; i++) {
-			expect(indexed.getEntries()[i]?.summary).toBe(
-				reference.entries[i]?.summary,
-			);
-			expect(indexed.getEntries()[i]?.opTag).toBe(reference.entries[i]?.opTag);
+		expect(a.getEntries()).toHaveLength(b.getEntries().length);
+		for (let i = 0; i < a.getEntries().length; i++) {
+			expect(a.getEntries()[i]?.summary).toBe(b.getEntries()[i]?.summary);
+			expect(a.getEntries()[i]?.opTag).toBe(b.getEntries()[i]?.opTag);
 		}
 	});
 

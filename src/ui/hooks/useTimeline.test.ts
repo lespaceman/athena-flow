@@ -3,7 +3,7 @@ import {describe, it, expect} from 'vitest';
 import {renderHook} from '@testing-library/react';
 import {mergeFeedItems, buildPostByToolUseId} from '../../core/feed/items';
 import type {FeedEvent} from '../../core/feed/types';
-import {getTimelineEntrySearchText, useTimeline} from './useTimeline';
+import {useTimeline} from './useTimeline';
 
 function makeEvent(
 	kind: FeedEvent['kind'],
@@ -172,7 +172,7 @@ describe('useTimeline', () => {
 
 		const entry = result.current.timelineEntries[0]!;
 		expect(entry.details).toBe('');
-		expect(getTimelineEntrySearchText(entry)).toContain('needle');
+		expect(result.current.getEntrySearchText(entry)).toContain('needle');
 	});
 
 	it('keeps notification entries visible when verbose is false', () => {

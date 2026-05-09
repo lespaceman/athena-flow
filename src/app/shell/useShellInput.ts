@@ -4,7 +4,6 @@ import {parseInput} from '../commands/parser';
 import {type TimelineEntry} from '../../core/feed/timeline';
 import type {Command} from '../commands/types';
 import type {InputMode} from './types';
-import {getTimelineEntrySearchText} from '../../ui/hooks/useTimeline';
 
 function deriveInputMode(value: string): InputMode {
 	if (value.startsWith('/')) return 'command';
@@ -16,10 +15,11 @@ function findFirstSearchMatch(
 	entries: TimelineEntry[],
 	query: string,
 	startIndex: number,
+	getEntrySearchText: (entry: TimelineEntry) => string,
 ): number {
 	const q = query.toLowerCase();
 	for (let i = startIndex; i < entries.length; i++) {
-		if (getTimelineEntrySearchText(entries[i]!).toLowerCase().includes(q)) {
+		if (getEntrySearchText(entries[i]!).toLowerCase().includes(q)) {
 			return i;
 		}
 	}
@@ -34,6 +34,7 @@ export type UseShellInputOptions = {
 	submitSearchQuery: (query: string, firstMatchIndex: number | null) => void;
 	submitPromptOrSlashCommand: (value: string) => void;
 	displayedEntriesRef: React.RefObject<TimelineEntry[]>;
+	getEntrySearchText: (entry: TimelineEntry) => string;
 	getSelectedCommand?: () => Command | undefined;
 };
 
@@ -55,6 +56,7 @@ export function useShellInput({
 	submitSearchQuery,
 	submitPromptOrSlashCommand,
 	displayedEntriesRef,
+	getEntrySearchText,
 	getSelectedCommand,
 }: UseShellInputOptions): UseShellInputResult {
 	const setInputValueRef = useRef<(value: string) => void>(() => {});
@@ -104,7 +106,12 @@ export function useShellInput({
 					const query = trimmed.replace(/^:/, '').trim();
 					const firstIdx =
 						query.length > 0
-							? findFirstSearchMatch(displayedEntriesRef.current, query, 0)
+							? findFirstSearchMatch(
+									displayedEntriesRef.current,
+									query,
+									0,
+									getEntrySearchText,
+								)
 							: -1;
 					submitSearchQuery(query, firstIdx >= 0 ? firstIdx : null);
 				} else {
@@ -125,6 +132,7 @@ export function useShellInput({
 			closeInput,
 			submitSearchQuery,
 			displayedEntriesRef,
+			getEntrySearchText,
 		],
 	);
 
