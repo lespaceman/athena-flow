@@ -45,6 +45,7 @@ export function initTelemetry(options: TelemetryInitOptions): void {
 		disableGeoip: true,
 		flushAt: 20,
 		flushInterval: 30000,
+		enableExceptionAutocapture: true,
 	});
 }
 

@@ -149,3 +149,34 @@ export function trackGatewayRuntimeRebind(props: {
 export function trackGatewayRuntimeExpired(props: {gapMs: number}): void {
 	capture('gateway.runtime.expired', props);
 }
+
+export function trackWorkflowCommand(props: {
+	subcommand: string;
+	arg?: string;
+	success: boolean;
+}): void {
+	capture('workflow.command', props);
+}
+
+export function trackDashboardPaired(): void {
+	capture('dashboard.paired', {});
+}
+
+export function trackDashboardUnpaired(): void {
+	capture('dashboard.unpaired', {});
+}
+
+export function trackSetupCompleted(props: {
+	theme: string;
+	harness?: string;
+}): void {
+	capture('setup.completed', props);
+}
+
+export function trackExecCompleted(props: {
+	exit_code: number;
+	harness: string;
+	workflow?: string;
+}): void {
+	capture('exec.completed', props);
+}

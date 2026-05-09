@@ -8,6 +8,7 @@ import WizardFrame from './components/WizardFrame';
 import WizardHints from './components/WizardHints';
 import {getGlyphs} from '../ui/glyphs/index';
 import {writeGlobalConfig, type AthenaHarness} from '../infra/plugins/config';
+import {trackSetupCompleted} from '../infra/telemetry/index';
 import {useTheme} from '../ui/theme/index';
 
 export type SetupResult = {
@@ -145,6 +146,7 @@ export default function SetupWizard({onComplete, onThemePreview}: Props) {
 					theme: result.theme,
 					harness: result.harness,
 				});
+				trackSetupCompleted({theme: result.theme, harness: result.harness});
 				onComplete(result);
 			} catch (error) {
 				completedRef.current = false;

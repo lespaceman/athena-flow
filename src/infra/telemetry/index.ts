@@ -12,4 +12,9 @@ export {
 	trackSessionEnded,
 	trackError,
 	trackTelemetryOptedOut,
+	trackWorkflowCommand,
+	trackDashboardPaired,
+	trackDashboardUnpaired,
+	trackSetupCompleted,
+	trackExecCompleted,
 } from './events';
