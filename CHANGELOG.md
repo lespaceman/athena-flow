@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.6](https://github.com/drisplabs/cli/compare/cli-v0.4.5...cli-v0.4.6) (2026-05-10)
+
+
+### Features
+
+* **gateway,dashboard:** per-attachment runtime slots + console sidecar reconciliation ([231473e](https://github.com/drisplabs/cli/commit/231473e92a699329734038cfd20831afd3d76a22))
+* **gateway,supervisor:** attachmentId routing end-to-end + AttachmentRunner skeleton ([3eb1b48](https://github.com/drisplabs/cli/commit/3eb1b488e2f35c7ed7978ab96beeb5176ca755ab))
+* **runner,gateway:** harness-child envelope handler + session.run.event streaming op ([a61f2db](https://github.com/drisplabs/cli/commit/a61f2dbf2e0d275f927ff06823ba57a2541b06b5))
+* **supervisor,gateway:** runner channel adapter + supervisor entry ([a8b27b4](https://github.com/drisplabs/cli/commit/a8b27b405adb4ef92af7979d7d6046921fac2575))
+
 ## [0.4.5](https://github.com/drisplabs/cli/compare/cli-v0.4.4...cli-v0.4.5) (2026-05-10)
 
 
