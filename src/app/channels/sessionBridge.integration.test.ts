@@ -618,28 +618,33 @@ describe('SessionBridge integration', () => {
 		});
 		await bridge.start();
 
-		// Fire the relay but don't await — it will reject once the bridge gives up.
+		// Fire the relay but don't await — graceful unregister should settle it
+		// with reason='connection_lost' before the WS closes.
 		const relayPromise = bridge.relayPermission({
 			toolName: 'Bash',
 			description: 'list files',
 			inputPreview: 'ls',
 			ttlMs: 200,
 		});
-		// Pre-attach a no-op catch so the rejection isn't surfaced as
+		// Pre-attach a no-op catch so a stray rejection isn't surfaced as
 		// unhandled before the assertion below awaits it.
 		relayPromise.catch(() => {});
 		await waitUntil(() => adapter.pendingPermission !== null);
 		expect(daemon.relayCoordinator.pendingCount()).toBe(1);
 
-		// Tear the bridge down so it stops reconnecting; the underlying WS drop
-		// + grace expiry should fully unregister the runtime and dispose the
-		// pending relay with reason='connection_lost'.
+		// Tear the bridge down. session.unregister fires onRuntimeConnectionLost
+		// (graceful=true), which disposes the pending relay with
+		// reason='connection_lost' and lets the in-flight relay handler respond
+		// before the WS closes — the runtime sees a structured cancelled result
+		// instead of a transport error.
 		await bridge.stop();
 		bridge = undefined;
 
 		await waitUntil(() => daemon!.relayCoordinator.pendingCount() === 0, 3_000);
 		expect(daemon.pipeline.getCurrentRuntime()).toBeNull();
-		await expect(relayPromise).rejects.toBeDefined();
+		await expect(relayPromise).resolves.toMatchObject({
+			result: {kind: 'cancelled', reason: 'connection_lost'},
+		});
 	}, 15_000);
 
 	it('cancelRelayPermission short-circuits a pending request', async () => {
@@ -668,20 +673,55 @@ describe('SessionBridge integration', () => {
 		});
 		await waitUntil(() => adapter.pendingPermission !== null);
 
-		// Simulate "local UI got there first": cancel the relay.
-		// The coordinator mints the channelRequestId; we need to read it from
-		// the request side. The bridge surfaces it on the response, but for
-		// cancel we use the in-flight id which the coordinator broadcasts —
-		// for this contract test we cancel by waiting for the response after
-		// abort. Use a parallel cancelAll-equivalent by stopping the bridge,
-		// which closes the connection and forces the coordinator to abort.
+		// Stop the bridge: session.unregister disposes the pending relay with
+		// reason='connection_lost' before the WS closes, so the in-flight
+		// request resolves with a structured cancelled result rather than
+		// rejecting with a transport error.
 		await bridge.stop();
 		bridge = undefined;
 
-		// The pending relay rejects when the connection closes (gateway
-		// protocol error). The fake adapter's pending promise resolves with
-		// `cancelled` because its abort signal fired.
-		await expect(reqPromise).rejects.toBeDefined();
+		await expect(reqPromise).resolves.toMatchObject({
+			result: {kind: 'cancelled', reason: 'connection_lost'},
+		});
+	}, 15_000);
+
+	it('settles a null-ttl pending relay on graceful bridge.stop()', async () => {
+		daemon = await startDaemon({
+			foreground: true,
+			silent: true,
+			paths,
+			skipSignalHandlers: true,
+			skipChannelLoad: true,
+		});
+		const adapter = new FakeAdapter();
+		await daemon.channelManager.register(adapter);
+
+		bridge = new SessionBridge({
+			runtimeId: 'null-ttl-1',
+			defaultAgentId: 'main',
+			paths,
+		});
+		await bridge.start();
+
+		// ttlMs=null mimics AskUserQuestion (human-in-the-loop): no broadcast
+		// timer, so without graceful disposal the pending relay would hang
+		// forever if the only adapter dies or the runtime tears down.
+		const reqPromise = bridge.relayPermission({
+			toolName: 'Bash',
+			description: 'list files',
+			inputPreview: 'ls',
+			ttlMs: null,
+		});
+		await waitUntil(() => adapter.pendingPermission !== null);
+		expect(daemon.relayCoordinator.pendingCount()).toBe(1);
+
+		await bridge.stop();
+		bridge = undefined;
+
+		await expect(reqPromise).resolves.toMatchObject({
+			result: {kind: 'cancelled', reason: 'connection_lost'},
+		});
+		expect(daemon.relayCoordinator.pendingCount()).toBe(0);
 	}, 15_000);
 });
 
