@@ -1,9 +1,7 @@
 import React from 'react';
 import {render} from 'ink-testing-library';
-import {describe, it, expect} from 'vitest';
+import {describe, it, expect, vi} from 'vitest';
 import ThemeStep from '../ThemeStep';
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 describe('ThemeStep', () => {
 	it('renders Dark and Light options', () => {
@@ -36,10 +34,8 @@ describe('ThemeStep', () => {
 				}}
 			/>,
 		);
-		await delay(30);
+		await vi.waitFor(() => expect(previews).toContain('dark'));
 		stdin.write('\u001B[B');
-		await delay(30);
-		expect(previews).toContain('dark');
-		expect(previews).toContain('light');
+		await vi.waitFor(() => expect(previews).toContain('light'));
 	});
 });
