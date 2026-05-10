@@ -6,6 +6,11 @@ import type {
 	InstanceSocketFrame,
 	InstanceSocketLogger,
 } from './instanceSocketClient';
+import {
+	createRunStreamClient,
+	type RunStreamClient,
+	type RunStreamClientOptions,
+} from './runStreamClient';
 
 type JobAssignmentFrame = Extract<
 	InstanceSocketFrame,
@@ -19,6 +24,16 @@ type RemoteRunSpec = {
 	workflow?: {ref?: string};
 	env?: Record<string, string>;
 	timeoutSec?: number;
+	/**
+	 * Per-run callback channel minted by the dashboard's `prepareDispatch`.
+	 * When both fields are present, the executor opens a dedicated WebSocket
+	 * to RunStreamDO instead of relaying frames through the long-lived
+	 * instance socket. The per-run channel survives instance-socket
+	 * disconnects and replays unacked frames on reconnect — see
+	 * `runStreamClient.ts` for the full protocol.
+	 */
+	callbackWsUrl?: string;
+	callbackToken?: string;
 };
 
 export type ExecuteRemoteAssignmentInput = {
@@ -30,6 +45,15 @@ export type ExecuteRemoteAssignmentInput = {
 	bootstrapRuntimeConfigFn?: typeof bootstrapRuntimeConfig;
 	now?: () => number;
 	abortSignal?: AbortSignal;
+	/** Test seam — override the per-run stream client factory. */
+	createRunStreamClientFn?: (opts: RunStreamClientOptions) => RunStreamClient;
+	/**
+	 * Bound on how long to wait for the per-run WebSocket to come up before
+	 * falling back to the instance-socket relay. Default 5s — short enough
+	 * that a transient outage doesn't stall the user-visible
+	 * "assignment received" frame.
+	 */
+	runStreamConnectTimeoutMs?: number;
 };
 
 type JsonExecEvent = {
@@ -45,6 +69,8 @@ function parseRunSpec(value: unknown): RemoteRunSpec | null {
 	if (typeof prompt !== 'string' || prompt.trim().length === 0) return null;
 	const env = obj['env'];
 	const workflow = obj['workflow'];
+	const callbackWsUrl = obj['callbackWsUrl'];
+	const callbackToken = obj['callbackToken'];
 	return {
 		prompt,
 		sessionId:
@@ -74,6 +100,14 @@ function parseRunSpec(value: unknown): RemoteRunSpec | null {
 			typeof obj['timeoutSec'] === 'number' &&
 			Number.isFinite(obj['timeoutSec'])
 				? obj['timeoutSec']
+				: undefined,
+		callbackWsUrl:
+			typeof callbackWsUrl === 'string' && callbackWsUrl.length > 0
+				? callbackWsUrl
+				: undefined,
+		callbackToken:
+			typeof callbackToken === 'string' && callbackToken.length > 0
+				? callbackToken
 				: undefined,
 	};
 }
@@ -144,12 +178,64 @@ export async function executeRemoteAssignment({
 	bootstrapRuntimeConfigFn = bootstrapRuntimeConfig,
 	now = Date.now,
 	abortSignal,
+	createRunStreamClientFn = createRunStreamClient,
+	runStreamConnectTimeoutMs = 5_000,
 }: ExecuteRemoteAssignmentInput): Promise<void> {
-	let seq = 0;
 	let lastTerminalFailureMessage: string | null = null;
 	let deferredFailedCompletion: JsonExecEvent | null = null;
+
+	// Pre-parse so we know whether to open the per-run channel before the
+	// first frame. parseRunSpec is cheap and side-effect-free.
+	const spec = parseRunSpec(frame.runSpec);
+
+	// Open the per-run RunStreamDO channel when the dashboard supplied
+	// callback credentials. This is the durable path: it queues frames during
+	// disconnects and uses the server's resume protocol to replay them. Falls
+	// back to the legacy instance-socket relay when the credentials aren't
+	// present (older dashboard) or connect fails within the timeout.
+	let runStream: RunStreamClient | null = null;
+	if (spec?.callbackWsUrl && spec.callbackToken) {
+		const connect = createRunStreamClientFn({
+			wsUrl: spec.callbackWsUrl,
+			token: spec.callbackToken,
+			log: (level, message) =>
+				log(level, `run-stream[${frame.runId}]: ${message}`),
+			now,
+		});
+		const timeoutPromise = new Promise<'timeout'>(resolve => {
+			const t = setTimeout(() => resolve('timeout'), runStreamConnectTimeoutMs);
+			t.unref?.();
+		});
+		try {
+			const result = await Promise.race([
+				connect.connect().then(() => 'connected' as const),
+				timeoutPromise,
+			]);
+			if (result === 'connected') {
+				runStream = connect;
+			} else {
+				log(
+					'warn',
+					`run-stream[${frame.runId}]: connect timed out after ${runStreamConnectTimeoutMs}ms; falling back to instance-socket relay`,
+				);
+				void connect.close('connect_timeout');
+			}
+		} catch (err) {
+			log(
+				'warn',
+				`run-stream[${frame.runId}]: connect failed (${
+					err instanceof Error ? err.message : String(err)
+				}); falling back to instance-socket relay`,
+			);
+		}
+	}
+
+	// Single send seam: routes through the per-run client when up, otherwise
+	// falls back to the instance-socket relay (with its known reliability
+	// limitations). Legacy seq is owned by the closure; the per-run client
+	// owns its own seq counter internally.
+	let legacySeq = 0;
 	const send = (kind: string, payload: unknown, ts = now()): void => {
-		seq += 1;
 		if (
 			kind === 'error' &&
 			typeof payload === 'object' &&
@@ -158,9 +244,14 @@ export async function executeRemoteAssignment({
 		) {
 			lastTerminalFailureMessage = (payload as {message: string}).message;
 		}
+		if (runStream) {
+			runStream.sendEvent({ts, kind, payload});
+			return;
+		}
+		legacySeq += 1;
 		client.sendRunEvent({
 			runId: frame.runId,
-			seq,
+			seq: legacySeq,
 			ts,
 			kind,
 			payload,
@@ -169,11 +260,27 @@ export async function executeRemoteAssignment({
 
 	send('progress', {message: 'assignment received'});
 
-	const spec = parseRunSpec(frame.runSpec);
+	// Ensure the per-run channel is always closed cleanly, even when the
+	// run takes an early-return path. We wait briefly for the server to ack
+	// the terminal frame (so `finalize` fires on the dashboard) but cap at
+	// 10s — if the server is unreachable we still need to release the
+	// daemon's reference to the socket.
+	const closeRunStream = async (reason: string): Promise<void> => {
+		if (!runStream) return;
+		const drainTimeout = new Promise<void>(resolve => {
+			const t = setTimeout(() => resolve(), 10_000);
+			t.unref?.();
+		});
+		await Promise.race([runStream.whenTerminated(), drainTimeout]);
+		await runStream.close(reason);
+		runStream = null;
+	};
+
 	if (!spec) {
 		send('error', {
 			message: 'remote assignment missing prompt',
 		});
+		await closeRunStream('done');
 		return;
 	}
 
@@ -190,6 +297,7 @@ export async function executeRemoteAssignment({
 		send('error', {
 			message: err instanceof Error ? err.message : String(err),
 		});
+		await closeRunStream('done');
 		return;
 	}
 	for (const warning of runtimeConfig.warnings) {
@@ -304,5 +412,7 @@ export async function executeRemoteAssignment({
 		send('error', {
 			message: err instanceof Error ? err.message : String(err),
 		});
+	} finally {
+		await closeRunStream('done');
 	}
 }
