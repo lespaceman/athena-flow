@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/drisplabs/cli/compare/cli-v0.5.1...cli-v0.5.2) (2026-05-16)
+
+
+### Bug Fixes
+
+* ack dashboard decisions after enqueue ([a9f59a0](https://github.com/drisplabs/cli/commit/a9f59a063d9e45cd49025ff9f154bdd3bdc2c499))
+
 ## [0.5.1](https://github.com/drisplabs/cli/compare/cli-v0.5.0...cli-v0.5.1) (2026-05-12)
 
 
