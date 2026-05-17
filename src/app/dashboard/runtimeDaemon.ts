@@ -20,6 +20,10 @@ import {
 	writeAttachmentMirror,
 } from '../../infra/config/attachmentMirror';
 import {
+	createAttachmentReconciler,
+	type AttachmentReconcilerFetchInput,
+} from './attachmentReconciler';
+import {
 	createDashboardFeedOutbox,
 	type DashboardFeedOutbox,
 } from './dashboardFeedPublisher';
@@ -31,6 +35,7 @@ import {
 	createDashboardPairedExecution,
 	type DashboardPairedExecutionRunRecord,
 } from './dashboardPairedExecution';
+import {createDashboardAssignmentIntake} from './dashboardAssignmentIntake';
 
 type RuntimeDaemonAssignmentExecutor = (
 	input: ExecuteRemoteAssignmentInput,
@@ -112,6 +117,9 @@ export type RunDashboardRuntimeDaemonOptions = {
 	 * sync without requiring a re-pair.
 	 */
 	writeMirror?: (mirror: AttachmentMirror) => void;
+	fetchAttachments?: (
+		input: AttachmentReconcilerFetchInput,
+	) => Promise<AttachmentMirror['attachments']>;
 	/**
 	 * Durable queue of local feed events waiting for dashboard ACK. Production
 	 * uses the dashboard state dir; tests inject a temp database.
@@ -226,6 +234,24 @@ export async function runDashboardRuntimeDaemon(
 		maxConcurrentRuns,
 		now,
 		runHistoryLimit,
+	});
+	const attachmentReconciler = createAttachmentReconciler({
+		writeMirror,
+		...(options.fetchAttachments
+			? {fetchAttachments: options.fetchAttachments}
+			: {}),
+		now,
+	});
+	const assignmentIntake = createDashboardAssignmentIntake({
+		client: {
+			sendAssignmentAccepted(runId) {
+				const current = client;
+				if (!current) return;
+				current.sendAssignmentAccepted(runId);
+			},
+		},
+		execution: pairedExecution,
+		log,
 	});
 
 	function nextReconnectDelay(): number {
@@ -368,9 +394,8 @@ export async function runDashboardRuntimeDaemon(
 			lastFrameAt = now();
 			if (frame.type === 'attachments.changed') {
 				try {
-					writeMirror({
+					attachmentReconciler.applyPush({
 						instanceId: token.instanceId,
-						fetchedAt: now(),
 						attachments: frame.attachments.map(a => ({
 							runnerId: a.runnerId,
 							...(a.name !== undefined ? {name: a.name} : {}),
@@ -403,12 +428,18 @@ export async function runDashboardRuntimeDaemon(
 				});
 				return;
 			}
+			if (frame.type === 'job_assignment') {
+				assignmentIntake.receive(frame);
+				return;
+			}
 			pairedExecution.handleFrame(frame);
 		});
 		next.onClose(reason => {
 			if (stopped || client !== next) return;
 			log('warn', `instance socket closed: ${reason}`);
 			client = null;
+			assignmentIntake.markNotReady();
+			attachmentReconciler.markStale(token.instanceId);
 			currentInstanceId = undefined;
 			clearRefreshTimer();
 			clearFeedDrainTimer();
@@ -417,6 +448,20 @@ export async function runDashboardRuntimeDaemon(
 		await next.connect();
 		client = next;
 		lastSocketClient = next;
+		try {
+			await attachmentReconciler.reconcileNow({
+				dashboardUrl: config.dashboardUrl,
+				instanceId: token.instanceId,
+				accessToken: token.accessToken,
+			});
+		} catch (err) {
+			client = null;
+			assignmentIntake.markNotReady();
+			attachmentReconciler.markStale(token.instanceId);
+			next.close('attachment reconciliation failed');
+			throw err;
+		}
+		assignmentIntake.markReady();
 		currentInstanceId = token.instanceId;
 		currentDashboardUrl = config.dashboardUrl;
 		reconnectAttempt = 0;

@@ -65,6 +65,12 @@ dashboard runtime daemon. See `docs/adr/0001-attachment-supervisor.md`.
 _Avoid_: pairing (overloaded with the auth handshake), runner binding (verb
 phrase, not a noun for the resulting state).
 
+**Dashboard assignment**:
+A dashboard-issued request for the paired runtime daemon to execute one
+dashboard **Run** on behalf of a **runner**.
+_Avoid_: job assignment (wire-frame name), remote assignment (describes one
+transport path, not the domain concept).
+
 **Run**:
 One agent invocation within a **Session**. Triggered by `session.start` or `user.prompt`. Has a status (`running` | `completed`), counters, and an actor tree.
 
@@ -108,6 +114,8 @@ _Avoid_: dispatcher (the historical class is now an internal collaborator), mess
 - The **Root plan** persists across **Runs** within a **Session** — only per-run state (subagent stack, tool/decision correlation, message stream) is reset between runs.
 - A **Dispatch turn** is created by the **DispatchPipeline** when an inbound channel message arrives with a **Registered runtime** bound; resolved on the matching `session.turn.complete`.
 - The **DispatchPipeline** owns the **Registered runtime** binding state — `Run`/`Session` (the FeedMapper concepts) live one layer up and are unrelated to the gateway-side runtime registration.
+- A **Dashboard assignment** is admitted by the dashboard runtime daemon before
+  it launches the corresponding dashboard **Run** locally.
 
 ## Example dialogue
 

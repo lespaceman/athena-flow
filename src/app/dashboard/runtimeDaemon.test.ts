@@ -24,6 +24,7 @@ function tempDbPath(): string {
 }
 
 afterEach(() => {
+	vi.unstubAllGlobals();
 	if (originalXdgStateHome === undefined) {
 		delete process.env['XDG_STATE_HOME'];
 	} else {
@@ -45,6 +46,10 @@ beforeEach(() => {
 	tmpDirs.push(dir, home);
 	process.env['XDG_STATE_HOME'] = dir;
 	process.env['HOME'] = home;
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(async () => Response.json({attachments: []})),
+	);
 });
 
 function makeFakeSocket() {
@@ -53,6 +58,7 @@ function makeFakeSocket() {
 	const calls = {
 		connect: 0,
 		close: [] as string[],
+		assignmentAccepted: [] as string[],
 		feedEvents: [] as unknown[],
 		decisionAcks: [] as unknown[],
 	};
@@ -66,6 +72,9 @@ function makeFakeSocket() {
 		},
 		onClose: handler => {
 			closeHandlers.push(handler);
+		},
+		sendAssignmentAccepted: runId => {
+			calls.assignmentAccepted.push(runId);
 		},
 		sendRunEvent: () => {},
 		sendFeedEvent: frame => {
@@ -245,10 +254,85 @@ describe('runDashboardRuntimeDaemon', () => {
 		await Promise.resolve();
 
 		expect(fake.calls.connect).toBe(1);
+		expect(fake.calls.assignmentAccepted).toEqual(['run_1']);
 		expect(executor).toHaveBeenCalledTimes(1);
 		expect(executor.mock.calls[0]![0]).toMatchObject({frame});
 
 		await stop.stop('test');
+	});
+
+	it('buffers assignments until reconnect attachment reconciliation completes', async () => {
+		const fake = makeFakeSocket();
+		let resolveAttachments: (
+			value: Array<{runnerId: string}>,
+		) => void = () => {};
+		const fetchAttachments = vi.fn(
+			async () =>
+				new Promise<Array<{runnerId: string}>>(resolve => {
+					resolveAttachments = resolve;
+				}),
+		);
+		const executor = vi.fn(async () => {});
+		const daemonPromise = runDashboardRuntimeDaemon({
+			readConfig: () => stored,
+			refreshAccessToken: async () => ({
+				instanceId: 'inst_1',
+				accessToken: 'access_1',
+				expiresInSec: 900,
+			}),
+			makeInstanceSocketClient: () => fake.client,
+			executeRemoteAssignment: executor,
+			reconnectDelaysMs: [],
+			fetchAttachments,
+		});
+
+		await vi.waitFor(() => {
+			expect(fake.calls.connect).toBe(1);
+			expect(fetchAttachments).toHaveBeenCalledTimes(1);
+		});
+		fake.emitFrame({
+			type: 'job_assignment',
+			runId: 'run_waiting',
+			runSpec: {prompt: 'hi'},
+		});
+		expect(executor).not.toHaveBeenCalled();
+		expect(fake.calls.assignmentAccepted).toEqual([]);
+
+		resolveAttachments([{runnerId: 'r1'}]);
+		const daemon = await daemonPromise;
+		await Promise.resolve();
+		expect(executor).toHaveBeenCalledTimes(1);
+		expect(fake.calls.assignmentAccepted).toEqual(['run_waiting']);
+		await daemon.stop('test');
+	});
+
+	it('retries the connection when attachment reconciliation fails', async () => {
+		const first = makeFakeSocket();
+		const second = makeFakeSocket();
+		const fetchAttachments = vi
+			.fn()
+			.mockRejectedValueOnce(new Error('attachments unavailable'))
+			.mockResolvedValueOnce([]);
+		const sockets = [first.client, second.client];
+
+		const daemon = await runDashboardRuntimeDaemon({
+			readConfig: () => stored,
+			refreshAccessToken: async () => ({
+				instanceId: 'inst_1',
+				accessToken: 'access_1',
+				expiresInSec: 900,
+			}),
+			makeInstanceSocketClient: () => sockets.shift() ?? second.client,
+			executeRemoteAssignment: vi.fn(async () => {}),
+			reconnectDelaysMs: [],
+			fetchAttachments,
+		});
+
+		await vi.waitFor(() => {
+			expect(first.calls.close).toContain('attachment reconciliation failed');
+			expect(second.calls.connect).toBe(1);
+		});
+		await daemon.stop('test');
 	});
 
 	it('does not reconcile console sidecars or reload the gateway when attachments change', async () => {
@@ -311,8 +395,8 @@ describe('runDashboardRuntimeDaemon', () => {
 			],
 		});
 
-		expect(writeMirror).toHaveBeenCalledTimes(1);
-		expect(writeMirror).toHaveBeenCalledWith({
+		expect(writeMirror).toHaveBeenCalledTimes(2);
+		expect(writeMirror).toHaveBeenLastCalledWith({
 			instanceId: 'inst_1',
 			fetchedAt: 4242,
 			attachments: [

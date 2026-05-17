@@ -85,7 +85,7 @@ type JsonExecEvent = {
 	data?: unknown;
 };
 
-function parseRunSpec(value: unknown): RemoteRunSpec | null {
+export function parseRemoteRunSpec(value: unknown): RemoteRunSpec | null {
 	if (typeof value !== 'object' || value === null) return null;
 	const obj = value as Record<string, unknown>;
 	const prompt = obj['prompt'];
@@ -154,6 +154,12 @@ function parseRunSpec(value: unknown): RemoteRunSpec | null {
 				? callbackToken
 				: undefined,
 	};
+}
+
+export function isRemoteAssignmentAdmissible(
+	frame: JobAssignmentFrame,
+): boolean {
+	return parseRemoteRunSpec(frame.runSpec) !== null;
 }
 
 function workflowNameFromRef(ref: string | undefined): string | undefined {
@@ -295,7 +301,7 @@ export async function executeRemoteAssignment({
 
 	// Pre-parse so we know whether to open the per-run channel before the
 	// first frame. parseRunSpec is cheap and side-effect-free.
-	const spec = parseRunSpec(frame.runSpec);
+	const spec = parseRemoteRunSpec(frame.runSpec);
 
 	// Open the per-run RunStreamDO channel when the dashboard supplied
 	// callback credentials. This is the durable path: it queues frames during

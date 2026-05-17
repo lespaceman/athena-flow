@@ -140,7 +140,7 @@ describe('createInstanceSocketClient', () => {
 		await expect(client.connect()).rejects.toThrow(/timed out after 80ms/);
 	});
 
-	it('acks job_assignment with assignment_accepted', async () => {
+	it('delivers job_assignment without auto-acking it', async () => {
 		const received: unknown[] = [];
 		server.once('connection', ws => {
 			ws.on('message', data => {
@@ -167,27 +167,19 @@ describe('createInstanceSocketClient', () => {
 		client.onFrame(frame => seenFrames.push(frame));
 		await client.connect();
 
-		await vi.waitFor(
-			() => {
-				expect(
-					received.some(
-						r =>
-							typeof r === 'object' &&
-							r !== null &&
-							(r as {type?: string}).type === 'assignment_accepted',
-					),
-				).toBe(true);
-			},
-			{timeout: 1_000},
-		);
-
-		const ack = received.find(
-			r =>
-				typeof r === 'object' &&
-				r !== null &&
-				(r as {type?: string}).type === 'assignment_accepted',
-		) as {runId: string};
-		expect(ack.runId).toBe('run_42');
+		await vi.waitFor(() => {
+			expect(seenFrames).toContainEqual(
+				expect.objectContaining({type: 'job_assignment', runId: 'run_42'}),
+			);
+		});
+		expect(
+			received.some(
+				r =>
+					typeof r === 'object' &&
+					r !== null &&
+					(r as {type?: string}).type === 'assignment_accepted',
+			),
+		).toBe(false);
 		expect(seenFrames).toContainEqual(
 			expect.objectContaining({type: 'job_assignment', runId: 'run_42'}),
 		);
